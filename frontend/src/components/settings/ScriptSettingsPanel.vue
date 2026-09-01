@@ -129,9 +129,15 @@
     { immediate: true, deep: true }
   )
 
+  // 值相等守卫：store→local 回声（本面板自己写入产生的变更）不再写回 store。
+  // 否则双向 deep watcher 各自换新对象引用形成无限乒乓循环——
+  // 开发版报 "Maximum recursive updates"，生产版无递归上限直接冻结渲染进程
   watch(
     localSettings,
     (val) => {
+      const cur = settingsStore.projectSettings.script_security
+      const keys = Object.keys(val) as (keyof ScriptSecuritySettings)[]
+      if (keys.every((k) => cur[k] === val[k])) return
       settingsStore.updateScriptSecuritySettings({ ...val })
     },
     { deep: true }

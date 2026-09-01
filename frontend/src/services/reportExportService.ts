@@ -116,18 +116,26 @@ export async function exportPdfReport(
   const imgHeight = canvas.height
   const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight)
 
+  // 分页循环必须全程使用 PDF 单位（mm）：图像落到页面上的尺寸是缩放后的
+  // imgWidth*ratio × imgHeight*ratio，与画布像素高度相减会因单位混用
+  // 让剩余高度长期为正，每次导出多出若干空白页
+  const renderedWidth = imgWidth * ratio
+  const renderedHeight = imgHeight * ratio
+
+  // jsPDF 标准分页写法：heightLeft 记录尚未展示的剩余高度（mm），
+  // position 为当前页图片的纵向偏移（负值，把未展示部分推入上一页视口之外）
   let position = 0
-  let heightLeft = imgHeight
+  let heightLeft = renderedHeight
 
   // 添加第一页
-  pdf.addImage(imgData, 'PNG', 0, position, imgWidth * ratio, imgHeight * ratio)
+  pdf.addImage(imgData, 'PNG', 0, position, renderedWidth, renderedHeight)
   heightLeft -= pdfHeight
 
-  // 如果内容超过一页，添加更多页
+  // 如果内容超过一页，添加更多页（heightLeft === 0 表示恰好展示完，不再加页避免空白页）
   while (heightLeft > 0) {
-    position = heightLeft - imgHeight
+    position = heightLeft - renderedHeight
     pdf.addPage()
-    pdf.addImage(imgData, 'PNG', 0, position, imgWidth * ratio, imgHeight * ratio)
+    pdf.addImage(imgData, 'PNG', 0, position, renderedWidth, renderedHeight)
     heightLeft -= pdfHeight
   }
 

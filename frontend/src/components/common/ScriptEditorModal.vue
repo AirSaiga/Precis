@@ -318,6 +318,13 @@
     document.removeEventListener('mouseup', onDragEnd)
   }
 
+  // 兜底：拖拽进行中组件被卸载时 onDragEnd 不会执行，监听器会永久驻留 document——
+  // onUnmounted 无条件移除（对未注册的 handler 是安全 no-op）
+  onUnmounted(() => {
+    document.removeEventListener('mousemove', onDragMove)
+    document.removeEventListener('mouseup', onDragEnd)
+  })
+
   // --- 数据加载 ---
   const loadCurrentScript = () => {
     const id = scriptEditorStore.nodeId

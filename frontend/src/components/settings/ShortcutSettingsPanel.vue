@@ -166,7 +166,7 @@
                 </div>
               </div>
               <input
-                ref="captureInput"
+                id="shortcut-capture-input"
                 type="text"
                 style="position: absolute; opacity: 0; width: 0; height: 0"
                 @keydown.stop.prevent="handleCaptureKeydown"
@@ -198,7 +198,6 @@
   const searchQuery = ref('')
   const editingCommandId = ref<string | null>(null)
   const capturedShortcut = ref<Shortcut | null>(null)
-  const captureInput = ref<HTMLInputElement | null>(null)
 
   const allCommands = computed<Command[]>(() => {
     const list = [...getBaseCommands(), ...getCanvasCommands(), ...getHelpCommands()]
@@ -293,7 +292,11 @@
     editingCommandId.value = commandId
     capturedShortcut.value = null
     await nextTick()
-    captureInput.value?.focus()
+    // 捕获输入框位于 v-for 作用域内，模板 ref 会收集成数组而非单元素，
+    // captureInput.value?.focus() 会因数组无 focus 方法而 TypeError。
+    // 同一时刻最多只有一个捕获编辑器（editingCommandId 单值），
+    // 因此沿用 App.vue 表格重命名的固定 id + getElementById 模式。
+    document.getElementById('shortcut-capture-input')?.focus()
   }
 
   function cancelCapture(): void {

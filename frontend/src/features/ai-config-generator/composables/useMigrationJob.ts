@@ -6,7 +6,7 @@
  * - 提交 AI 配置迁移异步任务（从旧脚本迁移）
  * - 复用 useGenerationJob 的轮询和状态管理
  */
-import { type ComputedRef, type Ref } from 'vue'
+import { onUnmounted, type ComputedRef, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { isAxiosError } from '@/core/services/httpClient'
 import { createSSEClient, type SSEClient } from '@/core/services/sseClient'
@@ -208,24 +208,33 @@ export function useMigrationJob(
       // SSE 流式模式：连接 migrate/stream，事件实时更新状态
       const sseClient = createSSEClient()
       currentSSEClient = sseClient
-      await sseClient.connect('/ai/config/migrate/stream', payload, {
-        onEvent: (event, _id, eventData) => {
-          handleSSEEvent(event, eventData)
+      await sseClient.connect(
+        '/ai/config/migrate/stream',
+        payload,
+        {
+          onEvent: (event, _id, eventData) => {
+            handleSSEEvent(event, eventData)
+          },
+          onError: (err) => {
+            jobState.generating.value = false
+            jobState.canceling.value = false
+            currentSSEClient = null
+            if (jobState.generateStartedAt.value != null)
+              jobState.lastElapsedMs.value = Date.now() - jobState.generateStartedAt.value
+            jobState.generateStartedAt.value = null
+            stopElapsed()
+            window.$toast?.error(t('aiConfigGenerator.toast.generateFailed'), err.message)
+          },
+          onClose: () => {
+            currentSSEClient = null
+          },
         },
-        onError: (err) => {
-          jobState.generating.value = false
-          jobState.canceling.value = false
-          currentSSEClient = null
-          if (jobState.generateStartedAt.value != null)
-            jobState.lastElapsedMs.value = Date.now() - jobState.generateStartedAt.value
-          jobState.generateStartedAt.value = null
-          stopElapsed()
-          window.$toast?.error(t('aiConfigGenerator.toast.generateFailed'), err.message)
-        },
-        onClose: () => {
-          currentSSEClient = null
-        },
-      })
+        {
+          // SSE 走 fetch（不经 axios 拦截器），后端 stream 路由强制校验项目路径 header，
+          // 缺失时 422/404 直接失败——必须显式携带（对照 aiChatStore.send 的做法）
+          headers: configPath.value ? { 'X-Project-Config-Path': configPath.value } : undefined,
+        }
+      )
     } catch (e) {
       let msg = e instanceof Error ? e.message : String(e)
       if (isAxiosError(e)) {
@@ -277,6 +286,14 @@ export function useMigrationJob(
       window.$toast?.error(t('common.error'), msg)
     }
   }
+
+  // 组件卸载时无条件关闭 SSE 连接（对照 useGenerationJob），避免迁移中离开页面后
+  // 连接与回调闭包泄漏、继续对已销毁组件状态写入
+  onUnmounted(() => {
+    stopPolling()
+    stopElapsed()
+    currentSSEClient?.close()
+  })
 
   return {
     startMigration,

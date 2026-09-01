@@ -192,7 +192,6 @@
   import { useCanvasStore } from '@/stores/canvasStore'
   import { useWorkspaceStore } from '@/stores/workspaceStore'
   import { projectStorageService, type ProjectInfo } from '@/services/projectStorage'
-  import { isElectron } from '@/core/utils/electronDetector'
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import { useProjectReload } from '@/composables/useProjectReload'
   import { eventBus } from '@/core/eventBus'
@@ -286,7 +285,9 @@
     const name = newProjectForm.value.name.trim()
     const path = newProjectForm.value.path.trim()
 
-    if (!isElectron()) {
+    // 能力层约定：业务代码禁止直接调用 isElectron()，用 dialogApi 的能力探测属性判断
+    // （canSelectDirectory 仅在 Electron 适配器上为 true，语义与原 isElectron() 等价）
+    if (!dialogApi.canSelectDirectory) {
       // Web 模式：调用后端创建项目脚手架后再加载
       try {
         await createProject(path, name)

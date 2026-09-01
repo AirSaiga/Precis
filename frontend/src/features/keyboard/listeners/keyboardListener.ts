@@ -273,12 +273,10 @@ export class KeyboardListenerImpl implements KeyboardListener {
 
     const tagName = target.tagName.toLowerCase()
 
+    // <input> 一律视为可忽略：number/checkbox/radio/date/range/color 等非文本类型
+    // 同样依赖键盘操作（如 Backspace 删数字、方向键调值），类型白名单枚举不完备时
+    // 会让这些输入框上的 Backspace/Enter 误触画布快捷键（如误删选中节点）
     if (tagName === 'input') {
-      const inputType = (target as HTMLInputElement).type.toLowerCase()
-      const ignoredTypes = ['text', 'email', 'password', 'search', 'tel', 'url']
-      if (!ignoredTypes.includes(inputType)) {
-        return false
-      }
       return true
     }
 

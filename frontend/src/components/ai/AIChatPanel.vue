@@ -415,6 +415,9 @@
   }
 
   const handleKeydown = (e: KeyboardEvent) => {
+    // IME 合成中（拼音/日文/韩文选词阶段）放行，避免选词 Enter 被误当作发送
+    // （对照 GlobalConfirmModal 的守卫写法，见 AGENTS.md 键盘守卫约定）
+    if (e.isComposing || e.keyCode === 229) return
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()

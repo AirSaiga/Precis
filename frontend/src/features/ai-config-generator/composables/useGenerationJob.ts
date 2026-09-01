@@ -319,25 +319,34 @@ export function useGenerationJob(
       // SSE 流式模式：连接 generate/stream，事件实时更新状态
       const sseClient = createSSEClient()
       currentSSEClient = sseClient
-      await sseClient.connect('/ai/config/generate/stream', payload, {
-        onEvent: (event, _id, data) => {
-          handleSSEEvent(event, data)
+      await sseClient.connect(
+        '/ai/config/generate/stream',
+        payload,
+        {
+          onEvent: (event, _id, data) => {
+            handleSSEEvent(event, data)
+          },
+          onError: (err) => {
+            const msg = err.message
+            generating.value = false
+            canceling.value = false
+            currentSSEClient = null
+            if (generateStartedAt.value != null)
+              lastElapsedMs.value = Date.now() - generateStartedAt.value
+            generateStartedAt.value = null
+            stopElapsed()
+            window.$toast?.error(t('aiConfigGenerator.toast.generateFailed'), msg)
+          },
+          onClose: () => {
+            currentSSEClient = null
+          },
         },
-        onError: (err) => {
-          const msg = err.message
-          generating.value = false
-          canceling.value = false
-          currentSSEClient = null
-          if (generateStartedAt.value != null)
-            lastElapsedMs.value = Date.now() - generateStartedAt.value
-          generateStartedAt.value = null
-          stopElapsed()
-          window.$toast?.error(t('aiConfigGenerator.toast.generateFailed'), msg)
-        },
-        onClose: () => {
-          currentSSEClient = null
-        },
-      })
+        {
+          // SSE 走 fetch（不经 axios 拦截器），后端 stream 路由强制校验项目路径 header，
+          // 缺失时 422/404 直接失败——必须显式携带（对照 aiChatStore.send 的做法）
+          headers: configPath.value ? { 'X-Project-Config-Path': configPath.value } : undefined,
+        }
+      )
     } catch (e) {
       let msg = e instanceof Error ? e.message : String(e)
       if (isAxiosError(e)) {

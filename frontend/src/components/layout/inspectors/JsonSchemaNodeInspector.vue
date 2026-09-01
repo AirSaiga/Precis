@@ -344,6 +344,7 @@
       'scriptedConstraint',
       'charsetConstraint',
       'dateLogicConstraint',
+      'compositeConstraint',
     ])
 
     const result: ConnectedConstraintInfo[] = []
@@ -417,6 +418,7 @@
       scriptedConstraint: 'Scripted',
       charsetConstraint: 'Charset',
       dateLogicConstraint: 'DateLogic',
+      compositeConstraint: 'Composite',
     }
     return map[nodeType] || nodeType
   }

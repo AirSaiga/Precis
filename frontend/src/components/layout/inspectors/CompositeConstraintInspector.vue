@@ -84,7 +84,7 @@
 </template>
 
 <script setup lang="ts">
-  import { reactive, computed } from 'vue'
+  import { reactive, computed, watch } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { useGraphStore } from '@/stores/graphStore'
   import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
@@ -111,6 +111,25 @@
     logic: props.data.logic || 'all',
     enabled: props.data.enabled !== false,
   })
+
+  // localData 仅在 setup 时取过一次 props.data 快照，undo/外部更新后不会再同步，
+  // 后续编辑会把旧值写回。对照 ManualDataNodeInspector 加 watch 回灌；
+  // 逐字段值比较守卫：自身 emit 引起的 props 回流值与本地一致时不重复赋值，
+  // 避免覆盖用户正在进行的编辑（守卫只放行真正的外部变更）
+  watch(
+    () => props.data,
+    () => {
+      const configName = props.data.configName || ''
+      if (configName !== localData.configName) localData.configName = configName
+      const description = props.data.description || ''
+      if (description !== localData.description) localData.description = description
+      const logic = props.data.logic || 'all'
+      if (logic !== localData.logic) localData.logic = logic
+      const enabled = props.data.enabled !== false
+      if (enabled !== localData.enabled) localData.enabled = enabled
+    },
+    { deep: true }
+  )
 
   const includedNodeIds = computed(() => props.data.includedNodeIds || [])
   const includedCount = computed(() => includedNodeIds.value.length)

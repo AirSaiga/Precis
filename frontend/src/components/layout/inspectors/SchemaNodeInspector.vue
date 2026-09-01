@@ -425,6 +425,7 @@
       'scriptedConstraint',
       'charsetConstraint',
       'dateLogicConstraint',
+      'compositeConstraint',
     ])
 
     const result: ConnectedConstraintInfo[] = []
@@ -526,6 +527,7 @@
       scriptedConstraint: 'Scripted',
       charsetConstraint: 'Charset',
       dateLogicConstraint: 'DateLogic',
+      compositeConstraint: 'Composite',
     }
     return map[nodeType] || nodeType
   }
@@ -577,8 +579,9 @@
    * @param columnId - 需要转换的列 ID
    */
   async function convertToExplicitBinding(columnId: string) {
-    // 获取当前 Schema 的 tableId
-    const tableId = props.data.configName || props.data.tableName
+    // 后端按机器 ID（画布节点 ID）定位 schema，configName/tableName 是用户可见的显示名，
+    // 用它拼 URL 必然 404。与 openSingleTableValidation 一致：nodeId 优先，显示名仅作兜底。
+    const tableId = props.nodeId || props.data.configName || props.data.tableName
     if (!tableId) return
 
     // 获取该列的隐式匹配信息

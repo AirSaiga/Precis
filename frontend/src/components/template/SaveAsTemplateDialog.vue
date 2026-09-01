@@ -100,7 +100,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, reactive, computed, watch } from 'vue'
+  import { ref, reactive, computed, watch, onUnmounted } from 'vue'
   import { useI18n } from 'vue-i18n'
   import type { Edge, Node } from '@vue-flow/core'
   import type { CustomNodeData } from '@/types/nodes'
@@ -171,7 +171,15 @@
     }
   }
 
-  // 打开/关闭对话框时重置表单和加载状态
+  /** Escape 关闭对话框（提升到 setup 作用域，保证 add/remove 引用同一函数） */
+  function handleKeydown(e: KeyboardEvent): void {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      handleClose()
+    }
+  }
+
+  // 打开/关闭对话框时重置表单和加载状态，并挂载/卸载 Escape 监听
   watch(
     () => props.visible,
     (visible) => {
@@ -180,27 +188,19 @@
         form.name = ''
         form.description = ''
         isLoading.value = false
-
-        const handleKeydown = (e: KeyboardEvent) => {
-          if (e.key === 'Escape') {
-            e.preventDefault()
-            handleClose()
-          }
-        }
         document.addEventListener('keydown', handleKeydown)
-        // 在 visible 变为 false 时移除监听
-        const unwatch = watch(
-          () => props.visible,
-          (v) => {
-            if (!v) {
-              document.removeEventListener('keydown', handleKeydown)
-              unwatch()
-            }
-          }
-        )
+      } else {
+        document.removeEventListener('keydown', handleKeydown)
       }
     }
   )
+
+  // 兜底：对话框打开期间组件被卸载时（原实现仅在 visible 变 false 时移除）
+  // 监听器会永久驻留 document——onUnmounted 无条件移除，removeEventListener
+  // 对未注册的 handler 是安全 no-op
+  onUnmounted(() => {
+    document.removeEventListener('keydown', handleKeydown)
+  })
 </script>
 
 <style scoped>
