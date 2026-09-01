@@ -14,6 +14,11 @@ Currently an actively developed prototype. Interfaces, config formats, and CLI p
 
 ### 2026-09
 
+- 代码债务与长期治理批次：前端死代码净删约 3,900 行（barrel 死导出地雷、AIChatDrawer、旧注册表副本、416 行死模块等，每项删前引用复核）；i18n 审计工具补上从未实现的"未用 key"检测（新增即失败门禁）并删除双侧死 key 220 条、约 30 处硬编码文案入 key；`as unknown as` 双重断言 296→157（lint 阈值同步 300→152 精确锁定）；84 个组件 Props 统一 interface 书写；约 25 处注释/文档失实修正；后端死代码与散项修复（.xls 加载必炸、邮箱 465 SSL、reporter URL 脱敏、校验历史并发丢更新等 +45 测试）；TUI 图标字典统一与 clippy 清零；三处并发加固（Electron 重启互斥/设置面板竞态/长按监听清理）
+
+  Debt and governance batch: ~3,900 lines of dead frontend code removed (with per-item reference re-verification); the never-implemented "unused key" detection added to the i18n audit tool with 220 dead keys removed and ~30 hardcoded UI strings internationalized; `as unknown as` double assertions cut 296→157 with the lint threshold tightened 300→152; Props declarations unified to the `interface Props` pattern across 84 components; ~25 stale comments corrected; backend dead code plus a dozen robustness fixes (+45 tests); TUI icon dictionary unification and clippy cleanup; three concurrency hardenings
+### 2026-09
+
 - 全库代码审计后集中修复 **70+ 项确认缺陷**（主源码 1,191 文件 100% 覆盖审计，全部 P0 与关键 P1 经运行时复现实证后修复；新增约 150 个单元测试）。要点：
   - **崩溃/冻结级**：脚本安全设置面板双向 watcher 死循环（生产版改开关即冻结，值相等守卫修复）；AI 生成表级约束 IndexError；CLI `config init pattern` 模板正则与 `str.format` 冲突必崩（改 replace 填充，产物并升级为合法 V2 清单）；子画布克隆响应式代理抛 DataCloneError
   - **校验正确性**：项目加载丢弃 schema 声明的 CSV 编码/分隔符（预览与校验解析不一致，大文件分块同病）；Excel 合并单元格填充漏算跳过行数/选错工作表；超大整数（>2^53）静默截断改为报错；transform `contains` 按字面量匹配且非法正则不再崩溃；日期/条件约束配置拼错由"静默通过"改为报配置错误；正则 flags 长格式误开忽略大小写；跨盘符路径报 500；告警通知按字节截断（中文超长不再被平台拒收）
