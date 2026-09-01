@@ -76,7 +76,7 @@ pub mod colors {
     const PALETTES: &[Palette] = &[SAKURA, SNOW];
 
     thread_local! {
-        static CURRENT: Cell<usize> = Cell::new(0);
+        static CURRENT: Cell<usize> = const { Cell::new(0) };
     }
 
     /// 设置当前主题索引（0=樱花, 1=飘雪）
@@ -279,6 +279,9 @@ pub struct ProviderForm {
     pub model: String,
     /// 当前聚焦字段：0 名称 / 1 类型 / 2 Base URL / 3 API Key / 4 模型
     pub field: usize,
+    /// 提交 in-flight 标志：后台创建请求未返回期间为 true，
+    /// 再次 Enter 不发第二个请求（防双击双建 Provider）
+    pub submitting: bool,
 }
 
 impl ProviderForm {
@@ -290,6 +293,7 @@ impl ProviderForm {
             api_key: String::new(),
             model: String::new(),
             field: 0,
+            submitting: false,
         }
     }
     /// 当前字段的可编辑文本（类型字段不可编辑，返回 None）

@@ -173,10 +173,13 @@ fn render_input(frame: &mut Frame, app: &App, area: Rect) {
     }
 
     let input_line = if app.chat_input.is_empty() && !app.chat_focused {
+        // 占位与实际行为一致：未聚焦时首次 Enter 仅聚焦，聚焦后再 Enter 才发送
         Line::from(Span::styled(
             format!(
-                " {}... Enter {}",
+                " {}... (Enter {}, {} {})",
                 pick("输入消息", "Type a message"),
+                pick("聚焦", "to focus"),
+                pick("再次 Enter", "Enter again"),
                 pick("发送", "to send")
             ),
             Style::default().fg(colors::dim()),

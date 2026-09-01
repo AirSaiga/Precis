@@ -120,10 +120,7 @@ impl ApiClient {
     pub async fn validate_full(&self) -> Result<FullValidationResponse> {
         let resp = self
             .post("/api/latest/project/validate/full")
-            .json(&FullValidationRequest {
-                target: None,
-                options: None,
-            })
+            .json(&FullValidationRequest {})
             .send()
             .await?;
         let status = resp.status();
@@ -152,7 +149,7 @@ impl ApiClient {
     pub async fn list_providers(&self) -> Result<Vec<super::types::ProviderInfo>> {
         let resp = self
             .http
-            .get(&format!("{}/api/latest/ai/providers", self.base_url))
+            .get(format!("{}/api/latest/ai/providers", self.base_url))
             .send()
             .await?;
         let providers: Vec<super::types::ProviderInfo> = resp.json().await?;
@@ -163,7 +160,10 @@ impl ApiClient {
     pub async fn get_active_provider(&self) -> Result<Option<super::types::ProviderInfo>> {
         let resp = self
             .http
-            .get(&format!("{}/api/latest/ai/providers/active", self.base_url))
+            .get(format!(
+                "{}/api/latest/ai/providers/active",
+                self.base_url
+            ))
             .send()
             .await?;
         if !resp.status().is_success() {
@@ -177,7 +177,7 @@ impl ApiClient {
     pub async fn activate_provider(&self, id: &str) -> Result<()> {
         let resp = self
             .http
-            .post(&format!(
+            .post(format!(
                 "{}/api/latest/ai/providers/{}/activate",
                 self.base_url, id
             ))
@@ -193,10 +193,7 @@ impl ApiClient {
     pub async fn test_provider(&self, id: &str) -> Result<super::types::TestProviderResponse> {
         let resp = self
             .http
-            .post(&format!(
-                "{}/api/latest/ai/providers/{}/test",
-                self.base_url, id
-            ))
+            .post(format!("{}/api/latest/ai/providers/{}/test", self.base_url, id))
             .send()
             .await?;
         let text = resp.text().await?;
@@ -214,7 +211,7 @@ impl ApiClient {
     ) -> Result<super::types::ProviderInfo> {
         let resp = self
             .http
-            .post(&format!("{}/api/latest/ai/providers", self.base_url))
+            .post(format!("{}/api/latest/ai/providers", self.base_url))
             .json(req)
             .send()
             .await?;
@@ -241,7 +238,7 @@ impl ApiClient {
     pub async fn get_full_config(&self) -> Result<super::types::FullConfigResponse> {
         let mut req = self
             .http
-            .get(&format!("{}/api/latest/project/config/full", self.base_url));
+            .get(format!("{}/api/latest/project/config/full", self.base_url));
         if let Some(ref p) = self.project_path {
             req = req.header("X-Project-Config-Path", p);
         }
@@ -258,9 +255,7 @@ impl ApiClient {
         message: &str,
         history: &[super::types::ChatMessage],
     ) -> Result<super::types::AiChatResponse> {
-        let mut req = self
-            .http
-            .post(&format!("{}/api/latest/ai/chat", self.base_url));
+        let mut req = self.http.post(format!("{}/api/latest/ai/chat", self.base_url));
         if let Some(ref p) = self.project_path {
             req = req.header("X-Project-Config-Path", p);
         }

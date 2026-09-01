@@ -180,7 +180,7 @@ pub fn truncate_width(s: &str, width: usize) -> String {
     let mut out = String::new();
     let mut w = 0usize;
     for c in s.chars() {
-        let cw = if c.is_ascii() { 1 } else { 2 };
+        let cw = icons::char_width(c);
         if w + cw > width {
             break;
         }
@@ -203,7 +203,7 @@ pub fn wrap_text(s: &str, width: usize) -> Vec<String> {
     let mut cur = String::new();
     let mut cur_w = 0usize;
     for c in s.chars() {
-        let cw = if c.is_ascii() { 1 } else { 2 };
+        let cw = icons::char_width(c);
         if c == '\n' {
             lines.push(std::mem::take(&mut cur));
             cur_w = 0;

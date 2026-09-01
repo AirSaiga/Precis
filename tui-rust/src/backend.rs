@@ -347,15 +347,15 @@ fn kill_process_tree(child: &mut Child) {
     }
     #[cfg(windows)]
     {
-        if let Some(pid) = child.id().to_string().parse::<u32>().ok() {
-            // taskkill /T /F /PID <pid>  —— /T 杀整个子进程树
-            let _ = Command::new("taskkill")
-                .args(["/T", "/F", "/PID", &pid.to_string()])
-                .stdin(Stdio::null())
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .status();
-        }
+        // taskkill /T /F /PID <pid>  —— /T 杀整个子进程树
+        // child.id() 本就是 u32，直接转字符串，无需 to_string→parse 的冗余往返
+        let pid = child.id().to_string();
+        let _ = Command::new("taskkill")
+            .args(["/T", "/F", "/PID", &pid])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
     }
     // 兜底：reclaim 子进程
     let _ = child.kill();

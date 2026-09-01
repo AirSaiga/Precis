@@ -3,8 +3,8 @@
 //! 架构：同步事件循环 + tokio::spawn 异步 HTTP + mpsc channel 回传结果
 //! 渲染循环永不阻塞（HTTP 在后台 task 里跑，结果通过 channel 送回）
 
-// API 响应类型含后端返回但 TUI 暂未展示的字段；icons.rs 含预留图标常量。
-// 这些预留代码不影响运行，抑制 dead_code warning 避免编译输出噪音。
+// API 响应类型含后端返回但 TUI 暂未展示的字段（icons.rs 的预留常量已清理，不再需要豁免）。
+// 这些预留字段不影响运行，抑制 dead_code warning 避免编译输出噪音。
 #![allow(dead_code)]
 
 mod api;
@@ -439,7 +439,10 @@ fn handle_bg_message(app: &mut App, msg: BgMessage, tx: &mpsc::Sender<BgMessage>
                     spawn_load_providers(tx);
                 }
                 Err(e) => {
-                    // 表单保留，用户可修正后重试
+                    // 表单保留，用户可修正后重试；解除 in-flight 守卫，允许再次提交
+                    if let Some(form) = app.provider_form.as_mut() {
+                        form.submitting = false;
+                    }
                     app.message = e;
                 }
             }
@@ -561,11 +564,9 @@ async fn handle_key(
     }
 
     // Esc：Chat 页聚焦时退出聚焦（恢复全局快捷键）；否则忽略
-    if key == KeyCode::Esc {
-        if app.chat_focused {
-            app.chat_focused = false;
-            return;
-        }
+    if key == KeyCode::Esc && app.chat_focused {
+        app.chat_focused = false;
+        return;
     }
 
     // Tab/BackTab 始终生效（导航不是输入内容）；数字直达键在 Chat 输入框聚焦时让位给文本输入（否则 1-5 打不进消息）
@@ -917,6 +918,10 @@ fn handle_provider_form_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMes
             let Some(form) = app.provider_form.as_ref() else {
                 return;
             };
+            // in-flight 守卫：后台创建请求未返回期间忽略再次提交（防双击双建 Provider）
+            if form.submitting {
+                return;
+            }
             if !form.valid() {
                 app.message = pick(
                     "名称 / Base URL / 模型 为必填",
@@ -936,6 +941,9 @@ fn handle_provider_form_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMes
                 },
                 model: form.model.trim().to_string(),
             };
+            if let Some(form) = app.provider_form.as_mut() {
+                form.submitting = true;
+            }
             app.message = pick("创建 Provider...", "Creating provider...").to_string();
             let tx = tx.clone();
             let url = backend_url();
@@ -1281,6 +1289,75 @@ mod tests {
             Some("new"),
             "激活成功应保持新 provider 为激活态"
         );
+    }
+
+    /// 构造可通过 valid() 校验的 Provider 新建表单
+    fn valid_provider_form() -> ProviderForm {
+        let mut form = ProviderForm::new();
+        form.name = "P".to_string();
+        form.base_url = "http://127.0.0.1:9".to_string();
+        form.model = "m".to_string();
+        form
+    }
+
+    /// Provider 新建表单 in-flight 守卫：后台返回前二次 Enter 不得发出第二个创建请求
+    /// （防双击双建 Provider）
+    #[tokio::test]
+    async fn provider_form_double_enter_sends_only_one_request() {
+        let mut app = App::new("http://127.0.0.1:1");
+        let (tx, mut rx) = mpsc::channel::<BgMessage>(8);
+        app.provider_form = Some(valid_provider_form());
+
+        // 第一次 Enter：发出创建请求并置 in-flight 标志
+        handle_provider_form_key(&mut app, KeyCode::Enter, &tx);
+        assert!(
+            app.provider_form.as_ref().unwrap().submitting,
+            "提交后应置 in-flight 标志"
+        );
+
+        // 模拟后台慢返回：请求未回来期间再次 Enter（双击）
+        handle_provider_form_key(&mut app, KeyCode::Enter, &tx);
+
+        // 排空 channel：只应有第一个请求的回执
+        drop(tx);
+        let drain = async {
+            let mut created = 0usize;
+            while let Some(msg) = rx.recv().await {
+                if matches!(msg, BgMessage::ProviderCreated(_)) {
+                    created += 1;
+                }
+            }
+            created
+        };
+        let created = tokio::time::timeout(std::time::Duration::from_secs(10), drain)
+            .await
+            .expect("后台请求应在超时前返回");
+        assert_eq!(
+            created, 1,
+            "in-flight 期间二次 Enter 不应发出第二个创建请求"
+        );
+    }
+
+    /// Provider 创建失败：表单保留且 in-flight 守卫解除，用户可修正后再次提交
+    #[tokio::test]
+    async fn provider_form_submit_guard_resets_after_failure() {
+        let mut app = App::new("http://127.0.0.1:1");
+        let (tx, _rx) = mpsc::channel::<BgMessage>(4);
+        app.provider_form = Some(valid_provider_form());
+        handle_provider_form_key(&mut app, KeyCode::Enter, &tx);
+        assert!(app.provider_form.as_ref().unwrap().submitting);
+
+        handle_bg_message(
+            &mut app,
+            BgMessage::ProviderCreated(Err("boom".to_string())),
+            &tx,
+        );
+        let form = app
+            .provider_form
+            .as_ref()
+            .expect("创建失败后表单应保留供重试");
+        assert!(!form.submitting, "失败后应解除 in-flight 守卫允许重试");
+        assert!(app.message.contains("boom"), "失败提示应带出错误信息");
     }
 
     /// 错误 cursor 增长必须钳制在渲染上限（MAX_ERRORS-1）内：

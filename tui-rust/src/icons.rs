@@ -18,7 +18,6 @@ pub mod tab {
 pub mod status {
     pub const CONNECTED: &str = "●"; // 已连接/已打开
     pub const DISCONNECTED: &str = "○"; // 未连接/未打开
-    pub const LOADING: &str = "◐"; // 加载中
 }
 
 /// 成功/失败
@@ -40,9 +39,6 @@ pub const BAR_THIN: &str = "▎";
 pub const INDICATOR: &str = "━";
 /// 分隔线字符
 pub const RULE: &str = "─";
-
-/// Logo 字符
-pub const LOGO: &str = "◇";
 
 /// 主题装饰符（徽标 / hero）
 pub mod motif {

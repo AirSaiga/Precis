@@ -1,7 +1,7 @@
 //! API 请求/响应类型定义（对齐 Python FastAPI 后端）
 //!
 //! 参考后端路由：
-//! - POST /api/latest/projects/scan — 扫描项目
+//! - GET /api/latest/projects/scan — 扫描项目
 //! - POST /api/latest/projects/open — 打开项目
 //! - POST /api/latest/project/validate/full — 全量校验
 
@@ -38,31 +38,12 @@ pub struct OpenProjectResponse {
 }
 
 /// 全量校验请求：POST /api/latest/project/validate/full
+///
+/// 后端 `validate_v2_full` 的 body 参数为必填（缺 body 返回 422），当前无可选
+/// 覆盖项，恒发送 `{}`。曾有的 `target`/`options` 字段后端并不消费，
+/// 死模型 ValidationTarget / ValidationOptions 已删除。
 #[derive(Debug, Serialize)]
-pub struct FullValidationRequest {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub target: Option<ValidationTarget>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub options: Option<ValidationOptions>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct ValidationTarget {
-    #[serde(rename = "type")]
-    pub target_type: String, // "single_file" | "single_table"
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub file_path: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub table_id: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct ValidationOptions {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub data_directory: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub allow_unsafe_eval: Option<bool>,
-}
+pub struct FullValidationRequest {}
 
 /// 全量校验响应
 #[derive(Debug, Clone, Deserialize)]

@@ -231,7 +231,10 @@ fn render_metrics(frame: &mut Frame, app: &App, area: Rect, y: u16) -> u16 {
         if bottom > y {
             frame.render_widget(
                 Paragraph::new(Line::from(vec![
-                    Span::styled(" ● ", Style::default().fg(colors::green())),
+                    Span::styled(
+                        format!(" {} ", icons::status::CONNECTED),
+                        Style::default().fg(colors::green()),
+                    ),
                     Span::styled(
                         name.clone(),
                         Style::default()
@@ -326,7 +329,10 @@ fn render_metrics(frame: &mut Frame, app: &App, area: Rect, y: u16) -> u16 {
     if bottom > y {
         frame.render_widget(
             Paragraph::new(Line::from(vec![
-                Span::styled(" ● ", Style::default().fg(colors::green())),
+                Span::styled(
+                    format!(" {} ", icons::status::CONNECTED),
+                    Style::default().fg(colors::green()),
+                ),
                 Span::styled(
                     p.name.clone(),
                     Style::default()

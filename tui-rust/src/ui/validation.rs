@@ -81,7 +81,7 @@ fn render_summary(frame: &mut Frame, app: &App, area: Rect) {
                 Line::from({
                     let mut spans = vec![Span::raw("  ")];
                     spans.extend(widgets::badge(
-                        &format!("✗ {}", pick("校验失败", "Validation failed")),
+                        &format!("{} {}", icons::result::FAIL, pick("校验失败", "Validation failed")),
                         colors::red(),
                     ));
                     spans
@@ -107,7 +107,10 @@ fn render_summary(frame: &mut Frame, app: &App, area: Rect) {
             if s.interrupted {
                 v.push(Line::from(vec![
                     Span::raw("  "),
-                    Span::styled("! ", Style::default().fg(colors::yellow())),
+                    Span::styled(
+                        format!("{} ", icons::result::WARN),
+                        Style::default().fg(colors::yellow()),
+                    ),
                     Span::styled(
                         pick("校验已停止（遇错即停）", "Validation stopped (fail-fast)"),
                         Style::default()
@@ -136,7 +139,7 @@ fn render_summary(frame: &mut Frame, app: &App, area: Rect) {
                 v.push(Line::from({
                     let mut spans = vec![Span::raw("  ")];
                     spans.extend(widgets::badge(
-                        &format!("✓ {}", pick("校验通过", "Validation passed")),
+                        &format!("{} {}", icons::result::PASS, pick("校验通过", "Validation passed")),
                         colors::green(),
                     ));
                     spans.push(Span::styled(stats, Style::default().fg(colors::muted())));
@@ -147,7 +150,12 @@ fn render_summary(frame: &mut Frame, app: &App, area: Rect) {
                 v.push(Line::from({
                     let mut spans = vec![Span::raw("  ")];
                     spans.extend(widgets::badge(
-                        &format!("✗ {} {}", total, pick("个错误", "errors")),
+                        &format!(
+                            "{} {} {}",
+                            icons::result::FAIL,
+                            total,
+                            pick("个错误", "errors")
+                        ),
                         colors::red(),
                     ));
                     spans.push(Span::styled(stats, Style::default().fg(colors::muted())));

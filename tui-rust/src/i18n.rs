@@ -21,7 +21,7 @@ pub enum Lang {
 }
 
 thread_local! {
-    static LANG: RefCell<Lang> = RefCell::new(Lang::ZhCn);
+    static LANG: RefCell<Lang> = const { RefCell::new(Lang::ZhCn) };
 }
 
 /// 设置当前线程的界面语言
@@ -35,10 +35,13 @@ pub fn lang() -> Lang {
 }
 
 /// 纯函数便于测试：从环境变量查找结果推断语言。
-/// 查找顺序：PRECIS_LANG → LC_ALL → LC_CTYPE → LANG；值含 "zh" → ZhCn，含 "en" → EnUs，其他/None → 默认 ZhCn
+/// 查找顺序：PRECIS_LANG → LC_ALL → LC_CTYPE → LANG；值为空串视同未设置（继续往下探测）；
+/// 值含 "zh" → ZhCn，含 "en" → EnUs，其他/None → 默认 ZhCn
 fn detect_lang(get: impl Fn(&str) -> Option<String>) -> Lang {
     for key in ["PRECIS_LANG", "LC_ALL", "LC_CTYPE", "LANG"] {
-        if let Some(value) = get(key) {
+        // 空串视同未设置：PRECIS_LANG="" 不应遮蔽后续 LC_ALL/LANG 探测
+        // （对齐 main.rs resolve_backend_url 对 PRECIS_BACKEND_URL 的 is_empty 处理）
+        if let Some(value) = get(key).filter(|v| !v.is_empty()) {
             // 只看顺序中第一个已设置的变量；显式设置的其他值（如 "C"/"POSIX"）视为默认中文
             let v = value.to_lowercase();
             if v.contains("zh") {
@@ -122,6 +125,18 @@ mod tests {
         let get = env(&[("LC_ALL", "en_US"), ("LANG", "zh-CN")]);
         assert_eq!(detect_lang(get), Lang::EnUs);
         let get = env(&[("LC_CTYPE", "zh_CN"), ("LANG", "en_US")]);
+        assert_eq!(detect_lang(get), Lang::ZhCn);
+    }
+
+    #[test]
+    fn detect_lang_empty_value_treated_as_unset() {
+        // PRECIS_LANG="" 视同未设置：不遮蔽后续 LC_ALL / LANG 探测
+        let get = env(&[("PRECIS_LANG", ""), ("LC_ALL", "en_US")]);
+        assert_eq!(detect_lang(get), Lang::EnUs);
+        let get = env(&[("PRECIS_LANG", ""), ("LC_ALL", ""), ("LANG", "en_US.UTF-8")]);
+        assert_eq!(detect_lang(get), Lang::EnUs);
+        // 全部为空串/未设置 → 默认中文
+        let get = env(&[("PRECIS_LANG", ""), ("LC_ALL", ""), ("LANG", "")]);
         assert_eq!(detect_lang(get), Lang::ZhCn);
     }
 

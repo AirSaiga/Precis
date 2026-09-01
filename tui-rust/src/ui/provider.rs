@@ -77,7 +77,10 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
                     vec![
                         Line::from(""),
                         Line::from(vec![
-                            Span::styled(" ✓ ", Style::default().fg(colors::green())),
+                            Span::styled(
+                                format!(" {} ", icons::result::PASS),
+                                Style::default().fg(colors::green()),
+                            ),
                             Span::styled(
                                 format!("{}{}", pick("连接正常", "Connection OK"), detail),
                                 Style::default().fg(colors::green()),
@@ -89,7 +92,10 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
                 TestResult::Fail(err) => vec![
                     Line::from(""),
                     Line::from(vec![
-                        Span::styled(" ✗ ", Style::default().fg(colors::red())),
+                        Span::styled(
+                            format!(" {} ", icons::result::FAIL),
+                            Style::default().fg(colors::red()),
+                        ),
                         Span::styled(icons::truncate(err, 60), Style::default().fg(colors::red())),
                     ])
                     .style(Style::default().bg(colors::surface())),
@@ -265,7 +271,7 @@ fn render_table(frame: &mut Frame, app: &App, area: Rect) {
             Row::new(vec![
                 Cell::from(if selected { icons::BAR } else { " " })
                     .style(Style::default().fg(colors::gradient_a())),
-                Cell::from(if is_active { "●" } else { "" })
+                Cell::from(if is_active { icons::status::CONNECTED } else { "" })
                     .style(Style::default().fg(colors::green())),
                 Cell::from(Line::from(name_spans)),
                 Cell::from(p.provider_type.clone()),

@@ -182,7 +182,7 @@ fn build_right(config: &crate::api::types::FullConfigResponse, width: usize) -> 
     if is_complete {
         let mut spans = vec![Span::raw("  ")];
         spans.extend(widgets::badge(
-            &format!("✓ {}", pick("清单完整", "Manifest complete")),
+            &format!("{} {}", icons::result::PASS, pick("清单完整", "Manifest complete")),
             colors::green(),
         ));
         lines.push(Line::from(spans));
@@ -202,7 +202,7 @@ fn build_right(config: &crate::api::types::FullConfigResponse, width: usize) -> 
     // 不完整：总徽章 + 分组明细
     let mut spans = vec![Span::raw("  ")];
     spans.extend(widgets::badge(
-        &format!("✗ {}", pick("清单不一致", "Manifest mismatch")),
+        &format!("{} {}", icons::result::FAIL, pick("清单不一致", "Manifest mismatch")),
         colors::yellow(),
     ));
     lines.push(Line::from(spans));

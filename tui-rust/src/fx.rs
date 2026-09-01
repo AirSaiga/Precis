@@ -7,7 +7,7 @@
 //!   摆幅全部由景深派生——近景大而亮、快而摆，远景小而暗、慢而稳，
 //!   三档字形读作同一朵雪的远近层次而非三种杂讯
 //! - 只渲染到空白 cell，不遮挡任何内容；同帧相邻粒子互相让位，
-//!   大花形（CJK 字体下常为双宽）额外要求右邻格空白，避免"❄·"糊成一团
+//!   大花形（CJK 字体下常为双宽）额外要求右邻格空白，避免"❅·"糊成一团
 //!
 //! 光场层（背景氛围，弱化）：
 //! - 双 Lissajous 光源缓慢移动，微微照亮经过的空白区域
@@ -23,13 +23,8 @@ use crate::app::colors;
 
 /// 粒子字形集 — 按景深档位取用：[近景雪晶, 中景, 远景小点]
 /// 雪晶字形（❅）比 ❄ 纤细，在 CJK 字体下观感更轻盈；仅装饰用途，不参与对齐
-/// 个别终端对花形字符宽度渲染异常时，回退到下方保守集
 const SAKURA_GLYPHS: &[&str] = &["✿", "❀", "∙"];
 const SNOW_GLYPHS: &[&str] = &["❅", "*", "·"];
-#[allow(dead_code)]
-const SAKURA_GLYPHS_SAFE: &[&str] = &["∙", "•", "'"];
-#[allow(dead_code)]
-const SNOW_GLYPHS_SAFE: &[&str] = &["*", "·", "∙"];
 
 /// 飘落粒子
 struct Particle {
@@ -242,7 +237,7 @@ impl Fx {
         let buf_w = buf.area.width as usize;
         let buf_h = buf.area.height as usize;
         // 本帧已落笔粒子的绝对坐标 — 防粘连：雪花大花形在 CJK 字体下常为双宽，
-        // 会侵占右邻格，相邻粒子必须互相让位，否则糊成"❄·"
+        // 会侵占右邻格，相邻粒子必须互相让位，否则糊成"❅·"
         let mut placed: Vec<(i32, i32)> = Vec::new();
 
         for p in &self.particles {
@@ -306,7 +301,7 @@ fn depth_tier(depth: f64) -> usize {
 fn rand_val() -> f64 {
     use std::cell::Cell;
     thread_local! {
-        static STATE: Cell<u64> = Cell::new(0x4d595df4d0f33173);
+        static STATE: Cell<u64> = const { Cell::new(0x4d595df4d0f33173) };
     }
     STATE.with(|s| {
         let mut x = s.get();
@@ -346,8 +341,6 @@ mod tests {
     fn glyph_sets_have_one_glyph_per_tier() {
         assert_eq!(SNOW_GLYPHS.len(), 3);
         assert_eq!(SAKURA_GLYPHS.len(), 3);
-        assert_eq!(SNOW_GLYPHS_SAFE.len(), 3);
-        assert_eq!(SAKURA_GLYPHS_SAFE.len(), 3);
     }
 
     #[test]
@@ -365,7 +358,7 @@ mod tests {
 
     #[test]
     fn same_row_nearby_particles_do_not_fuse() {
-        colors::set_theme(1); // 飘雪主题，近景字形为 ❄
+        colors::set_theme(1); // 飘雪主题，近景字形为 ❅
         let mut fx = Fx::new();
         // 落点 (10,5) 与 (12,5)：同行横向距离 2 格，第二颗必须让位
         fx.particles.push(particle(10.4, 5.4, 0.9));
@@ -380,7 +373,7 @@ mod tests {
     #[test]
     fn wide_glyph_yields_when_right_neighbor_has_content() {
         let mut fx = Fx::new();
-        fx.particles.push(particle(10.0, 5.0, 0.9)); // 近景 ❄，CJK 字体下常为双宽
+        fx.particles.push(particle(10.0, 5.0, 0.9)); // 近景 ❅，CJK 字体下常为双宽
         let area = Rect::new(0, 0, 40, 10);
         let mut buf = Buffer::empty(area);
         buf.content[5 * 40 + 11].set_symbol("X"); // 右邻格有文字

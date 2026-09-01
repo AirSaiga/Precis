@@ -24,6 +24,49 @@ export interface BackendIpcConfig {
   frontendDevPort: number;
 }
 
+/** restart-python-server 的返回结构 */
+interface RestartResult {
+  ready: boolean;
+  port?: number;
+  error?: string;
+}
+
+/**
+ * 进行中的 restart-python-server Promise（并发互斥）。
+ *
+ * 竞态成因：两次快速连发的 invoke 会各自执行一遍 stop → start，交错时
+ * 第二次 stop 可能终止的是第一次刚 spawn 的子进程，而第一次 start 尚未
+ * 返回时第二次 start 又 spawn 一个新进程——端口占用/进程树错乱，旧进程
+ * 若未被完全回收即成为孤儿 Python。故用模块级 in-flight Promise 复用：
+ * 并发的第二次调用直接 await 同一次重启结果，重启完成后置空释放。
+ */
+let restartInFlight: Promise<RestartResult> | null = null;
+
+/** 执行一次完整的"终止 + 重启"流程（仅应由 restart handler 经互斥调用） */
+async function restartPythonServerOnce(backendPath: string): Promise<RestartResult> {
+  logger.debug('[Main] 重启 Python 后端服务...');
+
+  // 彻底终止现有进程树，避免旧进程残留导致端口冲突
+  await stopPythonServer();
+
+  try {
+    // 重新启动（会自动查找新的可用端口）
+    const port = await startPythonServer(backendPath);
+    return {
+      ready: true,
+      port,
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('[Main] 重启 Python 服务失败:', errorMessage);
+    return {
+      ready: false,
+      error: errorMessage,
+      port: appState.currentPythonServerPort,
+    };
+  }
+}
+
 /**
  * 注册后端服务相关 IPC handler
  *
@@ -42,27 +85,17 @@ export function registerBackendIpc(config: BackendIpcConfig): void {
     };
   });
 
-  ipcMain.handle('restart-python-server', async () => {
-    logger.debug('[Main] 重启 Python 后端服务...');
-
-    // 彻底终止现有进程树，避免旧进程残留导致端口冲突
-    await stopPythonServer();
-
+  ipcMain.handle('restart-python-server', async (): Promise<RestartResult> => {
+    // 并发互斥：重启进行中时，后续 invoke 复用同一个 Promise（拿到同一次重启的结果），
+    // 不再并发走第二遍 stop → start；重启完成后置空，允许下一次真正的重启。
+    if (restartInFlight) {
+      return restartInFlight;
+    }
+    restartInFlight = restartPythonServerOnce(backendPath);
     try {
-      // 重新启动（会自动查找新的可用端口）
-      const port = await startPythonServer(backendPath);
-      return {
-        ready: true,
-        port,
-      };
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      logger.error('[Main] 重启 Python 服务失败:', errorMessage);
-      return {
-        ready: false,
-        error: errorMessage,
-        port: appState.currentPythonServerPort,
-      };
+      return await restartInFlight;
+    } finally {
+      restartInFlight = null;
     }
   });
 
