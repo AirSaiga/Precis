@@ -56,7 +56,7 @@ cd tui-rust && cargo build --release && ./target/release/precis-tui
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `PRECIS_BACKEND_URL` | （见下） | 后端 API 地址。**未设置时**，TUI 会尝试拉起内置后端（打包态自包含）；设置了则直接连该外部后端 |
-| `PRECIS_WORK_DIR` | 当前工作目录 | 默认工作目录 |
+| `PRECIS_WORK_DIR` | 开发态探测 qa_test → 打包态回退用户主目录（最后兜底当前目录） | 默认工作目录 |
 | `PYTHON_PATH` | — | 指定内置后端用的 Python 解释器路径（未设置时按 bundled runtime → 系统 python 顺序查找） |
 | `RUST_LOG` | `info` | 日志级别（tracing） |
 

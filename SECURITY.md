@@ -34,6 +34,10 @@ If you discover a potential security issue:
   
   Arbitrary code execution is disabled by default; enabling it requires explicit server-side opt-in via the `PRECIS_ALLOW_UNSAFE_EVAL` environment variable
 
+- 本地 HTTP API 的跨域访问控制：打包模式下 Electron 每次启动生成随机一次性 token（经 `PRECIS_API_TOKEN` 注入后端，并仅经 IPC 下发本应用渲染进程），请求携带 `X-Precis-Auth` 头才放行 `Origin: null` 的跨域访问；沙箱 iframe 恶意网页拿不到 token，其 null Origin 请求仍被 CORS 拒绝。未配置 token 时（Web/开发模式）中间件完全直通；`PRECIS_ALLOW_NULL_ORIGIN=1` 保留为旧的全局放行兼容开关（打包模式不再注入）
+  
+  Local HTTP API cross-origin access control: in packaged mode Electron generates a random one-time token per launch (injected into the backend via `PRECIS_API_TOKEN` and handed only to this app's renderer over IPC); only requests carrying the `X-Precis-Auth` header are granted `Origin: null` cross-origin access. Malicious sandboxed-iframe pages cannot obtain the token, so their null-Origin requests remain rejected by CORS. Without a configured token (web/dev mode) the middleware is fully pass-through; `PRECIS_ALLOW_NULL_ORIGIN=1` remains as the legacy blanket-allow compatibility switch (no longer injected in packaged mode)
+
 - 应用自身无数据库存储；读取用户外部 SQL 数据源时经 SQLAlchemy
   
   The app itself has no database storage; user-supplied external SQL data sources are read via SQLAlchemy

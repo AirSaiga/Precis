@@ -61,6 +61,8 @@ backend/app/
 - API 路由在 `api/routers/`，请求/响应模型在 `api/models/`
 - 路由注册入口：`api/main.py`
 - 所有请求通过 `X-Project-Config-Path` header 标识当前项目
+- 校验类接口约定"永远返回 200、结果看 body"；配置文件损坏（如清单 YAML 语法错误/空文件）返回 422 并附说明
+- 打包模式下 `Origin: null` 跨域请求须携带 `X-Precis-Auth` 头（值来自 Electron 注入的 `PRECIS_API_TOKEN`，见 `api/middleware/token_auth.py`）；未配置 token 时中间件直通，`PRECIS_ALLOW_NULL_ORIGIN=1` 为旧的全局放行兼容开关
 
 ---
 

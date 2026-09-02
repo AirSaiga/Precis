@@ -67,6 +67,10 @@ Currently an actively developed prototype. Interfaces, config formats, and CLI p
 
   Fixed TUI background-task error messages falling back to Chinese under an English locale — the thread-local UI language is not inherited across threads, so tokio::spawn HTTP tasks on worker threads always picked the default Chinese (mixed-language toasts/bubbles for English users); the runtime is now built manually and injects the main-thread-detected language into every worker thread at start (with a regression test)
 
+- 前端视觉/交互测试修复批次：工具箱创建节点改从视口中心落点并避让已有节点（磁贴主体点击即可创建，不再要求点图标）；节点整理器补全 manualData/transform/templateInstance 类型映射（此前这三类节点不被分类，整理时游离于布局之外）；检查器必填字段增加字段级校验提示，Web 模式能力门控与覆盖层体验小修
+
+  Frontend visual/interaction test fix batch: toolbox-created nodes now spawn at the viewport center avoiding existing nodes (the magnet-tile body is clickable to create, no longer requiring the icon); the node organizer gained the missing manualData/transform/templateInstance type mappings (these node kinds previously went unclassified and drifted out of the layout); inspector required fields gained field-level validation hints, plus web-mode capability gating and overlay UX fixes
+
 - 修复节点整理（自动布局）整体失效的根因缺陷——布局分类器的分类 Map 从未初始化，"Schema 中心化"策略实际从未生效，整理一直退化为按 UUID 随机序的缠绕网格（缺陷由 strictNullChecks 清理批次引入，此前仅在测试注释中被记录而未修复）
 
   Fixed the root-cause defect that left the node organizer effectively broken — the layout classifier's category maps were never initialized, so the schema-centric strategy never actually ran and organizing always degraded into a UUID-ordered tangled grid (introduced by a strictNullChecks cleanup batch; previously only noted in a test comment, never fixed)

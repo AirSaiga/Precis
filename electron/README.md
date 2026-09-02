@@ -70,7 +70,7 @@ npm run release -- minor --prerelease alpha.1   # 0.1.0 → 0.2.0-alpha.1
 
 ### 客户端自动更新
 
-- 更新通道：GitHub Releases（`electron-updater`，`build.publish` 已配置）；设置面板支持切换自定义 generic 源
+- 更新通道：GitHub Releases（`electron-updater`，`build.publish` 已配置）；设置面板支持切换自定义 generic 源——仅接受 https（http 仅限 `127.0.0.1`/`localhost` 本机更新演练），非法源保存即被拒绝、不会应用
 - 打包应用启动 3 秒后自动检查（可在设置关闭）；下载完成后由用户确认重启安装
 - 安装前主进程先同步终止 Python 子进程树（`resources/` 下的 backend/python-runtime 会被 NSIS 整目录覆盖，文件占用会导致安装失败）
 - macOS 因未签名**不支持**自动更新（Squirrel.Mac 要求代码签名），仅提供安装包手动更新；Windows 未签名可正常自动更新（sha512 清单校验保证完整性）

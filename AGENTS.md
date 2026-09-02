@@ -184,7 +184,7 @@ V2 API 调用层在 `frontend/src/api/projectV2Api/`（已重构为目录，barr
 ### Electron 集成
 
 Electron 主进程 (`electron/src/main.ts`) 负责：
-1. 动态分配端口 → 启动 Python 后端子进程（`uvicorn`）
+1. 动态分配端口 → 启动 Python 后端子进程（`uvicorn`；打包模式生成一次性随机 token 经 `PRECIS_API_TOKEN` 注入后端并经 IPC 仅下发本应用渲染进程，请求携带 `X-Precis-Auth` 头才放行 `Origin: null` 跨域——见后端 `api/middleware/token_auth.py`）
 2. 健康检查（TCP + HTTP 轮询）
 3. 创建 BrowserWindow 加载前端（sandbox: true, nodeIntegration: false, contextIsolation: true）
 4. 通过 `preload.ts` 暴露 `window.electronAPI.*`（文件系统、对话框、配置等 IPC）
@@ -403,6 +403,8 @@ return node
 
 删除节点必须先清理关联边再删节点，并保证清理链路（`handleEdgeRemoved` → `syncOnDisconnect` + `executeDisconnectCleanup`）被执行。当前 `nodeOps.ts` 的 `deleteNode` 已采用正确实现：按 `collectCascadeNodeIds`（级联收集）→ 逐条 `removeEdges` → `removeNodes` → `nextTick(reconcileAll + onNodesRemoved)` 顺序执行，先删边再删节点，并在下一 tick 协调状态。新增节点删除相关代码时务必沿用此模式，**不要回退到直接替换 `nodes.value`/`edges.value` 数组**（会绕过 `onEdgesChange` 导致清理不执行）。
 
+**级联范围契约**：删除 Schema 节点时，`sourceRef` 引用该 schema 的约束节点随画布级联移除——仅移除画布节点，约束文件与 manifest 引用不动（重新导入即恢复）；无 `sourceRef` 的表级约束节点保留，其指向被删 schema 的连接边清零。
+
 #### undo/redo 的状态恢复
 
 `history.ts` 使用 `shallowRef` + `toRaw()` + 不可变栈操作，恢复时直接替换 `nodes.value` 和 `edges.value`，不触发任何 hooks。恢复后会调用 `reconcileAll()` 重建连接状态。
@@ -505,9 +507,9 @@ AI 动作类型（actionType，如 `ADD_SCHEMA`/`VALIDATE_PROJECT`，共 15 种�
 
 ### 类型安全纪律（`as unknown as` 渐进治理）
 
-前端 `as unknown as` 双重断言是绕过 `CustomNodeData` discriminated union 的"逃生舱"，当前存量约 300 处（ESLint `no-restricted-syntax` 规则以 warn 级别追踪）。
+前端 `as unknown as` 双重断言是绕过 `CustomNodeData` discriminated union 的"逃生舱"，当前存量约 150 处（ESLint `no-restricted-syntax` 规则以 warn 级别追踪）。
 
-- **新增代码禁止引入**：`lint:check` 的 `--max-warnings=300` 阈值严格控制增量，新增一个双重断言会让 warning 数超过阈值导致 CI 失败
+- **新增代码禁止引入**：`lint:check` 的 `--max-warnings` 阈值（当前 152，随清理同步收紧）严格控制增量，新增一个双重断言会让 warning 数超过阈值导致 CI 失败
 - **优先替代方案**：按 `node.type` 的类型守卫（`if (node.type === 'schema') { const d = node.data as SchemaNodeData }`）、或正确的类型标注
 - **渐进清理**：每次重构某模块时顺手清理其中的 `as unknown as`，清理后在 `package.json` 的 `lint:check` 中同步降低 `--max-warnings` 阈值，直至归零
 - **测试文件豁免**：`tests/**` 已关闭此规则（mock 数据用双重断言合理）
@@ -519,7 +521,7 @@ AI 动作类型（actionType，如 `ADD_SCHEMA`/`VALIDATE_PROJECT`，共 15 种�
 - 脚本：`frontend/scripts/audit-i18n.mjs`，命令 `npm run audit:i18n`（在 frontend 目录）
 - allowlist：`frontend/i18n-audit-exceptions.json`，含 `dynamicPrefixes`（`t(\`ns.${var}\`)` 这类动态前缀豁免）与 `baseline*`（治理前存量快照）
 - **守卫语义**：仅对"超出 baseline 的新增违规"判定失败（`[new]`）；存量项标 `[baseline]` 不阻断。修复存量后从 baseline 移除即收紧。
-- 刷新快照：跑 `npm run audit:i18n -- --update-baseline` 把当前 missing/onlyZh/onlyEn 写回 allowlist（仅当新增项确属合理存量时使用，并确认 baseline 数未增长）。
+- 刷新快照：跑 `npm run audit:i18n -- --update-baseline` 把当前 missing/onlyZh/onlyEn/unused 四类基线（含 `unusedBaseline`）写回 allowlist（仅当新增项确属合理存量时使用，并确认 baseline 数未增长）。
 - 动态 key（`t(\`inspection.severity.${sev}\`)`）需把其前缀登记进 `dynamicPrefixes`，否则该命名空间下的叶子 key 会被误判缺失/未用。
 
 ### i18n 渲染模式（renderText）
@@ -573,6 +575,7 @@ AI 动作类型（actionType，如 `ADD_SCHEMA`/`VALIDATE_PROJECT`，共 15 种�
 
 **客户端更新链路约定**（`electron/src/update.ts` 等）：
 - 自定义 generic 更新源必须在启动时重放 `setFeedURL`（持久化配置），不能只在保存时设置
+- 自定义更新源仅允许 https；http 仅限 `127.0.0.1`/`localhost`（本地演练）。`saveConfig` 与启动重放两路共用 `validateUpdateSourceUrl` 白名单闸门，非法源拒绝保存/应用并回退 GitHub 源——渲染层无法再毒化 `update-config.json` 引向恶意源（换源劫持 → RCE 链），勿放宽
 - `quitAndInstall` 前必须先同步终止 Python 子进程树（extraResources 整目录被 NSIS 覆盖，文件占用会安装失败）
 - 主进程已加单实例锁（`requestSingleInstanceLock`），勿移除
 - 打包环境后端版本经 `PRECIS_APP_VERSION` 环境变量注入（打包不安装 precis 包元数据，importlib.metadata 拿不到），`/api/latest/version` 以此为第一优先级

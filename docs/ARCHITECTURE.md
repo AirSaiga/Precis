@@ -259,7 +259,7 @@ expandOnCanvas(instanceNodeId)
 
 | 能力 | 文件 | 用途 |
 |------|------|------|
-| `appApi` | `appApi.ts` | 版本、后端端口/状态、最近项目持久化、后端重启 |
+| `appApi` | `appApi.ts` | 版本、后端端口/状态、最近项目持久化、后端重启、界面语言同步、后端 API token 获取 |
 | `dialogApi` | `dialogApi.ts` | 文件/目录选择 |
 | `fileApi` | `fileApi.ts` | 文件读写、上传、扫描目录 |
 | `shellApi` | `shellApi.ts` | 用系统程序/编辑器打开文件、打开外部链接 |
