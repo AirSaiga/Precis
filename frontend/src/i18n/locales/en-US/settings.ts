@@ -253,6 +253,7 @@ const settings = {
       desc: 'Enter custom update server URL',
       placeholder: 'https://updates.example.com',
     },
+    saveFailed: 'Failed to save update settings: custom source URL must be https or loopback',
     checkNow: 'Check for Updates',
     checking: 'Checking...',
     newVersion: 'New Version',

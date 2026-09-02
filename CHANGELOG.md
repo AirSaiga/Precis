@@ -6,6 +6,12 @@
 
 ## [Unreleased]
 
+### 2026-09
+
+- 24h 风险扫描三项坐实缺陷修复（每项均先动态复现后修复）：① **Electron `write-file` 绕过受保护文件防线**（vitest 复现：可覆写 `userData/update-config.json` 实现换源劫持、覆写 `.precis/electron_launch.yaml` 毒化授权根信任源后 read-file 越权读任意目录）——write-file 现按 userData 相对路径设防（含 Windows 尾点/尾空格归一化防 `'update-config.json.'` 变体），ensure-dir 补上此前完全缺失的根目录包含校验；② **模板实例"幽灵复活"**（直调复现：删光画布实例→全量保存→重载引用复活）——新增幂等 `DELETE /manifest/template-instance/{id}` 端点、`DELETE /template/{id}` 级联清理指向它的实例引用（消除永久悬空的 `TemplateInstanceMissingTemplate`）、前端 nodeOps 单删/批删路径同步清引用（失败仅告警不阻断画布删除）；③ **`.xls` 宣告支持却必炸**（实测双路径全败）——pyproject 声明 `xlrd>=2.0.1`，ExcelLoader 按扩展名解析实际引擎（.xls→xlrd、.xlsx/.xlsm→openpyxl，冲突时纠正并提示）；附带修复更新设置面板忽略 `update:save-config` 拒绝返回导致的静默失败与 UI 失真（false 返回/异常现 toast 提示，i18n 双侧）
+
+  Three verified defects from the 24h risk scan fixed (each reproduced before fixing): (1) Electron `write-file` bypassed the protected-file gate — it could overwrite `userData/update-config.json` (update-source hijack) and the authorized-roots trust source (poisoning then read-file anywhere); write-file now guards by userData-relative protected paths (with Windows trailing-dot/space normalization) and ensure-dir gains the previously missing root containment check; (2) template-instance "ghost resurrection" — deleting all instances then full-saving resurrected them from disk on reload; added an idempotent `DELETE /manifest/template-instance/{id}` endpoint, cascade instance-ref cleanup in `DELETE /template/{id}`, and frontend nodeOps syncs the ref on single/batch deletion (failure warns without blocking canvas deletion); (3) `.xls` was declared supported but always failed (both engine paths); declared `xlrd>=2.0.1` and ExcelLoader now resolves the engine by extension (.xls→xlrd, .xlsx/.xlsm→openpyxl) with a correction notice; also fixed the update settings panel silently ignoring a rejected `update:save-config` (now toasts on false/throw, i18n both sides)
+
 ### 说明 / Note
 
 当前为活跃开发中的原型版本，接口、配置格式、命令行参数均可能在不通知的情况下变更。

@@ -196,6 +196,7 @@
   import { useI18n } from 'vue-i18n'
   import { appApi } from '@/core/capabilities/appApi'
   import { updateApi, type UpdateState, type UpdateConfig } from '@/core/capabilities/updateApi'
+  import { toastError } from '@/core/toast'
   import AppIcon from '@/components/icons/AppIcon.vue'
 
   const { t } = useI18n()
@@ -319,9 +320,15 @@
     if (!updateApi.isSupported) return
 
     try {
-      await updateApi.saveConfig(localConfig.value)
+      const ok = await updateApi.saveConfig(localConfig.value)
+      // 整包原子校验拒绝（典型：自定义源 URL 非法）——此前静默失败导致面板
+      // 显示与磁盘配置失真（UI 显示已开启，实际整包未落盘）
+      if (!ok) {
+        toastError(t('settings.update.saveFailed'))
+      }
     } catch (error) {
       logger.error('[UpdateSettings] 保存配置失败:', error)
+      toastError(t('settings.update.saveFailed'))
     }
   }
 

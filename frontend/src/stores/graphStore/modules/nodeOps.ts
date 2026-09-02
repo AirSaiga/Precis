@@ -16,10 +16,26 @@ import type { Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode } from '@/types/graph'
 import { removeEdges, removeNodes, updateNode } from '@/services/canvas/vueFlowApi'
+import { deleteV2ManifestTemplateInstanceRef } from '@/api/projectV2Api'
 import { logger } from '@/core/utils/logger'
 
 interface TemplateExpandLike {
   getExpandedIds(instanceNodeId: string): string[]
+}
+
+/**
+ * 删除 templateInstance 节点时同步清理 manifest 实例引用。
+ *
+ * 全量保存对空实例列表采取"视为未携带、从磁盘合并"防御，画布删光实例后若不同步
+ * 清引用，保存→重载会幽灵复活（节点 id 即 manifest 引用 id）。与 clearExpansion
+ * 同 pattern：失败仅告警不阻断画布删除——剩 ≥1 实例时下次全量保存自愈引用。
+ */
+async function removeTemplateInstanceRef(instanceId: string, caller: string): Promise<void> {
+  try {
+    await deleteV2ManifestTemplateInstanceRef(instanceId)
+  } catch (e) {
+    logger.warn(`[nodeOps] ${caller}: manifest 实例引用删除失败,画布删除继续`, e)
+  }
 }
 
 export interface NodeOpsDeps {
@@ -112,6 +128,7 @@ export function createNodeOpsModule(deps: NodeOpsDeps) {
       } catch (e) {
         logger.warn('[nodeOps] deleteNode: clearExpansion 失败,继续删除节点', e)
       }
+      await removeTemplateInstanceRef(nodeId, 'deleteNode')
     }
 
     const deleteIds = collectCascadeNodeIds(nodeId)
@@ -176,6 +193,7 @@ export function createNodeOpsModule(deps: NodeOpsDeps) {
         } catch (e) {
           logger.warn('[nodeOps] deleteNodes: clearExpansion 失败,继续删除节点', e)
         }
+        await removeTemplateInstanceRef(id, 'deleteNodes')
       }
     }
 

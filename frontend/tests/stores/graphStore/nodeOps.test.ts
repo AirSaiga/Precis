@@ -19,12 +19,19 @@ vi.mock('@/core/utils/logger', () => ({
   logger: { warn: vi.fn(), debug: vi.fn(), info: vi.fn(), error: vi.fn() },
 }))
 
+// manifest 实例引用删除 API mock（templateInstance 删除同步链）
+const { deleteInstanceRefMock } = vi.hoisted(() => ({ deleteInstanceRefMock: vi.fn() }))
+vi.mock('@/api/projectV2Api', () => ({
+  deleteV2ManifestTemplateInstanceRef: deleteInstanceRefMock,
+}))
+
 // 动态引用 mock,以便单个测试可覆盖其实现
 let updateNodeMock: ReturnType<typeof vi.fn>
 beforeEach(async () => {
   const vu = await import('@/services/canvas/vueFlowApi')
   updateNodeMock = vu.updateNode as ReturnType<typeof vi.fn>
   updateNodeMock.mockReset()
+  deleteInstanceRefMock.mockReset()
 })
 
 function makeNode(id: string, type: string, data: Record<string, unknown> = {}): CustomNode {
@@ -141,6 +148,32 @@ describe('nodeOps', () => {
 
       expect(clearExpansion).not.toHaveBeenCalled()
     })
+
+    it('删除 templateInstance 时同步删除 manifest 实例引用（防幽灵复活）', async () => {
+      const { nodes, module } = makeModule({
+        templateExpand: { getExpandedIds: () => [] },
+      })
+      nodes.value = [makeNode('inst1', 'templateInstance', { expanded: false })]
+
+      await module.deleteNode('inst1')
+
+      expect(deleteInstanceRefMock).toHaveBeenCalledWith('inst1')
+    })
+
+    it('manifest 引用删除失败不阻断画布删除（仅告警）', async () => {
+      deleteInstanceRefMock.mockRejectedValueOnce(new Error('network down'))
+      const { nodes, module } = makeModule({
+        templateExpand: { getExpandedIds: () => [] },
+      })
+      nodes.value = [makeNode('inst1', 'templateInstance', { expanded: false })]
+
+      // API 拒绝被 removeTemplateInstanceRef 吞掉：deleteNode 正常完成并走完画布删除
+      await module.deleteNode('inst1')
+
+      const vu = await import('@/services/canvas/vueFlowApi')
+      expect(vu.removeNodes).toHaveBeenCalledWith(['inst1'])
+      expect(deleteInstanceRefMock).toHaveBeenCalledWith('inst1')
+    })
   })
 
   describe('deleteNodes - templateInstance', () => {
@@ -171,6 +204,23 @@ describe('nodeOps', () => {
       await module.deleteNodes(['s1', 'c1'])
 
       expect(clearExpansion).not.toHaveBeenCalled()
+    })
+
+    it('批量删除含 templateInstance 时对每个实例同步删除 manifest 引用', async () => {
+      const { nodes, module } = makeModule({
+        templateExpand: { getExpandedIds: () => [] },
+      })
+      nodes.value = [
+        makeNode('inst1', 'templateInstance', { expanded: false }),
+        makeNode('inst2', 'templateInstance', { expanded: false }),
+        makeNode('s1', 'schema', { columns: [] }),
+      ]
+
+      await module.deleteNodes(['inst1', 'inst2', 's1'])
+
+      expect(deleteInstanceRefMock).toHaveBeenCalledWith('inst1')
+      expect(deleteInstanceRefMock).toHaveBeenCalledWith('inst2')
+      expect(deleteInstanceRefMock).toHaveBeenCalledTimes(2)
     })
   })
 

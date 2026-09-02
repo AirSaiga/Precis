@@ -60,6 +60,31 @@ class ExcelLoader(DataSourceLoader[ExcelSourceSpec]):
 
     spec_class = ExcelSourceSpec
 
+    # 扩展名 → 唯一可用引擎：.xls 仅 xlrd 支持、.xlsx/.xlsm 仅 openpyxl 支持
+    # （xlrd>=2.0 已移除 .xlsx 支持，openpyxl 从不支持 .xls）
+    _ENGINE_BY_SUFFIX = {".xls": "xlrd", ".xlsx": "openpyxl", ".xlsm": "openpyxl"}
+
+    def _effective_engine(self) -> str:
+        """
+        @methoddesc 按文件扩展名解析实际读取引擎，与 spec.engine 不符时以扩展名为准
+
+        业务用途:
+        - spec.engine 默认 openpyxl，但 .xls 文件 openpyxl 无法读取（抛
+          InvalidFileException/BadZipFile）——此前"宣告支持 .xls 却必炸"的根因之一。
+          引擎与扩展名唯一对应，冲突时按扩展名纠正并提示，避免必然失败的组合。
+        - 无扩展名（或不识别的扩展名）时尊重 spec.engine 原值。
+        """
+        expected = self._ENGINE_BY_SUFFIX.get(Path(self.spec.path).suffix.lower())
+        if expected and expected != self.spec.engine:
+            logger.info(
+                "引擎配置（%s）与文件扩展名不符，已按扩展名使用 %s: %s",
+                self.spec.engine,
+                expected,
+                self.spec.path,
+            )
+            return expected
+        return self.spec.engine
+
     def load(self) -> pd.DataFrame:
         """
         @methoddesc 加载 Excel 文件并返回 DataFrame。
@@ -135,7 +160,7 @@ class ExcelLoader(DataSourceLoader[ExcelSourceSpec]):
                 self.spec.path,
                 sheet_name=sheet_names,
                 header=None,
-                engine=self.spec.engine,
+                engine=self._effective_engine(),
                 **self._engine_kwargs(),
             )
 
@@ -193,7 +218,7 @@ class ExcelLoader(DataSourceLoader[ExcelSourceSpec]):
         data_only 形参，pandas 原样转发会 TypeError，导致 .xls 必炸。
         因此 xlrd 分支不传任何 engine_kwargs。
         """
-        if self.spec.engine == "openpyxl":
+        if self._effective_engine() == "openpyxl":
             return {"engine_kwargs": {"data_only": True}}
         return {}
 
@@ -210,7 +235,7 @@ class ExcelLoader(DataSourceLoader[ExcelSourceSpec]):
         """
         read_kwargs: dict[str, Any] = {
             "header": self.spec.header_row if self.spec.header_enabled else None,
-            "engine": self.spec.engine,
+            "engine": self._effective_engine(),
             "dtype": None if self.spec.dtype_inference else str,
             **self._engine_kwargs(),
         }
@@ -245,7 +270,7 @@ class ExcelLoader(DataSourceLoader[ExcelSourceSpec]):
             skip_rows: 表头前跳过的行数（load_multi_sheet 路径已把 skip_rows 折入
                 effective_header，此时应保持默认 0，避免重复扣减）
         """
-        if self.spec.engine != "openpyxl":
+        if self._effective_engine() != "openpyxl":
             return df
         try:
             from openpyxl import load_workbook
@@ -367,7 +392,7 @@ class ExcelLoader(DataSourceLoader[ExcelSourceSpec]):
             read_kwargs: dict[str, Any] = {
                 "nrows": nrows,
                 "header": self.spec.header_row if self.spec.header_enabled else None,
-                "engine": self.spec.engine,
+                "engine": self._effective_engine(),
                 **self._engine_kwargs(),
             }
 

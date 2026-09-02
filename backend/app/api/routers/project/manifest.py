@@ -427,6 +427,54 @@ def update_manifest_template_instance_ref(
     return {"message": f"TemplateInstance 引用 '{instance_ref.id}' 已更新"}
 
 
+@router.delete(
+    "/manifest/template-instance/{instance_id}",
+    response_model=StandardResponse,
+    summary="删除 manifest 中单个 Template Instance 引用",
+    responses={
+        404: {"description": "Manifest 不存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
+def delete_manifest_template_instance_ref(
+    instance_id: str,
+    config_path: str = Depends(get_project_config_path),
+):
+    """
+    @methoddesc 删除 manifest 中单个 template_instance 引用（幂等）
+
+    业务用途:
+    - 全量保存对空 template_instances 列表采取"视为未携带、从磁盘合并"的防御
+      （防清单误清空），因此"删除实例"必须走本端点同步清引用——否则画布删光
+      实例后保存重载，会从磁盘合并出已删引用（幽灵复活）。前端 nodeOps 删除
+      templateInstance 节点时调用（节点 id 即 manifest 引用 id）。
+
+    参数:
+        instance_id: 实例唯一标识
+        config_path: 项目配置根目录
+
+    返回:
+        StandardResponse: 操作结果消息（引用不存在时同样成功，画布同步场景容错）
+    """
+    manifest_path = _v2_manifest_path(config_path)
+
+    with project_lock(config_path):
+        existing_manifest = _read_manifest(manifest_path)
+
+        if not existing_manifest:
+            raise HTTPException(status_code=404, detail="Manifest 文件不存在，请先保存项目")
+
+        items = list(existing_manifest.template_instances or [])
+        remaining = [item for item in items if item.id != instance_id]
+        if len(remaining) == len(items):
+            return {"message": f"TemplateInstance 引用 '{instance_id}' 不存在（视为已删除）"}
+
+        updated_manifest = existing_manifest.model_copy(update={"template_instances": remaining})
+        write_yaml_atomic(Path(manifest_path), updated_manifest.model_dump(exclude_none=True))
+
+    return {"message": f"TemplateInstance 引用 '{instance_id}' 已删除"}
+
+
 @router.post(
     "/manifest/constraint/deduplicate",
     response_model=StandardResponse,

@@ -364,3 +364,49 @@ class TestExcelLoader:
         assert df["id"].tolist() == [1, 2]
         # 合并值应被填充（过去回退到第一张表导致 NaN 未填充）
         assert df["cat"].tolist() == ["Food", "Food"]
+
+
+class TestExcelEngineResolution:
+    """按扩展名解析实际读取引擎（.xls 宣告支持却必炸的修复回归）。"""
+
+    def test_xls_with_default_engine_resolves_to_xlrd(self):
+        """spec.engine 保持默认 openpyxl 时，.xls 必须解析为 xlrd（openpyxl 读不了 .xls）。"""
+        spec = ExcelSourceSpec(path="legacy.xls")
+        assert ExcelLoader(spec)._effective_engine() == "xlrd"
+
+    def test_xlsx_with_wrong_engine_resolves_to_openpyxl(self):
+        """xlrd>=2.0 已移除 .xlsx 支持，.xlsx 显式配 xlrd 按扩展名纠正为 openpyxl。"""
+        spec = ExcelSourceSpec(path="modern.xlsx", engine="xlrd")
+        assert ExcelLoader(spec)._effective_engine() == "openpyxl"
+
+    def test_matching_engine_unchanged(self):
+        spec = ExcelSourceSpec(path="modern.xlsx")
+        assert ExcelLoader(spec)._effective_engine() == "openpyxl"
+        spec = ExcelSourceSpec(path="legacy.xls", engine="xlrd")
+        assert ExcelLoader(spec)._effective_engine() == "xlrd"
+
+    def test_unknown_suffix_keeps_spec_engine(self):
+        """无扩展名/不识别的扩展名尊重 spec.engine 原值。"""
+        spec = ExcelSourceSpec(path="noext")
+        assert ExcelLoader(spec)._effective_engine() == "openpyxl"
+
+    def test_engine_by_suffix_case_insensitive(self):
+        spec = ExcelSourceSpec(path="LEGACY.XLS")
+        assert ExcelLoader(spec)._effective_engine() == "xlrd"
+
+    def test_build_read_kwargs_uses_effective_engine(self):
+        """read_excel 参数实际使用解析后的引擎（而非 spec 原值）。"""
+        spec = ExcelSourceSpec(path="legacy.xls")
+        kwargs = ExcelLoader(spec)._build_read_kwargs()
+        assert kwargs["engine"] == "xlrd"
+
+    def test_xlrd_dependency_declared_and_importable(self):
+        """pyproject 已声明 xlrd 且可导入（.xls 支持的前提）。"""
+        import tomllib
+        from pathlib import Path
+
+        pyproject = Path(__file__).resolve().parents[2] / "pyproject.toml"
+        with open(pyproject, "rb") as f:
+            deps = tomllib.load(f)["project"]["dependencies"]
+        assert any(d.startswith("xlrd") for d in deps)
+        import xlrd  # noqa: F401

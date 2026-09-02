@@ -239,6 +239,10 @@ def delete_template(template_id: str, config_path: str = Depends(get_project_con
         manifest_data = read_yaml(manifest_path)
         templates_list = manifest_data.get("templates") or []
         manifest_data["templates"] = [t for t in templates_list if t.get("id") != template_id]
+        # 级联清理：删除模板定义后，仍指向它的实例引用会成为永久悬空引用
+        # （每次项目加载都产生 TemplateInstanceMissingTemplate 错误），随定义一并移除
+        instances_list = manifest_data.get("template_instances") or []
+        manifest_data["template_instances"] = [ti for ti in instances_list if ti.get("template_id") != template_id]
         write_yaml_atomic(manifest_path, manifest_data)
 
     return StandardResponse(success=True, message=f"模板 '{template_id}' 删除成功")

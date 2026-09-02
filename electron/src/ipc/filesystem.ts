@@ -149,9 +149,41 @@ const OPEN_FILE_ALLOWED_EXTENSIONS = new Set([
  */
 const SAVE_TEXT_FILE_PROTECTED_NAMES = new Set(['update-config.json']);
 
-/** 受保护文件名判定：Windows 文件系统大小写不敏感，归一为小写后精确匹配，防 Update-Config.JSON 绕过 */
+/**
+ * write-file 禁止覆写的 userData 受保护文件（相对 userData 根的 POSIX 风格路径，
+ * 小写）。save-text-file 的闸门按"相对文件名"设防，覆盖不了走绝对路径的 write-file
+ * 入口——后者此前可直接覆写这两份主进程专属配置，绕过 update:save-config 的
+ * 源校验（换源劫持链）并毒化 getAllowedRoots 的授权根信任源（越权读写任意目录）。
+ */
+const PROTECTED_USERDATA_RELATIVE_PATHS = new Set(['update-config.json', '.precis/electron_launch.yaml']);
+
+/**
+ * Windows 文件名归一化：Win32 落盘时会剥除文件名末尾的点与空格，
+ * 'update-config.json.' 实际写入 update-config.json，须归一后比较防绕过。
+ */
+function normalizeWindowsFileName(name: string): string {
+  return name.replace(/[. ]+$/, '');
+}
+
+/** 受保护文件名判定：小写归一 + Windows 尾点/尾空格归一化，防 Update-Config.JSON / 尾点变体绕过 */
 function isProtectedUserDataFileName(fileName: string): boolean {
-  return SAVE_TEXT_FILE_PROTECTED_NAMES.has(fileName.toLowerCase());
+  return SAVE_TEXT_FILE_PROTECTED_NAMES.has(normalizeWindowsFileName(fileName).toLowerCase());
+}
+
+/**
+ * 判断绝对路径是否指向 userData 根下的受保护文件（write-file 入口闸门）。
+ * 每段路径都做尾点/尾空格归一化（'.precis.' 目录在 Win32 下与 '.precis' 同址）。
+ */
+function isProtectedUserDataPath(resolved: string, userDataRoot: string): boolean {
+  if (!resolved.startsWith(userDataRoot + path.sep)) {
+    return false;
+  }
+  const relative = path
+    .relative(userDataRoot, resolved)
+    .split(path.sep)
+    .map((segment) => normalizeWindowsFileName(segment).toLowerCase())
+    .join('/');
+  return PROTECTED_USERDATA_RELATIVE_PATHS.has(relative);
 }
 
 // ============================================================================
@@ -166,6 +198,12 @@ export function registerFilesystemIpc(): void {
   ipcMain.handle('ensure-dir', async (_event, dirPath: string) => {
     if (!dirPath || typeof dirPath !== 'string' || !path.isAbsolute(dirPath)) return false;
     try {
+      // [安全] 与 write-file 同源的根目录包含校验：目录创建原语同样能构造路径
+      // （此前无任何校验，任意绝对路径可被 mkdir）
+      if (!isPathAllowed(path.resolve(dirPath), getAllowedRoots())) {
+        logger.error('[Electron] ensure-dir: 路径不在允许的根目录之下（拒绝创建）:', dirPath);
+        return false;
+      }
       fs.mkdirSync(dirPath, { recursive: true });
       return true;
     } catch {
@@ -503,6 +541,15 @@ export function registerFilesystemIpc(): void {
       const roots = getAllowedRoots();
       if (!isPathAllowed(resolved, roots)) {
         logger.error('[Electron] write-file: 路径不在允许的根目录之下（拒绝写入）:', filePath);
+        return false;
+      }
+
+      // [安全] userData 根下的主进程专属配置（更新源/授权根信任源）不可经此入口覆写：
+      // 覆写 update-config.json 可绕过 update:save-config 的源校验（换源劫持链）；
+      // 覆写 .precis/electron_launch.yaml 可毒化授权根信任源（getAllowedRoots 每次调用
+      // 都重读它），使 read-file/write-file 的白名单扩到任意目录。
+      if (isProtectedUserDataPath(resolved, path.resolve(app.getPath('userData')))) {
+        logger.error('[Electron] write-file: 拒绝覆写 userData 受保护文件:', filePath);
         return false;
       }
 

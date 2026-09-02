@@ -28,6 +28,8 @@ dependencies = [
     # 数据处理
     "pandas>=2.2.0,<3.0",
     "openpyxl>=3.1.5",
+    # Excel 97-2003（.xls）读取引擎（openpyxl 不支持 .xls）
+    "xlrd>=2.0.1",
     # 数据库与 SQL
     "SQLAlchemy>=2.0.48",
     # YAML 解析

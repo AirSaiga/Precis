@@ -117,3 +117,19 @@ export async function updateV2ManifestTemplateInstanceRef(
     withConfigPathHeader(configPath)
   )
 }
+
+/**
+ * 删除 manifest 中的 Template 实例引用（幂等）
+ *
+ * 全量保存对空实例列表采取"视为未携带、从磁盘合并"防御，删除实例必须走此端点
+ * 同步清引用，否则"删光实例 → 保存 → 重载"会幽灵复活。节点 id 即引用 id。
+ */
+export async function deleteV2ManifestTemplateInstanceRef(
+  instanceId: string,
+  configPath?: string
+): Promise<void> {
+  await apiClient.delete(
+    `/project/manifest/template-instance/${encodeURIComponent(instanceId)}`,
+    withConfigPathHeader(configPath)
+  )
+}

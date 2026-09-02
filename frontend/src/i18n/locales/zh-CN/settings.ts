@@ -242,6 +242,7 @@ const settings = {
       desc: '输入自定义更新服务器的 URL',
       placeholder: 'https://updates.example.com',
     },
+    saveFailed: '保存更新配置失败：自定义源地址需为 https 或本机回环地址',
     checkNow: '检查更新',
     checking: '检查中...',
     newVersion: '新版本',
