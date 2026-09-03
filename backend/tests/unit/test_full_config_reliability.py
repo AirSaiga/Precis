@@ -164,8 +164,9 @@ class TestFullConfigReliabilityHardening:
 
         此前合并分支缺失这两个字段——"另存为模板"后下一次前端全量保存（payload 不带
         templates 字段）会把 manifest.templates 静默清空。
-        注意：不能用 model_fields_set 断言"未提供"——ProjectManifest 的 _validate_unique_ids
-        (mode="after") 会对列表字段就地重赋值，使其总是出现在 fields_set 中。
+        回归(2026-09)：保留现已并入统一 model_fields_set 防线（_validate_unique_ids 已改
+        object.__setattr__ 不再污染 fields_set），与 schemas 等字段同一判定，原"空列表=未携带"
+        启发式已退役。
         """
         with tempfile.TemporaryDirectory() as tmpdir:
             root = _make_project(tmpdir)
@@ -269,6 +270,149 @@ class TestFullConfigReliabilityHardening:
 
             saved = yaml.safe_load((root / "project.precis.yaml").read_text(encoding="utf-8"))
             assert "settings" in saved  # 显式设置被写入
+
+
+class TestFieldsSetPurityAndMergeRevival:
+    """回归(2026-09)：fields_set 纯净性守卫 + 合并/扫描防线复活。
+
+    缺陷史：_validate_unique_ids（mode="after"）曾用普通赋值就地重写全部列表字段，
+    Pydantic v2 会把被赋值字段加入 model_fields_set，导致 PUT /config/full 的
+    "未显式设置则保留磁盘值"防线对全部列表字段失效（最小 PUT 即清空磁盘引用），
+    仅 templates/template_instances 靠空列表启发式幸免。修复=校验器内改用
+    object.__setattr__；本类测试防止该形态复发。
+    """
+
+    _LIST_FIELDS = (
+        "schemas",
+        "constraints",
+        "regex_nodes",
+        "transforms",
+        "manual_data",
+        "data_sources",
+        "templates",
+        "template_instances",
+    )
+
+    def test_fields_set_purity_no_validator_pollution(self):
+        """纯净性守卫：fields_set 只含客户端输入键，校验器赋值不得引入额外字段"""
+        m = ProjectManifestV2.model_validate({"version": 2, "project": {"id": "p", "name": "n"}})
+        assert m.model_fields_set == {"version", "project"}
+
+        # 构造器 kwargs 同样视为"显式输入"
+        m2 = ProjectManifestV2(
+            version=2,
+            project=ProjectInfoV2(id="p", name="p"),
+            schemas=[],
+            constraints=[],
+            regex_nodes=[],
+        )
+        assert "schemas" in m2.model_fields_set
+        assert "templates" not in m2.model_fields_set
+        assert "settings" not in m2.model_fields_set
+
+    def _disk_manifest(self) -> str:
+        """磁盘现状：8 类引用各 1 条"""
+        return (
+            "version: 2\n"
+            "project:\n"
+            "  id: p\n"
+            "  name: p\n"
+            "schemas:\n"
+            "  - id: s_disk\n"
+            "    path: schemas/s_disk.schema.yaml\n"
+            "constraints:\n"
+            "  - id: c_disk\n"
+            "    path: constraints/c_disk.constraint.yaml\n"
+            "regex_nodes:\n"
+            "  - id: r_disk\n"
+            "    path: regex/r_disk.regex.yaml\n"
+            "transforms:\n"
+            "  - id: t_disk\n"
+            "    path: transforms/t_disk.transform.yaml\n"
+            "manual_data:\n"
+            "  - id: m_disk\n"
+            "    path: manual_data/m_disk.manual_data.yaml\n"
+            "data_sources:\n"
+            "  - id: main\n"
+            "    path: data\n"
+            "    mode: relative\n"
+            "templates:\n"
+            "  - id: tpl_disk\n"
+            "    path: templates/tpl_disk.template.yaml\n"
+            "template_instances:\n"
+            "  - id: inst_disk\n"
+            "    template_id: tpl_disk\n"
+            "    enabled: true\n"
+        )
+
+    def test_minimal_put_preserves_all_disk_references(self):
+        """核心防线复活：payload 缺省全部列表字段（仅带 project）→ 磁盘引用全部保留。
+
+        缺陷期行为：schemas/constraints/regex_nodes/transforms/manual_data/data_sources
+        被清空（data_sources 无扫描兜底，受损最重）。
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "project.precis.yaml").write_text(self._disk_manifest(), encoding="utf-8")
+            manifest = ProjectManifestV2(version=2, project=ProjectInfoV2(id="p", name="p"))
+            assert set(self._LIST_FIELDS).isdisjoint(manifest.model_fields_set)
+            write_v2_full_config(FullConfigV2Request(manifest=manifest), tmpdir)
+
+            saved = yaml.safe_load((root / "project.precis.yaml").read_text(encoding="utf-8"))
+            for field in self._LIST_FIELDS:
+                refs = saved.get(field) or []
+                assert len(refs) == 1, f"{field} 引用被清空：{refs}"
+
+    def test_directory_scan_revives_for_empty_existing(self):
+        """扫描防线复活：existing 与 payload 均未提供 schemas，但磁盘 schemas/ 目录有文件 → 自动发现"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "schemas").mkdir()
+            (root / "schemas" / "scanned.schema.yaml").write_text(
+                "version: 2\nid: scanned\nname: scanned\ncolumns: []\n", encoding="utf-8"
+            )
+            (root / "project.precis.yaml").write_text(
+                "version: 2\nproject:\n  id: p\n  name: p\nschemas: []\nconstraints: []\nregex_nodes: []\n",
+                encoding="utf-8",
+            )
+            manifest = ProjectManifestV2(version=2, project=ProjectInfoV2(id="p", name="p"))
+            write_v2_full_config(FullConfigV2Request(manifest=manifest), tmpdir)
+
+            saved = yaml.safe_load((root / "project.precis.yaml").read_text(encoding="utf-8"))
+            assert saved["schemas"] == [{"id": "scanned", "path": "schemas/scanned.schema.yaml"}]
+
+    def test_explicit_empty_templates_now_clears_disk_value(self):
+        """语义统一：payload 显式 templates: [] → 遵从清空意图（旧启发式强制保留）。
+
+        与 schemas/constraints 的既定语义对齐；清空应走模板专用端点的场景由前端保证。
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "project.precis.yaml").write_text(
+                "version: 2\n"
+                "project:\n"
+                "  id: p\n"
+                "  name: p\n"
+                "schemas: []\n"
+                "constraints: []\n"
+                "regex_nodes: []\n"
+                "templates:\n"
+                "  - id: disk_tmpl\n"
+                "    path: templates/disk_tmpl.template.yaml\n",
+                encoding="utf-8",
+            )
+            manifest = ProjectManifestV2(
+                version=2,
+                project=ProjectInfoV2(id="p", name="p"),
+                templates=[],
+                schemas=[],
+                constraints=[],
+                regex_nodes=[],
+            )
+            write_v2_full_config(FullConfigV2Request(manifest=manifest), tmpdir)
+
+            saved = yaml.safe_load((root / "project.precis.yaml").read_text(encoding="utf-8"))
+            assert saved.get("templates") in ([], None)
 
 
 if __name__ == "__main__":

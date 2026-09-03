@@ -94,20 +94,17 @@ def _merge_manifest_references(
     if _should_merge("settings") and existing is not None:
         final_manifest = final_manifest.model_copy(update={"settings": existing.settings})
 
-    # B-fix(templates 回滚防御): "另存为模板"等模板端点写入 manifest 的 templates /
-    # template_instances 引用必须被全量保存保留。此前缺失这两个分支——前端全量保存
-    # payload 不携带模板字段时，以 payload 的空列表为基准直接覆盖，模板引用被静默清空。
-    #
-    # 注意：这里不能复用 _should_merge 的 model_fields_set 判定——ProjectManifest 的
-    # _validate_unique_ids(mode="after") 会对所有列表字段就地重赋值，导致 payload.manifest
-    # 的 model_fields_set **总是**包含 templates/template_instances（实测见
-    # test_full_config_reliability），无法据此区分"未提供"。退而求其次：payload 中为
-    # 空列表即视为"客户端未携带"，从磁盘合并（宁保留不丢数据）。清空模板/实例应走
-    # manifest 的模板专用端点，而非全量保存传空列表。
-    if existing is not None and not final_manifest.templates:
+    # 回归(2026-09): templates/template_instances 并入统一 fields_set 防线。
+    # 此前因 _validate_unique_ids 就地重赋值污染 model_fields_set（列表字段恒被标记），
+    # fields_set 判定对列表字段全部失效，这两个字段只能退化为"空列表=未携带"启发式；
+    # 现校验器已改用 object.__setattr__ 不再污染 fields_set（纯净性守卫见
+    # test_full_config_reliability），本分支与其余列表字段走同一判定，启发式退役。
+    # 语义变化：payload 显式传 templates: [] 现在遵从"显式置空=清空意图"（旧启发式
+    # 会强制保留磁盘值）；与 schemas/constraints 等字段的既定语义对齐。
+    if _should_merge("templates") and existing is not None:
         final_manifest = final_manifest.model_copy(update={"templates": existing.templates})
 
-    if existing is not None and not final_manifest.template_instances:
+    if _should_merge("template_instances") and existing is not None:
         final_manifest = final_manifest.model_copy(update={"template_instances": existing.template_instances})
 
     # 目录扫描补充：仅对客户端"未显式设置"且当前为空的字段从磁盘发现文件，

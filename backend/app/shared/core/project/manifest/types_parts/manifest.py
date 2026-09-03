@@ -167,7 +167,11 @@ class ProjectManifest(BaseModel):
             else:
                 seen_schema_ids[schema.id] = schema
                 unique_schemas.append(schema)
-        self.schemas = unique_schemas
+        # 就地重赋值用 object.__setattr__ 绕开 fields_set 标记（回归: 普通赋值会把
+        # 字段加入 model_fields_set，令 PUT /config/full 的"未显式设置则保留磁盘值"
+        # 合并防线对全部列表字段失效——见 full_config_writer._should_merge 与
+        # test_full_config_reliability 的 fields_set 纯净性守卫）
+        object.__setattr__(self, "schemas", unique_schemas)
 
         seen_constraint_ids: dict[str, ConstraintRef] = {}
         unique_constraints: list[ConstraintRef] = []
@@ -180,7 +184,7 @@ class ProjectManifest(BaseModel):
             else:
                 seen_constraint_ids[constraint.id] = constraint
                 unique_constraints.append(constraint)
-        self.constraints = unique_constraints
+        object.__setattr__(self, "constraints", unique_constraints)
 
         seen_regex_ids: dict[str, RegexRef] = {}
         unique_regex_nodes: list[RegexRef] = []
@@ -191,7 +195,7 @@ class ProjectManifest(BaseModel):
             else:
                 seen_regex_ids[regex.id] = regex
                 unique_regex_nodes.append(regex)
-        self.regex_nodes = unique_regex_nodes
+        object.__setattr__(self, "regex_nodes", unique_regex_nodes)
 
         seen_transform_ids: dict[str, TransformRef] = {}
         unique_transforms: list[TransformRef] = []
@@ -204,7 +208,7 @@ class ProjectManifest(BaseModel):
             else:
                 seen_transform_ids[transform.id] = transform
                 unique_transforms.append(transform)
-        self.transforms = unique_transforms
+        object.__setattr__(self, "transforms", unique_transforms)
 
         # ManualData ID 去重
         seen_manual_data_ids: dict[str, ManualDataRef] = {}
@@ -216,7 +220,7 @@ class ProjectManifest(BaseModel):
             else:
                 seen_manual_data_ids[md.id] = md
                 unique_manual_data.append(md)
-        self.manual_data = unique_manual_data
+        object.__setattr__(self, "manual_data", unique_manual_data)
 
         seen_data_source_ids: dict[str, DataSourceRef] = {}
         unique_data_sources: list[DataSourceRef] = []
@@ -227,7 +231,7 @@ class ProjectManifest(BaseModel):
             else:
                 seen_data_source_ids[ds.id] = ds
                 unique_data_sources.append(ds)
-        self.data_sources = unique_data_sources
+        object.__setattr__(self, "data_sources", unique_data_sources)
 
         # 模板定义 ID 去重
         seen_template_ids: dict[str, TemplateRef] = {}
@@ -239,7 +243,7 @@ class ProjectManifest(BaseModel):
             else:
                 seen_template_ids[tmpl.id] = tmpl
                 unique_templates.append(tmpl)
-        self.templates = unique_templates
+        object.__setattr__(self, "templates", unique_templates)
 
         # 模板实例 ID 去重
         seen_instance_ids: dict[str, TemplateInstanceRef] = {}
@@ -255,11 +259,11 @@ class ProjectManifest(BaseModel):
             else:
                 seen_instance_ids[inst.id] = inst
                 unique_instances.append(inst)
-        self.template_instances = unique_instances
+        object.__setattr__(self, "template_instances", unique_instances)
 
         # 回归: 追加而非整体覆盖——文件里手写的 warnings 是用户的磁盘内容，
         # 覆盖赋值会在加载→保存 roundtrip 中把它从磁盘上抹掉。
         # 去重校验每次加载只在确有重复时产生新告警（重复引用已在上方被剔除，
         # 下次加载不再触发），因此追加不会随 roundtrip 无限增长。
-        self.warnings = list(self.warnings or []) + warnings
+        object.__setattr__(self, "warnings", list(self.warnings or []) + warnings)
         return self
