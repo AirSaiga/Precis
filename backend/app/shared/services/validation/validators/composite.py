@@ -146,8 +146,18 @@ class CompositeValidator(BaseValidator):
                     all_errors.extend(result.error_rows)
             except Exception as e:
                 logger.warning(f"Composite 子约束校验异常 ({validation_type}): {e}")
-                # 子约束异常视为失败，但不中断其他子约束
-                continue
+                # 子约束异常视为失败：计入 processed_count（防止"全部异常"落入下方
+                # processed_count==0 的空子约束分支被误判为通过），并生成占位错误行
+                # 参与 logic 聚合——all 语义下异常必须使整条约束失败。
+                processed_count += 1
+                sub_label = getattr(validation_type, "value", validation_type)
+                all_errors.append(
+                    {
+                        "row_index": 0,
+                        "cell_value": None,
+                        "error_message": f"子约束 {sub_label} 执行异常: {e}",
+                    }
+                )
 
         # 回归 D7: 存在未知子约束类型时上报配置错误,避免用户以为约束生效了实际全被跳过
         if unknown_types:

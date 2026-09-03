@@ -579,6 +579,17 @@ class DateLogicConstraint(Constraint):
                                 "message": "日期计算模式配置错误: calculation_type=days_diff 必须指定 target_value。",
                             }
                         )
+                else:
+                    # 回归: 缺少 target_column 必须报配置错误。原实现整段跳过静默零错误通过（fail-open），
+                    # 与同分支缺 target_value 的守卫（上方 else）及未知 calculation_type 守卫不对称。
+                    errors.append(
+                        {
+                            "error_type": "ConstraintConfigError",
+                            "table": self.table,
+                            "column": self.column,
+                            "message": "日期计算模式配置错误: calculation_type=days_diff 必须指定 target_column（参考列）。",
+                        }
+                    )
 
             else:
                 # 回归: 未识别的 calculation_type 必须报配置错误。原实现 age/days_diff

@@ -82,8 +82,12 @@ class CastTypeRunner(TransformRunner):
         """将单个值转换为布尔值。
 
         支持常见的布尔值字符串表示。
+        空值（None/NaN）透传为 None，不参与类型判定——与 string 分支的
+        `where(~isna, None)` 口径一致，避免 bool(nan)=True 把空值断言为 True。
         无法识别的值返回 None。
         """
+        if value is None or (isinstance(value, float) and value != value):
+            return None
         if isinstance(value, bool):
             return value
         if isinstance(value, (int, float)):

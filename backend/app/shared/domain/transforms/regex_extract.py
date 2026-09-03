@@ -17,7 +17,7 @@ from typing import Any
 
 import pandas as pd
 
-from .base import TransformRunner
+from .base import TransformRunner, stringify_preserve_null
 
 
 class RegexExtractRunner(TransformRunner):
@@ -55,14 +55,20 @@ class RegexExtractRunner(TransformRunner):
         if input_column not in df.columns:
             raise ValueError(f"输入列不存在: {input_column}")
 
+        # flags 整词匹配（与 regex 约束/reader 同一套 token 语义），不得子串包含
+        _flag_short_map = {"i": re.IGNORECASE, "m": re.MULTILINE, "s": re.DOTALL}
         flag_values = 0
-        if "i" in flags_str:
-            flag_values |= re.IGNORECASE
+        for tok in [t for t in re.split(r"[,\s]+", str(flags_str).strip()) if t]:
+            if all(ch in _flag_short_map for ch in tok.lower()):
+                for ch in tok.lower():
+                    flag_values |= _flag_short_map[ch]
 
         compiled = re.compile(pattern, flag_values)
-        series = df[input_column].astype(str)
 
-        def _extract(text: str) -> list[str | None]:
+        def _extract(text: str | None) -> list[str | None]:
+            if text is None:
+                # 空值不参与提取（原 astype(str) 把空值字符串化为 "nan" 参与匹配）
+                return [None] * len(output_columns)
             m = compiled.search(text)
             if not m:
                 return [None] * len(output_columns)
@@ -75,7 +81,7 @@ class RegexExtractRunner(TransformRunner):
                     result.append(None)
             return result
 
-        extracted = series.apply(_extract)
+        extracted = stringify_preserve_null(df[input_column]).apply(_extract)
         for i, col_name in enumerate(output_columns):
             df[col_name] = extracted.apply(lambda x: x[i] if x else None)
 

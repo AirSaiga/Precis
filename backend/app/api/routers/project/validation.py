@@ -80,6 +80,7 @@ def _resolve_table_filter_from_file_path(config_path: str, file_path: str) -> st
     responses={
         400: {"description": "请求参数错误"},
         404: {"description": "Manifest 不存在"},
+        422: {"description": "Manifest 损坏或无法解析"},
         500: {"description": "服务器内部错误"},
     },
 )
@@ -104,10 +105,21 @@ def validate_v2_full(
     if not os.path.isfile(manifest_path):
         raise HTTPException(status_code=404, detail=f"V2 清单文件未找到: {manifest_path}")
 
-    coverage_payload = None
+    # 清单读取与校验必须先于 coverage 计算独立失败（422，与 GET /manifest 同口径）：
+    # 原实现把清单损坏吞进 coverage 的 try/except 继续执行，返回 summary 全零的
+    # 200 空成功，前端只看 summary 会把"清单损坏"误读为"校验通过零错误"。
     try:
         manifest_data = read_yaml(Path(manifest_path))
         manifest_model = ProjectManifestV2.model_validate(manifest_data)
+    except Exception as e:
+        logger.error(f"[validate_v2_full] 项目清单损坏: {e}")
+        raise HTTPException(
+            status_code=422,
+            detail=f"项目清单文件损坏或为空，无法解析: {manifest_path}。请修复或回退 project.precis.yaml 后重试。（{e}）",
+        ) from e
+
+    coverage_payload = None
+    try:
         coverage_payload = coverage_to_api_dict(compute_manifest_coverage(config_path, manifest_model))
     except Exception as e:
         logger.warning(f"[validate_v2_full] 计算 coverage 失败: {e}")

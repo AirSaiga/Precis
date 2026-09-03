@@ -216,7 +216,9 @@ class TestCompositeConstraintFactory:
             },
         )
         constraint, error = create_constraint(const, schema_files)
-        assert error is None
-        assert constraint is not None
-        assert len(constraint.sub_constraints) == 1  # 嵌套 Composite 被跳过
-        assert isinstance(constraint.sub_constraints[0], NotNullConstraint)
+        # 回归 N1（2026-09）: 嵌套 Composite 属子约束非法 → 整条约束 fail-closed 跳过并
+        # 上报 error（进项目 warnings 对用户可见）。原实现静默跳过嵌套项、其余子约束
+        # 照常运行——复合语义在用户无感知下被改变。
+        assert constraint is None
+        assert error is not None
+        assert "嵌套" in error

@@ -26,7 +26,7 @@
         regex_nodes: dict[str, RegexNodeFileV2]
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.shared.core.project.constraint.types import ConstraintFileV2
 from app.shared.core.project.manifest.types import (
@@ -100,10 +100,17 @@ class DisplayNameUpdateRequest(BaseModel):
     - 用于提升用户体验，如给 "customer_table" 改为 "客户信息表"
 
     约束：
-    - name 不能为空字符串（由 Pydantic 验证）
+    - name 不能为空或纯空白（field_validator 拒绝，返回 422）
     """
 
     name: str = Field(..., description="新的展示名称")
+
+    @field_validator("name")
+    @classmethod
+    def _reject_blank(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("展示名称不能为空或纯空白")
+        return v
 
 
 class WorkspaceV2Item(BaseModel):

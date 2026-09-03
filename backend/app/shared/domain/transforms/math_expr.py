@@ -83,7 +83,12 @@ class MathExprRunner(TransformRunner):
         result_series = pd.Series(results, index=df.index)
 
         if output_type == "int":
-            df[output_col] = pd.to_numeric(result_series, errors="coerce").astype("Int64")
+            try:
+                df[output_col] = pd.to_numeric(result_series, errors="coerce").astype("Int64")
+            except (TypeError, ValueError):
+                # 小数结果（如 7 / 2）无法安全转可空整数，保留 float 结果；
+                # 原实现此处抛未捕获 TypeError，一行小数即炸整条转换。
+                df[output_col] = pd.to_numeric(result_series, errors="coerce")
         elif output_type == "float":
             df[output_col] = pd.to_numeric(result_series, errors="coerce")
         else:

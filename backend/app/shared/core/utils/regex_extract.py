@@ -34,13 +34,19 @@ def extract_columns_from_values(
              - match_count: 匹配成功数量
              - error_count: 匹配失败数量
     """
+    # flags 解析必须整词匹配，不得子串包含（"i" in "multiline" 为真会误开 IGNORECASE）。
+    # 与 core/project/regex/reader.py 的 _parse_regex_flags 保持同一套 token 语义：
+    # 短格式 "i"/组合 "im"/长格式 "ignorecase"，未知 token 整体忽略。
+    _flag_short_map = {"i": re.IGNORECASE, "m": re.MULTILINE, "s": re.DOTALL}
+    _flag_long_map = {"ignorecase": re.IGNORECASE, "multiline": re.MULTILINE, "dotall": re.DOTALL}
     flags = 0
-    if "i" in regex_flags.lower():
-        flags |= re.IGNORECASE
-    if "m" in regex_flags.lower():
-        flags |= re.MULTILINE
-    if "s" in regex_flags.lower():
-        flags |= re.DOTALL
+    for tok in [t for t in re.split(r"[,\s]+", str(regex_flags).strip()) if t]:
+        lowered = tok.lower()
+        if lowered in _flag_long_map:
+            flags |= _flag_long_map[lowered]
+        elif all(ch in _flag_short_map for ch in lowered):
+            for ch in lowered:
+                flags |= _flag_short_map[ch]
     if not case_sensitive:
         flags |= re.IGNORECASE
 

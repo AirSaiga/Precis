@@ -21,7 +21,7 @@ from typing import Any
 
 import pandas as pd
 
-from .base import TransformRunner
+from .base import TransformRunner, stringify_preserve_null
 
 
 class WeightedSumRunner(TransformRunner):
@@ -76,6 +76,9 @@ class WeightedSumRunner(TransformRunner):
                     continue
             return total
 
-        df[output_col] = df[input_column].astype(str).apply(_weighted_sum)
+        # 空值透传为 None，不把 "nan" 求和成 0
+        df[output_col] = stringify_preserve_null(df[input_column]).apply(
+            lambda s: None if s is None else _weighted_sum(s)
+        )
 
         return df

@@ -55,25 +55,18 @@ def save_schema(schema: TableSchemaFile, schema_path: str | Path) -> None:
     :param schema_path: 保存路径，可以是相对路径或绝对路径
     :raises IOError: 文件写入失败时抛出
     """
-    # 步骤1：将 Pydantic 模型序列化为字典
-    # model_dump() 会包含所有字段，包括默认值
-    data = schema.model_dump()
+    # 步骤1：将 Pydantic 模型序列化为字典（exclude_none 与其余 writer 对齐）
+    data = schema.model_dump(exclude_none=True)
 
-    # 步骤2：按重要程度重新组织字段顺序
-    # 核心字段放在前面，提升 YAML 可读性
-    ordered = {
-        # L1 - 核心字段（用户最常编辑）
-        "name": data["name"],  # 表名，核心标识
-        "source": data.get("source"),  # 数据源配置
-        "columns": data.get("columns", []),  # 列定义列表
-        # L2 - 可选配置（通过 _internal）
-        "version": data["version"],  # 配置版本号
-        "id": data["id"],  # 表唯一标识
-        "_internal": data.get("_internal", {}),  # 内部元数据
-    }
-
-    # source 已包含完整的 sheet 信息，无需从 ID 提取
-    # 旧版从 ID 解码 sheet 的逻辑已移除
+    # 步骤2：按重要程度重排字段，剩余字段全量保留。
+    # 回归: 原固定白名单只挑 6 个键，会把 TableSchemaFile 的 sheet/constraints/
+    # script_checks 等字段在保存时静默丢弃（内嵌约束 roundtrip 即消失）——
+    # 与 regex/writer 的"全量保留+重排"修复模式对齐，新增字段不再被白名单吞掉。
+    ordered: dict = {}
+    for key in ("name", "source", "columns", "version", "id"):
+        if key in data:
+            ordered[key] = data.pop(key)
+    ordered.update(data)
 
     # 步骤4：调用底层 YAML 写入工具
     write_yaml_atomic(Path(schema_path), ordered)

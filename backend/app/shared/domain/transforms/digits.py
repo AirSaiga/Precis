@@ -19,7 +19,7 @@ from typing import Any
 
 import pandas as pd
 
-from .base import TransformRunner
+from .base import TransformRunner, stringify_preserve_null
 
 
 class DigitsRunner(TransformRunner):
@@ -54,6 +54,9 @@ class DigitsRunner(TransformRunner):
         output_col = output_columns[0] if output_columns else "digits"
 
         # 将每个字符用逗号连接，保持行数不变
-        df[output_col] = df[input_column].astype(str).apply(lambda x: ",".join(list(x)))
+        # 空值透传为 None，不产生 "nan" 拆位
+        df[output_col] = stringify_preserve_null(df[input_column]).apply(
+            lambda s: None if s is None else ",".join(list(s))
+        )
 
         return df

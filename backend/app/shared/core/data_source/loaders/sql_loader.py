@@ -55,20 +55,23 @@ _ENGINE_CACHE_MAX = 8
 _engine_cache: OrderedDict[str, Any] = OrderedDict()
 _engine_cache_lock = threading.Lock()
 
-# 危险的 SQL 关键字，用于拒绝潜在的注入攻击（B20）
-_DANGEROUS_SQL_KEYWORDS = (
-    "drop ",
-    "delete ",
-    "insert ",
-    "update ",
-    "create ",
-    "alter ",
-    "truncate ",
-    "grant ",
-    "revoke ",
-    "exec ",
-    "execute ",
-    "union ",
+# 危险的 SQL 关键字，用于拒绝潜在的注入攻击（B20）。
+# 词级关键字按 \b 词边界匹配（列名 last_update 不再误杀）；符号类按子串匹配。
+_WORD_BOUNDARY_SQL_KEYWORDS = (
+    "drop",
+    "delete",
+    "insert",
+    "update",
+    "create",
+    "alter",
+    "truncate",
+    "grant",
+    "revoke",
+    "exec",
+    "execute",
+    "union",
+)
+_SUBSTRING_SQL_KEYWORDS = (
     "--",
     "/*",
     "*/",
@@ -174,11 +177,20 @@ class SQLLoader(DataSourceLoader["SQLSourceSpec"]):
                 self.spec,
             )
 
-        # 拒绝危险关键字
-        for keyword in _DANGEROUS_SQL_KEYWORDS:
-            if keyword in lower:
+        # 拒绝危险关键字。
+        # 词级关键字（drop/update 等）按词边界匹配：子串匹配会把列名 last_update
+        # （含 "update "）误判为危险语句。_ 是词字符，\b 不在其前，故 last_update 放行、
+        # 独立的 UPDATE 仍拒绝。符号类（--、/*、*/）无词边界概念，保持子串匹配。
+        for keyword in _WORD_BOUNDARY_SQL_KEYWORDS:
+            if re.search(rf"\b{keyword}\b", lower):
                 raise DataLoadError(
-                    f"SQL 查询包含危险关键字 '{keyword.strip()}'，已被拒绝",
+                    f"SQL 查询包含危险关键字 '{keyword}'，已被拒绝",
+                    self.spec,
+                )
+        for symbol in _SUBSTRING_SQL_KEYWORDS:
+            if symbol in lower:
+                raise DataLoadError(
+                    f"SQL 查询包含危险特征 '{symbol}'，已被拒绝",
                     self.spec,
                 )
 

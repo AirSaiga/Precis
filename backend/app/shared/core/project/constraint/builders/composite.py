@@ -28,7 +28,8 @@ def build_composite(inp: BuilderInput) -> BuilderResult:
     for sub_cfg in sub_configs:
         sub_type = normalize_constraint_type(sub_cfg.get("type", ""))
         if sub_type == "Composite":
-            # 禁止递归嵌套 Composite
+            # 禁止递归嵌套 Composite；计入子错误而非静默跳过
+            sub_errors.append("不允许嵌套 Composite 子约束")
             continue
         # 使用 model_validate 正常构造（执行 Pydantic 校验），
         # 过去用 model_construct 跳过校验导致非法子约束被静默接受
@@ -47,8 +48,12 @@ def build_composite(inp: BuilderInput) -> BuilderResult:
         # sub_error 为 None 且 sub_constraint 为 None：未启用，正常跳过
 
     if sub_errors:
-        # 子错误聚合为一条警告，随主约束返回（通过 warnings 机制向上传播）
+        # 存在任何子错误即整条复合约束构建失败（fail-closed）：复合是 all-or-nothing
+        # 的逻辑单元，缺一个子约束都会改变语义（all 少一项 → 假通过；any 多一项 → 假失败）。
+        # 返回 error 交由工厂跳过该约束并写入项目 warnings，对用户可见。
+        # 原实现仅 logger.warning 且返回空 sub_constraints——约束静默空过、客户端不可见。
         logger.warning(f"Composite 约束 '{inp.const_id}' 子约束存在错误: {'; '.join(sub_errors)}")
+        return {}, f"子约束配置非法已跳过整条约束: {'; '.join(sub_errors)}"
 
     return {
         "sub_constraints": sub_constraints,

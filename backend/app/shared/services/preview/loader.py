@@ -33,6 +33,7 @@ import logging
 import pandas as pd
 
 from app.shared.core.data_source.loaders import load_source_data
+from app.shared.core.data_source.loaders.excel_loader import get_excel_sheet_names
 from app.shared.core.data_source.specs.csv_source import CSVSourceSpec
 from app.shared.core.data_source.specs.excel_source import ExcelSourceSpec
 from app.shared.core.data_source.specs.json_source import JSONSourceSpec
@@ -81,10 +82,10 @@ def load_preview_data(
         )
         df = load_source_data(spec)
 
-        # 额外打开 Excel 文件以获取所有工作表名称，供前端切换展示
-        excel_file = pd.ExcelFile(file_path, engine="openpyxl")
-        sheet_names = excel_file.sheet_names
-        excel_file.close()
+        # 额外读取全部工作表名称，供前端切换展示。
+        # 引擎按扩展名自适应（.xls→xlrd），句柄在助手内确保关闭——
+        # 原实现硬编码 openpyxl 且依赖此处 close，曾致 .xls 必炸/句柄泄漏。
+        sheet_names = get_excel_sheet_names(file_path)
 
         return df, sheet_names
 

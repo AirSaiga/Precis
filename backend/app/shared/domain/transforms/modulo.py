@@ -57,6 +57,11 @@ class ModuloRunner(TransformRunner):
         output_col = output_columns[0] if output_columns else "modulo_result"
 
         df[output_col] = pd.to_numeric(df[input_column], errors="coerce") % divisor
-        df[output_col] = df[output_col].astype("Int64")
+        try:
+            df[output_col] = df[output_col].astype("Int64")
+        except (TypeError, ValueError):
+            # 小数余数（如 2.5 % 2 = 0.5）无法安全转可空整数，保留 float 结果；
+            # 原实现此处抛未捕获 TypeError，一行小数即炸整条转换。
+            pass
 
         return df

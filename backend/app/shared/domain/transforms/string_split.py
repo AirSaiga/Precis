@@ -17,7 +17,7 @@ from typing import Any
 
 import pandas as pd
 
-from .base import TransformRunner
+from .base import TransformRunner, stringify_preserve_null
 
 
 class StringSplitRunner(TransformRunner):
@@ -52,7 +52,8 @@ class StringSplitRunner(TransformRunner):
         if input_column not in df.columns:
             raise ValueError(f"输入列不存在: {input_column}")
 
-        series = df[input_column].astype(str)
+        # 空值透传为 None：原 astype(str) 把空值字符串化为 "nan" 参与切分
+        series = stringify_preserve_null(df[input_column])
 
         if maxsplit == -1:
             split_df = series.str.split(delimiter, expand=True)

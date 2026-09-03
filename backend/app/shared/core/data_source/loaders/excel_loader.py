@@ -44,6 +44,32 @@ from .registry import register_loader
 
 logger = logging.getLogger(__name__)
 
+# 扩展名 → 唯一可用引擎：.xls 仅 xlrd 支持、.xlsx/.xlsm 仅 openpyxl 支持
+# （xlrd>=2.0 已移除 .xlsx 支持，openpyxl 从不支持 .xls）
+_ENGINE_BY_SUFFIX = {".xls": "xlrd", ".xlsx": "openpyxl", ".xlsm": "openpyxl"}
+
+
+def resolve_excel_engine(file_path: str) -> str:
+    """按文件扩展名解析 Excel 读取引擎（.xls→xlrd、.xlsx/.xlsm→openpyxl）。
+
+    供仅需引擎名的场景（如读取工作表列表）使用，与 ExcelLoader 的
+    _effective_engine 共用同一份映射，保证两处引擎选择永不漂移。
+    """
+    return _ENGINE_BY_SUFFIX.get(Path(file_path).suffix.lower(), "openpyxl")
+
+
+def get_excel_sheet_names(file_path: str) -> list[str]:
+    """读取 Excel 文件的全部工作表名，引擎按扩展名自适应，句柄确保关闭。
+
+    供预览等只需工作表列表的场景使用。预览路由曾各自硬编码 openpyxl 导致
+    .xls 必然 500，且 ExcelFile 打开后未 close 使 Windows 下数据文件被锁定。
+    """
+    excel_file = pd.ExcelFile(file_path, engine=resolve_excel_engine(file_path))
+    try:
+        return list(excel_file.sheet_names)
+    finally:
+        excel_file.close()
+
 
 @register_loader("excel")
 class ExcelLoader(DataSourceLoader[ExcelSourceSpec]):
@@ -60,10 +86,6 @@ class ExcelLoader(DataSourceLoader[ExcelSourceSpec]):
 
     spec_class = ExcelSourceSpec
 
-    # 扩展名 → 唯一可用引擎：.xls 仅 xlrd 支持、.xlsx/.xlsm 仅 openpyxl 支持
-    # （xlrd>=2.0 已移除 .xlsx 支持，openpyxl 从不支持 .xls）
-    _ENGINE_BY_SUFFIX = {".xls": "xlrd", ".xlsx": "openpyxl", ".xlsm": "openpyxl"}
-
     def _effective_engine(self) -> str:
         """
         @methoddesc 按文件扩展名解析实际读取引擎，与 spec.engine 不符时以扩展名为准
@@ -74,7 +96,7 @@ class ExcelLoader(DataSourceLoader[ExcelSourceSpec]):
           引擎与扩展名唯一对应，冲突时按扩展名纠正并提示，避免必然失败的组合。
         - 无扩展名（或不识别的扩展名）时尊重 spec.engine 原值。
         """
-        expected = self._ENGINE_BY_SUFFIX.get(Path(self.spec.path).suffix.lower())
+        expected = _ENGINE_BY_SUFFIX.get(Path(self.spec.path).suffix.lower())
         if expected and expected != self.spec.engine:
             logger.info(
                 "引擎配置（%s）与文件扩展名不符，已按扩展名使用 %s: %s",
@@ -362,7 +384,8 @@ class ExcelLoader(DataSourceLoader[ExcelSourceSpec]):
             return errors
 
         ext = path.suffix.lower()
-        if ext not in [".xlsx", ".xls"]:
+        # 与 _ENGINE_BY_SUFFIX/加载路径同口径：.xlsm 同为 openpyxl 可读格式
+        if ext not in [".xlsx", ".xls", ".xlsm"]:
             errors.append(f"不支持的 Excel 格式: {ext}")
 
         size_mb = path.stat().st_size / (1024 * 1024)

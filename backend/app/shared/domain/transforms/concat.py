@@ -17,7 +17,7 @@ from typing import Any
 
 import pandas as pd
 
-from .base import TransformRunner
+from .base import TransformRunner, stringify_preserve_null
 
 
 class ConcatRunner(TransformRunner):
@@ -75,13 +75,14 @@ class ConcatRunner(TransformRunner):
 
         # 执行拼接
         if len(column_list) == 1:
-            # 单列情况：直接复制
-            df[output_col] = df[column_list[0]].astype(str)
+            # 单列情况：直接复制（空值透传为 None，不产生 "nan"/"None" 字面量）
+            df[output_col] = stringify_preserve_null(df[column_list[0]])
         else:
-            # 多列情况：向量化拼接
-            str_cols = df[column_list].astype(str)
-            df[output_col] = str_cols.iloc[:, 0]
-            for col_name in str_cols.columns[1:]:
-                df[output_col] = df[output_col] + separator + str_cols[col_name]
+            # 多列情况：向量化拼接。任一源单元格为空 → 结果为 None
+            # （对齐 SQL CONCAT 的 NULL 语义），避免 astype(str) 拼出 "x-None" 之类的污染值
+            null_mask = df[column_list].isna().any(axis=1)
+            joined = df[column_list].astype(str).agg(separator.join, axis=1)
+            joined = joined.where(~null_mask, None)
+            df[output_col] = joined
 
         return df

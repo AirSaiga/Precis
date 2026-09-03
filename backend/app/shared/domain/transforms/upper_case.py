@@ -14,7 +14,7 @@ from typing import Any
 
 import pandas as pd
 
-from .base import TransformRunner
+from .base import TransformRunner, stringify_preserve_null
 
 
 class UpperCaseRunner(TransformRunner):
@@ -50,6 +50,6 @@ class UpperCaseRunner(TransformRunner):
             raise ValueError("UpperCase 需要至少一个 output_columns")
 
         output_col = output_columns[0]
-        df[output_col] = df[input_column].astype(str).str.upper()
+        df[output_col] = stringify_preserve_null(df[input_column]).str.upper()
 
         return df

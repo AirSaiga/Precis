@@ -25,6 +25,7 @@ import time
 import pandas as pd
 from fastapi import HTTPException
 
+from app.shared.core.data_source.loaders.excel_loader import get_excel_sheet_names
 from app.shared.services.preview.loader import load_preview_data
 
 logger = logging.getLogger(__name__)
@@ -117,9 +118,9 @@ def preview_from_path(
     if file_type == "excel":
         try:
             if sheet_name is None:
-                excel_file = pd.ExcelFile(file_path, engine="openpyxl")
-                sheet_name = excel_file.sheet_names[0] if excel_file.sheet_names else "Sheet1"
-                excel_file.close()
+                # 引擎按扩展名自适应（.xls→xlrd）、句柄在助手内确保关闭
+                sheets = get_excel_sheet_names(file_path)
+                sheet_name = sheets[0] if sheets else "Sheet1"
 
             df, sheet_names = load_preview_data(
                 file_path=file_path,
@@ -191,9 +192,9 @@ def preview_from_content(
 
         if file_type == "excel":
             try:
-                excel_file = pd.ExcelFile(tmp_path, engine="openpyxl")
-                actual_sheet = sheet_name or (excel_file.sheet_names[0] if excel_file.sheet_names else "Sheet1")
-                excel_file.close()
+                # 引擎按扩展名自适应（.xls→xlrd）、句柄在助手内确保关闭
+                sheets = get_excel_sheet_names(tmp_path)
+                actual_sheet = sheet_name or (sheets[0] if sheets else "Sheet1")
 
                 df, sheet_names = load_preview_data(
                     file_path=tmp_path,

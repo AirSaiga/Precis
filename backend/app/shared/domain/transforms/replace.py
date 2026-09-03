@@ -17,7 +17,7 @@ from typing import Any
 
 import pandas as pd
 
-from .base import TransformRunner
+from .base import TransformRunner, stringify_preserve_null
 
 
 class ReplaceRunner(TransformRunner):
@@ -57,7 +57,8 @@ class ReplaceRunner(TransformRunner):
             raise ValueError("Replace 需要至少一个 output_columns")
 
         output_col = output_columns[0]
-        series = df[input_column].astype(str)
+        # 空值透传为 None，替换不作用于空值
+        series = stringify_preserve_null(df[input_column])
 
         if count == -1:
             df[output_col] = series.str.replace(old, new, regex=False)

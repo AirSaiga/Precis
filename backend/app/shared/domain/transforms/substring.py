@@ -22,7 +22,7 @@ from typing import Any
 
 import pandas as pd
 
-from .base import TransformRunner
+from .base import TransformRunner, stringify_preserve_null
 
 
 class SubstringRunner(TransformRunner):
@@ -71,6 +71,7 @@ class SubstringRunner(TransformRunner):
             else:
                 return s[_start:]
 
-        df[output_col] = df[input_column].astype(str).apply(_substring)
+        # 空值透传为 None：None 不进入切片（原 astype(str) 会切出 "nan" 片段）
+        df[output_col] = stringify_preserve_null(df[input_column]).apply(lambda s: None if s is None else _substring(s))
 
         return df

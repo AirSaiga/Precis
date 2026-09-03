@@ -257,5 +257,9 @@ class ProjectManifest(BaseModel):
                 unique_instances.append(inst)
         self.template_instances = unique_instances
 
-        self.warnings = warnings
+        # 回归: 追加而非整体覆盖——文件里手写的 warnings 是用户的磁盘内容，
+        # 覆盖赋值会在加载→保存 roundtrip 中把它从磁盘上抹掉。
+        # 去重校验每次加载只在确有重复时产生新告警（重复引用已在上方被剔除，
+        # 下次加载不再触发），因此追加不会随 roundtrip 无限增长。
+        self.warnings = list(self.warnings or []) + warnings
         return self

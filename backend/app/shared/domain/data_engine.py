@@ -110,6 +110,15 @@ def _map_json_path_columns(df: pd.DataFrame, table_schema: TableSchema) -> pd.Da
     return df
 
 
+def _fillna_dict(col: pd.Series) -> pd.Series:
+    """将 JSON 列中的空值（NaN/None）替换为空 dict，供 json_normalize 展开为全空行。
+
+    说明: 不能用 fillna({})——Series.fillna 把 dict 参数按"索引标签→值"映射解释，
+    空 dict 什么都填不上，空值原样残留后进入 json_normalize 会产生垃圾行为。
+    """
+    return col.where(col.notna(), {})
+
+
 def _expand_structured_columns(df: pd.DataFrame, table_schema: TableSchema) -> pd.DataFrame:
     """
     展开结构化列（JSON 列）。
@@ -155,11 +164,13 @@ def _expand_structured_columns(df: pd.DataFrame, table_schema: TableSchema) -> p
             if not col_schema.children:
                 continue
             child_names = [child.name for child in col_schema.children]
-            normalized_data = pd.json_normalize(df_to_process[col_name].fillna({}).tolist())
+            normalized_data = pd.json_normalize(_fillna_dict(df_to_process[col_name]).tolist())
             normalized_data = normalized_data.reindex(columns=child_names)
             normalized_data = normalized_data.add_prefix(f"{col_name}_")
         else:
-            normalized_data = pd.json_normalize(df_to_process[col_name].fillna({}).tolist()).add_prefix(f"{col_name}_")
+            normalized_data = pd.json_normalize(_fillna_dict(df_to_process[col_name]).tolist()).add_prefix(
+                f"{col_name}_"
+            )
 
         # 删除原始的 JSON 列，避免列名冲突
         df_to_process = df_to_process.drop(columns=[col_name])

@@ -25,6 +25,7 @@ import pandas as pd
 from fastapi import HTTPException
 
 from app.api.routers.preview.models import FilePathPreviewRequest, FilePreviewResponse, SheetSwitchRequest
+from app.shared.core.data_source.loaders.excel_loader import get_excel_sheet_names
 from app.shared.core.data_source.loaders.extractor import JSONPathExtractor
 from app.shared.core.data_source.loaders.strategies import get_parser
 from app.shared.services.preview.loader import load_preview_data
@@ -108,8 +109,9 @@ def preview_file_by_path(request: FilePathPreviewRequest):
 
         if file_type == "excel":
             try:
-                excel_file = pd.ExcelFile(file_path, engine="openpyxl")
-                sheet_names = excel_file.sheet_names
+                # 工作表列表读取：引擎按扩展名自适应（.xls→xlrd）、句柄确保关闭。
+                # 原实现硬编码 openpyxl 且从不 close——.xls 必然 500、Windows 下数据文件被锁。
+                sheet_names = get_excel_sheet_names(file_path)
 
                 if sheet_name:
                     if sheet_name in sheet_names:
@@ -124,7 +126,7 @@ def preview_file_by_path(request: FilePathPreviewRequest):
 
                 logger.info(f"[PREVIEW] 工作表列表: {sheet_names}, 当前工作表: {current_sheet}")
 
-                df, sheet_names = load_preview_data(
+                df, loaded_sheet_names = load_preview_data(
                     file_path=file_path,
                     file_type="excel",
                     max_rows=max_rows,
@@ -147,7 +149,7 @@ def preview_file_by_path(request: FilePathPreviewRequest):
                     file_name=file_name,
                     total_rows=len(df),
                     total_cols=len(data[0]) if data else 0,
-                    sheets=sheet_names,
+                    sheets=loaded_sheet_names,
                     current_sheet=current_sheet,
                 )
 

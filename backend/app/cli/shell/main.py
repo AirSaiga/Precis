@@ -155,7 +155,10 @@ class CLIShell:
                 exit_code = self._execute_line(executor, input_line)
 
                 if exit_code != 0:
-                    return exit_code
+                    # _execute_line 的非 0 仅是 should_exit 的循环哨兵（用户主动 exit），
+                    # 属正常退出——进程退出码必须为 0，与 qq/EOF 路径一致。
+                    # 原实现把哨兵透传为进程退出码，脚本化 `echo exit | precis` 会被误判为失败。
+                    return 0
 
             except KeyboardInterrupt:
                 print()

@@ -270,6 +270,11 @@ def _fk_datasets_builder(df, column, kwargs):
 def _fk_pre_check(df, column, kwargs):
     if not kwargs.get("target_table") or not kwargs.get("target_column"):
         return "外键校验缺少目标表或目标列配置"
+    # target_values 缺失（键不存在或为 None）属于配置不完整：若按空目标表处理，
+    # 所有行都会被误报为外键冲突（数据错误），误导用户去修数据而非修配置。
+    # 注意区分：显式传入空列表 [] 是合法语义（目标表确认为空 → 全部冲突）。
+    if kwargs.get("target_values") is None:
+        return "外键校验缺少目标值列表（target_values）"
     if column not in df.columns:
         return f"列 '{column}' 不存在"
     return None
