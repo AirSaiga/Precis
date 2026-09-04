@@ -259,12 +259,20 @@ export function createV2ImportToCanvas(params: {
     kind: ProjectResourceKind,
     resourceId: string,
     position: { x: number; y: number },
-    options?: { includeDeps?: boolean; moveIfExists?: boolean; skipRelatedConstraints?: boolean }
+    options?: {
+      includeDeps?: boolean
+      moveIfExists?: boolean
+      skipRelatedConstraints?: boolean
+      /** 导入前是否压入撤销快照（默认 true）；启动水合等后台补齐应传 false，
+       * 否则用户打开项目后 Ctrl+Z 撤掉的是水合节点而非自己的操作 */
+      recordHistory?: boolean
+    }
   ): Promise<string | null> {
     const normalizedKind: ProjectResourceKind =
       kind === 'pattern' || kind === 'regex_node' ? 'regex' : kind
     const includeDeps = options?.includeDeps !== false
     const moveIfExists = options?.moveIfExists === true
+    const recordHistory = options?.recordHistory !== false
 
     const existing = nodes.value.find((n) => n.id === resourceId)
     if (existing) {
@@ -283,8 +291,11 @@ export function createV2ImportToCanvas(params: {
     }
 
     try {
-      // 导入前压入撤销快照（幂等早退已排除，此后必然产生画布变更）
-      saveState?.()
+      // 导入前压入撤销快照（幂等早退已排除，此后必然产生画布变更）；
+      // 后台补齐类导入（recordHistory=false）不入撤销栈，避免污染用户撤销历史
+      if (recordHistory) {
+        saveState?.()
+      }
 
       if (kind === 'pattern') {
         return await importPattern(resourceId, position, getEffectiveProjectConfigPath)
@@ -574,16 +585,41 @@ export function createV2ImportToCanvas(params: {
         view = undefined
       }
 
-      let fallbackIdx = 0
-      const fallbackPos = () => ({
-        x: 120 + (fallbackIdx % 5) * 380,
-        y: 160 + Math.floor(fallbackIdx / 5) * 240,
-      })
+      // fallback 双尺寸网格：view.json 没有保存坐标的实体按确定性网格铺开。
+      // - schema 用大单元（820×880）：其内嵌约束物化时固定落在（右 420、下
+      //   idx*160）的邻带（IMPORT_COLUMN_OFFSET_X 与行进 160），单元预留该物化
+      //   区，否则物化约束会压进相邻单元（2026-09-04 CI E2E 实证）。
+      // - 其余类型用小单元（440×440），排在 schema 区块下方。
+      // 该路径仅在"快照存在但个别实体缺坐标"时兜底（首开无快照不会走到水合），
+      // 缺失条目数量少，网格跨度有限，配合加载适配的自动取景即可完整框入视口。
+      const SCHEMA_CELL = { w: 820, h: 880 }
+      const SCHEMA_COLS = 4
+      const SMALL_CELL = { w: 440, h: 440 }
+      const SMALL_COLS = 10
+      const GRID_ORIGIN = { x: 120, y: 320 }
+      let schemaCellCount = 0
+      let smallCellCount = 0
+      const fallbackSchemaPos = () => {
+        const i = schemaCellCount++
+        return {
+          x: GRID_ORIGIN.x + (i % SCHEMA_COLS) * SCHEMA_CELL.w,
+          y: GRID_ORIGIN.y + Math.floor(i / SCHEMA_COLS) * SCHEMA_CELL.h,
+        }
+      }
+      const smallBlockOriginY = () =>
+        GRID_ORIGIN.y + Math.ceil(schemaCellCount / SCHEMA_COLS) * SCHEMA_CELL.h
+      const fallbackSmallPos = () => {
+        const i = smallCellCount++
+        return {
+          x: GRID_ORIGIN.x + (i % SMALL_COLS) * SMALL_CELL.w,
+          y: smallBlockOriginY() + Math.floor(i / SMALL_COLS) * SMALL_CELL.h,
+        }
+      }
       const exists = (id: string) => nodes.value.some((n) => n.id === id)
-      const posFor = (id: string) => {
+      const posFor = (kind: string, id: string) => {
         const saved = view?.nodes?.[id]
         if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') return saved
-        return fallbackPos()
+        return kind === 'schema' ? fallbackSchemaPos() : fallbackSmallPos()
       }
 
       let hydrated = 0
@@ -592,17 +628,29 @@ export function createV2ImportToCanvas(params: {
         includeDeps: false,
         moveIfExists: false,
         skipRelatedConstraints: true,
+        // 启动期后台补齐：不入撤销栈、不抢选中（选中由下方逐次恢复）
+        recordHistory: false,
       } as const
+
+      // 导入路径会顺手把新节点设为选中（用户拖拽场景是合理反馈），但水合是
+      // 启动期的非用户交互补齐，抢走选中会让检查器跳到任意实体。逐次导入后
+      // 恢复导入前的选中，保证用户/测试在水合窗口期内的选中不被覆盖。
+      const selectedBeforeHydration = selectedNodeId.value
 
       for (const ref of manifest.schemas || []) {
         if (!ref?.id || exists(ref.id)) {
           skipped++
           continue
         }
-        const created = await importV2ResourceToCanvas('schema', ref.id, posFor(ref.id), importOpts)
+        const created = await importV2ResourceToCanvas(
+          'schema',
+          ref.id,
+          posFor('schema', ref.id),
+          importOpts
+        )
+        selectedNodeId.value = selectedBeforeHydration
         if (created) {
           hydrated++
-          fallbackIdx++
         } else skipped++
       }
 
@@ -614,12 +662,12 @@ export function createV2ImportToCanvas(params: {
         const created = await importV2ResourceToCanvas(
           'constraint',
           ref.id,
-          posFor(ref.id),
+          posFor('constraint', ref.id),
           importOpts
         )
+        selectedNodeId.value = selectedBeforeHydration
         if (created) {
           hydrated++
-          fallbackIdx++
         } else skipped++
       }
 
@@ -628,10 +676,15 @@ export function createV2ImportToCanvas(params: {
           skipped++
           continue
         }
-        const created = await importV2ResourceToCanvas('regex', ref.id, posFor(ref.id), importOpts)
+        const created = await importV2ResourceToCanvas(
+          'regex',
+          ref.id,
+          posFor('regex', ref.id),
+          importOpts
+        )
+        selectedNodeId.value = selectedBeforeHydration
         if (created) {
           hydrated++
-          fallbackIdx++
         } else skipped++
       }
 
@@ -643,12 +696,12 @@ export function createV2ImportToCanvas(params: {
         const created = await importV2ResourceToCanvas(
           'transform',
           ref.id,
-          posFor(ref.id),
+          posFor('transform', ref.id),
           importOpts
         )
+        selectedNodeId.value = selectedBeforeHydration
         if (created) {
           hydrated++
-          fallbackIdx++
         } else skipped++
       }
 
@@ -671,7 +724,7 @@ export function createV2ImportToCanvas(params: {
         const manualNode: CustomNode = {
           id,
           type: 'manualData',
-          position: posFor(id),
+          position: posFor('manualData', id),
           data: {
             configName: file.description || id,
             columnName: file.column_name,
@@ -684,7 +737,6 @@ export function createV2ImportToCanvas(params: {
         }
         addNodes([manualNode])
         hydrated++
-        fallbackIdx++
       }
 
       if (hydrated > 0) {

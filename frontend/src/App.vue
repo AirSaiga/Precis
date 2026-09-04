@@ -490,18 +490,20 @@
 
   onMounted(async () => {
     try {
-      // 项目路径失效监听须先于 bootstrap 注册（启动请求即可能发现死路径）
+      // 全局监听必须先于 bootstrap 注册：bootstrap 中的耗时步骤（如配置实体水合）
+      // 期间用户已可点击活动栏视图/等待快捷键，若等 bootstrap 完成才注册，
+      // 该窗口期内的事件（viewchange 等）会永久丢失（2026-09-04 CI E2E 实证：
+      // 水合 42 实体期间点击"项目资源"，Nav 本地视图已切而 App 层收不到事件，
+      // 侧栏永不切换）。各处理器均为纯状态操作，不依赖项目，提前注册安全。
+      // 项目路径失效监听同理（启动请求即可能发现死路径）。
       eventBus.on('project-path-invalid', handleProjectPathInvalid)
+      registerGlobalListeners()
 
       // 启动时补弹上次渲染进程崩溃的待处理记录(Electron 特有)
       // 放在 bootstrap 之前,确保即使 bootstrap 出错崩溃补弹仍有机会展示
       void feedbackStore.loadPendingFromMain()
 
       await bootstrap()
-
-      // 画布是唯一首屏：无激活项目时同样注册全局监听（各处理器均为纯状态操作，
-      // 不依赖项目），用户经状态栏/快捷键打开项目管理弹窗选择项目
-      registerGlobalListeners()
     } catch (error) {
       logger.error('初始化工作区失败:', error)
     }

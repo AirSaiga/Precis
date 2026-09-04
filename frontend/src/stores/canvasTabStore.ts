@@ -122,6 +122,12 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
   /** 当前激活的工作区 ID，null 表示无激活工作区 */
   const activeTabId = ref<string | null>(null)
 
+  /** 最近一次 loadTabs 是否从后端加载到已保存的工作区快照。
+   *  false = 首开（.precis/workspaces.json 不存在或为空）。启动期实体水合
+   *  （DEF-01 补齐快照丢掉的节点）只在 true 时执行——首开无快照时画布以
+   *  projectRoot 起步（资源树仍是实体索引），不做 72 节点级别的自动倾倒。 */
+  const lastLoadHadSavedWorkspaces = ref(false)
+
   // --- 计算属性 ---
 
   /** 当前激活的工作区对象，用于 UI 层读取标题、脏标记等 */
@@ -225,6 +231,7 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
     try {
       const data = await getV2Workspaces(configPath)
       if (data.workspaces && data.workspaces.length > 0) {
+        lastLoadHadSavedWorkspaces.value = true
         tabs.value = data.workspaces.map((w) => ({
           id: w.id,
           index: w.index,
@@ -238,11 +245,13 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
         }))
         activeTabId.value = data.activeWorkspaceId || tabs.value[0]?.id || null
       } else {
+        lastLoadHadSavedWorkspaces.value = false
         tabs.value = []
         activeTabId.value = null
       }
     } catch (e) {
       logger.error('[CanvasTabStore] 加载工作区失败:', e)
+      lastLoadHadSavedWorkspaces.value = false
       tabs.value = []
       activeTabId.value = null
     }
@@ -616,6 +625,7 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
     activeTabId,
     activeTab,
     unsavedTabsCount,
+    lastLoadHadSavedWorkspaces,
     initialize,
     createNewTab,
     setActiveTab,

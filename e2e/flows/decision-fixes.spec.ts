@@ -110,7 +110,12 @@ test.describe('三项决策修复回归', () => {
     // 先"整理节点"展开布局，再点击根节点上的 ↻ 重载按钮。
     // 慢环境（CI）下整理动画可持续数秒、按钮长期 not-stable——用重试点击
     // 等待布局稳定，固定等待 + 单次点击会超时。
-    await page.locator('button[title="整理节点"]').click().catch(() => {})
+    // e2e fixture 隐藏了画布 Controls 悬浮件（几何干扰源），organize 入口随之
+    // 隐藏；isVisible 即时守卫：可见才点击，不可见立即跳过。
+    const organizeBtn = page.locator('button[title="整理节点"]')
+    if (await organizeBtn.isVisible().catch(() => false)) {
+      await organizeBtn.click().catch(() => {})
+    }
     const reloadBtn = page.locator('.project-root-node button.btn-icon').first()
     await expect(async () => {
       await reloadBtn.click({ timeout: 4000 })

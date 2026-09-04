@@ -192,7 +192,11 @@ test.describe('快捷键命令集（G1）', () => {
     expect(before).toBeGreaterThanOrEqual(2)
 
     // fixture 的 templateInstance 可能叠在目标节点上，先整理布局
-    await page.locator('button[title="整理节点"]').click().catch(() => {})
+    // （e2e fixture 隐藏了画布 Controls 悬浮件，organize 入口随之隐藏；可见才点击）
+    const organizeBtn = page.locator('button[title="整理节点"]')
+    if (await organizeBtn.isVisible().catch(() => false)) {
+      await organizeBtn.click().catch(() => {})
+    }
     await page.waitForTimeout(1500)
 
     // 选中新建的 schema 节点（类型类名定位，避开 fixture 的 templateInstance）

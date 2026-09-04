@@ -98,7 +98,11 @@ test.describe('检查器渲染器交互', () => {
     await dragSchemaToCanvasSchemaOnly(page, 'users')
 
     // fixture 的 templateInstance 可能叠在目标节点上（拦截 hit-test），先整理布局
-    await page.locator('button[title="整理节点"]').click().catch(() => {})
+    // （e2e fixture 隐藏了画布 Controls 悬浮件，organize 入口随之隐藏；可见才点击）
+    const organizeBtn = page.locator('button[title="整理节点"]')
+    if (await organizeBtn.isVisible().catch(() => false)) {
+      await organizeBtn.click().catch(() => {})
+    }
     await page.waitForTimeout(1500)
 
     // 选中 schema 节点 → 检查器渲染结构定义区
@@ -142,7 +146,11 @@ test.describe('检查器渲染器交互', () => {
     expect(await page.locator('.vue-flow__node').count()).toBe(before + 1)
 
     // fixture 的 templateInstance 可能叠在目标节点上（拦截 hit-test），先整理布局
-    await page.locator('button[title="整理节点"]').click().catch(() => {})
+    // （e2e fixture 隐藏了画布 Controls 悬浮件，organize 入口随之隐藏；可见才点击）
+    const organizeBtn2 = page.locator('button[title="整理节点"]')
+    if (await organizeBtn2.isVisible().catch(() => false)) {
+      await organizeBtn2.click().catch(() => {})
+    }
     await page.waitForTimeout(1500)
 
     // 选中新建的 NotNull 约束节点（nodeType 类名，避免被 templateInstance 干扰）
@@ -172,12 +180,25 @@ test.describe('资源树批量操作', () => {
   test('长按进入多选 → 勾选两个 schema → 批量添加上画布', async ({ projectPage }) => {
     const page = projectPage
     await openResourceTreeWithSchemas(page)
+
+    // 启动水合（DEF-01）后 users/orders 已在画布上，批量添加幂等（计数不再增长）。
+    // 先删除这两个 schema 节点（close-btn 走官方级联删除，仅画布层），恢复
+    // "批量添加从无到有"的前提。
+    for (const name of ['users', 'orders']) {
+      const node = page.locator(`.vue-flow__node-schema[data-id="${name}"]`)
+      if ((await node.count()) > 0) {
+        await node.first().locator('.close-btn').click()
+        await expect(node).toHaveCount(0, { timeout: 10000 })
+      }
+    }
+    await page.waitForTimeout(800)
+
+    const before = await page.locator('.vue-flow__node').count()
+
     const usersRow = page
       .locator('.resource-tree .tree-row.file-row')
       .filter({ hasText: 'users' })
       .first()
-
-    const before = await page.locator('.vue-flow__node').count()
 
     // 长按 500ms+ 进入多选模式并选中首个资源
     const rowBox = await usersRow.boundingBox()

@@ -250,20 +250,6 @@ export function useAppBootstrap(): BootstrapResult {
     // 无项目时 initialize 内部只创建本地默认 Tab（不发请求）
     await canvasStore.initialize(projectStore.currentPaths?.configPath, graphStore)
 
-    // Step 3.5: DEF-01 修复——config 实体回显画布。
-    // workspaces 快照存在时机性丢节点问题，已保存到 config 的实体
-    // （schema/constraint/regex/transform/manualData）以 config 为事实源补齐画布节点，
-    // 否则用户感知为"保存成功但重开消失"。
-    // 必须在 canvasStore.initialize 之后（Vue Flow API 就绪）才可 addNodes；
-    // 幂等：画布上已有同 id 节点的实体自动跳过。失败不影响项目加载（内部捕获）。
-    if (graphStore.isProjectLoaded) {
-      try {
-        await graphStore.hydrateResourcesFromConfig()
-      } catch (e) {
-        logger.warn('[AppBootstrap] 实体水合失败（不阻塞启动）:', e)
-      }
-    }
-
     // Step 4: 初始化拖拽状态（资源树 → 画布的跨组件拖拽）
     dragStore.initializeDragState()
 
@@ -293,6 +279,32 @@ export function useAppBootstrap(): BootstrapResult {
     )
 
     logger.debug('[App] 键盘快捷键系统已启动')
+
+    // Step 6: DEF-01 修复——config 实体回显画布。
+    // workspaces 快照存在时机性丢节点问题，已保存到 config 的实体
+    // （schema/constraint/regex/transform/manualData）以 config 为事实源补齐画布节点，
+    // 否则用户感知为"保存成功但重开消失"。
+    // 必须在 canvasStore.initialize 之后（Vue Flow API 就绪）才可 addNodes；
+    // 幂等：画布上已有同 id 节点的实体自动跳过。失败不影响项目加载（内部捕获）。
+    // 放在 bootstrap 最后（键盘/监听就绪之后）：无快照首开时逐实体导入耗时数秒，
+    // 不得阻塞快捷键与全局事件系统上线（2026-09-04 CI E2E 实证）。
+    if (graphStore.isProjectLoaded) {
+      // 仅在存在已保存工作区快照时执行水合（DEF-01 场景：快照存在但时机性
+      // 丢节点，以 config 为事实源补齐）。首开无快照时不做实体倾倒：画布以
+      // projectRoot 起步，资源树仍是实体索引，用户按需拖入——否则数十个
+      // fallback 节点会压垮自动取景并长期占据主线程（2026-09-04 CI E2E 实证）。
+      if (canvasStore.lastLoadHadSavedWorkspaces) {
+        try {
+          const { hydrated } = await graphStore.hydrateResourcesFromConfig()
+          // 水合补齐的节点可能远超取景时的画布范围（适配 fitView 有 2.5s 硬上限，
+          // 只会框住水合中途的部分内容）。重新发出加载完成信号，让画布加载适配
+          // 覆盖水合后的完整内容自动取景。
+          if (hydrated > 0) canvasStore.markContentLoaded()
+        } catch (e) {
+          logger.warn('[AppBootstrap] 实体水合失败（不阻塞启动）:', e)
+        }
+      }
+    }
   }
 
   /**

@@ -106,7 +106,9 @@ test.describe('GUI 回归补充用例', () => {
 
   test('点击 projectRoot 节点：选中态出现且检查器显示项目信息', async ({ projectPage }) => {
     const page = projectPage
-    const rootNode = page.locator('.vue-flow__node').first()
+    // 用类型选择器精确定位 projectRoot：启动水合（DEF-01）后画布不再只有
+    // projectRoot 一个节点，`.vue-flow__node`.first() 可能命中的是别的节点
+    const rootNode = page.locator('.vue-flow__node-projectRoot').first()
     await expect(rootNode).toBeVisible({ timeout: 10000 })
 
     // 修复前：draggable=false 节点无 nopan class，点击被 d3-zoom 抑制，永不选中
@@ -126,6 +128,16 @@ test.describe('GUI 回归补充用例', () => {
     const schemasNested = await expandDataModelsRoot(page)
     await schemasNested.first().click()
     await page.waitForTimeout(500)
+
+    // 启动水合（DEF-01）已把 manifest 中的 orders 铺上画布——拖入已存在资源是
+    // 幂等操作（不再新增节点）。先删掉画布上的 orders（头部级联删除走官方清理链），
+    // 恢复"拖入新增"的前置条件，再验证撤销/重做。
+    const ordersNode = page.locator('.vue-flow__node-schema[data-id="orders"]')
+    if ((await ordersNode.count()) > 0) {
+      await ordersNode.first().locator('.close-btn').click()
+      await expect(ordersNode).toHaveCount(0, { timeout: 10000 })
+      await page.waitForTimeout(800)
+    }
 
     const before = await page.locator('.vue-flow__node').count()
 

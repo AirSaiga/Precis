@@ -201,9 +201,15 @@ test.describe('画布交互防回归（2026-08 修复批次回归锁）', () => 
 
     // 2. 工具箱创建独立 Conditional 节点，移到 Schema 正下方的空白区域
     //    （默认创建位置可能靠近右侧检查器面板，handle 落点会被面板遮挡导致连线失败）
+    //    注：启动水合（DEF-01）会把 fixture 自带的独立条件约束也铺上画布，
+    //    用"创建前计数 + nth 锁定新建节点"，不假设画布上只有一个条件约束。
+    const preExistingCond = await page.locator('.vue-flow__node-conditionalConstraint').count()
     await createConstraintFromToolbox(page, '条件约束')
-    const condNode = page.locator('.vue-flow__node-conditionalConstraint')
-    await expect(condNode).toHaveCount(1, { timeout: 5000 })
+    const condNode = page.locator('.vue-flow__node-conditionalConstraint').nth(preExistingCond)
+    await expect(page.locator('.vue-flow__node-conditionalConstraint')).toHaveCount(
+      preExistingCond + 1,
+      { timeout: 5000 }
+    )
     const schemaNode = page.locator('.vue-flow__node-schema').first()
     const schemaBox = await schemaNode.boundingBox()
     if (!schemaBox) throw new Error('schema 节点不存在')
@@ -248,7 +254,11 @@ test.describe('画布交互防回归（2026-08 修复批次回归锁）', () => 
     }).toPass({ timeout: 20000 })
   })
 
-  test('跨工作区 Tab 切换后 Ctrl+Z 不串味；重启后激活 Tab 画布恢复', async ({ projectPage }) => {
+  test('跨工作区 Tab 切换后 Ctrl+Z 不串味；重启后激活 Tab 画布恢复', async ({
+    projectPage,
+  }) => {
+    // 本用例含页面刷新 + 重载后水合（快照存在场景），链路长，放宽超时
+    test.setTimeout(60_000)
     const page = projectPage
 
     // 1. Tab 1 拖入 schema（产生撤销历史）
@@ -275,13 +285,19 @@ test.describe('画布交互防回归（2026-08 修复批次回归锁）', () => 
     await page.waitForTimeout(1200)
     expect(await countNodes(page)).toBe(afterAdd)
 
-    // 5. 回归锁：刷新重启后，激活 Tab（Tab 1）的上次画布被恢复而非仅 projectRoot
+    // 5. 回归锁：刷新重启后，激活 Tab（Tab 1）的上次画布被恢复而非仅 projectRoot。
+    // 注意：本次会话做过 Tab 操作后 workspaces.json 已落盘，重载时启动水合
+    // （DEF-01，快照存在场景）会把 manifest 实体补齐上画布，总节点数会高于
+    // 刷新前——回归锁只锁"Tab 1 自己的内容未被脏数据覆盖"：customers 仍在、
+    // 总数不少于刷新前。
     await page.reload()
     await expect(page.locator('.project-root-node')).toBeVisible({ timeout: 30000 })
     await closeInspectionDrawer(page)
     await page.waitForTimeout(1500)
-    expect(await countNodes(page)).toBe(afterAdd)
-    await expect(page.locator('.vue-flow__node-schema').first()).toBeVisible({ timeout: 10000 })
+    expect(await countNodes(page)).toBeGreaterThanOrEqual(afterAdd)
+    await expect(
+      page.locator('.vue-flow__node-schema[data-id="customers"]').first()
+    ).toBeVisible({ timeout: 10000 })
   })
 
   test('Ctrl+D 复制选中节点成功且可撤销（修复前必抛 DataCloneError）', async ({ projectPage }) => {
@@ -316,10 +332,20 @@ test.describe('画布交互防回归（2026-08 修复批次回归锁）', () => 
     await dragSchemaToCanvas(page, 'customers')
     await dragSchemaToCanvas(page, 'products')
     const schemas = page.locator('.vue-flow__node-schema')
-    await expect(schemas).toHaveCount(2, { timeout: 5000 })
-    const productsBox = await schemas.nth(1).boundingBox()
-    if (productsBox) {
-      await moveNodeTo(page, schemas.nth(1), Math.max(60, productsBox.x - 420), Math.max(60, productsBox.y - 220))
+    // 启动水合（DEF-01）后 manifest schema 已在画布上，拖入幂等（不再计数新增）。
+    // spawn 落点按保守估计尺寸避让，实际 schema 高大（列多），相邻落点会互相
+    // 压盖——把第二个节点挪到画布左下象限（按 pane 矩形相对定位，避开中央的
+    // 第一个节点、右侧检查器与底部状态栏）。
+    await expect(schemas.first()).toBeVisible({ timeout: 5000 })
+    expect(await schemas.count()).toBeGreaterThanOrEqual(2)
+    const paneBox = await page.locator('.vue-flow__pane').boundingBox()
+    if (paneBox) {
+      await moveNodeTo(
+        page,
+        schemas.nth(1),
+        paneBox.x + 30,
+        paneBox.y + paneBox.height * 0.6
+      )
     }
 
     // 普通点击 A 选中；Ctrl 按住点击 B 追加为多选。
@@ -334,11 +360,14 @@ test.describe('画布交互防回归（2026-08 修复批次回归锁）', () => 
     await page.waitForTimeout(600)
     await expect(page.locator('.vue-flow__node.selected')).toHaveCount(2)
 
-    // 新建 Conditional 节点（工厂 autoSelect）
+    // 新建 Conditional 节点（工厂 autoSelect）；水合后画布可能已有 fixture 自带
+    // 的条件约束，用前置计数锁定本次新建的节点
+    const preExistingCond = await page.locator('.vue-flow__node-conditionalConstraint').count()
     await createConstraintFromToolbox(page, '条件约束')
-    await expect(page.locator('.vue-flow__node-conditionalConstraint')).toHaveCount(1, {
-      timeout: 5000,
-    })
+    await expect(page.locator('.vue-flow__node-conditionalConstraint')).toHaveCount(
+      preExistingCond + 1,
+      { timeout: 5000 }
+    )
 
     // 回归锁：选中集收敛为新建节点（修复前旧的两个 schema 仍处于选中态）
     await page.waitForTimeout(500)

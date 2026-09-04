@@ -15,7 +15,7 @@
  * 2. 画布视口控制：缩放、小地图、适应视图
  */
 
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { defineStore, storeToRefs } from 'pinia'
 import type { CustomNode } from '@/types/graph'
 import type { Edge } from '@vue-flow/core'
@@ -211,6 +211,9 @@ export const useCanvasStore = defineStore('canvas', () => {
     activeWorkspaceId,
     activeWorkspace,
     unsavedWorkspacesCount,
+
+    // 最近一次加载是否存在已保存工作区快照（委托 tabStore）
+    lastLoadHadSavedWorkspaces: computed(() => tabStore.lastLoadHadSavedWorkspaces),
 
     // 画布内容加载完成信号
     contentLoadedEpoch,

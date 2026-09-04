@@ -106,6 +106,22 @@ async function dragSchemaToCanvas(
    */
   promptChoice: 'importAll' | 'schemaOnly' = 'schemaOnly'
 ) {
+  // 启动水合（DEF-01）已把 manifest schema 铺上画布：拖入已存在资源是幂等操作
+  // （不新建节点、关联约束齐全时也不弹确认框），"从无到有拖入"的前提不再成立。
+  // 先删除画布上同名 schema（close-btn 走官方级联删除，仅画布层、YAML 不动），
+  // 恢复前置条件。fixture 中 schema 节点 id 与名称一致（data-id="users" 等）。
+  const existingNode = page.locator(`.vue-flow__node-schema[data-id="${schemaName}"]`)
+  if ((await existingNode.count()) > 0) {
+    await existingNode.first().locator('.close-btn').click()
+    await expect(existingNode).toHaveCount(0, { timeout: 10000 })
+    // 级联删除（引用该 schema 的约束节点与边）异步完成，等节点计数稳定再拖
+    await expect(async () => {
+      const a = await page.locator('.vue-flow__node').count()
+      await page.waitForTimeout(500)
+      expect(await page.locator('.vue-flow__node').count()).toBe(a)
+    }).toPass({ timeout: 15000 })
+  }
+
   const schemaItem = page
     .locator('.resource-tree .tree-row.file-row')
     .filter({ hasText: schemaName })
@@ -145,10 +161,11 @@ async function dragSchemaToCanvas(
       } catch (e) {
         lastError = e
       }
-      // 无论 dragTo 是否抛错，只要 Schema 节点已出现即视为拖拽成功。
-      // 由于弹窗早于节点出现，此时 dismissTask 已点掉弹窗（overlayWasHandled=true）。
+      // 无论 dragTo 是否抛错，只要被拖 Schema 的节点已出现即视为拖拽成功（按
+      // data-id 精确匹配，水合后画布上还有其他 schema 节点，不能以"任意 schema
+      // 可见"为判据）。由于弹窗早于节点出现，此时 dismissTask 已点掉弹窗。
       const appeared = await page
-        .locator('.vue-flow__node-schema')
+        .locator(`.vue-flow__node-schema[data-id="${schemaName}"]`)
         .waitFor({ state: 'visible', timeout: 3000 })
         .then(() => true)
         .catch(() => false)

@@ -16,4 +16,25 @@ export async function openProjectOnCanvas(page: Page, projectPath: string) {
   }, normalized)
   await page.goto('/')
   await expect(page.locator('.project-root-node')).toBeVisible({ timeout: 30000 })
+  await waitForHydrationSettled(page)
+}
+
+/**
+ * 等启动水合（DEF-01 实体回显）完成：projectRoot 可见时 bootstrap 仍在后台
+ * 逐实体补齐画布节点（无快照路径可达数十个），期间节点/边计数持续增长，
+ * 选中态也会被写入。测试在水合完成前交互会与导入竞速（基线漂移、点击落空）。
+ * 判定：节点计数在静默窗口内不再增长（导入节奏 <300ms/个，窗口取其 4 倍）。
+ */
+export async function waitForHydrationSettled(page: Page, quietWindowMs = 1200) {
+  await expect
+    .poll(
+      async () => {
+        const before = await page.locator('.vue-flow__node').count()
+        await page.waitForTimeout(quietWindowMs)
+        const after = await page.locator('.vue-flow__node').count()
+        return after - before
+      },
+      { timeout: 60_000, poll: 200 }
+    )
+    .toBe(0)
 }
