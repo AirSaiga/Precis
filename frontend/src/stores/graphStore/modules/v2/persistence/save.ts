@@ -114,6 +114,7 @@ import {
   SchemaConflictResolver,
   isIncompleteDraftNode,
   filterPersistentNodes,
+  looseData,
 } from '@/services/persistence'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
@@ -145,6 +146,18 @@ export function createV2SaveOps(params: {
   // 避免第二次保存被重入合并丢弃而静默丢失用户编辑。
   let dirtyAfterInflight = false
 
+  /**
+   * 项目显示名的统一兜底链：store projectName → project-root 节点 data.projectName → 'Project'。
+   * 修复：加载失败等场景 projectName 为空时，保存 toast 曾显示 "untitled"，
+   * 而 project-root 节点 data 里保留着最近一次已知的名字。
+   */
+  function resolveProjectDisplayName(): string {
+    if (projectName.value) return projectName.value
+    const root = nodes.value.find((n) => n.id === 'project-root')
+    const fromNode = (root?.data as { projectName?: string } | undefined)?.projectName
+    return fromNode || 'Project'
+  }
+
   async function saveProject(): Promise<boolean> {
     // 并发护栏：进行中的保存不重复发起 PUT（避免重叠 PUT 的 last-write-wins）。
     // 但不丢弃——标记补存，保证期间产生的新编辑最终落盘。
@@ -166,11 +179,18 @@ export function createV2SaveOps(params: {
         projectName.value,
         configPath || ''
       )
+      // draft 的 manualData 节点不在 manifest 四类引用里（manual_data 走全量配置单独键），
+      // 但同样需要落盘——漏判会导致"只有手动数据节点时保存被跳过"的数据丢失
+      const hasDraftManualData = nodes.value.some(
+        (n) => n.type === 'manualData' && looseData(n).saveState === 'draft'
+      )
       if (
         manifestPreview.schemas.length === 0 &&
         manifestPreview.constraints.length === 0 &&
         (manifestPreview.regex_nodes?.length || 0) === 0 &&
-        (manifestPreview.transforms?.length || 0) === 0
+        (manifestPreview.transforms?.length || 0) === 0 &&
+        (manifestPreview.template_instances?.length || 0) === 0 &&
+        !hasDraftManualData
       ) {
         logger.debug(
           '[saveProject] 没有需要保存的 schema/constraint/regex/transform 节点，跳过保存'
@@ -180,7 +200,7 @@ export function createV2SaveOps(params: {
         if (skippedDrafts > 0) {
           toastSuccess(
             t('messages.persistence.projectSavedWithDrafts', {
-              name: projectName.value || 'untitled',
+              name: resolveProjectDisplayName(),
               count: skippedDrafts,
             }),
             t('messages.persistence.saveSuccess')
@@ -207,7 +227,7 @@ export function createV2SaveOps(params: {
         if (draftCount > 0) {
           toastSuccess(
             t('messages.persistence.projectSavedWithDrafts', {
-              name: projectName.value || 'untitled',
+              name: resolveProjectDisplayName(),
               count: draftCount,
             }),
             t('messages.persistence.saveSuccess')
@@ -215,14 +235,14 @@ export function createV2SaveOps(params: {
         } else if (warningCount > 0) {
           toastSuccess(
             t('messages.persistence.projectSavedWithWarnings', {
-              name: projectName.value || 'untitled',
+              name: resolveProjectDisplayName(),
               count: warningCount,
             }),
             t('messages.persistence.saveSuccess')
           )
         } else {
           toastSuccess(
-            t('messages.persistence.projectSaved', { name: projectName.value || 'untitled' }),
+            t('messages.persistence.projectSaved', { name: resolveProjectDisplayName() }),
             t('messages.persistence.saveSuccess')
           )
         }
@@ -324,9 +344,17 @@ export function createV2SaveOps(params: {
       const configPath = getEffectiveProjectConfigPath()
       const { showConfirm } = useGlobalConfirm()
 
-      if (!schemaData.sourceFilePath && !schemaData.sourceFile) {
+      // 连接判定包含三种等价方式：文件路径、内嵌文件、或已连接上游 sourceNodeId（连线方式无文件路径）
+      const hasDataSource = Boolean(
+        schemaData.sourceFilePath || schemaData.sourceFile || schemaData.sourceNodeId
+      )
+      if (!hasDataSource) {
+        const nodeName =
+          (schemaData as { configName?: string }).configName ||
+          (schemaData as { tableName?: string }).tableName ||
+          nodeId
         toastError(
-          t('messages.persistence.pleaseSelectDataSourceFirst'),
+          t('messages.persistence.pleaseSelectDataSourceFirst', { name: nodeName }),
           t('messages.persistence.saveFailed')
         )
         return false

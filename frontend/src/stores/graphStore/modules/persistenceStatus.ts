@@ -40,6 +40,12 @@ export function createPersistenceStatusModule(deps: PersistenceStatusDeps) {
       if (node.type === 'templateInstance') {
         return data?.saveState === 'draft'
       }
+      // manualData 节点可持久化（planBuilder 收集、全量保存落盘），
+      // draft 状态必须计入未保存变更——否则新建手动数据节点不亮未保存标记，
+      // 用户无从知晓数据未落盘
+      if (node.type === 'manualData') {
+        return data?.saveState === 'draft'
+      }
       return false
     })
   }

@@ -415,5 +415,79 @@ class TestFieldsSetPurityAndMergeRevival:
             assert saved.get("templates") in ([], None)
 
 
+class TestProjectDescriptionPreservation:
+    """回归(2026-09-04 扫描): PUT /config/full 不得抹除磁盘手写的 project.description。
+
+    缺陷史：前端全量保存总是显式构造 project: {id, name}，而 project 键恒在
+    model_fields_set、整字段级合并不适用——description 作为嵌套可选字段曾被
+    每次全量保存静默抹除（N2 的模型层修复只护住 PUT /manifest 的整对象透传路径）。
+    修复=按嵌套字段粒度判 fields_set，payload 未显式提供时从磁盘透传。
+    """
+
+    def _disk_with_description(self, tmpdir: str) -> Path:
+        root = Path(tmpdir)
+        (root / "project.precis.yaml").write_text(
+            "version: 2\n"
+            "project:\n"
+            "  id: p\n"
+            "  name: 旧名\n"
+            "  description: 手写项目描述\n"
+            "schemas: []\n"
+            "constraints: []\n"
+            "regex_nodes: []\n",
+            encoding="utf-8",
+        )
+        return root
+
+    def test_full_save_preserves_disk_description(self):
+        """payload project 仅含 id/name（前端构造器口径）→ 磁盘 description 保留"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = self._disk_with_description(tmpdir)
+            manifest = ProjectManifestV2(
+                version=2,
+                project=ProjectInfoV2(id="p", name="新名"),
+            )
+            assert "description" not in manifest.project.model_fields_set
+
+            write_v2_full_config(FullConfigV2Request(manifest=manifest), tmpdir)
+
+            saved = yaml.safe_load((root / "project.precis.yaml").read_text(encoding="utf-8"))
+            assert saved["project"]["name"] == "新名"
+            assert saved["project"]["description"] == "手写项目描述"
+
+    def test_full_save_explicit_description_overrides_disk(self):
+        """payload 显式提供 description → 遵从客户端意图（改名/改描述生效）"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = self._disk_with_description(tmpdir)
+            manifest = ProjectManifestV2(
+                version=2,
+                project=ProjectInfoV2(id="p", name="新名", description="客户端新描述"),
+            )
+            write_v2_full_config(FullConfigV2Request(manifest=manifest), tmpdir)
+
+            saved = yaml.safe_load((root / "project.precis.yaml").read_text(encoding="utf-8"))
+            assert saved["project"]["description"] == "客户端新描述"
+
+    def test_full_save_explicit_null_clears_description(self):
+        """payload 显式 description=None → 清空意图（exclude_none dump 后键消失）"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = self._disk_with_description(tmpdir)
+            manifest = ProjectManifestV2.model_validate(
+                {
+                    "version": 2,
+                    "project": {"id": "p", "name": "新名", "description": None},
+                    "schemas": [],
+                    "constraints": [],
+                    "regex_nodes": [],
+                }
+            )
+            assert "description" in manifest.project.model_fields_set
+
+            write_v2_full_config(FullConfigV2Request(manifest=manifest), tmpdir)
+
+            saved = yaml.safe_load((root / "project.precis.yaml").read_text(encoding="utf-8"))
+            assert saved["project"].get("description") is None
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

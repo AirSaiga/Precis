@@ -38,8 +38,9 @@ export function normalizeTableId(
 /**
  * 宽松读取节点 data 为 Record（CustomNodeData 是 discriminated union，
  * 读取跨类型松散字段需经 unknown 中转——本模块唯一的边界断言）。
+ * 导出供持久化相关的跨类型读取复用，避免散落新的双重断言。
  */
-function looseData(node: CustomNode): Record<string, unknown> {
+export function looseData(node: CustomNode): Record<string, unknown> {
   return (node.data ?? {}) as unknown as Record<string, unknown>
 }
 

@@ -176,6 +176,10 @@
   watch(
     () => graphStore.projectName,
     (name) => {
+      // 输入框自身的编辑会经 handleNameChange（blur/Enter）回写 graphStore.projectName。
+      // 这次回写是"待应用的草稿"而非外部基线变化——若据此刷新 originalProjectName，
+      // "重置"会把输入框恢复成编辑值而非已保存值（重置失效假象，见 GUI 覆盖测试 2026-09-03）。
+      if (name === localProjectName.value) return
       localProjectName.value = name || ''
       originalProjectName.value = name || ''
     }

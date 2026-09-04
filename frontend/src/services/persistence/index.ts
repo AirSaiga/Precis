@@ -20,6 +20,7 @@ export {
   normalizeTableId,
   filterPersistentNodes,
   isIncompleteDraftNode,
+  looseData,
   buildNodeFile,
 } from './utils'
 export * from './types'

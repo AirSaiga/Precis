@@ -175,6 +175,9 @@
       configName: localConfigName.value,
       columnName: localColumnName.value,
       rows: localRows.value.map((r) => [...r]),
+      // 编辑必须回标 draft：saveProject 的早退门与 hasUnsavedChanges 都以 draft
+      // 判定——否则"仅已保存手动数据节点"的画布再编辑会被静默跳过，数据丢失
+      saveState: 'draft',
     })
   }
 

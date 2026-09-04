@@ -73,6 +73,8 @@ export interface ProjectInfoV2 {
   id: string
   /** 项目名称 */
   name: string
+  /** 项目描述（可选；手写元数据，全量保存时经前端并集与后端合并防线双重保全） */
+  description?: string
 }
 
 /**
@@ -725,6 +727,12 @@ export interface FullConfigV2Response {
   regex_nodes: Record<string, RegexNodeFileV2>
   /** Transform 文件映射：transform_id -> TransformFileV2 */
   transforms: Record<string, TransformFileV2>
+  /**
+   * ManualData 文件映射：manual_data_id -> ManualDataFileV2。
+   * 后端 /project/config/full 实际返回该字典（画布水合回显依赖它），
+   * 此前前端类型漏声明导致 hydrate 只能读到 manifest ref（无数据）。
+   */
+  manual_data?: Record<string, ManualDataFileV2>
   /**
    * Template 定义文件映射：template_id -> 模板内容（含 name 等元信息）。
    *

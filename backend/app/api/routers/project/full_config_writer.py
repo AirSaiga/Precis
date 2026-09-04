@@ -94,6 +94,17 @@ def _merge_manifest_references(
     if _should_merge("settings") and existing is not None:
         final_manifest = final_manifest.model_copy(update={"settings": existing.settings})
 
+    # 回归(2026-09-04 扫描): project.description 保全。前端全量保存总是显式构造
+    # project: {id, name}（project 键恒在 set_fields，整字段级合并不适用），但
+    # description 是磁盘上手写的可选元数据——payload 未显式提供该嵌套字段时从磁盘
+    # 透传，防止每次全量保存静默抹除（与 settings 防御同型，按嵌套字段粒度判 fields_set；
+    # 显式传 null/新值则遵从客户端意图）。
+    if existing is not None and existing.project.description:
+        payload_project = final_manifest.project
+        if "description" not in payload_project.model_fields_set:
+            merged_project = payload_project.model_copy(update={"description": existing.project.description})
+            final_manifest = final_manifest.model_copy(update={"project": merged_project})
+
     # 回归(2026-09): templates/template_instances 并入统一 fields_set 防线。
     # 此前因 _validate_unique_ids 就地重赋值污染 model_fields_set（列表字段恒被标记），
     # fields_set 判定对列表字段全部失效，这两个字段只能退化为"空列表=未携带"启发式；

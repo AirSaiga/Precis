@@ -14,6 +14,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { AxiosError, type AxiosResponse } from 'axios'
 import type { CustomNode, SchemaNodeData } from '@/types/graph'
 import type { ConstraintFileV2 } from '@/types/projectV2'
 
@@ -766,6 +767,14 @@ describe('Persistence - Pre-Validator', () => {
 describe('Persistence - SaveOrchestrator', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    // 默认按"manifest 不存在（404，首次保存）"拒绝：该场景无磁盘引用可合并，
+    // 保存流程应跳过引用合并继续保存；需要验证引用合并的用例自行 mockResolvedValue，
+    // 非 404 失败场景见下方 fail-closed 用例
+    vi.spyOn(projectV2Api, 'getV2Manifest').mockRejectedValue(
+      new AxiosError('Not Found', undefined, undefined, undefined, {
+        status: 404,
+      } as AxiosResponse)
+    )
   })
 
   it('未配置项目路径时返回 BLOCKER', async () => {
@@ -836,6 +845,107 @@ describe('Persistence - SaveOrchestrator', () => {
     const result = await orchestrator.saveProject()
     expect(result.success).toBe(false)
     expect(result.errors?.[0].message).toContain('network error')
+  })
+
+  it('读盘非 404 失败时 fail-closed：中止保存且不发出 PUT（防清空磁盘引用）', async () => {
+    // 回归锁（2026-09-04 扫描二次核实）：非 404 失败（超时/网络抖动）时客户端
+    // 无法区分"磁盘无清单"与"磁盘有引用但读不到"——静默继续会以画布子集的
+    // 显式字段清空未入画布的磁盘引用（data_sources/templates 无扫描兜底）
+    vi.spyOn(projectV2Api, 'getV2Manifest').mockRejectedValue(
+      new AxiosError('timeout of 5000ms exceeded', 'ECONNABORTED')
+    )
+    const putFull = vi.spyOn(projectV2Api, 'putV2FullConfig').mockResolvedValue(undefined)
+    vi.spyOn(projectV2Api, 'putV2ProjectView').mockResolvedValue(undefined)
+
+    const manual = {
+      id: 'md-1',
+      type: 'manualData',
+      position: { x: 0, y: 0 },
+      data: { saveState: 'draft', columns: ['Column1'], rows: [['Alice']] },
+    } as any
+    const orchestrator = new SaveOrchestrator({
+      nodes: { value: [manual] } as any,
+      edges: { value: [] } as any,
+      projectName: { value: 'Test' } as any,
+      getEffectiveProjectConfigPath: () => '/tmp/test/project.precis.yaml',
+      updateNodeData: vi.fn(),
+    })
+
+    const result = await orchestrator.saveProject()
+    expect(result.success).toBe(false)
+    expect(result.errors?.[0].severity).toBe('BLOCKER')
+    expect(result.errors?.[0].message).toContain('中止保存')
+    // 关键：不发出 PUT——payload 未并入磁盘引用，发出即清空
+    expect(putFull).not.toHaveBeenCalled()
+  })
+
+  it('仅手动数据节点时：并入磁盘 manifest 引用后 PUT（不清空未入画布引用）', async () => {
+    // 回归锁（2026-09-03 GUI 覆盖测试发现）：画布是工作区而非全量资源集，
+    // 保存 payload 若只含画布引用，会把磁盘上未入画布的资源引用清空
+    const manual = {
+      id: 'md-1',
+      type: 'manualData',
+      position: { x: 0, y: 0 },
+      data: { saveState: 'draft', columns: ['Column1'], rows: [['Alice']] },
+    } as any
+    const diskSchemas = [
+      { id: 'users', path: 'schemas/users.schema.yaml' },
+      { id: 'orders', path: 'schemas/orders.schema.yaml' },
+    ]
+    const diskSettings = {
+      validation: {
+        auto_validate: false,
+        strict_mode: false,
+        error_handling: 'continue',
+        timeout_seconds: 60,
+        batch_max_files: 100,
+      },
+      file_processing: {},
+      script_security: {},
+    }
+
+    vi.spyOn(projectV2Api, 'getV2Manifest').mockResolvedValue({
+      version: 2,
+      project: { id: 'test', name: 'Test', description: '手写项目描述' },
+      settings: diskSettings,
+      schemas: diskSchemas,
+      constraints: [],
+      regex_nodes: [],
+      transforms: [],
+      manual_data: [],
+      template_instances: [],
+    } as any)
+    vi.spyOn(projectV2Api, 'putV2FullConfig').mockResolvedValue(undefined)
+    vi.spyOn(projectV2Api, 'putV2ProjectView').mockResolvedValue(undefined)
+
+    const updateNodeData = vi.fn()
+    const orchestrator = new SaveOrchestrator({
+      nodes: { value: [manual] } as any,
+      edges: { value: [] } as any,
+      projectName: { value: 'Test' } as any,
+      getEffectiveProjectConfigPath: () => '/tmp/test/project.precis.yaml',
+      updateNodeData,
+    })
+
+    const result = await orchestrator.saveProject()
+    expect(result.success).toBe(true)
+    expect(projectV2Api.putV2FullConfig).toHaveBeenCalledTimes(1)
+
+    const payload = vi.mocked(projectV2Api.putV2FullConfig).mock.calls[0][0]
+    expect(Object.keys(payload.manual_data)).toEqual(['md-1'])
+    // 画布引用写入 manifest
+    expect(payload.manifest.manual_data?.map((r) => r.id)).toContain('md-1')
+    // 磁盘上未入画布的 schema 引用被保留（不被画布子集清空）
+    expect(payload.manifest.schemas.map((r) => r.id)).toEqual(['users', 'orders'])
+    // settings 以磁盘为准，不被 payload 默认值回退
+    expect(payload.manifest.settings.validation.timeout_seconds).toBe(60)
+    // 手写的 project.description 从磁盘透传（payload 构造器只发 {id, name}）
+    expect(payload.manifest.project.description).toBe('手写项目描述')
+    // 保存后节点标记为已保存
+    expect(updateNodeData).toHaveBeenCalledWith(
+      'md-1',
+      expect.objectContaining({ saveState: 'saved' })
+    )
   })
 })
 

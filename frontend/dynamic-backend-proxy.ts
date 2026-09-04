@@ -36,12 +36,14 @@ const BACKEND_ROUTES = ['/preview', '/workspace', '/regex', '/utils', '/api']
 /**
  * 读取后端实际端口。
  *
+ * @param portFilePath - 端口文件路径;默认取真实路径(backend/.backend-port)。
+ *   测试应注入临时路径,避免读写真实端口文件破坏运行中的 dev 环境。
  * @returns 端口号;读不到返回 null(后端未就绪)
  */
-export function readBackendPort(): number | null {
+export function readBackendPort(portFilePath: string = PORT_FILE): number | null {
   try {
-    if (!existsSync(PORT_FILE)) return null
-    const raw = readFileSync(PORT_FILE, 'utf-8').trim()
+    if (!existsSync(portFilePath)) return null
+    const raw = readFileSync(portFilePath, 'utf-8').trim()
     const port = parseInt(raw, 10)
     return Number.isNaN(port) || port <= 0 ? null : port
   } catch {

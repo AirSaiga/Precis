@@ -11,8 +11,14 @@
 import type { Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode, CustomNodeData } from '@/types/nodes'
-import type { FullConfigV2Request } from '@/types/projectV2'
-import { putV2FullConfig, putV2ProjectView } from '@/api/projectV2Api'
+import type { FullConfigV2Request, ProjectManifestV2 } from '@/types/projectV2'
+import {
+  getV2Manifest,
+  isProjectNotFound,
+  putV2FullConfig,
+  putV2ProjectView,
+} from '@/api/projectV2Api'
+import { logger } from '@/core/utils/logger'
 import { buildV2ProjectView } from '@/services/builders'
 import { buildSavePlan, buildIncrementalSavePlan } from './planBuilder'
 import { isIncompleteDraftNode } from './utils'
@@ -24,6 +30,19 @@ export interface OrchestratorDeps {
   projectName: Ref<string>
   getEffectiveProjectConfigPath: () => string | undefined
   updateNodeData: (nodeId: string, patch: Partial<CustomNodeData>) => void
+}
+
+/** 引用去重所需的最小形状（各资源引用类型均有 id） */
+interface IdentifiableRef {
+  id: string
+}
+
+/**
+ * 按 id 并集两个引用列表：canvas 引用在前，disk 独有的引用追加在后。
+ */
+function unionRefsById<T extends IdentifiableRef>(canvasRefs: T[], diskRefs: T[]): T[] {
+  const ids = new Set(canvasRefs.map((r) => r.id))
+  return [...canvasRefs, ...diskRefs.filter((r) => !ids.has(r.id))]
 }
 
 export class SaveOrchestrator {
@@ -84,6 +103,26 @@ export class SaveOrchestrator {
     }
 
     const fullConfig = this.planToFullConfig(plan)
+    try {
+      await this.mergeDiskManifestRefs(fullConfig, configPath)
+    } catch (error) {
+      // 读盘失败且非 404（超时/网络/后端异常）：无法确认磁盘引用状态，继续 PUT
+      // 会以画布子集的显式字段清空未入画布的磁盘引用（fail-open 数据丢失），
+      // fail-closed 中止本次保存，交由上层向用户报错。
+      return {
+        success: false,
+        errors: [
+          {
+            severity: 'BLOCKER',
+            nodeId: '',
+            message:
+              `保存前读取磁盘清单失败，已中止保存以避免清空未入画布的资源引用: ` +
+              `${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+        fixed: fixedRecords,
+      }
+    }
 
     try {
       await putV2FullConfig(fullConfig, configPath)
@@ -104,6 +143,63 @@ export class SaveOrchestrator {
         ],
         fixed: fixedRecords,
       }
+    }
+  }
+
+  /**
+   * 将磁盘 manifest 中画布未承载的资源引用并入保存 payload（按 id 并集，画布优先）。
+   *
+   * 画布是工作区而非全量资源集——加载不自动水合资源，直接以画布节点构建的
+   * manifest 会把磁盘上未入画布的资源引用清掉（后端 _merge_manifest_references
+   * 依赖 model_fields_set，而 default_factory 字段恒在 fields_set 内，合并防线
+   * 对这些字段实际失效，2026-09-03 实测）。因此在前端按 id 并集合并。
+   *
+   * 与删除级联契约一致：画布删除不删引用，引用由资源树删除接口单独维护，
+   * 故保存时以"保存时刻的磁盘 manifest"为保留基准不会复活已删除资源。
+   *
+   * settings 以磁盘为准：设置面板走独立端点实时写盘，payload 中的默认值
+   * 不应回退用户配置。
+   */
+  private async mergeDiskManifestRefs(
+    fullConfig: FullConfigV2Request,
+    configPath: string
+  ): Promise<void> {
+    let diskManifest: Partial<ProjectManifestV2>
+    try {
+      diskManifest = await getV2Manifest(configPath)
+    } catch (e) {
+      if (isProjectNotFound(e)) {
+        // manifest 不存在（首次保存/空项目）：磁盘上没有引用可合并，保持 payload 原样
+        logger.info('[SaveOrchestrator] 磁盘 manifest 不存在（404），跳过引用合并')
+        return
+      }
+      // 非 404 失败无法区分"磁盘无清单"与"磁盘有引用但读取失败"——静默继续
+      // 会以画布子集清空未入画布的磁盘引用，向上抛出由 saveProject fail-closed 中止
+      logger.warn('[SaveOrchestrator] 保存前读取磁盘 manifest 失败，中止保存:', e)
+      throw e instanceof Error ? e : new Error(String(e))
+    }
+
+    const m = fullConfig.manifest
+    m.schemas = unionRefsById(m.schemas, diskManifest.schemas ?? [])
+    m.constraints = unionRefsById(m.constraints, diskManifest.constraints ?? [])
+    m.regex_nodes = unionRefsById(m.regex_nodes, diskManifest.regex_nodes ?? [])
+    m.transforms = unionRefsById(m.transforms, diskManifest.transforms ?? [])
+    m.manual_data = unionRefsById(m.manual_data ?? [], diskManifest.manual_data ?? [])
+    m.template_instances = unionRefsById(
+      m.template_instances ?? [],
+      diskManifest.template_instances ?? []
+    )
+    m.data_sources = unionRefsById(m.data_sources ?? [], diskManifest.data_sources ?? [])
+    m.templates = unionRefsById(m.templates ?? [], diskManifest.templates ?? [])
+    // project.description 保全：构造器只发 {id, name}，手写描述以磁盘为准透传
+    //（与后端 _merge_manifest_references 的嵌套字段防线互为冗余；payload 显式
+    // 提供新值时不覆盖，遵从客户端改描述意图）
+    const diskDescription = diskManifest.project?.description
+    if (diskDescription && m.project && m.project.description === undefined) {
+      m.project = { ...m.project, description: diskDescription }
+    }
+    if (diskManifest.settings) {
+      m.settings = diskManifest.settings
     }
   }
 
@@ -221,6 +317,9 @@ export class SaveOrchestrator {
 
   /**
    * 将 SavePlan 转换为 FullConfigV2Request
+   *
+   * 注意：此处 manifest 仅含画布承载的资源引用；磁盘上未入画布的引用由
+   * mergeDiskManifestRefs 在发送前按 id 并集补齐。
    */
   private planToFullConfig(plan: SavePlan): FullConfigV2Request {
     return {
