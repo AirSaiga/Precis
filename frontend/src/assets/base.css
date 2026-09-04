@@ -236,6 +236,12 @@ hr {
   border-radius: var(--ui-radius, 6px);
 }
 
+/* 节点 hover 时提升其层级：修复节点头部按钮（如"打开设计器"）落在小地图区域时
+   被 minimap 面板（库默认 z-index:5）遮挡而无法点击的问题（DEF-08） */
+.vue-flow__node:hover {
+  z-index: 10;
+}
+
 .vue-flow__minimap-mask {
   fill: color-mix(in srgb, var(--ui-text-muted) 12%, transparent) !important;
 }

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   initVueFlowApi,
+  resetVueFlowApi,
   addNodes,
   addEdges,
   removeNodes,
@@ -41,6 +42,33 @@ describe('vueFlowApi', () => {
       expect(() => updateNodeInternals('id')).toThrow('[vueFlowApi]')
       expect(() => updateEdgeData('id', {})).toThrow('[vueFlowApi]')
       expect(() => findEdge('id')).toThrow('[vueFlowApi]')
+    })
+  })
+
+  describe('owner token（DEF-11 关联：旧实例晚到的卸载不得打空新实例的 API）', () => {
+    it('持有正确 owner 的 reset 正常置空', () => {
+      const owner = initVueFlowApi(api)
+      resetVueFlowApi(owner)
+      expect(() => addNodes([])).toThrow('[vueFlowApi]')
+    })
+
+    it('owner 不匹配时 reset 跳过置空（新实例已重新注入的场景）', () => {
+      const firstOwner = initVueFlowApi(api)
+      // 新实例（重建窗口期：新 setup 已注入，旧实例才卸载）
+      const api2 = makeMockApi()
+      initVueFlowApi(api2)
+      // 旧实例晚到的卸载，带着自己的旧 owner
+      resetVueFlowApi(firstOwner)
+      // 新实例的 API 不应被打空
+      const nodes = [{ id: 'n1', type: 'schema' }] as any
+      addNodes(nodes)
+      expect(api2.addNodes).toHaveBeenCalledWith(nodes)
+    })
+
+    it('无参 reset 保持既有行为（无条件置空）', () => {
+      initVueFlowApi(api)
+      resetVueFlowApi()
+      expect(() => addNodes([])).toThrow('[vueFlowApi]')
     })
   })
 

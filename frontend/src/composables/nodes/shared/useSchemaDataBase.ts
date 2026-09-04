@@ -83,8 +83,73 @@ export function buildWritebackPatch(
     // 情形 2：本组件未修改（与 base 相等）→ 透传 store 最新值
     if (isSnapshotValueEqual(localSnapshot[key], baseSnapshot[key])) {
       merged[key] = latestExternal[key]
+      continue
+    }
+    // 情形 2.5：本组件修改过、但该键是列数组 → 按列 id 字段级合并，
+    // 本组件未修改的字段让位于外部修改（修复：检查器改列名被节点回写回滚）
+    if (key === 'columns') {
+      merged[key] = mergeColumnsWithExternal(
+        localSnapshot[key] as BaseSchemaColumn[],
+        latestExternal[key] as BaseSchemaColumn[],
+        baseSnapshot[key] as BaseSchemaColumn[]
+      )
+      continue
     }
     // 情形 3：本组件修改过 → 保留本地值（已在 merged 中，不覆盖）
+  }
+  return merged
+}
+
+/**
+ * 列数组的字段级三方合并（纯函数）。
+ *
+ * 背景：columns 整键被节点组件与检查器共享编辑。整键"保留本地"会回滚检查器
+ * 对列的修改（如检查器改列名后，节点内任一列编辑提交都把旧列名写回）。
+ *
+ * 逐列规则（以本地数组为基底，保持本组件的增删/排序意图）：
+ * - 本地列在 base 中不存在 → 本组件新增的列，整列保留本地；
+ * - 列在本地不存在 → 外部新增的列（检查器添加），追加到结果尾部；
+ * - 同 id 列 → 逐字段：
+ *     - 本地字段值 == base 字段值（本组件未改该字段）且外部 ≠ base（外部改了）
+ *       → 采用外部值；
+ *     - 否则保留本地值（本组件改过，或两边一致）。
+ * - children 等嵌套结构作为单字段参与上述比较（本组件未改整键则透传外部）。
+ */
+export function mergeColumnsWithExternal<TColumn extends { id: string }>(
+  localColumns: TColumn[],
+  externalColumns: TColumn[],
+  baseColumns: TColumn[]
+): TColumn[] {
+  const baseById = new Map(baseColumns.map((c) => [c.id, c]))
+  const externalById = new Map(externalColumns.map((c) => [c.id, c]))
+
+  const merged = localColumns.map((localCol) => {
+    const ext = externalById.get(localCol.id)
+    if (!ext) return localCol // 外部已删除该列？列删除由本组件权威管理，保留本地
+    const base = baseById.get(localCol.id)
+    if (!base) return localCol // 本组件新增的列，整列保留本地
+    const mergedCol: Record<string, unknown> = { ...(localCol as Record<string, unknown>) }
+    for (const key of Object.keys(ext as Record<string, unknown>)) {
+      const localVal = (localCol as Record<string, unknown>)[key]
+      const extVal = (ext as Record<string, unknown>)[key]
+      const baseVal = (base as Record<string, unknown>)[key]
+      if (!isSnapshotValueEqual(localVal, baseVal) && !isSnapshotValueEqual(extVal, baseVal)) {
+        // 两边都改过且不一致 → 本组件为该列的编辑视图，保留本地
+        continue
+      }
+      if (isSnapshotValueEqual(localVal, baseVal) && !isSnapshotValueEqual(extVal, baseVal)) {
+        // 本组件未改该字段、外部改了 → 采用外部值
+        mergedCol[key] = extVal
+      }
+    }
+    return mergedCol as TColumn
+  })
+
+  // 外部新增的列（检查器添加）追加到尾部
+  for (const ext of externalColumns) {
+    if (!merged.some((c) => c.id === ext.id)) {
+      merged.push(ext)
+    }
   }
   return merged
 }

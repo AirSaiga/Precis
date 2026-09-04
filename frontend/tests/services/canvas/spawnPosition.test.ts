@@ -64,7 +64,7 @@ describe('resolveSpawnPosition', () => {
     expect(pos).toEqual({ x: 700, y: 600 })
   })
 
-  it('全部候选被占用时返回最后一个候选而非死循环', () => {
+  it('右下级联全部被占用时反方向（左上）级联避让', () => {
     const occupants: SpawnOccupant[] = []
     const step = 40
     const max = 24
@@ -76,6 +76,25 @@ describe('resolveSpawnPosition', () => {
       occupants,
       maxCascade: max,
     })
-    expect(pos).toEqual({ x: 500 + max * step, y: 400 + max * step })
+    // 右下全被占 → 左上级联至脱离占据投影的第一个空闲候选（i=5，因回退尺寸 280x160 投影较宽）
+    expect(pos).toEqual({ x: 500 - 5 * step, y: 400 - 5 * step })
+  })
+
+  it('正反方向级联全部被占用时返回视口中心附近而非远离视口', () => {
+    const occupants: SpawnOccupant[] = []
+    const step = 40
+    const max = 24
+    // 右下与左上两个方向的全部候选都被占
+    for (let i = 0; i <= max; i++) {
+      occupants.push(makeOccupant(500 + i * step, 400 + i * step))
+      occupants.push(makeOccupant(500 - i * step, 400 - i * step))
+    }
+    const pos = resolveSpawnPosition({
+      viewportCenter: { x: 500, y: 400 },
+      occupants,
+      maxCascade: max,
+    })
+    // 兜底：宁可轻微重叠也要落在视口中心附近（可见优先）
+    expect(pos).toEqual({ x: 540, y: 440 })
   })
 })

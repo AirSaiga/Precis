@@ -12,6 +12,7 @@ const inspectorConstraints = {
     validateErrorDetail: '{count} rows do not satisfy the constraint',
     validateSkipped: 'Validation Skipped',
     validateSkippedDetail: 'Constraint config incomplete or data source not connected',
+    validateNoSourceRefDetail: 'Bind the target table and column of this constraint first',
     validateError: 'Validation Error',
     // NotNull constraint
     notNull: {

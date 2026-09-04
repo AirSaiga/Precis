@@ -137,7 +137,8 @@ const messages = {
     transformSaved: 'Transform "{name}" saved',
     templateInstanceSaved: 'Template instance "{name}" saved',
     regexSavedWithPaths: 'Regex "{name}" saved to: {path} (manifest: {manifest})',
-    pleaseSelectDataSourceFirst: 'Please select a data source before saving',
+    pleaseSelectDataSourceFirst:
+      'Node "{name}" has no connected data source and cannot be saved. Connect a source node or remove it first',
     configWarningTitle: 'Config warning',
     configParseFailed: 'Some configuration files failed to parse, skipped:\n{list}',
   },

@@ -247,6 +247,14 @@
     // 空路径统一落到哨兵 key 聚合成一组，标题用友好化文案兜底：
     // 优先带上问题携带的资源 id（约束/正则节点 id），避免组名显示裸的哨兵字符串
     const UNKNOWN_FILE_KEY = '<unknown>'
+    // 资源 id → 画布节点可读名（各节点类型 data 都含 configName；schema 用 tableName 兜底）
+    const resolveRefDisplayName = (refId: string): string | undefined => {
+      const node = graphStore.nodes.find((n) => n.id === refId)
+      if (!node) return undefined
+      const data = (node.data || {}) as Record<string, unknown>
+      const name = (data.configName || data.tableName) as string | undefined
+      return name || undefined
+    }
     const byFile = new Map<string, InspectionIssue[]>()
     for (const issue of issues) {
       const key = issue.file_path || UNKNOWN_FILE_KEY
@@ -260,12 +268,14 @@
         let severity: 'blocker' | 'warning' | 'info' = 'info'
         if (list.some((i) => i.severity === 'blocker')) severity = 'blocker'
         else if (list.some((i) => i.severity === 'warning')) severity = 'warning'
-        // 未知文件组：取组内第一个非空资源 id 作为可辨识线索
+        // 未知文件组：优先把资源 id 解析成画布节点的可读名（configName/tableName 等），
+        // 解析不到再退回裸 id；最后兜底"（未知文件）"
         const refId = list.find((i) => i.ref_id)?.ref_id
+        const refDisplayName = refId ? resolveRefDisplayName(refId) : undefined
         const title =
           filePath === UNKNOWN_FILE_KEY
-            ? refId
-              ? `${t('inspection.unknownFile')} · ${refId}`
+            ? refDisplayName
+              ? `${t('inspection.unknownFile')} · ${refDisplayName}`
               : t('inspection.unknownFile')
             : filePath
         return {

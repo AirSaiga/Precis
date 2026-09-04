@@ -38,7 +38,8 @@ const DEFAULT_OCCUPIED_SIZE = { width: 280, height: 160 }
  * 在视口中心附近解析一个不与既有节点重叠的新节点落点。
  *
  * 候选序列：视口中心 → 沿右下对角线按 cascadeStep 逐级偏移；
- * 全部候选都被占用时返回最后一个候选（保证调用方总有可用坐标）。
+ * 右下耗尽后反方向（左上）级联，仍全部被占用时返回视口中心附近的坐标 ——
+ * 宁可重叠也要保证新节点落在用户可见区域内（远离视口的落点会被误认为创建失败）。
  */
 export function resolveSpawnPosition(input: ResolveSpawnPositionInput): { x: number; y: number } {
   const {
@@ -58,7 +59,13 @@ export function resolveSpawnPosition(input: ResolveSpawnPositionInput): { x: num
       return candidate
     }
   }
-  return { x: start.x + maxCascade * cascadeStep, y: start.y + maxCascade * cascadeStep }
+  for (let i = 1; i <= maxCascade; i++) {
+    const candidate = { x: start.x - i * cascadeStep, y: start.y - i * cascadeStep }
+    if (!overlapsAny(candidate, newNodeSize, occupants, gap)) {
+      return candidate
+    }
+  }
+  return { x: start.x + cascadeStep, y: start.y + cascadeStep }
 }
 
 function overlapsAny(

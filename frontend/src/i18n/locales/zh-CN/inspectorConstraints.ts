@@ -12,6 +12,7 @@ const inspectorConstraints = {
     validateErrorDetail: '发现 {count} 条不符合约束的数据',
     validateSkipped: '校验跳过',
     validateSkippedDetail: '约束配置不完整或数据源未连接',
+    validateNoSourceRefDetail: '请先在检查器中绑定该约束的目标表和列',
     validateError: '校验出错',
     // NotNull 约束
     notNull: {

@@ -19,7 +19,13 @@ import type {
 } from '../types'
 import { NodeCategory } from '../types'
 import { GROUP_COLORS, LAYOUT_CONSTANTS } from '../constants'
-import { getNodeDimensionsFromDOM, type NodeDimension } from '../utils/nodeDimensionHelper'
+import {
+  getNodeDimensionsFromDOM,
+  getSchemaPersistedDimension,
+  readMeasuredDimension,
+  resolveMeasuredDimension,
+  type NodeDimension,
+} from '../utils/nodeDimensionHelper'
 import type { CustomNode } from '@/types/nodes'
 import { layoutFamily, calculateBoundsFromPositions, getFallbackDimension } from './familyLayout'
 export class SchemaCentricStrategy implements ILayoutStrategy {
@@ -31,7 +37,12 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
     const nodeTypeById = this.buildNodeTypeById(classification)
     const excludedNodeIds = this.buildExcludedNodeIds(classification, nodeTypeById)
     const nodeIds = context.nodes.map((n) => n.id).filter((id) => !excludedNodeIds.has(id))
-    const nodeDimensions = this.buildNodeDimensions(nodeIds, nodeTypeById, context.viewportZoom)
+    const nodeDimensions = this.buildNodeDimensions(
+      nodeIds,
+      nodeTypeById,
+      context.nodeDataById,
+      context.viewportZoom
+    )
 
     const nodeDataById = context.nodeDataById
 
@@ -359,9 +370,19 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
     return excluded
   }
 
+  /**
+   * 构建参与布局的节点尺寸表（只读，不写回节点）。
+   *
+   * 候选优先级（DEF-14 修复）：
+   * 1. Vue Flow 实测 dimensions（offsetWidth/offsetHeight，未缩放、无换算误差）
+   * 2. Schema 持久化尺寸（data.width/height，节点未渲染/刚导入时仍准确）
+   * 3. DOM getBoundingClientRect / zoom 还原（历史路径，保留兜底）
+   * 全部无效时用类型兜底估算。
+   */
   private buildNodeDimensions(
     nodeIds: string[],
     nodeTypeById: Map<string, string>,
+    nodeDataById: Map<string, CustomNode>,
     viewportZoom?: number
   ): Map<string, NodeDimension> {
     const domDimensions = getNodeDimensionsFromDOM(nodeIds)
@@ -370,21 +391,20 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
 
     for (const nodeId of nodeIds) {
       const nodeType = nodeTypeById.get(nodeId) || ''
-      const domDim = domDimensions.get(nodeId)
       const defaultDim = getFallbackDimension(nodeType)
+      const node = nodeDataById.get(nodeId)
 
-      if (domDim) {
-        const scaledDom = {
-          width: domDim.width / zoom,
-          height: domDim.height / zoom,
-        }
-        dimensions.set(nodeId, {
-          width: Math.max(scaledDom.width, defaultDim.width) * 1.05,
-          height: Math.max(scaledDom.height, defaultDim.height) * 1.05,
-        })
-      } else {
-        dimensions.set(nodeId, defaultDim)
-      }
+      // 1. Vue Flow 实测（渲染前为 {0,0}，readMeasuredDimension 视为无效候选）
+      const measured = readMeasuredDimension(node)
+
+      // 2. Schema 持久化尺寸（height 为 auto 撑开时无值，整体不作为候选）
+      const persisted = nodeType === 'schema' ? getSchemaPersistedDimension(node?.data) : null
+
+      // 3. DOM rect 受 viewport 缩放影响，除以 zoom 还原为画布坐标尺寸
+      const domDim = domDimensions.get(nodeId)
+      const scaledDom = domDim ? { width: domDim.width / zoom, height: domDim.height / zoom } : null
+
+      dimensions.set(nodeId, resolveMeasuredDimension([measured, persisted, scaledDom], defaultDim))
     }
 
     return dimensions

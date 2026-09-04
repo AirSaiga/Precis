@@ -85,12 +85,20 @@
 
     isValidating.value = true
     try {
-      await validateConstraintNodeById(
+      const result = await validateConstraintNodeById(
         constraintNodeId,
         store.nodes,
         store.edges,
         store.updateNodeData
       )
+      // 静默跳过场景给出针对性提示（最常见：约束尚未绑定目标表/列）
+      if (result === 'no-source-ref') {
+        toast.warning(
+          t('inspector.constraint.validateNoSourceRefDetail'),
+          t('inspector.constraint.validateSkipped')
+        )
+        return
+      }
       await nextTick()
 
       const node = store.nodes.find((n) => n.id === constraintNodeId)

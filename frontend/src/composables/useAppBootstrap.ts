@@ -250,6 +250,20 @@ export function useAppBootstrap(): BootstrapResult {
     // 无项目时 initialize 内部只创建本地默认 Tab（不发请求）
     await canvasStore.initialize(projectStore.currentPaths?.configPath, graphStore)
 
+    // Step 3.5: DEF-01 修复——config 实体回显画布。
+    // workspaces 快照存在时机性丢节点问题，已保存到 config 的实体
+    // （schema/constraint/regex/transform/manualData）以 config 为事实源补齐画布节点，
+    // 否则用户感知为"保存成功但重开消失"。
+    // 必须在 canvasStore.initialize 之后（Vue Flow API 就绪）才可 addNodes；
+    // 幂等：画布上已有同 id 节点的实体自动跳过。失败不影响项目加载（内部捕获）。
+    if (graphStore.isProjectLoaded) {
+      try {
+        await graphStore.hydrateResourcesFromConfig()
+      } catch (e) {
+        logger.warn('[AppBootstrap] 实体水合失败（不阻塞启动）:', e)
+      }
+    }
+
     // Step 4: 初始化拖拽状态（资源树 → 画布的跨组件拖拽）
     dragStore.initializeDragState()
 

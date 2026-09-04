@@ -40,17 +40,21 @@ export const SAFE_FITVIEW_PADDING = {
 } as const
 
 /**
- * 节点尺寸常量
+ * 节点尺寸常量（无实测尺寸时的兜底估算，高度宁可高估——
+ * 高估只让布局更松散，低估会吃掉行间距造成相邻节点重叠）
  */
 export const NODE_DIMENSIONS = {
   DEFAULT_WIDTH: 280,
-  DEFAULT_HEIGHT: 120,
+  // 实测（GUI 测试 DEF-14）：manualData 约 164 高，取 170 留余量
+  DEFAULT_HEIGHT: 170,
   MIN_WIDTH: 200,
   MAX_WIDTH: 400,
   CONSTRAINT_WIDTH: 260,
-  CONSTRAINT_HEIGHT: 100,
+  // 实测约束节点约 120 高（DEF-14），取 130 留余量
+  CONSTRAINT_HEIGHT: 130,
   ROOT_WIDTH: 300,
-  ROOT_HEIGHT: 120,
+  // 实测 projectRoot 约 126 高（DEF-14），取 140 留余量
+  ROOT_HEIGHT: 140,
 }
 
 /**
@@ -70,6 +74,18 @@ export const LAYOUT_CONSTANTS = {
   SCHEMA_CENTER_GAP: 30,
   COLUMN_ROW_HEIGHT: 130,
   CONSTRAINT_COLUMNS_GAP: 60,
+  /**
+   * 布局坐标网格对齐粒度（单一事实源，整理/加载适配共用）。
+   *
+   * 不重叠不变量：单坐标对齐误差 ≤ GRID_SIZE/2，相邻两节点独立取整的
+   * 相对误差 ≤ GRID_SIZE，因此要求 GRID_SIZE < DEFAULT_GAP（20 < 30），
+   * 保证对齐后最小间隙仍为 DEFAULT_GAP - GRID_SIZE = 10 > 0。
+   *
+   * 历史缺陷（DEF-14）：曾存在两道独立网格对齐（LayoutCalculator 30 网格
+   * + useNodeOrganizer 20 网格），相对误差叠加可达 50px 吃掉全部间距，
+   * 造成相邻节点边缘重叠。现在全链路只允许一次对齐，统一用本常量。
+   */
+  GRID_SIZE: 20,
 }
 
 /**

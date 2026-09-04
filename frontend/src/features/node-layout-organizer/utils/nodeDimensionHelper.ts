@@ -18,6 +18,73 @@ export interface NodeDimension {
 }
 
 /**
+ * 实测尺寸参与布局计算的安全放大系数：
+ * 吸收网格对齐残差、盒模型（边框/阴影）差异，宁可间隙略大也不重叠。
+ */
+export const MEASURED_DIMENSION_SAFETY_FACTOR = 1.05
+
+/**
+ * 从 unknown 结构中读取 { width, height } 尺寸记录（均为正数才有效）。
+ * 供 Vue Flow dimensions / Schema 持久化尺寸等同构字段复用。
+ */
+function readDimensionRecord(value: unknown): NodeDimension | null {
+  if (!value || typeof value !== 'object') return null
+  const record = value as Record<string, unknown>
+  const width = record['width']
+  const height = record['height']
+  if (typeof width !== 'number' || width <= 0) return null
+  if (typeof height !== 'number' || height <= 0) return null
+  return { width, height }
+}
+
+/**
+ * 从节点对象上只读提取 Vue Flow 实测尺寸（node.dimensions）。
+ *
+ * Vue Flow 渲染后经 v-model 回写的节点对象带 `dimensions`
+ * （offsetWidth/offsetHeight，未缩放），但 `Node` 输入类型未声明该字段；
+ * 此处以 unknown 入参做结构收窄，避免类型断言逃生舱。
+ * 渲染前 dimensions 为 {0,0}，返回 null（视为无效候选）。
+ */
+export function readMeasuredDimension(node: unknown): NodeDimension | null {
+  if (!node || typeof node !== 'object') return null
+  const record = node as Record<string, unknown>
+  return readDimensionRecord(record['dimensions'])
+}
+
+/**
+ * 从候选尺寸列表解析节点参与布局的尺寸（纯函数，只读不写回节点）。
+ *
+ * 候选按可靠性由调用方排序（如 Vue Flow dimensions → Schema 持久化尺寸 →
+ * DOM rect/zoom 换算值），取第一个 width/height 均为正的候选；
+ * 命中后与类型兜底值逐轴取 max 再乘安全系数（保守方向：低估会吃掉间距）。
+ * 全部候选无效时返回类型兜底值。
+ */
+export function resolveMeasuredDimension(
+  candidates: ReadonlyArray<NodeDimension | null | undefined>,
+  fallback: NodeDimension
+): NodeDimension {
+  for (const candidate of candidates) {
+    if (candidate && candidate.width > 0 && candidate.height > 0) {
+      return {
+        width: Math.max(candidate.width, fallback.width) * MEASURED_DIMENSION_SAFETY_FACTOR,
+        height: Math.max(candidate.height, fallback.height) * MEASURED_DIMENSION_SAFETY_FACTOR,
+      }
+    }
+  }
+  return fallback
+}
+
+/**
+ * 读取 Schema 节点持久化尺寸（data.width/data.height，可拖拽调整后保存）。
+ *
+ * width 由 useSchemaResizable 持久化（默认 360）；height 可能为空
+ * （内容撑开 auto），任一轴无效则整体不作为候选（避免半截尺寸）。
+ */
+export function getSchemaPersistedDimension(data: unknown): NodeDimension | null {
+  return readDimensionRecord(data)
+}
+
+/**
  * 从DOM获取节点的实际尺寸
  */
 export function getNodeDimensionFromDOM(nodeId: string): NodeDimension | null {

@@ -123,7 +123,8 @@
   }
 
   function showError(title: string, message?: string, options?: Partial<ToastOptions>) {
-    return addToast({ type: 'error', title, message, persistent: true, ...options })
+    // 错误提示不再无限常驻：默认展示 8s 自动消失（较成功/警告更长），仍可点击关闭或经 options 覆盖
+    return addToast({ type: 'error', title, message, duration: 8000, ...options })
   }
 
   function showWarning(title: string, message?: string, options?: Partial<ToastOptions>) {

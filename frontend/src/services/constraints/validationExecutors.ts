@@ -301,22 +301,31 @@ export async function validateForInlineSource(params: {
  * 调用合适的校验路径并更新节点数据。
  * 被 7 个约束节点组件（*ConstraintNode.vue）在编辑后调用。
  */
+/** 单约束校验被跳过的原因（调用方可据此给出针对性提示） */
+export type ConstraintValidationSkipReason =
+  | 'node-not-found'
+  | 'no-source-ref'
+  | 'source-node-missing'
+  | 'no-connection'
+  | 'unsupported-source'
+
 export async function validateConstraintNodeById(
   constraintNodeId: string,
   nodes: Node[],
   edges: Edge[],
   updateNodeData: (nodeId: string, data: Record<string, unknown>) => void
-): Promise<void> {
+): Promise<ConstraintValidationSkipReason | 'validated'> {
   const constraintNode = nodes.find((n) => n.id === constraintNodeId)
-  if (!constraintNode) return
+  if (!constraintNode) return 'node-not-found'
 
   const nodeData = (constraintNode.data || {}) as Record<string, unknown>
   const sourceRef = nodeData.sourceRef as { nodeId: string; columnId: string } | undefined
 
-  if (!sourceRef?.nodeId) return
+  // 未绑定目标列/表：这是用户可修复的配置状态，返回原因供 UI 提示而非静默结束
+  if (!sourceRef?.nodeId) return 'no-source-ref'
 
   const sourceNode = nodes.find((n) => n.id === sourceRef.nodeId)
-  if (!sourceNode) return
+  if (!sourceNode) return 'source-node-missing'
 
   if (sourceNode.type === 'manualData' || sourceNode.type === 'transformOutput') {
     await validateForInlineSource({
@@ -325,12 +334,12 @@ export async function validateConstraintNodeById(
       nodes,
       updateNodeData,
     })
-    return
+    return 'validated'
   }
 
   if (sourceNode.type === 'schema' || sourceNode.type === 'jsonSchema') {
     const edge = edges.find((e) => e.target === constraintNodeId && e.source === sourceRef.nodeId)
-    if (!edge) return
+    if (!edge) return 'no-connection'
 
     await validateConstraintNode({
       schemaNode: sourceNode,
@@ -343,7 +352,10 @@ export async function validateConstraintNodeById(
     // Bug 3.4 修复：单约束校验后全列重建错误，避免其他列残留 stale 错误
     // （原 syncColumnErrorsForSourceRef 仅刷当前列，约束 sourceRef 变更后旧列错误不会被清除）
     rebuildAllColumnErrors(sourceRef.nodeId, nodes, updateNodeData)
+    return 'validated'
   }
+
+  return 'unsupported-source'
 }
 
 // ============================================================================

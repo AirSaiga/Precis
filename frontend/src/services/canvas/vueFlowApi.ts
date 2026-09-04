@@ -57,6 +57,8 @@ export interface VueFlowApi {
 }
 
 let _api: VueFlowApi | null = null
+/** 当前 API 实例的所有者标识：防止旧实例晚到的卸载把新实例已注入的 API 打空（DEF-11 关联） */
+let _apiOwner: symbol | null = null
 
 /**
  * Vue Flow API 尚未初始化时抛出的异常。
@@ -74,8 +76,19 @@ function requireApi(): VueFlowApi {
   return _api
 }
 
-export function initVueFlowApi(api: VueFlowApi) {
+/**
+ * 注入 Vue Flow API 单例。
+ *
+ * 返回所有者 token：卸载时必须把它传给 resetVueFlowApi(owner)。
+ * 场景：布局过渡（mode="out-in"）+ HMR/恢复窗口期内，新 NodeCanvas 可能先完成
+ * setup 注入、旧实例才卸载。无条件置空会把新实例的 API 打空，后续所有
+ * 选中态/位置同步静默失败（表现如"点击节点不选中"）。owner 校验消除该竞态。
+ */
+export function initVueFlowApi(api: VueFlowApi): symbol {
+  const owner = Symbol('vueFlowApiOwner')
   _api = api
+  _apiOwner = owner
+  return owner
 }
 
 /**
@@ -84,9 +97,14 @@ export function initVueFlowApi(api: VueFlowApi) {
  * NodeCanvas 卸载时调用，避免模式切换（IDE ↔ Agent）的重建窗口期内，
  * 飞行中的异步调用方（如 AI 指令流）命中已销毁的旧 Vue Flow 实例。
  * 重置后调用方会抛 VueFlowApiNotInitializedError，可被捕获做降级处理。
+ *
+ * @param owner initVueFlowApi 返回的所有者 token；不匹配（说明单例已被
+ *              新实例重新注入）时跳过重置，避免打空新实例的 API。
  */
-export function resetVueFlowApi(): void {
+export function resetVueFlowApi(owner?: symbol): void {
+  if (owner !== undefined && owner !== _apiOwner) return
   _api = null
+  _apiOwner = null
 }
 
 /**

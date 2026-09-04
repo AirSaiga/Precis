@@ -135,7 +135,8 @@ const messages = {
     transformSaved: '转换节点 "{name}" 已保存',
     templateInstanceSaved: '模板实例 "{name}" 已保存',
     regexSavedWithPaths: '正则 "{name}" 已保存到：{path}（清单：{manifest}）',
-    pleaseSelectDataSourceFirst: '请先选择数据源再保存',
+    pleaseSelectDataSourceFirst:
+      '节点 "{name}" 尚未连接数据源，无法保存。请连接数据源节点或先移除该节点',
     configWarningTitle: '配置警告',
     configParseFailed: '部分配置文件解析失败，已跳过:\n{list}',
   },

@@ -18,7 +18,7 @@ import { type Ref, nextTick } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 import { logger } from '@/core/utils/logger'
 import { useGraphStore } from '@/stores/graphStore'
-import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
+import { toastWarning } from '@/core/toast'
 import { useI18n } from 'vue-i18n'
 import { addEdges, updateNodeInternals } from '@/services/canvas/vueFlowApi'
 import { usePreviewCreation } from '@/composables/nodes/sourcePreview/usePreviewCreation'
@@ -53,7 +53,6 @@ export function useSchemaDataSource(
   options: UseSchemaDataSourceOptions
 ) {
   const store = useGraphStore()
-  const { showConfirm } = useGlobalConfirm()
   const { t } = useI18n()
   const { createSourcePreviewNode, fetchPreviewData } = usePreviewCreation()
 
@@ -230,13 +229,11 @@ export function useSchemaDataSource(
       return
     }
 
-    // 未连接数据源时提示
-    await showConfirm({
-      title: t('customNodes.schemaNode.source.notConnected'),
-      message: t('customNodes.schemaNode.source.smartFillWarning'),
-      confirmText: t('common.confirm'),
-      type: 'warning',
-    })
+    // 未连接数据源时提示：showConfirm 依赖全局确认组件挂载，提示类信息用 toast 保证可见
+    toastWarning(
+      t('customNodes.schemaNode.source.smartFillWarning'),
+      t('customNodes.schemaNode.source.notConnected')
+    )
   }
 
   return {

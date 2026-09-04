@@ -341,8 +341,9 @@
   /* ---- 下拉面板（Teleport 到 body） ---- */
   .type-dropdown-panel {
     position: fixed;
-    /* 画布浮层档位：高于画布内容与右键菜单，低于任何 app 模态 */
-    z-index: var(--ui-z-canvas-float);
+    /* popover 档位：浮层底部选项曾被检查器表单内容遮挡（画布浮层档位 10500 低于检查器内容），
+       下拉本质是 popover，提升到 popover 档保证完整可见 */
+    z-index: var(--ui-z-popover);
     max-height: 360px;
     display: flex;
     flex-direction: column;
@@ -386,6 +387,9 @@
   /* 主体滚动区 */
   .dropdown-body {
     flex: 1;
+    /* flex 项默认 min-height:auto，不收缩会导致面板被内容撑破、
+       overflow-y:auto 失效，底部分组（数据清洗/结构变换/日期处理）不可达 */
+    min-height: 0;
     overflow-y: auto;
     padding: 6px;
   }

@@ -267,7 +267,8 @@
   } = useVueFlow()
   // 视口持久化：模式切换销毁重建 NodeCanvas 时，恢复用户上次的 pan/zoom
   const canvasViewportStore = useCanvasViewportStore()
-  initVueFlowApi({
+  // 所有者 token：卸载时传给 resetVueFlowApi，防止旧实例晚到的卸载把新实例已注入的 API 打空
+  const vueFlowApiOwner = initVueFlowApi({
     addNodes,
     addEdges,
     removeNodes,
@@ -443,7 +444,8 @@
     // 重置 vueFlowApi 单例：NodeCanvas 卸载后（如 IDE ↔ Agent 模式切换）旧 Vue Flow 实例已销毁，
     // 置空 _api 让飞行中的异步调用方抛 VueFlowApiNotInitializedError 而非命中死实例。
     // 新 NodeCanvas 挂载时 initVueFlowApi 会重新注入。
-    resetVueFlowApi()
+    // 传入 owner：布局过渡/HMR 窗口期内若新实例已重新注入，则跳过置空（DEF-11 关联）。
+    resetVueFlowApi(vueFlowApiOwner)
   })
 </script>
 

@@ -14,9 +14,9 @@ import { useGraphStore } from '@/stores/graphStore'
 import { LayoutCalculator } from '../core/layoutCalculator'
 import { DEFAULT_ORGANIZE_OPTIONS, SAFE_FITVIEW_PADDING } from '../constants'
 import type { OrganizeOptions, ConnectionInfo, ZoneGroup } from '../types'
-import { getDefaultDimension, getNodeDimensionsFromDOM } from '../utils/nodeDimensionHelper'
+import { getNodeDimensionsFromDOM } from '../utils/nodeDimensionHelper'
+import { getFallbackDimension } from '../strategies/familyLayout'
 import { useVueFlow } from '@vue-flow/core'
-import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
 
 /**
  * 计算整理动画的错峰索引（纯函数，便于单测）。
@@ -143,10 +143,12 @@ export function useNodeOrganizer() {
         viewport.value.zoom
       )
 
-      let targetPositions = calculator.calculate()
+      const targetPositions = calculator.calculate()
       groups.value = calculator.getGroups()
 
-      targetPositions = gridAlignPositions(targetPositions, 20)
+      // 注意：不要再对 targetPositions 做二次网格对齐（DEF-14）。
+      // LayoutCalculator.calculate() 内已做唯一一道 GRID_SIZE 对齐，
+      // 两道独立取整的相对误差叠加会吃掉 gap 造成相邻节点重叠。
 
       if (groups.value.length > 0) {
         recomputeGroupBounds(groups.value, targetPositions)
@@ -196,8 +198,8 @@ export function useNodeOrganizer() {
         viewport.value.zoom
       )
 
-      let targetPositions = calculator.calculate()
-      targetPositions = gridAlignPositions(targetPositions, 20)
+      const targetPositions = calculator.calculate()
+      // 不要二次网格对齐（同 organizeNodes，DEF-14）——calculate() 内已对齐
 
       if (mergedOptions.animate) {
         await applyAnimation(targetPositions, mergedOptions.animateDuration)
@@ -233,20 +235,6 @@ export function useNodeOrganizer() {
     }))
   }
 
-  function gridAlignPositions(
-    positions: Map<string, { x: number; y: number }>,
-    gridSize: number
-  ): Map<string, { x: number; y: number }> {
-    const result = new Map<string, { x: number; y: number }>()
-    for (const [id, pos] of positions) {
-      result.set(id, {
-        x: Math.round(pos.x / gridSize) * gridSize,
-        y: Math.round(pos.y / gridSize) * gridSize,
-      })
-    }
-    return result
-  }
-
   function recomputeGroupBounds(
     zoneGroups: ZoneGroup[],
     nodePositions: Map<string, { x: number; y: number }>
@@ -263,12 +251,9 @@ export function useNodeOrganizer() {
     const getDim = (nodeId: string) => {
       const nodeType = nodeTypeById.get(nodeId) || ''
       const domDim = domDimensions.get(nodeId)
-      const fallback = (() => {
-        if (nodeType === 'schema') return { width: 360, height: 440 }
-        if (nodeType === 'regex') return { width: 300, height: 140 }
-        if (isConstraintNodeType(nodeType)) return { width: 280, height: 120 }
-        return getDefaultDimension(nodeType)
-      })()
+      // 兜底统一走 getFallbackDimension（单一事实源），
+      // 旧实现在此内联了另一套手写尺寸（schema 360×440 等），与布局侧漂移
+      const fallback = getFallbackDimension(nodeType)
       if (domDim) {
         const scaled = { width: domDim.width / zoom, height: domDim.height / zoom }
         return {

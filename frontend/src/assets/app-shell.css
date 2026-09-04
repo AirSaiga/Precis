@@ -191,13 +191,13 @@
   /* order 由子类覆盖 */
 }
 
-/* ::before 扩展 10px 可点击热区，覆盖边界左右各 5px */
+/* ::before 扩展可点击热区；过宽会以透明热区遮挡其下方的画布节点点击，仅保留 ±2px */
 .panel-resize-divider::before {
   content: '';
   position: absolute;
   top: 0;
-  left: -5px;
-  width: 10px;
+  left: -2px;
+  width: 4px;
   height: 100%;
   cursor: col-resize;
 }

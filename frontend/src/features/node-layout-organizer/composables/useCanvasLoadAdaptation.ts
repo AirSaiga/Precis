@@ -61,8 +61,8 @@ const COLUMN_ROW_GAP = 60
 /** 重排块与既有内容的最小净空距离 */
 const CLEARANCE_GAP = 60
 
-/** 位置网格对齐粒度（与 useNodeOrganizer 的 gridAlignPositions 一致） */
-const GRID_SIZE = 20
+/** 位置网格对齐粒度：与 LayoutCalculator 的对齐网格共用单一事实源（DEF-14） */
+const GRID_SIZE = LAYOUT_CONSTANTS.GRID_SIZE
 
 export function useCanvasLoadAdaptation(): void {
   const store = useGraphStore()

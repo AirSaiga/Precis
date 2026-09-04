@@ -24,7 +24,9 @@ import { isRegexNodeType } from '@/utils/nodes/regex'
  * 获取节点类型的回退尺寸
  */
 export function getFallbackDimension(nodeType: string): NodeDimension {
-  if (nodeType === 'schema') return { width: 320, height: 400 }
+  // 与 useSchemaResizable 的 DEFAULT_WIDTH(360) 对齐；实测大卡可达 690 宽
+  // （DEF-14），优先走 node.dimensions / data.width 实测路径，这里仅兜底
+  if (nodeType === 'schema') return { width: 360, height: 400 }
   if (isRegexNodeType(nodeType))
     return { width: NODE_DIMENSIONS.DEFAULT_WIDTH, height: NODE_DIMENSIONS.DEFAULT_HEIGHT }
   if (isConstraintNodeType(nodeType))

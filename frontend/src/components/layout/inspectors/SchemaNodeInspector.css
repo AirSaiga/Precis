@@ -208,6 +208,8 @@
  */
 .column-name-input {
   flex: 1;
+  /* flex 项默认 min-width:auto，input 内在最小宽度会把同行 flex-shrink:0 的删除按钮挤出面板右缘 */
+  min-width: 0;
   padding: 4px 8px;
   border: 1px solid var(--ui-border);
   border-radius: 4px;

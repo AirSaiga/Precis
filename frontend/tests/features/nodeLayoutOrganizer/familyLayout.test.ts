@@ -13,7 +13,8 @@ import { NODE_DIMENSIONS } from '@/features/node-layout-organizer/constants'
 describe('getFallbackDimension', () => {
   it('returns schema-specific dimensions for schema', () => {
     const dim = getFallbackDimension('schema')
-    expect(dim.width).toBe(320)
+    // 与 useSchemaResizable 的 DEFAULT_WIDTH(360) 对齐（DEF-14 校准，原 320）
+    expect(dim.width).toBe(360)
     expect(dim.height).toBe(400)
   })
 

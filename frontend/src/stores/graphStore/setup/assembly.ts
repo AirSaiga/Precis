@@ -113,7 +113,7 @@ export function createGraphStoreAssembly(
     reconcileAll: connectionStateSync.reconcileAll,
   })
 
-  const { importV2ResourceToCanvas } = createV2ImportModule({
+  const { importV2ResourceToCanvas, hydrateResourcesFromConfig } = createV2ImportModule({
     nodes,
     edges,
     selectedNodeId,
@@ -470,6 +470,7 @@ export function createGraphStoreAssembly(
     saveTemplateInstanceNode: v2Persistence.saveTemplateInstanceNode,
     loadProjectFromV2: v2Persistence.loadProjectFromV2,
     importV2ResourceToCanvas,
+    hydrateResourcesFromConfig,
     refreshProjectConfigStats: v2Persistence.refreshProjectConfigStats,
     hasUnsavedChanges,
     getSaveStatusSummary,

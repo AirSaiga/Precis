@@ -13,6 +13,7 @@
     class="manual-data-node graph-node"
     :class="{ 'is-selected': selected }"
     :style="{ width: nodeWidth + 'px' }"
+    @click="onNodeClick"
   >
     <!-- 左侧输入 Handle：接收来自 Schema 列的连接 -->
     <NodeHandle
@@ -46,7 +47,7 @@
         v-show="headerHovered"
         class="remove-btn"
         :title="t('customNodes.manualDataNode.removeTooltip')"
-        @click="handleRemove"
+        @click.stop="handleRemove"
       >
         <AppIcon name="x" :size="14" />
       </button>
@@ -110,9 +111,11 @@
   import type { ManualDataNodeData } from '@/types/nodes'
   import NodeHandle from '@/components/ui/NodeHandle.vue'
   import AppIcon from '@/components/icons/AppIcon.vue'
+  import { useGraphStore } from '@/stores/graphStore'
   import { NodeDeletionManager } from '@/services/managers/nodeDeletionManager'
 
   const { t } = useI18n()
+  const graphStore = useGraphStore()
 
   interface Props {
     id: string
@@ -134,6 +137,11 @@
   function handleRemove() {
     const manager = NodeDeletionManager.getInstance()
     manager.delete(nodeId.value)
+  }
+
+  // 标题栏等非交互区域点击时同步选中态，与 TransformNode 行为一致
+  function onNodeClick() {
+    graphStore.selectedNodeId = props.id
   }
 </script>
 

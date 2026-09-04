@@ -64,10 +64,13 @@ export class LayoutCalculator {
     this.groups = groupedLayout.groups
 
     const targetPositions = new Map<string, { x: number; y: number }>()
+    // 唯一一道网格对齐（DEF-14：历史上 useNodeOrganizer 还会再做一次 20 网格
+    // 对齐，两道独立取整的相对误差叠加可吃掉全部 gap，导致相邻节点重叠）。
+    // 网格粒度必须满足 GRID_SIZE < gap（见 constants.ts GRID_SIZE 注释）。
     for (const [nodeId, position] of groupedLayout.positions) {
       targetPositions.set(nodeId, {
-        x: Math.round(position.x / LAYOUT_CONSTANTS.DEFAULT_GAP) * LAYOUT_CONSTANTS.DEFAULT_GAP,
-        y: Math.round(position.y / LAYOUT_CONSTANTS.DEFAULT_GAP) * LAYOUT_CONSTANTS.DEFAULT_GAP,
+        x: Math.round(position.x / LAYOUT_CONSTANTS.GRID_SIZE) * LAYOUT_CONSTANTS.GRID_SIZE,
+        y: Math.round(position.y / LAYOUT_CONSTANTS.GRID_SIZE) * LAYOUT_CONSTANTS.GRID_SIZE,
       })
     }
 

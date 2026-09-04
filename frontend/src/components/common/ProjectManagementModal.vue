@@ -374,6 +374,11 @@
           canvasStore.createNewWorkspace(graphStore, { adoptCurrentCanvas: true })
         }
 
+        // DEF-01 修复：workspaces 快照恢复后，以 config 为事实源补齐画布缺失的
+        // 配置实体节点（schema/constraint/regex/transform/manualData，幂等跳过已有）。
+        // 必须在 loadWorkspaces 之后执行——快照恢复会覆盖 load 刚应用的节点集。
+        await graphStore.hydrateResourcesFromConfig()
+
         // 通知资源树等监听方刷新项目资源。useResourceTree.onMounted 早已执行完毕，
         // isProjectActive 此时才变为 true，资源树不会自行刷新，必须显式 emit
         // （与启动引导 bootstrap 的 project-applied 事件路径一致）

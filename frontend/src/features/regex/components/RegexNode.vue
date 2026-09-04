@@ -119,7 +119,7 @@
 
 <script setup lang="ts">
   import { logger } from '@/core/utils/logger'
-  import { toastSuccess, toastError } from '@/core/toast'
+  import { toastSuccess, toastError, toastWarning } from '@/core/toast'
   /**
    * @file RegexNode.vue
    * @description 正则表达式验证节点组件
@@ -284,11 +284,30 @@
   )
 
   async function handleRegisterPattern() {
-    if (!hasPattern.value || hasUsesPattern.value) return
+    if (!hasPattern.value) {
+      toastWarning(
+        t('customNodes.regexNode.patternEmptyHint'),
+        t('customNodes.regexNode.registerPattern')
+      )
+      return
+    }
+    if (hasUsesPattern.value) {
+      toastWarning(
+        t('customNodes.regexNode.patternAlreadyRegistered', {
+          name: props.data.uses_pattern?.pattern_name ?? '',
+        }),
+        t('customNodes.regexNode.registerPattern')
+      )
+      return
+    }
 
     const configPath = projectStore.currentPaths?.configPath
     if (!configPath) {
       logger.error('无法获取项目配置路径')
+      toastError(
+        t('customNodes.regexNode.configPathMissing'),
+        t('customNodes.regexNode.registerPatternFailedTitle')
+      )
       return
     }
 

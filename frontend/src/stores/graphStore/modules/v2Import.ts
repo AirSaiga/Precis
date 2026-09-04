@@ -80,7 +80,7 @@ export function createV2ImportModule(params: {
     resolveProjectRelativePath,
   })
 
-  const { importV2ResourceToCanvas } = createV2ImportToCanvas({
+  const { importV2ResourceToCanvas, hydrateResourcesFromConfig } = createV2ImportToCanvas({
     nodes,
     edges,
     selectedNodeId,
@@ -92,5 +92,5 @@ export function createV2ImportModule(params: {
     saveState,
   })
 
-  return { importV2ResourceToCanvas, ensureSchemaNodeFromV2 }
+  return { importV2ResourceToCanvas, ensureSchemaNodeFromV2, hydrateResourcesFromConfig }
 }

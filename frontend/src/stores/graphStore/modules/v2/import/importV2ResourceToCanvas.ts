@@ -30,8 +30,9 @@ import { createV2ImportEdges } from './edges'
 import { createV2SchemaImporter } from './schema'
 import { createV2RegexImporter } from './regex'
 import { createV2ConstraintImporter } from './constraint'
-import { getV2FullConfig } from '@/api/projectV2Api'
-import type { PatternRegistryTypeV2 } from '@/types/projectV2'
+import { getV2FullConfig, getV2ProjectView } from '@/api/projectV2Api'
+import type { ManualDataFileV2, PatternRegistryTypeV2 } from '@/types/projectV2'
+import type { ManualDataNodeData } from '@/types/nodes'
 import { addNodes, updateNode } from '@/services/canvas/vueFlowApi'
 import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
 import {
@@ -549,5 +550,156 @@ export function createV2ImportToCanvas(params: {
     return transformId
   }
 
-  return { importV2ResourceToCanvas }
+  /**
+   * 项目加载后的配置实体水合：把 manifest 中的 schemas/constraints/regex_nodes/
+   * transforms/manual_data 回显到画布（已有同 id 节点的实体跳过，幂等）。
+   *
+   * 背景（DEF-01）：画布恢复曾只依赖 .precis/workspaces.json 快照，快照写入存在
+   * 时机性丢节点问题；而已保存到 config 的实体不会从配置重建画布节点，导致
+   * "保存成功、重开项目节点消失"。本函数以 config 为事实源补齐缺失节点，
+   * 位置优先取 view.json 中保存的坐标。
+   */
+  async function hydrateResourcesFromConfig(): Promise<{ hydrated: number; skipped: number }> {
+    const configPath = getEffectiveProjectConfigPath()
+    if (!configPath) return { hydrated: 0, skipped: 0 }
+
+    try {
+      const config = await getV2FullConfig(configPath, { inspect: true })
+      const manifest = config.manifest
+
+      let view: { nodes?: Record<string, { x: number; y: number }> } | undefined
+      try {
+        view = (await getV2ProjectView(configPath)) as typeof view
+      } catch {
+        view = undefined
+      }
+
+      let fallbackIdx = 0
+      const fallbackPos = () => ({
+        x: 120 + (fallbackIdx % 5) * 380,
+        y: 160 + Math.floor(fallbackIdx / 5) * 240,
+      })
+      const exists = (id: string) => nodes.value.some((n) => n.id === id)
+      const posFor = (id: string) => {
+        const saved = view?.nodes?.[id]
+        if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') return saved
+        return fallbackPos()
+      }
+
+      let hydrated = 0
+      let skipped = 0
+      const importOpts = {
+        includeDeps: false,
+        moveIfExists: false,
+        skipRelatedConstraints: true,
+      } as const
+
+      for (const ref of manifest.schemas || []) {
+        if (!ref?.id || exists(ref.id)) {
+          skipped++
+          continue
+        }
+        const created = await importV2ResourceToCanvas('schema', ref.id, posFor(ref.id), importOpts)
+        if (created) {
+          hydrated++
+          fallbackIdx++
+        } else skipped++
+      }
+
+      for (const ref of manifest.constraints || []) {
+        if (!ref?.id || exists(ref.id)) {
+          skipped++
+          continue
+        }
+        const created = await importV2ResourceToCanvas(
+          'constraint',
+          ref.id,
+          posFor(ref.id),
+          importOpts
+        )
+        if (created) {
+          hydrated++
+          fallbackIdx++
+        } else skipped++
+      }
+
+      for (const ref of manifest.regex_nodes || []) {
+        if (!ref?.id || exists(ref.id)) {
+          skipped++
+          continue
+        }
+        const created = await importV2ResourceToCanvas('regex', ref.id, posFor(ref.id), importOpts)
+        if (created) {
+          hydrated++
+          fallbackIdx++
+        } else skipped++
+      }
+
+      for (const ref of manifest.transforms || []) {
+        if (!ref?.id || exists(ref.id)) {
+          skipped++
+          continue
+        }
+        const created = await importV2ResourceToCanvas(
+          'transform',
+          ref.id,
+          posFor(ref.id),
+          importOpts
+        )
+        if (created) {
+          hydrated++
+          fallbackIdx++
+        } else skipped++
+      }
+
+      // manual_data：导入工厂暂无该分支，用 full config 的实体字典直接构建节点
+      // （manifest.manual_data 只是 ref 列表 {id, path}，完整数据在 config.manual_data）
+      const manualDataFiles = Object.entries(config.manual_data || {}) as [
+        string,
+        ManualDataFileV2,
+      ][]
+      for (const [id, file] of manualDataFiles) {
+        if (exists(id)) {
+          skipped++
+          continue
+        }
+        const columnDataType =
+          typeof file.column_data_type === 'string'
+            ? ((file.column_data_type.charAt(0).toUpperCase() +
+                file.column_data_type.slice(1)) as ManualDataNodeData['columnDataType'])
+            : undefined
+        const manualNode: CustomNode = {
+          id,
+          type: 'manualData',
+          position: posFor(id),
+          data: {
+            configName: file.description || id,
+            columnName: file.column_name,
+            columnDataType,
+            rows: Array.isArray(file.rows) ? file.rows : [],
+            description: file.description,
+            enabled: file.enabled !== false,
+            saveState: 'saved',
+          },
+        }
+        addNodes([manualNode])
+        hydrated++
+        fallbackIdx++
+      }
+
+      if (hydrated > 0) {
+        await nextTick()
+        await reconcileAll()
+      }
+      logger.info(
+        `[hydrateResourcesFromConfig] 实体回显完成：新增 ${hydrated}，画布已存在跳过 ${skipped}`
+      )
+      return { hydrated, skipped }
+    } catch (error) {
+      logger.warn('[hydrateResourcesFromConfig] 实体回显失败（不影响项目加载）:', error)
+      return { hydrated: 0, skipped: 0 }
+    }
+  }
+
+  return { importV2ResourceToCanvas, hydrateResourcesFromConfig }
 }
