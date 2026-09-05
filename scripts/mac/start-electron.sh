@@ -39,16 +39,22 @@ ok "Electron 依赖已安装"
 echo ""
 
 # 编译 Electron 主进程 TypeScript（项目 main 指向 dist/main.js，必须先编译）
-if [ ! -f "${ELECTRON_DIR}/dist/main.js" ]; then
-    info "编译 Electron TypeScript..."
+# 产物缺失或源码比上次编译新时重建("产物存在即跳过"会静默运行旧主进程)
+ELECTRON_STAMP="${ELECTRON_DIR}/dist/main.js"
+if [ ! -f "${ELECTRON_STAMP}" ] || [ -n "$(find "${ELECTRON_DIR}/src" "${ELECTRON_DIR}/package.json" "${ELECTRON_DIR}/tsconfig.json" -newer "${ELECTRON_STAMP}" -print -quit 2>/dev/null)" ]; then
+    info "编译 Electron TypeScript(产物缺失或源码已更新)..."
     if ( cd "${ELECTRON_DIR}" && npm run build:electron ); then
         ok "Electron 编译完成"
     else
         error "Electron TypeScript 编译失败，无法启动（main 指向 dist/main.js，需要先成功编译）"
         info "请检查 electron/src 下的 TypeScript 错误后重试"
+        # 删除半成品戳文件,避免下次被误判为"已是最新"
+        rm -f "${ELECTRON_STAMP}"
         prompt_exit 1
     fi
     echo ""
+else
+    info "Electron 产物已是最新,跳过编译"
 fi
 
 banner "正在启动 Precis Desktop (仅 Electron)..."

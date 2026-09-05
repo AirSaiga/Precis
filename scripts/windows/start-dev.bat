@@ -39,16 +39,29 @@ echo.
 echo [INFO] Starting services...
 echo.
 
-if not exist "electron\dist\main.js" (
-    echo [INFO] Compiling Electron TypeScript...
+:: Compile Electron main when missing OR sources are newer than the last compile
+:: ("exists → skip" silently ran a stale main process after source edits).
+:: Detection defaults to STALE when PowerShell is unavailable (fail closed).
+set "ELECTRON_STALE=STALE"
+if exist "electron\dist\main.js" (
+    for /f "usebackq delims=" %%R in (`powershell -NoProfile -Command "$ErrorActionPreference='SilentlyContinue'; $newest = Get-ChildItem -Recurse -File 'electron\src','electron\package.json','electron\tsconfig.json' | Sort-Object LastWriteTime -Descending | Select-Object -First 1; $stamp = Get-Item 'electron\dist\main.js'; if ($newest -and $stamp -and $newest.LastWriteTime -gt $stamp.LastWriteTime) {'STALE'} else {'FRESH'}"`) do set "ELECTRON_STALE=%%R"
+)
+set "ELECTRON_BUILD_FAILED=0"
+if "!ELECTRON_STALE!"=="STALE" (
+    echo [INFO] Compiling Electron TypeScript - dist missing or sources changed...
     cd electron
     call npm run build:electron
-    if errorlevel 1 (
-        echo [ERROR] Electron compilation failed.
-        pause
-        exit /b 1
-    )
+    if not "!errorlevel!"=="0" set "ELECTRON_BUILD_FAILED=1"
     cd "%PROJECT_ROOT%"
+) else (
+    echo [INFO] Electron dist up to date - skipping compile.
+)
+if "!ELECTRON_BUILD_FAILED!"=="1" (
+    echo [ERROR] Electron compilation failed.
+    rem Drop the partial stamp so the next run rebuilds instead of trusting it
+    del "electron\dist\main.js" >nul 2>&1
+    pause
+    exit /b 1
 )
 
 :: Backend port is OS-assigned (start_server.py --port 0); no backend port is read from .env

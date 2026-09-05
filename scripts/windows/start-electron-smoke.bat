@@ -10,21 +10,21 @@ cd /d "%~dp0..\.."
 echo [1/3] 构建前端静态产物...
 cd frontend
 call npm run build-only
-if errorlevel 1 goto :error
+if not "%errorlevel%"=="0" goto :error
 cd ..
 
 echo [2/3] 打包 Electron（unpacked dir）...
 cd electron
 call npx tsc
-if errorlevel 1 goto :error
+if not "%errorlevel%"=="0" goto :error
 call npx electron-builder --dir --win --publish never
-if errorlevel 1 goto :error
+if not "%errorlevel%"=="0" goto :error
 cd ..
 
 echo [3/3] 运行 Electron smoke 测试...
 cd e2e
 call npx playwright test --config=playwright.electron.config.ts
-if errorlevel 1 goto :error
+if not "%errorlevel%"=="0" goto :error
 cd ..
 
 echo.
