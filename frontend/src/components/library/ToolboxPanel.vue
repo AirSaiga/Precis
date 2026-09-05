@@ -47,7 +47,7 @@
         <ToolboxTile
           :tool="{
             id: 'schema',
-            label: 'Table Schema',
+            label: t('assetLibraryExtended.projectView.toolbox.tableSchema'),
             iconClass: 'tile-icon-blue',
             iconSvg: ICONS.schema,
           }"
@@ -79,7 +79,7 @@
         <ToolboxTile
           :tool="{
             id: 'jsonSchema',
-            label: 'JSON Schema',
+            label: t('assetLibraryExtended.projectView.toolbox.jsonSchema'),
             iconClass: 'tile-icon-green',
             iconSvg: ICONS.jsonSchema,
           }"
@@ -111,7 +111,7 @@
         <ToolboxTile
           :tool="{
             id: 'manualData',
-            label: 'Manual Data',
+            label: t('assetLibraryExtended.projectView.toolbox.manualData'),
             iconClass: 'tile-icon-pink',
             iconSvg: ICONS.manualData,
           }"
@@ -215,7 +215,7 @@
         <ToolboxTile
           :tool="{
             id: 'templateInstance',
-            label: 'Template Instance',
+            label: t('assetLibraryExtended.projectView.toolbox.templateInstance'),
             iconClass: 'tile-icon-purple',
             iconSvg: ICONS.templateInstance,
           }"
@@ -247,7 +247,7 @@
         <ToolboxTile
           :tool="{
             id: 'transform',
-            label: 'Transform',
+            label: t('assetLibraryExtended.projectView.toolbox.transform'),
             iconClass: 'tile-icon-sky',
             iconSvg: ICONS.transform,
           }"
@@ -326,7 +326,7 @@
         <ToolboxTile
           :tool="{
             id: 'constraint',
-            label: 'Constraint',
+            label: t('assetLibraryExtended.projectView.toolbox.constraint'),
             iconClass: 'tile-icon-amber',
             iconSvg: ICONS.constraint,
           }"

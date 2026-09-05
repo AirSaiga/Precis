@@ -11,7 +11,12 @@ const assetLibraryExtended = {
     toolbox: {
       title: '创建 / 工具箱',
       tableSchema: '表结构',
-      regexGroup: 'Regex',
+      jsonSchema: 'JSON Schema',
+      manualData: '手动数据',
+      templateInstance: '模板实例',
+      transform: '转换',
+      constraint: '约束',
+      regexGroup: '正则表达式',
       regexPatternMode: '模式匹配',
       regexExtractMode: '提取模式',
       regexPattern: '正则表达式',

@@ -38,7 +38,7 @@ async function dragToolboxTableSchema(page: import('@playwright/test').Page) {
   await page.waitForTimeout(500)
   const item = page
     .locator('.toolbox-content .component-tile')
-    .filter({ hasText: 'Table Schema' })
+    .filter({ hasText: '表结构' })
     .first()
   await expect(item).toBeVisible({ timeout: 5000 })
   await item.dragTo(page.locator('.vue-flow__pane'), { timeout: 10000 })

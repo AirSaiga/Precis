@@ -12,6 +12,11 @@ const assetLibraryExtended = {
     toolbox: {
       title: 'CREATE / TOOLBOX',
       tableSchema: 'Table Schema',
+      jsonSchema: 'JSON Schema',
+      manualData: 'Manual Data',
+      templateInstance: 'Template Instance',
+      transform: 'Transform',
+      constraint: 'Constraint',
       regexGroup: 'Regex',
       regexPatternMode: 'Pattern Match',
       regexExtractMode: 'Extract Mode',

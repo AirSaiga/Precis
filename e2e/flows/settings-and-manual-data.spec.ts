@@ -209,7 +209,7 @@ test.describe('手动数据节点 UI', () => {
   // 拦截（实测 click 重试至超时），创建自带的选中是唯一可靠路径。
   async function createManualDataNode(page: import('@playwright/test').Page) {
     await waitForCanvasSettled(page)
-    const tile = page.locator('.component-tile').filter({ hasText: 'Manual Data' }).first()
+    const tile = page.locator('.component-tile').filter({ hasText: '手动数据' }).first()
     await expect(tile).toBeVisible({ timeout: 5000 })
     await tile.click()
     const mdNode = page.locator('.vue-flow__node-manualData').last()
