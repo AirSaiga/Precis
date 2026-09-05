@@ -134,7 +134,7 @@ test.describe('检查器渲染器交互', () => {
     await page.waitForTimeout(500)
     const constraintTile = page
       .locator('.toolbox-content .component-tile')
-      .filter({ hasText: 'Constraint' })
+      .filter({ hasText: '约束' })
       .first()
     await constraintTile.locator('.tile-expand-icon').click()
     await page.waitForTimeout(500)

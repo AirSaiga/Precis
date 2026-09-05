@@ -58,7 +58,7 @@ async function openResourceTree(page: Page) {
 
 async function openToolbox(page: Page) {
   await page.locator('.activity-bar-nav .view-btn[title="工具箱"]').first().click()
-  await expect(page.locator('.component-tile[title="Constraint"]')).toBeVisible({ timeout: 10000 })
+  await expect(page.locator('.component-tile[title="约束"]')).toBeVisible({ timeout: 10000 })
 }
 
 /** 拖拽资源树 Schema 到画布，期间自动关闭"是否连带导入关联约束"确认框（选"只导 Schema"）。
@@ -120,7 +120,7 @@ async function dragSchemaToCanvas(page: Page, schemaName: string) {
 /** 工具箱 → 约束面板 → 点击指定约束类型，创建独立约束节点 */
 async function createConstraintFromToolbox(page: Page, constraintName: string) {
   await openToolbox(page)
-  await page.locator('.component-tile[title="Constraint"] .tile-expand-icon').click()
+  await page.locator('.component-tile[title="约束"] .tile-expand-icon').click()
   const panel = page.locator('.constraint-panel')
   await expect(panel).toBeVisible({ timeout: 5000 })
   await panel
