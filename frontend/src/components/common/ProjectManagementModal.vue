@@ -377,7 +377,17 @@
         // DEF-01 修复：workspaces 快照恢复后，以 config 为事实源补齐画布缺失的
         // 配置实体节点（schema/constraint/regex/transform/manualData，幂等跳过已有）。
         // 必须在 loadWorkspaces 之后执行——快照恢复会覆盖 load 刚应用的节点集。
-        await graphStore.hydrateResourcesFromConfig()
+        // 门控与 bootstrap 路径（useAppBootstrap）保持同一不变量：仅在存在已保存
+        // 工作区快照时水合（DEF-01 场景=快照时机性丢节点，以 config 补齐）；首开
+        // 无快照不倾倒实体——画布以 projectRoot 起步，资源树是实体索引，用户按需
+        // 拖入（2026-09-05 Playwright 差分实证：无门控时 72 节点全量倾倒、43% 落
+        // 视口外，与 b48264ae 修掉的 bootstrap 首开倾倒同源）。
+        if (canvasStore.lastLoadHadSavedWorkspaces) {
+          const { hydrated } = await graphStore.hydrateResourcesFromConfig()
+          // 加载完成信号在 loadProjectFromV2/loadWorkspaces 时已消费一次，水合
+          // 补齐的节点可能在那次自动取景范围之外，重发信号驱动取景覆盖完整内容
+          if (hydrated > 0) canvasStore.markContentLoaded()
+        }
 
         // 通知资源树等监听方刷新项目资源。useResourceTree.onMounted 早已执行完毕，
         // isProjectActive 此时才变为 true，资源树不会自行刷新，必须显式 emit
