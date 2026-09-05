@@ -1,4 +1,4 @@
-# Build script - Package Precis CLI as a self-contained Windows distributable.
+﻿# Build script - Package Precis CLI as a self-contained Windows distributable.
 # Output: precis-cli-win.zip (extract and run; bundles python-runtime + backend source).
 # Usage: .\scripts\build-cli.ps1
 #

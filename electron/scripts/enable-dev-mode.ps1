@@ -1,4 +1,4 @@
-#Requires -RunAsAdministrator
+﻿#Requires -RunAsAdministrator
 # 开启 Windows 开发者模式（允许非管理员创建符号链接）
 # 只需运行一次，永久生效
 

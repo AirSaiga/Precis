@@ -1,4 +1,4 @@
-# Build script - Package Precis TUI (Rust) as a self-contained Windows distributable.
+﻿# Build script - Package Precis TUI (Rust) as a self-contained Windows distributable.
 # Output: precis-tui-win.zip (extract and run; bundles python-runtime + backend source).
 # Usage: .\scripts\build-tui.ps1
 
