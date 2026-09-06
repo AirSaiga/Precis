@@ -85,7 +85,7 @@ class CLIShell:
     管理命令注册和交互式主循环。
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.registry = CommandRegistry()
         self.context = ProjectContext()
         self._setup_commands()

@@ -36,7 +36,7 @@ class ConfigEditCommand(Command):
     调用系统默认编辑器打开项目配置文件。
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("edit")
 
     @property

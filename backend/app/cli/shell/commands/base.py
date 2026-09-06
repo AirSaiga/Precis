@@ -216,7 +216,7 @@ class CommandContext:
         value = context.get("username")  # "admin"
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         # 内部状态字典，存储所有上下文键值对
         self._state: dict[str, Any] = {}
 
@@ -264,7 +264,7 @@ class ProjectContext(CommandContext):
     会自动同步到父类的状态字典中，确保数据一致性。
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self._project_path: str | None = None
         self._project_config: dict[str, Any] | None = None

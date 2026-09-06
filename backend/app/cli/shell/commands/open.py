@@ -45,7 +45,7 @@ class OpenCommand(Command):
     打开成功后更新上下文（project_path/project_config）并写入历史记录。
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("open", aliases=["o"])
 
     @property

@@ -28,7 +28,7 @@ class ExitCommand(Command):
     全局快捷键 qq 仍可直接退出程序。
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("exit")
 
     @property

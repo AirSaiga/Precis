@@ -53,7 +53,7 @@ class ProviderCommand(Command):
     - 查看配置文件路径和模板
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("provider")
         self._config = get_cli_config()
 
@@ -493,8 +493,8 @@ class ProviderCommand(Command):
             print(Formatter.info("已取消"))
             return
 
-        if self._config.set_active_provider(provider_id):
-            provider = self._config.get_provider(provider_id)
+        provider = self._config.get_provider(provider_id)
+        if provider is not None and self._config.set_active_provider(provider_id):
             print(Formatter.success(f"\n[*] 已设置默认 Provider: {provider.name}"))
         else:
             print(Formatter.error("设置失败"))

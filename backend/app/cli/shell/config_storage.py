@@ -21,8 +21,8 @@ from app.shared.services.llm.config.models import AIConfig, AIProvider
 class CLIConfigStorage:
     """CLI 配置存储管理类（直接使用 AIProvider 模型）"""
 
-    def __init__(self):
-        self._config: AIConfig = None
+    def __init__(self) -> None:
+        self._config: AIConfig
         self._load()
 
     def _load(self) -> None:

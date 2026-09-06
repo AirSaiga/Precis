@@ -44,7 +44,7 @@ class ConfigCheckCommand(Command):
     验证项目中的 YAML 配置文件语法是否正确。
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("check")
 
     @property

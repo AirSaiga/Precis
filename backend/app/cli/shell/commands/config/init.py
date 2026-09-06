@@ -33,7 +33,7 @@ class ConfigInitCommand(Command):
     基于内置模板创建新的配置文件。
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("init")
 
     @property

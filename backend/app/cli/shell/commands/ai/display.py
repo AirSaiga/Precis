@@ -27,6 +27,7 @@ import logging
 from pathlib import Path
 
 from app.cli.shell.formatter import Colors, Formatter
+from app.shared.services.ai.chat_orchestrator import ChatExecutionResult
 
 from .diff import _generate_diff
 
@@ -159,7 +160,7 @@ def _display_detailed_diff(changed_files: dict[str, tuple[str, str]]) -> None:
 
 
 def _display_execution_results(
-    result,
+    result: ChatExecutionResult,
     project_path: str,
     original_files_cache: dict[str, str] | None = None,
 ) -> None:
@@ -221,7 +222,7 @@ def _display_execution_results(
         _display_detailed_diff(changed_files)
 
 
-def _display_results_without_diff(result) -> None:
+def _display_results_without_diff(result: ChatExecutionResult) -> None:
     """显示没有修改操作的结果（仅校验等）。
 
     当 AI 的动作不涉及文件修改时（如 VALIDATE_PROJECT），

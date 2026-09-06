@@ -42,7 +42,7 @@ class StatusCommand(Command):
     显示当前打开项目的基本信息，包括路径、清单文件状态、数据文件数量和历史项目数量。
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("status", aliases=["st"])
 
     @property
@@ -104,7 +104,7 @@ class ProjectHistoryCommand(Command):
     显示最近打开的项目列表，按时间倒序排列。
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("history", aliases=["h"])
 
     @property
@@ -146,7 +146,7 @@ class ProjectCommand(Command):
     - ProjectHistoryCommand: 查看历史
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("project", aliases=["p"])
         self.add_subcommand("open", OpenCommand())
         self.add_subcommand("status", StatusCommand())

@@ -55,7 +55,7 @@ class AIChatCommand(Command):
     # 为模型回复预留的 token 预算
     RESERVED_OUTPUT_TOKENS = 8000
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("chat")
         self._cli_config = get_cli_config()
 

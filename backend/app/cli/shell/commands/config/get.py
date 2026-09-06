@@ -33,7 +33,7 @@ class ConfigGetCommand(Command):
     按点号路径从 YAML 配置文件中读取指定项的值。
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("get")
 
     @property

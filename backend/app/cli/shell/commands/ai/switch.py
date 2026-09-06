@@ -33,7 +33,7 @@ class AISwitchCommand(Command):
     支持交互式菜单或直接指定 Provider ID 切换。
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("switch")
         self._cli_config = get_cli_config()
 

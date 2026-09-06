@@ -65,14 +65,14 @@ class SpinnerController:
         _chars: 旋转动画使用的 Unicode 字符列表
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._stop_event = threading.Event()
         self._pause_event = threading.Event()
         self._thread: threading.Thread | None = None
         # Unicode Braille 点字图案，用于终端旋转动画
         self._chars = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
-    def start(self):
+    def start(self) -> None:
         """启动 spinner 动画。
 
         创建并启动一个后台守护线程，循环显示旋转字符。
@@ -82,7 +82,7 @@ class SpinnerController:
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
 
-    def stop(self):
+    def stop(self) -> None:
         """停止 spinner 动画。
 
         设置停止标志，等待线程结束，并清除终端上的 spinner 残留。
@@ -94,17 +94,17 @@ class SpinnerController:
         # 清除 spinner 行：用空格覆盖并回车
         print(f"\r{' ' * 20}\r", end="", flush=True)
 
-    def pause(self):
+    def pause(self) -> None:
         """暂停 spinner（用于显示确认提示等需要用户输入的场景）。"""
         self._pause_event.set()
         # 清除当前 spinner 行，避免与后续输出重叠
         print(f"\r{' ' * 20}\r", end="", flush=True)
 
-    def resume(self):
+    def resume(self) -> None:
         """恢复 spinner 动画。"""
         self._pause_event.clear()
 
-    def _run(self):
+    def _run(self) -> None:
         """spinner 主循环。
 
         后台线程的运行方法，循环显示旋转字符直到收到停止信号。

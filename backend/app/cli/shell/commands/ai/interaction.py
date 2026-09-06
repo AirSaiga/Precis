@@ -212,7 +212,7 @@ def build_context_data(message: str, context: Any) -> dict[str, Any]:
     }
 
 
-def create_spinner(message: str = "AI> "):
+def create_spinner(message: str = "AI> ") -> tuple[threading.Event, threading.Thread]:
     """创建并启动一个 spinner 线程。
 
     Args:
@@ -223,7 +223,7 @@ def create_spinner(message: str = "AI> "):
     """
     stop_event = threading.Event()
 
-    def spinner():
+    def spinner() -> None:
         chars = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
         i = 0
         while not stop_event.is_set():
@@ -236,7 +236,7 @@ def create_spinner(message: str = "AI> "):
     return stop_event, thread
 
 
-def stop_spinner(stop_event: threading.Event, thread: threading.Thread):
+def stop_spinner(stop_event: threading.Event, thread: threading.Thread) -> None:
     """停止 spinner 线程。
 
     Args:

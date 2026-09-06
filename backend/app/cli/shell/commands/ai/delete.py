@@ -34,7 +34,7 @@ class AIDeleteCommand(Command):
     删除前会要求用户确认。
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("delete")
         self._cli_config = get_cli_config()
 

@@ -37,7 +37,7 @@ class ConfigCommand(Command):
     聚合所有配置相关的子命令，包括查看、编辑、列表、初始化、获取、设置、检查。
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("config")
         self._show_cmd = ConfigShowCommand()
         self._edit_cmd = ConfigEditCommand()

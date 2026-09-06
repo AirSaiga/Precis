@@ -30,7 +30,7 @@ class ConfigListCommand(Command):
     显示项目中所有 YAML 配置文件及其大小。
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("list")
 
     @property

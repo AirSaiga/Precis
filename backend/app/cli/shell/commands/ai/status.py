@@ -30,7 +30,7 @@ class AIStatusCommand(Command):
     显示所有已配置的 AI Provider 及其状态信息。
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("status")
         self._cli_config = get_cli_config()
 

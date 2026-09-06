@@ -44,7 +44,7 @@ class ConfigInspectCommand(Command):
     执行项目配置的跨文件一致性检查，复用后端 inspect_config 引擎。
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("inspect")
 
     @property

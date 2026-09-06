@@ -119,7 +119,7 @@ class ValidateCommand(Command):
     - Standalone 模式: 通过 --manifest 指定清单文件，不依赖项目上下文
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("validate", aliases=["check"])
 
     @property

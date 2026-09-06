@@ -69,7 +69,7 @@ class AIGenerateCommand(Command):
     默认输出 YAML 预览，使用 --apply 写入项目目录。
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("generate", aliases=["gen"])
 
     @property

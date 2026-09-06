@@ -35,7 +35,7 @@ class ConfigShowCommand(Command):
     显示项目配置文件的内容，支持单文件或批量显示。
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("show")
 
     @property

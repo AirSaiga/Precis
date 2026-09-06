@@ -25,7 +25,7 @@ class CommandRegistry:
     管理所有可用命令的注册和查找。
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._commands: dict[str, Command] = {}
         self._aliases: dict[str, str] = {}
 

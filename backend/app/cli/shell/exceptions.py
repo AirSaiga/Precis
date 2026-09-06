@@ -42,7 +42,7 @@ class InvalidProjectError(CLIError):
 class NoProjectOpenError(CLIError):
     """未打开项目异常。"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("未打开项目，请使用 'open <path>' 命令打开项目", exit_code=4)
 
 

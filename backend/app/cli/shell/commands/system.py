@@ -34,7 +34,7 @@ class PwdCommand(Command):
     显示系统当前工作目录，如果已打开项目则同时显示项目路径。
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("pwd", aliases=["cwd"])
 
     @property
@@ -75,7 +75,7 @@ class LsCommand(Command):
     支持相对路径和绝对路径。
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("ls", aliases=["dir"])
 
     @property

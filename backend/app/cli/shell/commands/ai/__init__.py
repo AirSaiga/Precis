@@ -45,7 +45,7 @@ class AICommand(Command):
     作为聚合命令，包含多个子命令和一个交互式菜单。
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("ai", aliases=["assistant"])
         self._chat_cmd: AIChatCommand = AIChatCommand()
         self._status_cmd: AIStatusCommand = AIStatusCommand()

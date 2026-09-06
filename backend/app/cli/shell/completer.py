@@ -24,6 +24,9 @@
 
 from __future__ import annotations
 
+import importlib
+from collections.abc import Callable
+from types import ModuleType
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -32,7 +35,7 @@ if TYPE_CHECKING:
     from app.cli.shell.parser import CommandRegistry
 
 
-def _import_readline():
+def _import_readline() -> ModuleType | None:
     """导入 readline 后端。
 
     Unix 上 stdlib readline 可用；Windows 上 stdlib 无 readline，
@@ -41,16 +44,14 @@ def _import_readline():
     Returns:
         readline 模块对象；两者都不可用时返回 None
     """
-    try:
-        # Unix: stdlib readline；部分 Windows 构建（如 Anaconda）也可能内置
-        import readline
-    except ImportError:
+    # Unix: stdlib readline（部分 Windows 构建如 Anaconda 也可能内置）；
+    # Windows 退回 pyreadline3（与 stdlib readline 接口兼容）
+    for module_name in ("readline", "pyreadline3"):
         try:
-            # Windows: 退回 pyreadline3（与 stdlib readline 接口兼容）
-            import pyreadline3 as readline
+            return importlib.import_module(module_name)
         except ImportError:
-            return None
-    return readline
+            continue
+    return None
 
 
 def install_readline_completer(registry: CommandRegistry) -> bool:
@@ -79,7 +80,7 @@ def install_readline_completer(registry: CommandRegistry) -> bool:
     return True
 
 
-def _make_completer(registry: CommandRegistry):
+def _make_completer(registry: CommandRegistry) -> Callable[[str, int], str | None]:
     """构造 readline completer 闭包。
 
     readline 协议：对同一 text 反复调用，state 从 0 递增，
@@ -113,7 +114,7 @@ def _make_completer(registry: CommandRegistry):
     return complete
 
 
-def _compute_candidates(registry: CommandRegistry, readline, text: str) -> list[str]:
+def _compute_candidates(registry: CommandRegistry, readline: ModuleType, text: str) -> list[str]:
     """计算当前补全候选列表。
 
     两层补全逻辑：
