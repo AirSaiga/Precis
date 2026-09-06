@@ -49,7 +49,7 @@
       @node-drag-start="handleNodePositionDragStart"
       @node-drag-stop="handleNodePositionDragStop"
       :default-viewport="{ zoom: 0.8 }"
-      class="theme-default"
+      :class="['theme-default', { 'canvas-interacting': isCanvasInteracting }]"
       :selection-mode="SelectionMode.Partial"
       :select-nodes-on-drag="true"
       :zoom-on-pinch="true"
@@ -287,6 +287,37 @@
   })
   const { validateConnection } = useCanvasConnectionWatcher()
   const flowWrapper = ref<HTMLDivElement | null>(null)
+
+  /**
+   * 画布交互态标记：平移/缩放/节点拖拽进行中暂停边的数据流动画。
+   *
+   * dashdraw 是 SVG 无限动画（.vue-flow__edge.animated path），动画期间边层
+   * 每帧都被强制重栅格化，无法走纯合成器路径——128 边规模实测把平移/拖拽
+   * 压到 ~24-55fps（animation:none 差分对照 171fps，2026-09-06）。
+   *
+   * 判定用原生 mousedown/wheel + mouseup，不依赖 Vue Flow 的 moveStart/moveEnd
+   * 事件对：moveEnd 被 viewChanged 门控（无位移的空白点击不成对发射），
+   * 实测按它 toggle 会把状态卡死在 true；且 mouseup 语义上必然跟随每次
+   * 按下（pan、节点拖拽、框选均始于 mousedown），无需按手势类型分派。
+   * 仅交互进行中暂停，静止时动画照常，"数据流边 vs 展示边"的视觉语义不受影响。
+   */
+  const isCanvasInteracting = ref(false)
+  let interactionEndTimer: ReturnType<typeof setTimeout> | null = null
+  const markCanvasInteracting = () => {
+    if (interactionEndTimer) {
+      clearTimeout(interactionEndTimer)
+      interactionEndTimer = null
+    }
+    isCanvasInteracting.value = true
+  }
+  const scheduleCanvasInteractionEnd = () => {
+    if (interactionEndTimer) clearTimeout(interactionEndTimer)
+    // 短延迟越过动画帧尾，避免松手瞬间就恢复动画造成一次闪变
+    interactionEndTimer = setTimeout(() => {
+      isCanvasInteracting.value = false
+      interactionEndTimer = null
+    }, 250)
+  }
   const { projectCreateDialogRef, handleOpenCreateProjectDialog } = useCanvasProjectDialog()
   const {
     onNodeClick,
@@ -418,6 +449,14 @@
 
   onMounted(() => {
     eventBus.on('inspection-import-and-focus', handleInspectionImportAndFocus)
+    // 交互态监听：capture 捕获 wrapper 内任何来源的按下（pane 平移/节点拖拽/框选），
+    // wheel 触发缩放交互；mouseup 必然跟随按下，用短延迟收敛交互窗口
+    flowWrapper.value?.addEventListener('mousedown', markCanvasInteracting, { capture: true })
+    flowWrapper.value?.addEventListener('wheel', markCanvasInteracting, {
+      capture: true,
+      passive: true,
+    })
+    window.addEventListener('mouseup', scheduleCanvasInteractionEnd, { capture: true })
     // 恢复上次视口（模式切换后重建 NodeCanvas 时）。
     // 需等 Vue Flow DOM 就绪后 setViewport 才生效，否则尺寸为 0 会静默失败。
     // isCustomized=false 表示从未被用户修改过（首次挂载），用默认值即可不调 setViewport。
@@ -434,6 +473,14 @@
   })
   onBeforeUnmount(() => {
     eventBus.off('inspection-import-and-focus', handleInspectionImportAndFocus)
+    // 交互态监听清理（无条件移除，与挂载解耦——异步未完成的交互窗口也不能泄漏）
+    flowWrapper.value?.removeEventListener('mousedown', markCanvasInteracting, { capture: true })
+    flowWrapper.value?.removeEventListener('wheel', markCanvasInteracting, { capture: true })
+    window.removeEventListener('mouseup', scheduleCanvasInteractionEnd, { capture: true })
+    if (interactionEndTimer) {
+      clearTimeout(interactionEndTimer)
+      interactionEndTimer = null
+    }
     // 卸载前确保最终视口写入 store（watch 可能因 nextTick 延迟未触发最后一次）
     try {
       const v = viewport.value

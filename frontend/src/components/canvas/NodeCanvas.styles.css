@@ -256,3 +256,10 @@
   stroke: var(--ui-accent) !important;
   stroke-width: 1.5;
 }
+
+/* 画布交互期（平移/缩放/节点拖拽）暂停边的数据流动画。
+   dashdraw 为 SVG 无限动画，交互期间边层每帧被强制重栅格化（128 边规模实测
+   平移/拖拽 ~55fps，暂停后满帧）；仅交互进行中生效，静止时视觉语义不变。 */
+.canvas-wrapper :deep(.vue-flow.canvas-interacting .vue-flow__edge.animated path) {
+  animation-play-state: paused !important;
+}

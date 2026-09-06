@@ -346,14 +346,16 @@ export function useNodeOrganizer() {
   }
 
   function applyPositions(positions: Map<string, { x: number; y: number }>): void {
-    graphStore.nodes = nodes.value.map((node) => {
-      const newPos = positions.get(node.id)
-      if (!newPos) return node
-      return {
-        ...node,
-        position: { x: newPos.x, y: newPos.y },
-      }
-    })
+    // 增量落位：逐节点走 updateNodeData（position 被路由为 node 级 patch → Vue Flow
+    // updateNode 原地更新，store 侧由其内部 nextTick 同步）。禁止改回全量数组替换——
+    // 那会触发 setNodes → createGraphNodes 整图重建 + 全节点/全边/MiniMap 重渲级联，
+    // 128 节点实测一次 ~2.8s longtask（2026-09-06 流畅度测量）。
+    // 防御式过滤：positions 可能含画布已不存在的 id（计算与执行间节点被删除）。
+    const existingIds = new Set(nodes.value.map((n) => n.id))
+    for (const [nodeId, newPos] of positions) {
+      if (!existingIds.has(nodeId)) continue
+      graphStore.updateNodeData(nodeId, { position: { x: newPos.x, y: newPos.y } })
+    }
   }
 
   function toggleShowGroups(): void {
