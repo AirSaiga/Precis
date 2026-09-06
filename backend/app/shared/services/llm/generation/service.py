@@ -45,7 +45,7 @@ import os
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 
@@ -53,6 +53,12 @@ from ..config import loader
 from ..providers import ChatMessage, ChatRequest, create
 from .config_builder import build_config
 from .prompt_builder import build_prompt
+
+if TYPE_CHECKING:
+    from app.shared.services.ai.agent.tool_registry import ToolRegistry
+    from app.shared.services.ai.agent.types import ToolResult
+
+    from ..providers.base import BaseProvider
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +152,7 @@ class ConfigGenerationService:
             provider_id: 指定 Provider ID，None 则使用默认
         """
         self.provider_id = provider_id
-        self._provider = None
+        self._provider: BaseProvider | None = None
         self._cancelled = False
 
         # Agent 模式运行时状态
@@ -161,7 +167,7 @@ class ConfigGenerationService:
         self._last_metrics: dict[str, Any] | None = None
         self._current_plan: list[dict[str, Any]] | None = None
 
-    def _get_provider(self):
+    def _get_provider(self) -> BaseProvider:
         """
         @methoddesc 获取 Provider 实例
 
@@ -233,7 +239,7 @@ class ConfigGenerationService:
 
         # 阶段 4: 解析响应
         self._check_cancelled(progress_callback, "parsing", 80)
-        result = self._parse_response(response.content)
+        result = self._parse_response(response.content or "")
 
         # 阶段 5: 构建最终配置
         self._check_cancelled(progress_callback, "finalizing", 95)
@@ -430,7 +436,7 @@ class ConfigGenerationService:
         if progress_callback:
             progress_callback(stage, mapped / 100.0, merged_extra)
 
-    def _on_agent_tool_result(self, tr) -> None:
+    def _on_agent_tool_result(self, tr: ToolResult) -> None:
         """从工具结果中提取 metrics 和 current_plan。"""
         from app.shared.services.ai.agent.types import AgentMetrics, ToolResult
 
@@ -458,7 +464,7 @@ class ConfigGenerationService:
         validation_sample_size: int,
         chunk_max_columns: int,
         chunk_max_files: int,
-    ):
+    ) -> ToolRegistry:
         """创建 Agent 工具注册表。"""
         from app.shared.services.ai.agent.tool_registry import ToolRegistry
         from app.shared.services.ai.agent.tools import (
@@ -644,7 +650,7 @@ class ConfigGenerationService:
             temperature=0.3,
         )
         response = await provider.chat(chat_req)
-        result = self._parse_response(response.content)
+        result = self._parse_response(response.content or "")
         config = self._build_config_from_llm_result(result)
         config["warnings"] = config.get("warnings", []) + prompt_warnings
         return config
@@ -704,7 +710,7 @@ class ConfigGenerationService:
             temperature=0.2,
         )
         response = await provider.chat(chat_req)
-        result = self._parse_response(response.content)
+        result = self._parse_response(response.content or "")
         refined_config = self._build_config_from_llm_result(result)
 
         # 对比找出 removed/modified
@@ -931,7 +937,7 @@ class ConfigGenerationService:
         best_array = None
         best_length = 0
 
-        def search(obj):
+        def search(obj: Any) -> None:
             nonlocal best_array, best_length
 
             if isinstance(obj, dict):
@@ -1057,7 +1063,7 @@ class ConfigGenerationService:
             logger.warning(f"加载现有配置失败: {e}")
             return None
 
-    def cancel(self):
+    def cancel(self) -> None:
         """
         @methoddesc 标记生成任务为已取消状态
 

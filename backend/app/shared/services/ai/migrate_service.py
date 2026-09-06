@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable
 from typing import Any
 
 from app.shared.services.ai.agent import AgentExecutor
@@ -28,7 +29,7 @@ from app.shared.services.ai.agent.tools import (
     PlanChunksTool,
     ScriptParseTool,
 )
-from app.shared.services.llm.generation import CancelledError
+from app.shared.services.llm.generation import CancelledError, GenerationOptions, ProfilingOptions
 from app.shared.services.llm.generation.service import ConfigGenerationService
 
 logger = logging.getLogger(__name__)
@@ -49,12 +50,12 @@ class ConfigMigrationService(ConfigGenerationService):
         project_name: str,
         project_id: str,
         config_path: str | None = None,
-        profiling_options=None,
-        generation_options=None,
+        profiling_options: ProfilingOptions | None = None,
+        generation_options: GenerationOptions | None = None,
         max_iterations: int = 2,
         validation_sample_size: int = 1000,
-        progress_callback=None,
-        checkpoint_callback=None,
+        progress_callback: Callable[..., Any] | None = None,
+        checkpoint_callback: Callable[..., Any] | None = None,
         sources: list[dict[str, Any]] | None = None,
         initial_checkpoint: dict[str, Any] | None = None,
         chunk_max_sources: int = 5,
@@ -305,8 +306,8 @@ class ConfigMigrationService(ConfigGenerationService):
         parsed_intents: list[dict[str, Any]],
         registry: ToolRegistry,
         max_iterations: int,
-        progress_callback,
-        checkpoint_callback,
+        progress_callback: Callable[..., Any] | None,
+        checkpoint_callback: Callable[..., Any] | None,
         initial_checkpoint: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """单次 Agent 生成路径（显式关闭分片时的零回归路径）。
@@ -418,8 +419,8 @@ class ConfigMigrationService(ConfigGenerationService):
         merge_warnings: list[str],
         max_iterations: int,
         max_tokens: int,
-        progress_callback,
-        checkpoint_callback,
+        progress_callback: Callable[..., Any] | None,
+        checkpoint_callback: Callable[..., Any] | None,
     ) -> dict[str, Any]:
         """多分片合并后，通过 Agent 做校验 + 精修兜底。"""
         provider = self._get_provider()

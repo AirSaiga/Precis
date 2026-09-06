@@ -35,7 +35,7 @@ from .file_base import FileSourceSpec
 
 # 延迟导入具体实现，避免循环依赖
 # 当用户首次访问这些名称时，才会执行实际导入
-def __getattr__(name: str):
+def __getattr__(name: str) -> type[DataSourceSpec]:
     """
     @methoddesc 延迟导入具体数据源规格类
 

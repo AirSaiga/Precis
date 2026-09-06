@@ -51,7 +51,7 @@ class ToolRegistry:
     管理工具定义和分发执行。
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化空注册表。"""
         self._tools: dict[str, dict[str, Any]] = {}
         self._handlers: dict[str, ToolHandler] = {}

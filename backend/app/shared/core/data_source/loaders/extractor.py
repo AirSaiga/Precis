@@ -67,7 +67,7 @@ class JSONPathExtractor:
     >>> # [1]
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         @methoddesc 初始化 JSONPath 提取器
 

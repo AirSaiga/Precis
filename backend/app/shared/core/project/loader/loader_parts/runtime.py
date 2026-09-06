@@ -23,7 +23,9 @@ from app.shared.core.project.schema.types import TableSchemaFile
 from .path_validation import validate_path_inside_project
 
 
-def build_runtime_constraints(constraint_files: dict[str, ConstraintFile], schema_files: dict[str, TableSchemaFile]):
+def build_runtime_constraints(
+    constraint_files: dict[str, ConstraintFile], schema_files: dict[str, TableSchemaFile]
+) -> tuple[list[Any], list[str]]:
     """@methoddesc 构建运行时约束对象（代理函数）
 
     该函数是约束工厂模块 create_constraints 的薄包装，

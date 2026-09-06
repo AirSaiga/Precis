@@ -29,6 +29,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -38,7 +39,7 @@ if TYPE_CHECKING:
 LOADER_REGISTRY: dict[str, type[DataSourceLoader]] = {}
 
 
-def register_loader(spec_discriminator: str):
+def register_loader(spec_discriminator: str) -> Callable[[type[DataSourceLoader]], type[DataSourceLoader]]:
     """
     @methoddesc 装饰器：注册加载器到全局注册表
 

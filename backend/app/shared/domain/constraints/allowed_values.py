@@ -98,7 +98,7 @@ class AllowedValuesConstraint(Constraint):
         )
         return f"允许值约束: {self.table}.{self.column} 允许值 {values_str}"
 
-    def validate(self, datasets: dict[str, pd.DataFrame], **kwargs) -> dict[str, Any]:
+    def validate(self, datasets: dict[str, pd.DataFrame], **kwargs: Any) -> dict[str, Any]:
         """
         @methoddesc 执行允许值验证
 

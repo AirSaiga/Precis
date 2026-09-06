@@ -35,7 +35,7 @@
 from __future__ import annotations
 
 import builtins
-from typing import TYPE_CHECKING, Any, ClassVar, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self
 
 if TYPE_CHECKING:
     from ..loaders.base import DataSourceLoader
@@ -145,7 +145,7 @@ class JSONSourceSpec(FileSourceSpec):
         return data
 
     @model_validator(mode="after")
-    def validate_json_path(self):
+    def validate_json_path(self) -> Self:
         """
         @methoddesc 当 format=object 时，json_path 是必需的
 
@@ -163,7 +163,7 @@ class JSONSourceSpec(FileSourceSpec):
         return self
 
     @model_validator(mode="after")
-    def validate_json_path_format(self):
+    def validate_json_path_format(self) -> Self:
         """
         @methoddesc 验证 json_path 格式
 

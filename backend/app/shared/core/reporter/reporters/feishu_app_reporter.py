@@ -102,7 +102,7 @@ class FeishuReporter(Reporter):
         token_expires_at: 令牌过期时间戳（App 模式专用）
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         @methoddesc 初始化飞书报告器
 
@@ -110,8 +110,8 @@ class FeishuReporter(Reporter):
         以及 App 模式专用的访问令牌和过期时间戳。
         """
         super().__init__("FeishuReporter")
-        self.config = {}  # 存储配置参数
-        self.mode = None  # 当前发送模式: 'webhook' | 'app' | 'service'
+        self.config: dict[str, Any] = {}  # 存储配置参数
+        self.mode: str | None = None  # 当前发送模式: 'webhook' | 'app' | 'service'
         self.is_configured = False  # 配置是否有效
 
         # App 模式专用属性
@@ -173,7 +173,7 @@ class FeishuReporter(Reporter):
         )
         return False
 
-    def report(self, errors: list[dict]):
+    def report(self, errors: list[dict]) -> None:
         """
         @methoddesc 发送错误报告的主入口方法
 
@@ -249,7 +249,7 @@ class FeishuReporter(Reporter):
     # ==============================================================================
     # 模式一：Webhook 实现
     # ==============================================================================
-    def _report_via_webhook(self, card_content: dict):
+    def _report_via_webhook(self, card_content: dict) -> None:
         """
         @methoddesc 通过 Webhook 发送消息（Webhook 模式）
 
@@ -302,7 +302,7 @@ class FeishuReporter(Reporter):
     # ==============================================================================
     # 模式二：自建应用实现
     # ==============================================================================
-    def _report_via_app(self, card_content: dict):
+    def _report_via_app(self, card_content: dict) -> None:
         """
         @methoddesc 通过飞书自建应用发送消息（App 模式）
 
@@ -333,7 +333,7 @@ class FeishuReporter(Reporter):
             payload = {"receive_id": receive_id.strip(), "msg_type": "interactive", "content": json.dumps(card_content)}
             self._send_request(url, payload, headers, target_id=receive_id.strip())
 
-    def _get_tenant_access_token(self):
+    def _get_tenant_access_token(self) -> str | None:
         """
         @methoddesc 获取飞书应用访问令牌（Tenant Access Token）
 
@@ -380,7 +380,7 @@ class FeishuReporter(Reporter):
     # ==============================================================================
     # 模式三：中心化服务实现
     # ==============================================================================
-    def _report_via_service(self, card_content: dict):
+    def _report_via_service(self, card_content: dict) -> None:
         """
         @methoddesc 通过中心化服务发送消息（Service 模式）
 
@@ -403,7 +403,7 @@ class FeishuReporter(Reporter):
     # ==============================================================================
     # 通用请求发送器
     # ==============================================================================
-    def _send_request(self, url: str, payload: dict, headers: dict, target_id: str = "N/A"):
+    def _send_request(self, url: str, payload: dict, headers: dict, target_id: str = "N/A") -> None:
         """
         @methoddesc 通用 HTTP POST 请求发送器
 

@@ -30,7 +30,7 @@ from .openai import OpenAIProvider
 _registry: dict[ProviderType, type[BaseProvider]] = {}
 
 
-def register(type: ProviderType, cls: type[BaseProvider]):
+def register(type: ProviderType, cls: type[BaseProvider]) -> None:
     """
     @methoddesc 将 Provider 实现类注册到全局注册表中
 

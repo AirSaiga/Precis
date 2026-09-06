@@ -117,7 +117,7 @@ class ScriptedConstraint(Constraint):
         """生成脚本约束描述"""
         return f"脚本约束: {self.table}.{self.name}"
 
-    def validate(self, datasets: dict[str, pd.DataFrame], **kwargs) -> dict[str, Any]:
+    def validate(self, datasets: dict[str, pd.DataFrame], **kwargs: Any) -> dict[str, Any]:
         """
         @methoddesc 执行脚本化验证
 

@@ -36,6 +36,7 @@ from __future__ import annotations
 import logging
 import time
 from collections.abc import Callable
+from typing import Any
 
 import pandas as pd
 
@@ -65,7 +66,7 @@ class CompositeValidator(BaseValidator):
         """
         self._validate_fn = validate_fn
 
-    def validate(self, df: pd.DataFrame, column: str, **kwargs) -> ValidationResult:
+    def validate(self, df: pd.DataFrame, column: str, **kwargs: Any) -> ValidationResult:
         """@methoddesc 执行复合约束校验
 
         遍历所有子约束配置，逐个调用注入的 validate_fn 执行校验，

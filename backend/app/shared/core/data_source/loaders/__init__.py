@@ -157,7 +157,7 @@ def load_source_data_safe(spec: Any) -> tuple[pd.DataFrame, list]:
 
 
 # 延迟导入具体加载器，避免循环依赖
-def __getattr__(name):
+def __getattr__(name: str) -> type[DataSourceLoader]:
     if name == "ExcelLoader":
         from .excel_loader import ExcelLoader
 

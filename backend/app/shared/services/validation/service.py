@@ -40,6 +40,7 @@
 """
 
 import logging
+from typing import Any
 
 import pandas as pd
 
@@ -110,7 +111,7 @@ class UnifiedValidationService:
     _validators: dict[str, BaseValidator] = {}
 
     @classmethod
-    def register_validator(cls, validation_type: str, validator: BaseValidator):
+    def register_validator(cls, validation_type: str, validator: BaseValidator) -> None:
         """
         @methoddesc 注册校验器到统一服务
 
@@ -142,7 +143,7 @@ class UnifiedValidationService:
         return cls._validators.get(validation_type)
 
     @classmethod
-    def validate(cls, validation_type: str, df: pd.DataFrame, column: str, **kwargs) -> ValidationResult:
+    def validate(cls, validation_type: str, df: pd.DataFrame, column: str, **kwargs: Any) -> ValidationResult:
         """
         @methoddesc 执行数据校验 - 统一入口方法
 
@@ -234,7 +235,7 @@ def _conditional_kwargs_builder(column: str, kwargs: dict) -> dict:
     }
 
 
-def _conditional_pre_check(df, column, kwargs):
+def _conditional_pre_check(df: pd.DataFrame, column: str, kwargs: dict) -> str | None:
     then_condition = kwargs.get("then_condition") or kwargs.get("then_condition_config")
     if not then_condition:
         return "条件校验配置不完整"
@@ -244,7 +245,7 @@ def _conditional_pre_check(df, column, kwargs):
     return None
 
 
-def _conditional_error_formatter(err):
+def _conditional_error_formatter(err: dict) -> dict:
     return {
         "row_index": err.get("row_index"),
         "cell_value": err.get("value"),
@@ -261,13 +262,13 @@ def _fk_kwargs_builder(column: str, kwargs: dict) -> dict:
     }
 
 
-def _fk_datasets_builder(df, column, kwargs):
+def _fk_datasets_builder(df: pd.DataFrame, column: str, kwargs: dict) -> dict:
     target_column = kwargs.get("target_column")
     target_df = pd.DataFrame({target_column: kwargs.get("target_values", [])})
     return {"temp": df, "target": target_df}
 
 
-def _fk_pre_check(df, column, kwargs):
+def _fk_pre_check(df: pd.DataFrame, column: str, kwargs: dict) -> str | None:
     if not kwargs.get("target_table") or not kwargs.get("target_column"):
         return "外键校验缺少目标表或目标列配置"
     # target_values 缺失（键不存在或为 None）属于配置不完整：若按空目标表处理，
@@ -289,7 +290,7 @@ def _scripted_kwargs_builder(column: str, kwargs: dict) -> dict:
     }
 
 
-def _scripted_error_formatter(err):
+def _scripted_error_formatter(err: dict) -> dict:
     row_index = err.get("row_index")
     if row_index is None:
         row_index = 0

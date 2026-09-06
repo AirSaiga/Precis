@@ -64,7 +64,7 @@ class Constraint(ABC):
     """
 
     @abstractmethod
-    def validate(self, datasets: dict[str, pd.DataFrame], **kwargs) -> dict[str, Any]:
+    def validate(self, datasets: dict[str, pd.DataFrame], **kwargs: Any) -> dict[str, Any]:
         """
         @methoddesc 执行约束验证
 

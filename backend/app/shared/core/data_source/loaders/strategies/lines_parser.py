@@ -290,7 +290,7 @@ class ParserStrategyRegistry:
     >>> result = parser.parse(content)
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         @methoddesc 初始化解析策略注册表
 

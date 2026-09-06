@@ -18,8 +18,10 @@ import os
 import tempfile
 import time
 import uuid
+from io import TextIOWrapper
 from pathlib import Path
-from typing import Any
+from types import TracebackType
+from typing import Any, Literal
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +108,7 @@ class FileLock:
         self.file_path = file_path
         self.timeout = timeout
         self.stale_seconds = stale_seconds
-        self.lock_file = None
+        self.lock_file: TextIOWrapper | None = None
         self.lock_path = f"{file_path}.lock"
         # 本持有者的唯一令牌：获取锁时写入锁文件，释放前重验归属，避免误删他人重建的锁
         self._lock_token: str | None = None
@@ -131,7 +133,7 @@ class FileLock:
         except OSError:
             logger.debug("删除陈旧锁文件失败（可能被并发占用）", exc_info=True)
 
-    def __enter__(self):
+    def __enter__(self) -> FileLock:
         """
         @methoddesc 获取文件锁
 
@@ -182,7 +184,12 @@ class FileLock:
 
                 time.sleep(0.1)  # 100ms 后重试
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> Literal[False]:
         """
         @methoddesc 释放文件锁
 

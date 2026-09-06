@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 
 from app.shared.services.llm.generation import (
     ConfigGenerationService,
@@ -20,12 +21,12 @@ V2_MANIFEST_FILENAME = "project.precis.yaml"
 
 
 def generate_full_config_v2(
-    data_paths,
-    output_dir,
-    profiling_options=None,
-    generation_options=None,
-    provider_id=None,
-):
+    data_paths: list[str],
+    output_dir: str,
+    profiling_options: ProfilingOptions | None = None,
+    generation_options: GenerationOptions | None = None,
+    provider_id: str | None = None,
+) -> dict[str, Any]:
     """
     @methoddesc 生成完整 V2 项目配置（向后兼容的适配函数）
 
@@ -63,7 +64,7 @@ def generate_full_config_v2(
     )
 
 
-def expand_data_input_paths(paths):
+def expand_data_input_paths(paths: list[str]) -> list[str]:
     """
     @methoddesc 展开数据输入路径
 
@@ -95,7 +96,7 @@ def expand_data_input_paths(paths):
     return expanded
 
 
-def profile_files(file_paths, options=None):
+def profile_files(file_paths: list[str], options: ProfilingOptions | None = None) -> dict[str, Any]:
     """
     @methoddesc 分析文件画像
 

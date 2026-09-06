@@ -64,7 +64,7 @@ class DingTalkAppReporter(Reporter):
         token_expires_at: 令牌过期时间戳
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         @methoddesc 初始化钉钉报告器
 
@@ -72,12 +72,12 @@ class DingTalkAppReporter(Reporter):
         访问令牌及其过期时间戳。
         """
         super().__init__("DingTalkAppReporter")
-        self.config = {}  # 存储配置参数
+        self.config: dict[str, Any] = {}  # 存储配置参数
         self.is_configured = False  # 配置是否有效
         self.access_token = None  # 钉钉 API 访问令牌
         self.token_expires_at = 0  # 令牌过期时间戳
 
-    def configure(self, **kwargs) -> bool:
+    def configure(self, **kwargs: Any) -> bool:
         """
         @methoddesc 配置钉钉报告器参数
 
@@ -118,7 +118,7 @@ class DingTalkAppReporter(Reporter):
         print(f"[{self.name}] ✓ 配置成功。")
         return True
 
-    def _get_access_token(self):
+    def _get_access_token(self) -> str | None:
         """
         @methoddesc 获取或刷新钉钉 API 访问令牌（Access Token）
 
@@ -172,7 +172,7 @@ class DingTalkAppReporter(Reporter):
             )
             return None
 
-    def report(self, errors: list[dict]):
+    def report(self, errors: list[dict]) -> None:
         """
         @methoddesc 发送错误报告的主入口方法
 
@@ -230,7 +230,7 @@ class DingTalkAppReporter(Reporter):
         url = f"https://oapi.dingtalk.com/topapi/message/corpconversation/asyncsend_v2?access_token={token}"
         self._send_request(url, payload)
 
-    def _send_request(self, url: str, payload: dict[str, Any]):
+    def _send_request(self, url: str, payload: dict[str, Any]) -> None:
         """
         @methoddesc 发送 HTTP POST 请求到钉钉 API
 

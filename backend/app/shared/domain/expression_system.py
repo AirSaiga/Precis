@@ -305,7 +305,7 @@ class ExpressionRegistry:
     ```
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         # 使用列表存储已注册的表达式模式，保持注册顺序
         # 匹配时按注册顺序遍历，先注册的先匹配
         self._patterns: list[ExpressionPattern] = []

@@ -83,7 +83,7 @@ class ConstraintAdapter(BaseValidator):
         self.datasets_builder = datasets_builder
         self.constraint_kwargs_keys = constraint_kwargs_keys or []
 
-    def validate(self, df: pd.DataFrame, column: str, **kwargs) -> ValidationResult:
+    def validate(self, df: pd.DataFrame, column: str, **kwargs: Any) -> ValidationResult:
         start_time = time.time()
 
         for check in self.pre_checks:

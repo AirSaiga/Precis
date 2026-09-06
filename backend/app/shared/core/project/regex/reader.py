@@ -37,6 +37,8 @@ from app.shared.core.io.yaml import read_yaml
 from .types import RegexNodeFile
 
 if TYPE_CHECKING:
+    from app.shared.domain.expression_system import ExpressionPattern, ExpressionRegistry
+
     from .types import RegexNodeFile
 
 # flags 单字符缩写到 re 标志位的映射
@@ -100,7 +102,7 @@ def load_regex_node(regex_path: str | Path) -> RegexNodeFile:
         raise ValueError(f"regex_node 校验失败: {path}\n{e}") from e
 
 
-def find_pattern_by_name(registry, pattern_name: str):
+def find_pattern_by_name(registry: ExpressionRegistry, pattern_name: str) -> ExpressionPattern | None:
     """
     @methoddesc 按名称从注册表中查找表达式模式。
 

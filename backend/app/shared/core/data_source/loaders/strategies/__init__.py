@@ -45,7 +45,7 @@ __all__ = [
 ]
 
 
-def get_parser(format: str):
+def get_parser(format: str) -> JSONParserStrategy:
     """
     @methoddesc 获取指定格式的解析器
 
@@ -72,7 +72,7 @@ def get_parser(format: str):
             "或 object(嵌套对象,需配合 json_path 如 $.data 精确指定数据数组路径)。"
         )
 
-    parsers = {
+    parsers: dict[str, type[JSONParserStrategy]] = {
         "array": ArrayParser,
         "lines": LinesParser,
         "object": ObjectParser,

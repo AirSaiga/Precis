@@ -40,7 +40,7 @@ from typing import Any
 
 # 2. 项目内部导入
 from app.shared.domain.data_types_parts.base import DataType
-from app.shared.domain.expression_system import ExpressionPattern
+from app.shared.domain.expression_system import ExpressionPattern, ExpressionRegistry
 
 
 class ExpressionType(DataType):
@@ -57,7 +57,7 @@ class ExpressionType(DataType):
 
     name = "Expr"
 
-    def __init__(self, registry):
+    def __init__(self, registry: ExpressionRegistry) -> None:
         """
         @methoddesc 初始化表达式类型
 
@@ -102,7 +102,10 @@ class ExpressionType(DataType):
         返回:
             包含 type 和 value 的字典
         """
-        pattern, match = self.registry.find_match(value)
+        find_result = self.registry.find_match(value)
+        if find_result is None:
+            raise ValueError(f"值 '{value}' 不匹配任何已注册的表达式模式")
+        pattern, match = find_result
         return {"type": pattern.name, "value": pattern.parser_func(match.groupdict())}
 
 
@@ -117,7 +120,7 @@ class SpecificExpressionType(DataType):
     - 需要限制列只能使用特定表达式模式时
     """
 
-    def __init__(self, registry, pattern: str):
+    def __init__(self, registry: ExpressionRegistry, pattern: str) -> None:
         """
         @methoddesc 初始化特定表达式类型
 

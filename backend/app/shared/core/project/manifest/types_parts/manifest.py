@@ -62,6 +62,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.shared.core.project.manifest.types_parts.constants import V2_VERSION
@@ -149,7 +151,7 @@ class ProjectManifest(BaseModel):
         mode="before",
     )
     @classmethod
-    def _coerce_none_to_list(cls, v):
+    def _coerce_none_to_list(cls, v: Any) -> Any:
         if v is None:
             return []
         return v

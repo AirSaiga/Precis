@@ -26,13 +26,17 @@
         print(chunk, end="")
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 from collections.abc import AsyncIterator
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from openai import APIConnectionError, APIStatusError, AsyncOpenAI
+
+    from app.shared.services.llm.config.models import AIProvider
 else:
     try:
         from openai import APIConnectionError, APIStatusError, AsyncOpenAI
@@ -64,10 +68,10 @@ class OpenAIProvider(BaseProvider):
     """
 
     @property
-    def name(self):
+    def name(self) -> str:
         return "OpenAI-Compatible"
 
-    def __init__(self, config):
+    def __init__(self, config: AIProvider) -> None:
         super().__init__(config)
         if AsyncOpenAI is None:
             raise ImportError("openai 未安装，请运行 pip install openai")
@@ -295,7 +299,7 @@ class OpenAIProvider(BaseProvider):
         models = await self.client.models.list()
         return [m.id for m in models.data]
 
-    async def health(self):
+    async def health(self) -> dict[str, Any]:
         """
         @methoddesc 健康检查
 

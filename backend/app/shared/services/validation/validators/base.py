@@ -57,11 +57,14 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
 from ..types import ValidationResult
+
+if TYPE_CHECKING:
+    from app.shared.domain.constraints.base import Constraint
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +89,7 @@ class BaseValidator(ABC):
                 return ValidationResult(...)
     """
 
-    def validate_with_error_handling(self, df: pd.DataFrame, column: str, **kwargs) -> ValidationResult:
+    def validate_with_error_handling(self, df: pd.DataFrame, column: str, **kwargs: Any) -> ValidationResult:
         """
         带异常处理的校验方法包装器
 
@@ -120,7 +123,7 @@ class BaseValidator(ABC):
             )
 
     @abstractmethod
-    def validate(self, df: pd.DataFrame, column: str, **kwargs) -> ValidationResult:
+    def validate(self, df: pd.DataFrame, column: str, **kwargs: Any) -> ValidationResult:
         """
         @methoddesc 执行数据校验
 
@@ -151,7 +154,7 @@ class BaseValidator(ABC):
         self,
         df: pd.DataFrame,
         column: str,
-        constraint,
+        constraint: Constraint,
         error_formatter: Callable[..., Any] | None = None,
         datasets: dict[str, pd.DataFrame] | None = None,
         constraint_kwargs: dict[str, Any] | None = None,

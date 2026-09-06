@@ -97,7 +97,7 @@ class NotNullConstraint(Constraint):
         """生成非空约束描述"""
         return f"非空约束: {self.table}.{self.column}"
 
-    def validate(self, datasets: dict[str, pd.DataFrame], **kwargs) -> dict[str, Any]:
+    def validate(self, datasets: dict[str, pd.DataFrame], **kwargs: Any) -> dict[str, Any]:
         """
         @methoddesc 执行非空验证
 

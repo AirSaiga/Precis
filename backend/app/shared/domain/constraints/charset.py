@@ -109,7 +109,7 @@ class CharsetConstraint(Constraint):
         charset_name = charset_name_map.get(self.charset_mode, "未知")
         return f"字符集约束: {self.table}.{self.column} ({charset_name})"
 
-    def validate(self, datasets: dict[str, pd.DataFrame], **kwargs) -> dict[str, Any]:
+    def validate(self, datasets: dict[str, pd.DataFrame], **kwargs: Any) -> dict[str, Any]:
         """
         @methoddesc 执行字符集验证
 

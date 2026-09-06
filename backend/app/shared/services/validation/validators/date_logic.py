@@ -13,6 +13,7 @@
 
 import time
 from datetime import datetime
+from typing import Any
 
 import pandas as pd
 
@@ -35,7 +36,7 @@ class DateLogicValidator(BaseValidator):
     - 统一接口：与其他校验器保持一致的 validate 方法签名
     """
 
-    def validate(self, df: pd.DataFrame, column: str, **kwargs) -> ValidationResult:
+    def validate(self, df: pd.DataFrame, column: str, **kwargs: Any) -> ValidationResult:
         """
         @methoddesc 执行日期逻辑校验
 

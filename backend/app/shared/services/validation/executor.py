@@ -166,7 +166,7 @@ class ValidationExecutor:
             )
         return self._chunked_loader
 
-    def _apply_settings_override(self, override: Any):
+    def _apply_settings_override(self, override: Any) -> None:
         """
         @methoddesc 应用设置覆盖
 
@@ -363,7 +363,7 @@ class ValidationExecutor:
             logger.exception("progress_callback 抛出异常，已忽略")
 
     @staticmethod
-    def _map_table_id(item: dict[str, Any], id_to_name: dict[str, str]):
+    def _map_table_id(item: dict[str, Any], id_to_name: dict[str, str]) -> None:
         """
         @methoddesc 将错误信息中的表 ID 替换为表显示名称
 

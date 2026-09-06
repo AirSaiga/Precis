@@ -120,7 +120,7 @@ class UniqueConstraint(Constraint):
         columns_str = ", ".join(self.columns) if isinstance(self.columns, list) else self.columns
         return f"唯一性约束: {self.table}.{columns_str}"
 
-    def validate(self, datasets: dict[str, pd.DataFrame], **kwargs) -> dict[str, Any]:
+    def validate(self, datasets: dict[str, pd.DataFrame], **kwargs: Any) -> dict[str, Any]:
         """
         @methoddesc 执行唯一性验证
 

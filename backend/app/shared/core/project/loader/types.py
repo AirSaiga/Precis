@@ -194,7 +194,7 @@ class LoadedProject:
     warnings: list[str] | None = None
     loading_errors: list[LoadingError] | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         # frozen=True 表示实例创建后不可变，因此必须通过 object.__setattr__ 来修改属性
         if self.warnings is None:
             object.__setattr__(self, "warnings", [])

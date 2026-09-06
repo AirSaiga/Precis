@@ -83,7 +83,7 @@ class RegexConstraint(Constraint):
         self.flags = flags
         self.case_sensitive = case_sensitive
 
-    def validate(self, datasets: dict[str, pd.DataFrame], **kwargs) -> dict[str, Any]:
+    def validate(self, datasets: dict[str, pd.DataFrame], **kwargs: Any) -> dict[str, Any]:
         """执行正则表达式约束验证。"""
         errors: list[dict[str, Any]] = []
 

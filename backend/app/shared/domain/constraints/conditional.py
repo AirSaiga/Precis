@@ -293,7 +293,7 @@ class ConditionalConstraint(Constraint):
             return f"条件约束: {self.table} 当满足条件时 {self.then_column} 必须 {self._condition_str}"
         return f"条件约束: {self.table} 当 {self.if_column}={self.if_value} 时 {self.then_column} 必须 {self._condition_str}"
 
-    def validate(self, datasets: dict[str, pd.DataFrame], **kwargs) -> dict[str, Any]:
+    def validate(self, datasets: dict[str, pd.DataFrame], **kwargs: Any) -> dict[str, Any]:
         """
         @methoddesc 执行条件约束验证
 

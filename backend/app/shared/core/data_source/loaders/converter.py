@@ -83,7 +83,7 @@ class TypeConverter:
         "timestamp": "datetime",
     }
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         @methoddesc 初始化类型转换器
 

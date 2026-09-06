@@ -37,6 +37,7 @@ from typing import Any
 
 # 2. 项目内部导入
 from app.shared.domain.data_types_parts.base import DataType
+from app.shared.domain.expression_system import ExpressionRegistry
 
 
 class CompositeConditionType(DataType):
@@ -51,7 +52,7 @@ class CompositeConditionType(DataType):
     - 如 "age > 18 AND status = 'active'"
     """
 
-    def __init__(self, registry, logical_op: str = "and"):
+    def __init__(self, registry: ExpressionRegistry, logical_op: str = "and") -> None:
         """
         @methoddesc 初始化复合条件类型
 
@@ -113,7 +114,10 @@ class CompositeConditionType(DataType):
             atomic_str = atomic_str.strip()
             if not atomic_str:
                 continue
-            pattern, match = self.registry.find_match(atomic_str)
+            find_result = self.registry.find_match(atomic_str)
+            if find_result is None:
+                raise ValueError(f"子条件 '{atomic_str}' 不匹配任何已注册的表达式模式")
+            pattern, match = find_result
             parsed_value = pattern.parser_func(match.groupdict())
             parsed_conditions.append({"type": pattern.name, "value": parsed_value})
         return parsed_conditions
@@ -130,7 +134,7 @@ class SpecificCompositeConditionType(DataType):
     - 需要限制复合条件中只能使用特定模式时
     """
 
-    def __init__(self, registry, pattern: str, logical_op: str = "and"):
+    def __init__(self, registry: ExpressionRegistry, pattern: str, logical_op: str = "and") -> None:
         """
         @methoddesc 初始化特定复合条件类型
 

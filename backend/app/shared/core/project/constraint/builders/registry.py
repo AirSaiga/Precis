@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -21,7 +22,7 @@ if TYPE_CHECKING:
 CONSTRAINT_BUILDERS: dict[str, BuilderFn] = {}
 
 
-def register_builder(type_name: str):
+def register_builder(type_name: str) -> Callable[[BuilderFn], BuilderFn]:
     """装饰器：注册约束构建器到 CONSTRAINT_BUILDERS。
 
     用法：

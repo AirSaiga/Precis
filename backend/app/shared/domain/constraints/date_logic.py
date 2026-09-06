@@ -196,7 +196,7 @@ class DateLogicConstraint(Constraint):
 
         return None, errors
 
-    def validate(self, datasets: dict[str, pd.DataFrame], **kwargs) -> dict[str, Any]:
+    def validate(self, datasets: dict[str, pd.DataFrame], **kwargs: Any) -> dict[str, Any]:
         """
         @methoddesc 执行日期逻辑验证
 
@@ -432,12 +432,14 @@ class DateLogicConstraint(Constraint):
                 # 只处理非空日期
                 mask_valid = target_series.notna()
 
-                def calculate_age(born):
+                def calculate_age(born: pd.Timestamp) -> int | None:
                     """计算年龄: 年份差，再根据是否过生日调整"""
                     if pd.isna(born):
                         return None
                     # 年份相减，如果还没到今年的生日则再减1
-                    return ref_date.year - born.year - ((ref_date.month, ref_date.day) < (born.month, born.day))
+                    return (
+                        int(ref_date.year) - int(born.year) - ((ref_date.month, ref_date.day) < (born.month, born.day))
+                    )
 
                 # 对有效日期计算年龄
                 ages = target_series[mask_valid].apply(calculate_age)

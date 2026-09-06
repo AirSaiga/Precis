@@ -41,6 +41,8 @@ from __future__ import annotations
 
 # 1. 标准库导入
 import re
+from datetime import date
+from decimal import Decimal
 from typing import Any
 
 # 2. 第三方库导入
@@ -410,7 +412,7 @@ class DecimalType(DataType):
         except (InvalidOperation, ValueError, TypeError):
             return False, f"'{value}' 不是一个有效的数值。"
 
-    def parse(self, value: Any):
+    def parse(self, value: Any) -> Decimal:
         """
         @methoddesc 将值解析为 Decimal
 
@@ -582,7 +584,7 @@ class DateType(DataType):
         except ValueError:
             return False, f"'{value}' 不是有效的日期格式 (YYYY-MM-DD)。"
 
-    def parse(self, value: Any):
+    def parse(self, value: Any) -> date:
         """
         @methoddesc 将值解析为日期对象
 

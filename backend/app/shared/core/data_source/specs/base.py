@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import builtins
 from abc import ABC, abstractmethod
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Self
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -77,7 +77,7 @@ class DataSourceSpec(BaseModel, ABC):
     timeout_seconds: int = Field(30, ge=1, description="加载超时时间（秒）")
 
     @model_validator(mode="after")
-    def validate_type_match(self):
+    def validate_type_match(self) -> Self:
         """
         @methoddesc 验证实例类型与声明的 type 字段一致
 

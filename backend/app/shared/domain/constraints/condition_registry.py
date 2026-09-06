@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 CONDITION_REGISTRY: dict[str, Callable[[Any], bool]] = {}
 
 
-def register_condition(name: str):
+def register_condition(name: str) -> Callable[[Callable[[Any], bool]], Callable[[Any], bool]]:
     r"""
     @functiondesc 条件函数注册装饰器
 

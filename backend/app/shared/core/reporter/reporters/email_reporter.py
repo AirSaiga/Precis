@@ -78,7 +78,7 @@ class EmailReporter(Reporter):
             reporter.report(errors)
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         初始化邮件报告器
 
@@ -86,7 +86,7 @@ class EmailReporter(Reporter):
         初始化配置字典和配置状态标志。
         """
         super().__init__("EmailReporter")
-        self.config = {}
+        self.config: dict[str, Any] = {}
         self.is_configured = False
 
     def configure(self, **config: Any) -> bool:
@@ -164,7 +164,7 @@ class EmailReporter(Reporter):
             self.is_configured = False
             return False
 
-    def report(self, errors: list[dict]):
+    def report(self, errors: list[dict]) -> None:
         """
         @methoddesc 将错误报告发送到指定的邮件地址
 

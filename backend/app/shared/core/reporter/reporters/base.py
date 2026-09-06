@@ -146,7 +146,7 @@ class Reporter(ABC):
         pass
 
     @abstractmethod
-    def report(self, errors: list[dict]):
+    def report(self, errors: list[dict]) -> None:
         """
         @methoddesc 执行报告操作，将错误信息发送或写入指定目标
 

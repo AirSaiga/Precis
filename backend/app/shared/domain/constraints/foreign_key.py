@@ -104,7 +104,7 @@ class ForeignKeyConstraints(Constraint):
         """生成外键约束描述，格式为 "外键约束: from_table.from_column -> to_table.to_column"""
         return f"外键约束: {self.from_table}.{self.from_column} -> {self.to_table}.{self.to_column}"
 
-    def validate(self, datasets: dict[str, pd.DataFrame], **kwargs) -> dict[str, Any]:
+    def validate(self, datasets: dict[str, pd.DataFrame], **kwargs: Any) -> dict[str, Any]:
         """
         @methoddesc 执行外键验证
 

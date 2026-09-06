@@ -77,7 +77,7 @@ class LocalFileReporter(Reporter):
         # 将在 ./logs/errors/ 目录生成 error_report_20240215_143052.json
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         初始化本地文件报告器
 
@@ -127,7 +127,7 @@ class LocalFileReporter(Reporter):
             print(f"[{self.name}] !! 错误: 创建日志目录失败: {e}")
             return False
 
-    def report(self, errors: list[dict]):
+    def report(self, errors: list[dict]) -> None:
         """
         @methoddesc 将错误报告写入本地 JSON 文件
 

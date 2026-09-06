@@ -30,12 +30,16 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+import builtins
+from typing import TYPE_CHECKING, Any, ClassVar
 from urllib.parse import urlparse, urlunparse
 
 from pydantic import Field
 
 from .base import DataSourceSpec, register_source_spec
+
+if TYPE_CHECKING:
+    from ..loaders.base import DataSourceLoader
 
 
 @register_source_spec
@@ -86,7 +90,7 @@ class SQLSourceSpec(DataSourceSpec):
         """
         return f"{self.connection_string}:{self.table_or_query}"
 
-    def get_loader_class(self):
+    def get_loader_class(self) -> builtins.type[DataSourceLoader]:
         """
         @methoddesc 获取 SQL 数据加载器类
 

@@ -158,7 +158,7 @@ class ActionParser:
         """
         text = ActionParser._extract_json_block(text)
 
-        def replace_quotes(match):
+        def replace_quotes(match: re.Match[str]) -> str:
             content = match.group(1)
             if '"' not in content:
                 return f'"{content}"'

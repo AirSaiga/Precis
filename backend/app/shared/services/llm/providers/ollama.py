@@ -36,6 +36,8 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     import aiohttp as _aiohttp
+
+    from app.shared.services.llm.config.models import AIProvider
 else:
     try:
         import aiohttp as _aiohttp
@@ -64,17 +66,17 @@ class OllamaProvider(BaseProvider):
     """
 
     @property
-    def name(self):
+    def name(self) -> str:
         return "Ollama"
 
-    def __init__(self, config):
+    def __init__(self, config: AIProvider) -> None:
         super().__init__(config)
         self.timeout_seconds = config.network.timeout if config.network else 60
-        self._session = None
+        self._session: _aiohttp.ClientSession | None = None
         # 按模型名缓存探测到的上下文窗口，避免每次都发起 /api/show 请求
         self._context_window_cache: dict[str, int] = {}
 
-    async def _get_session(self):
+    async def _get_session(self) -> _aiohttp.ClientSession:
         """
         @methoddesc 获取或创建 aiohttp 会话（懒加载 + 自动重建）
 
@@ -101,7 +103,7 @@ class OllamaProvider(BaseProvider):
             raise ImportError("aiohttp 未安装，请运行 pip install aiohttp")
         return _aiohttp.ClientTimeout(total=None, connect=self.timeout_seconds, sock_read=self.timeout_seconds)
 
-    async def close(self):
+    async def close(self) -> None:
         """
         @methoddesc 显式关闭 HTTP 会话，释放连接池资源
 
@@ -111,7 +113,7 @@ class OllamaProvider(BaseProvider):
             await self._session.close()
             self._session = None
 
-    def __del__(self):
+    def __del__(self) -> None:
         """
         @methoddesc 析构函数
 

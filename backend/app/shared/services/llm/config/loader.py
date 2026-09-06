@@ -171,7 +171,7 @@ class ConfigLoader:
             if api_key:
                 provider.api_key = api_key
 
-    def save(self, config: AIConfig):
+    def save(self, config: AIConfig) -> None:
         """
         @methoddesc 将配置保存到用户级 YAML 文件
 
@@ -189,7 +189,7 @@ class ConfigLoader:
 
         self.invalidate_cache()
 
-    def invalidate_cache(self):
+    def invalidate_cache(self) -> None:
         """清除缓存，强制下次 load() 重新读取文件"""
         self._cached_config = None
         self._cached_mtime = None

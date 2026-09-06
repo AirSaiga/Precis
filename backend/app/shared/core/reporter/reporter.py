@@ -45,6 +45,7 @@
 import json
 import logging
 import os
+from collections.abc import Callable
 
 import yaml
 
@@ -100,7 +101,7 @@ class ReportService:
         self.config_path = os.path.join(base_dir, config_filename)
 
         # 报告者注册表：将配置中的名称映射到对应的报告者类
-        self._reporter_registry: dict[str, type[Reporter]] = {
+        self._reporter_registry: dict[str, Callable[[], Reporter]] = {
             "local_file": LocalFileReporter,
             "email": EmailReporter,
             "wecom": WeComAppReporter,
@@ -113,7 +114,7 @@ class ReportService:
         logger.info("报告服务已初始化。")
         self._load_and_configure_reporters()
 
-    def _load_and_configure_reporters(self):
+    def _load_and_configure_reporters(self) -> None:
         """
         @methoddesc 从配置文件加载并配置所有需要启用的报告者。
 
@@ -169,7 +170,7 @@ class ReportService:
 
         logger.info("报告服务配置完成，共激活 %d 个报告者。", len(self._active_reporters))
 
-    def report(self, errors: list[dict]):
+    def report(self, errors: list[dict]) -> None:
         """
         @methoddesc 执行总报告流程。
         遍历所有激活的报告者并调用它们的 report 方法。
