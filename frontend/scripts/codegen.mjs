@@ -23,11 +23,10 @@ const outFile = path.join(outDir, 'actions.ts')
 // 通过 subprocess 调用后端 registry.export_for_codegen(),拿到 JSON
 // cwd=backend 保证能 import app.* 模块
 function readRegistry() {
-  const py = (
+  const py =
     'import json; ' +
     'from app.shared.services.llm.actions.registry import export_for_codegen; ' +
     'print(json.dumps(export_for_codegen()))'
-  )
   const stdout = execSync(`python -c "${py}"`, {
     cwd: backendRoot,
     encoding: 'utf8',
@@ -77,9 +76,13 @@ function generate(data) {
     lines.push(`export const ${constName}: ReadonlySet<ActionType> = new Set(${fmtArray(types)})`)
     lines.push('')
   }
-  lines.push(`export const READ_ONLY_ACTION_TYPES: ReadonlySet<ActionType> = new Set(${fmtArray(readOnly)})`)
+  lines.push(
+    `export const READ_ONLY_ACTION_TYPES: ReadonlySet<ActionType> = new Set(${fmtArray(readOnly)})`
+  )
   lines.push('')
-  lines.push(`export const WRITE_ACTION_TYPES: ReadonlySet<ActionType> = new Set(${fmtArray(write)})`)
+  lines.push(
+    `export const WRITE_ACTION_TYPES: ReadonlySet<ActionType> = new Set(${fmtArray(write)})`
+  )
   lines.push('')
 
   return lines.join('\n')

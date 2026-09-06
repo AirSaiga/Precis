@@ -36,7 +36,7 @@
     5. 支持正则表达式模式的拖拽绑定
     6. 执行数据校验功能
     7. 滚动出屏幕列的虚拟锚点连接处理
-    
+
     组件结构：
     1. 节点容器 - 最外层容器，处理交互事件（双击编辑、拖拽Pattern）
     2. 左侧目标连接点 - 接收来自数据源节点的连接
@@ -48,7 +48,7 @@
     8. 底部添加列按钮
     9. 下拉菜单组件（数据源、约束、类型选择）
     10. 关闭确认弹窗
-    
+
     虚拟锚点机制说明：
     - 当列滚动出可视区域时，原有的连接线会隐藏
     - 自动创建代理边连接到虚拟锚点（顶部/底部）
@@ -66,7 +66,7 @@
     @mouseenter="nodeHovered = true"
     @mouseleave="nodeHovered = false"
   >
-    <!-- 
+    <!--
       左侧目标连接点（Handle）
       用于接收来自 SourcePreview 节点的数据源连接
       - type="target": 表示这是目标端，接收连接
@@ -119,7 +119,7 @@
       @source-info-click="handleSourceInfoClick($event)"
     />
 
-    <!-- 
+    <!--
       列标题栏
       使用 grid 布局，5列结构：
       - 24px: 行号列
@@ -136,7 +136,7 @@
       <span class="col-header-actions"></span>
     </div>
 
-    <!-- 
+    <!--
       列编辑区容器
       使用 flex + overflow 实现虚拟滚动效果
       - columns-section-wrapper: 容器层，限制最大高度
@@ -147,7 +147,7 @@
       <!-- 可滚动区域，滚动时触发 handleColumnsScroll 更新虚拟锚点状态 -->
       <div class="columns-section-scroll" ref="columnsSectionRef" @scroll="handleColumnsScroll">
         <div class="columns-list">
-          <!-- 
+          <!--
             SchemaNodeColumnRow 列定义行组件
             使用 v-for 遍历所有列定义渲染行组件
             每个列定义行包含：
@@ -185,7 +185,7 @@
         </div>
       </div>
 
-      <!-- 
+      <!--
         虚拟锚点层
         当有列滚动出可视区域时显示
         提供顶部和底部两个虚拟连接点
@@ -209,7 +209,7 @@
       </div>
     </div>
 
-    <!-- 
+    <!--
       底部区域
       显示添加新列的按钮
     -->
@@ -226,7 +226,7 @@
       :title="t('customNodes.sourcePreviewNode.resizeHandle')"
     ></div>
 
-    <!-- 
+    <!--
       Pattern绑定提示层
       当拖拽 Pattern 进入节点区域时显示
       提示用户可以将 Pattern 绑定到 Expression 类型的列
@@ -237,7 +237,7 @@
       </div>
     </div>
 
-    <!-- 
+    <!--
       数据源下拉菜单组件
       点击数据源徽标时显示
       包含当前连接信息、以树状结构展示的外部数据源列表
@@ -251,7 +251,7 @@
       @close="closeSourceDropdown"
     />
 
-    <!-- 
+    <!--
       列菜单下拉菜单组件
       支持两种模式：
       - constraint: 约束选择菜单（非空、唯一）
@@ -272,7 +272,7 @@
       @select-type="updateColumnType"
     />
 
-    <!-- 
+    <!--
       错误详情弹窗组件
       当鼠标悬停在有错误的列名上时显示
       显示验证错误的详细信息
@@ -283,7 +283,7 @@
       :position="getErrorPopoverPosition(hoveredErrorColumn || '')"
     />
 
-    <!-- 
+    <!--
       关闭确认弹窗组件
       当尝试关闭有未保存更改的节点时显示
       提供三种操作：保存并关闭、放弃更改直接关闭、取消

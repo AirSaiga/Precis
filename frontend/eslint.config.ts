@@ -6,7 +6,8 @@ import eslintConfigPrettier from 'eslint-config-prettier'
 export default defineConfigWithVueTs(
   {
     name: 'app/files-to-lint',
-    files: ['**/*.{ts,mts,tsx,vue}'],
+    // mjs（scripts/ 下审计/生成脚本）2026-09 规范审计补入：此前仅 Prettier 覆盖、无 lint
+    files: ['**/*.{ts,mts,tsx,mjs,vue}'],
   },
 
   globalIgnores(['**/dist/**', '**/dist-ssr/**', '**/coverage/**']),

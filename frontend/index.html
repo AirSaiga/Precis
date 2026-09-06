@@ -11,26 +11,26 @@
          解析逻辑保持一致（generalSettings.theme → system 时跟随 prefers-color-scheme）。
          注意：脚本必须与 core/utils/theme.ts 的 THEME_STORAGE_KEY 与解析逻辑同步。 -->
     <script>
-      (function () {
+      ;(function () {
         try {
-          var stored = localStorage.getItem('generalSettings');
-          var pref = 'system';
+          var stored = localStorage.getItem('generalSettings')
+          var pref = 'system'
           if (stored) {
-            var parsed = JSON.parse(stored);
-            if (parsed && parsed.theme) pref = parsed.theme;
+            var parsed = JSON.parse(stored)
+            if (parsed && parsed.theme) pref = parsed.theme
           }
-          var resolved = pref;
+          var resolved = pref
           if (pref === 'system') {
-            resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
           }
-          var root = document.documentElement;
-          root.setAttribute('data-theme', resolved);
-          root.setAttribute('data-theme-preference', pref);
-          root.style.colorScheme = resolved === 'liquid' ? 'light' : resolved;
+          var root = document.documentElement
+          root.setAttribute('data-theme', resolved)
+          root.setAttribute('data-theme-preference', pref)
+          root.style.colorScheme = resolved === 'liquid' ? 'light' : resolved
         } catch (e) {
           // 解析失败（隐私模式/损坏数据）静默回退默认 light，不阻断渲染
         }
-      })();
+      })()
     </script>
   </head>
   <body>

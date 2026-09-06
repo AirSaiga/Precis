@@ -47,7 +47,13 @@ function loadConfig() {
   try {
     return JSON.parse(readFileSync(configPath, 'utf8'))
   } catch {
-    return { dynamicPrefixes: [], baselineMissing: [], baselineOnlyZh: [], baselineOnlyEn: [], unusedBaseline: [] }
+    return {
+      dynamicPrefixes: [],
+      baselineMissing: [],
+      baselineOnlyZh: [],
+      baselineOnlyEn: [],
+      unusedBaseline: [],
+    }
   }
 }
 const config = loadConfig()
@@ -245,41 +251,48 @@ let failed = false
 if (missing.length > 0) {
   if (newMissing.length > 0) failed = true
   console.error(`\n❌ 缺失 key（代码引用但 zh-CN/en-US 均未定义，${missing.length} 个）：`)
-  for (const k of missing) console.error(`   ${baselineMissing.has(k) ? '[baseline]' : '[new]'}     ${k}`)
+  for (const k of missing)
+    console.error(`   ${baselineMissing.has(k) ? '[baseline]' : '[new]'}     ${k}`)
 }
 
 if (onlyZh.length > 0) {
   if (newOnlyZh.length > 0) failed = true
   console.error(`\n⚠️  仅 zh-CN 存在（en-US 缺失，${onlyZh.length} 个）：`)
-  for (const k of onlyZh) console.error(`   ${baselineOnlyZh.has(k) ? '[baseline]' : '[new]'}     ${k}`)
+  for (const k of onlyZh)
+    console.error(`   ${baselineOnlyZh.has(k) ? '[baseline]' : '[new]'}     ${k}`)
 }
 
 if (onlyEn.length > 0) {
   if (newOnlyEn.length > 0) failed = true
   console.error(`\n⚠️  仅 en-US 存在（zh-CN 缺失，${onlyEn.length} 个）：`)
-  for (const k of onlyEn) console.error(`   ${baselineOnlyEn.has(k) ? '[baseline]' : '[new]'}     ${k}`)
+  for (const k of onlyEn)
+    console.error(`   ${baselineOnlyEn.has(k) ? '[baseline]' : '[new]'}     ${k}`)
 }
 
 if (unused.length > 0) {
   if (newUnused.length > 0) failed = true
   console.error(`\n⚠️  未用 key（locale 定义但代码零引用，${unused.length} 个）：`)
   for (const k of unused) {
-    const side = unusedZh.includes(k) && unusedEn.includes(k) ? 'zh/en' : unusedZh.includes(k) ? 'zh   ' : 'en   '
+    const side =
+      unusedZh.includes(k) && unusedEn.includes(k)
+        ? 'zh/en'
+        : unusedZh.includes(k)
+          ? 'zh   '
+          : 'en   '
     console.error(`   ${baselineUnused.has(k) ? '[baseline]' : '[new]'}     [${side}] ${k}`)
   }
 }
 
 if (failed) {
   console.error('\ni18n key 完整性审查失败：检测到超出 baseline 的新增违规。')
-  console.error('修复这些 key，或如属合理存量请运行 `npm run audit:i18n -- --update-baseline` 刷新快照。')
+  console.error(
+    '修复这些 key，或如属合理存量请运行 `npm run audit:i18n -- --update-baseline` 刷新快照。'
+  )
   process.exit(1)
 }
 
 console.log('i18n key 完整性审查通过。')
-console.log(
-  `引用 key: ${usedKeys.size}，zh-CN 叶子: ${zhKeys.size}，en-US 叶子: ${enKeys.size}`
-)
+console.log(`引用 key: ${usedKeys.size}，zh-CN 叶子: ${zhKeys.size}，en-US 叶子: ${enKeys.size}`)
 console.log(
   `存量 baseline: missing ${missing.length}/${baselineMissing.size}，onlyZh ${onlyZh.length}/${baselineOnlyZh.size}，onlyEn ${onlyEn.length}/${baselineOnlyEn.size}，unused ${unused.length}/${baselineUnused.size}`
 )
-
