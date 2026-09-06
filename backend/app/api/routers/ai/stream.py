@@ -20,6 +20,7 @@ import asyncio
 import logging
 import threading
 import uuid
+from collections.abc import AsyncIterator
 from typing import Any
 
 from fastapi import Header, HTTPException
@@ -161,7 +162,7 @@ async def chat_stream(
     task.add_done_callback(_background_tasks.discard)
 
     # 返回 SSE 流: 先回放 journal(续传), 再实时推送队列
-    async def _sse_generator():
+    async def _sse_generator() -> AsyncIterator[str]:
         try:
             async for frame in sse_event_stream(
                 journal=journal,

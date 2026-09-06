@@ -48,6 +48,7 @@ import asyncio
 import logging
 import os
 import tempfile
+from typing import Any
 
 from fastapi import File, Form, HTTPException, UploadFile
 
@@ -80,7 +81,7 @@ logger = logging.getLogger(__name__)
         },
     },
 )
-def validate_data(request: ValidationRequest):
+def validate_data(request: ValidationRequest) -> ValidationResponse:
     """
     基于 JSON 请求体的单条数据校验接口。
 
@@ -154,7 +155,7 @@ async def validate_data_with_file(
     header_row: int = Form(0),
     validation_config: str = Form(None),
     allow_unsafe_eval: bool = Form(False),
-):
+) -> ValidationResponse:
     """
     基于文件上传的单条数据校验接口（Content 模式）。
 
@@ -272,7 +273,7 @@ async def validate_data_with_file(
         },
     },
 )
-def validate_regex(request: RegexValidationRequest):
+def validate_regex(request: RegexValidationRequest) -> RegexValidationResponse:
     """
     基于 JSON 请求体的正则表达式校验接口。
 
@@ -344,7 +345,7 @@ def validate_regex(request: RegexValidationRequest):
         },
     },
 )
-def validate_batch(requests: list[ValidationRequest]):
+def validate_batch(requests: list[ValidationRequest]) -> dict[str, Any]:
     """
     批量数据校验接口（基于 JSON 请求体列表）。
 

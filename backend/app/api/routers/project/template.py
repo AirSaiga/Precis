@@ -81,7 +81,7 @@ class TemplateExpandResponse(BaseModel):
         500: {"description": "服务器内部错误"},
     },
 )
-def list_templates(config_path: str = Depends(get_project_config_path)):
+def list_templates(config_path: str = Depends(get_project_config_path)) -> list[dict[str, Any]]:
     """列出所有模板定义"""
     manifest = get_v2_manifest(config_path)
     templates = []
@@ -113,7 +113,7 @@ def list_templates(config_path: str = Depends(get_project_config_path)):
         500: {"description": "服务器内部错误"},
     },
 )
-def get_template(template_id: str, config_path: str = Depends(get_project_config_path)):
+def get_template(template_id: str, config_path: str = Depends(get_project_config_path)) -> dict[str, Any]:
     """读取指定模板定义"""
     tmpl_path = _find_template_path(template_id, config_path)
     if not tmpl_path or not tmpl_path.exists():
@@ -132,7 +132,7 @@ def get_template(template_id: str, config_path: str = Depends(get_project_config
         500: {"description": "服务器内部错误"},
     },
 )
-def create_template(template_data: dict, config_path: str = Depends(get_project_config_path)):
+def create_template(template_data: dict, config_path: str = Depends(get_project_config_path)) -> StandardResponse:
     """创建模板定义文件"""
     project_dir = Path(config_path)
 
@@ -185,7 +185,7 @@ def update_template(
     template_id: str,
     template_data: dict,
     config_path: str = Depends(get_project_config_path),
-):
+) -> StandardResponse:
     """
     @methoddesc 更新模板定义文件
 
@@ -225,7 +225,7 @@ def update_template(
         500: {"description": "服务器内部错误"},
     },
 )
-def delete_template(template_id: str, config_path: str = Depends(get_project_config_path)):
+def delete_template(template_id: str, config_path: str = Depends(get_project_config_path)) -> StandardResponse:
     """删除模板定义文件"""
     tmpl_path = _find_template_path(template_id, config_path)
     if not tmpl_path or not tmpl_path.exists():
@@ -262,7 +262,7 @@ def preview_template_expand(
     template_id: str,
     request: TemplateExpandRequest,
     config_path: str = Depends(get_project_config_path),
-):
+) -> TemplateExpandResponse:
     """
     @methoddesc 预览模板展开结果（不写入文件）
 

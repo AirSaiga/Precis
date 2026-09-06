@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
         500: {"description": "预览文件时发生错误"},
     },
 )
-def preview_file(request: FilePreviewRequest):
+def preview_file(request: FilePreviewRequest) -> FilePreviewResponse:
     """基于文件路径预览文件内容
 
     根据请求中的文件路径读取 Excel 或 CSV 文件，
@@ -96,7 +96,7 @@ async def preview_file_content(
     file: UploadFile = File(...),
     max_rows: int = Form(65535),
     max_cols: int = Form(65535),
-):
+) -> FilePreviewResponse:
     """
     @methoddesc 基于文件上传预览文件内容
 
@@ -154,7 +154,7 @@ async def preview_file_content(
         500: {"description": "切换工作表时发生错误"},
     },
 )
-def switch_sheet(request: SheetSwitchRequest):
+def switch_sheet(request: SheetSwitchRequest) -> FilePreviewResponse:
     """切换 Excel 工作表预览"""
     file_path = request.file_path
 
@@ -202,7 +202,7 @@ async def switch_sheet_content(
     sheet_name: str = Form(...),
     max_rows: int = Form(65535),
     max_cols: int = Form(65535),
-):
+) -> FilePreviewResponse:
     """
     @methoddesc 基于文件上传切换 Excel 工作表预览
 

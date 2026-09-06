@@ -31,6 +31,8 @@
 
 import json
 import logging
+from collections.abc import AsyncIterator
+from typing import Any
 
 from fastapi import Header, HTTPException
 from fastapi.responses import StreamingResponse
@@ -54,7 +56,7 @@ from .router import router
         502: {"description": "AI 服务调用失败"},
     },
 )
-async def chat(request: AiChatRequest, x_project_config_path: str | None = Header(None)):
+async def chat(request: AiChatRequest, x_project_config_path: str | None = Header(None)) -> AiChatResponse:
     """
     与前端对齐的 AI 聊天接口
 
@@ -136,13 +138,14 @@ async def chat(request: AiChatRequest, x_project_config_path: str | None = Heade
 @router.post(
     "/chat/completions",
     summary="OpenAI 兼容的聊天接口",
+    response_model=None,
     responses={
         400: {"description": "未指定 Provider"},
         404: {"description": "Provider 未找到"},
         502: {"description": "AI 服务调用失败"},
     },
 )
-async def chat_completions(request: ChatRequestInput):
+async def chat_completions(request: ChatRequestInput) -> StreamingResponse | dict[str, Any]:
     """
     OpenAI 兼容的聊天接口
 
@@ -177,7 +180,7 @@ async def chat_completions(request: ChatRequestInput):
     if request.stream:
         # 流式响应模式：使用 SSE 格式逐块返回
 
-        async def generate():
+        async def generate() -> AsyncIterator[str]:
             """
             @methoddesc SSE 流式响应生成器
 

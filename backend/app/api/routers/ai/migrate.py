@@ -11,11 +11,12 @@ import asyncio
 import logging
 import threading
 import uuid
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import Depends, Header, HTTPException
+from fastapi.responses import StreamingResponse
 
 from app.api.dependencies import get_project_config_path
 from app.shared.services.ai.job_storage import AgentJobStorage
@@ -94,7 +95,7 @@ async def _run_migrate_job(
     config_path: str,
     emit: Callable[[str, dict[str, Any]], None] | None = None,
     initial_checkpoint: dict[str, Any] | None = None,
-):
+) -> None:
     """后台执行迁移任务
 
     参数:
@@ -192,7 +193,7 @@ async def _run_migrate_job(
         keep_existing=payload.options.keep_existing,
     )
 
-    def progress_callback(stage: str, progress: float, extra: dict[str, Any] | None = None):
+    def progress_callback(stage: str, progress: float, extra: dict[str, Any] | None = None) -> None:
         current_status = storage.load_status(job_id)
         if current_status and current_status.get("status") == "cancelled":
             service.cancel()
@@ -301,7 +302,7 @@ async def migrate_stream(
     payload: ConfigMigrateRequest,
     config_path: str = Depends(get_project_config_path),
     last_event_id: int = Header(default=0, alias="Last-Event-ID"),
-):
+) -> StreamingResponse:
     """@methoddesc 脚本迁移流式端点
 
     创建 migrate job task 并通过 SSE 实时推送进度与终态。
@@ -345,7 +346,7 @@ async def migrate_stream(
     with _job_tasks_lock:
         _job_tasks[job_id] = task
 
-    async def _sse_generator():
+    async def _sse_generator() -> AsyncIterator[str]:
         async for frame in sse_event_stream(
             journal=journal,
             last_event_id=last_event_id,

@@ -21,6 +21,7 @@
 """
 
 import os
+from collections.abc import Iterator
 from contextlib import contextmanager
 
 import yaml
@@ -130,7 +131,7 @@ def _resolve_project_path(base_path: str, relative_path: str) -> str:
 
 
 @contextmanager
-def project_lock(config_path: str, timeout: float = 10.0):
+def project_lock(config_path: str, timeout: float = 10.0) -> Iterator[None]:
     """获取项目级文件锁，防止并发写操作损坏 manifest 等关键配置文件。
 
     锁文件存放在 {config_path}/.precis/project.lock，所有写 manifest 的操作共用同一把锁。

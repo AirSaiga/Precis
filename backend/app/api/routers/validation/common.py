@@ -33,6 +33,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pandas as pd
 
 from app.api.models import (
@@ -52,6 +54,9 @@ from app.shared.domain.data_types import (
     StringType,
 )
 from app.shared.services.validation import UnifiedValidationService, load_file_data
+
+if TYPE_CHECKING:
+    from app.shared.services.validation.types import ValidationResult as ServiceValidationResult
 
 
 def _create_data_type(type_name: str | None) -> DataType | None:
@@ -86,7 +91,7 @@ def _convert_column_by_schema_type(df: pd.DataFrame, column: str, column_data_ty
     return df
 
 
-def convert_validation_result_to_regex(result) -> RegexValidationResult:
+def convert_validation_result_to_regex(result: ServiceValidationResult) -> RegexValidationResult:
     """
     将通用校验结果转换为正则校验响应模型。
 

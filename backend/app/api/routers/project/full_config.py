@@ -70,7 +70,7 @@ router = APIRouter(prefix="", tags=["Project-FullConfig"])
 def get_v2_full_config(
     config_path: str = Depends(get_project_config_path),
     inspect: bool = False,
-):
+) -> dict[str, Any]:
     """
     读取 V2 全量配置：manifest + 所有 schemas/constraints/regex_nodes 内容。
 
@@ -164,17 +164,17 @@ def get_v2_full_config(
     # 读取所有 Constraint 文件
     constraints: dict[str, Any] = {}
     constraint_objects: dict[str, ConstraintFileV2] = {}  # 保留对象用于自检
-    for ref in effective_manifest.constraints:
+    for constraint_ref in effective_manifest.constraints:
         try:
-            constraint_path = _resolve_project_path(config_path, ref.path)
+            constraint_path = _resolve_project_path(config_path, constraint_ref.path)
         except ValueError as e:
-            logger.error(f"[get_v2_full_config] 非法 Constraint 路径: {ref.path}, 错误: {e}")
+            logger.error(f"[get_v2_full_config] 非法 Constraint 路径: {constraint_ref.path}, 错误: {e}")
             continue
         if os.path.isfile(constraint_path):
             try:
                 constraint_obj = ConstraintFileV2.model_validate(read_yaml(Path(constraint_path)))
-                constraint_objects[ref.id] = constraint_obj
-                constraints[ref.id] = constraint_obj.model_dump(exclude_none=True)
+                constraint_objects[constraint_ref.id] = constraint_obj
+                constraints[constraint_ref.id] = constraint_obj.model_dump(exclude_none=True)
             except Exception as e:
                 logger.error(f"[get_v2_full_config] 解析 Constraint 文件失败: {constraint_path}, 错误: {e}")
         else:
@@ -205,19 +205,21 @@ def get_v2_full_config(
     regex_nodes: dict[str, Any] = {}
     regex_objects: dict[str, RegexNodeFileV2] = {}  # 保留对象用于自检
 
-    for ref in effective_manifest.regex_nodes:
+    for regex_ref in effective_manifest.regex_nodes:
         # B-reliability: 单条坏引用(手改 YAML/AI 写入/旧项目迁移)不得让整个接口 500
         # (前端 bootstrapProjectPaths 会失败,项目打不开)。与 schemas/constraints 的容错对齐。
         try:
-            abs_path = _resolve_project_path(config_path, ref.path)
+            abs_path = _resolve_project_path(config_path, regex_ref.path)
         except ValueError as e:
-            logger.warning(f"[get_v2_full_config] Regex 引用路径非法,已跳过: id={ref.id}, path={ref.path}, 错误: {e}")
+            logger.warning(
+                f"[get_v2_full_config] Regex 引用路径非法,已跳过: id={regex_ref.id}, path={regex_ref.path}, 错误: {e}"
+            )
             continue
         if os.path.isfile(abs_path):
             try:
                 regex_obj = RegexNodeFileV2.model_validate(read_yaml(Path(abs_path)))
-                regex_objects[ref.id] = regex_obj
-                regex_nodes[ref.id] = regex_obj.model_dump(exclude_none=True)
+                regex_objects[regex_ref.id] = regex_obj
+                regex_nodes[regex_ref.id] = regex_obj.model_dump(exclude_none=True)
             except Exception as e:
                 logger.error(f"[get_v2_full_config] 解析 Regex 文件失败: {abs_path}, 错误: {e}")
         else:
@@ -227,20 +229,20 @@ def get_v2_full_config(
     transforms: dict[str, Any] = {}
     transform_objects: dict[str, TransformFileV2] = {}  # 保留对象用于自检
 
-    for ref in effective_manifest.transforms or []:
+    for transform_ref in effective_manifest.transforms or []:
         # 同 Regex: 单条坏引用记日志跳过,不阻断整个接口(见上)
         try:
-            abs_path = _resolve_project_path(config_path, ref.path)
+            abs_path = _resolve_project_path(config_path, transform_ref.path)
         except ValueError as e:
             logger.warning(
-                f"[get_v2_full_config] Transform 引用路径非法,已跳过: id={ref.id}, path={ref.path}, 错误: {e}"
+                f"[get_v2_full_config] Transform 引用路径非法,已跳过: id={transform_ref.id}, path={transform_ref.path}, 错误: {e}"
             )
             continue
         if os.path.isfile(abs_path):
             try:
                 transform_obj = TransformFileV2.model_validate(read_yaml(Path(abs_path)))
-                transform_objects[ref.id] = transform_obj
-                transforms[ref.id] = transform_obj.model_dump(exclude_none=True)
+                transform_objects[transform_ref.id] = transform_obj
+                transforms[transform_ref.id] = transform_obj.model_dump(exclude_none=True)
             except Exception as e:
                 logger.error(f"[get_v2_full_config] 解析 Transform 文件失败: {abs_path}, 错误: {e}")
         else:
@@ -250,20 +252,20 @@ def get_v2_full_config(
     manual_data: dict[str, Any] = {}
     manual_data_objects: dict[str, ManualDataFileV2] = {}  # 保留对象用于自检
 
-    for ref in effective_manifest.manual_data or []:
+    for manual_data_ref in effective_manifest.manual_data or []:
         # 同 Regex: 单条坏引用记日志跳过,不阻断整个接口(见上)
         try:
-            abs_path = _resolve_project_path(config_path, ref.path)
+            abs_path = _resolve_project_path(config_path, manual_data_ref.path)
         except ValueError as e:
             logger.warning(
-                f"[get_v2_full_config] ManualData 引用路径非法,已跳过: id={ref.id}, path={ref.path}, 错误: {e}"
+                f"[get_v2_full_config] ManualData 引用路径非法,已跳过: id={manual_data_ref.id}, path={manual_data_ref.path}, 错误: {e}"
             )
             continue
         if os.path.isfile(abs_path):
             try:
                 manual_data_obj = ManualDataFileV2.model_validate(read_yaml(Path(abs_path)))
-                manual_data_objects[ref.id] = manual_data_obj
-                manual_data[ref.id] = manual_data_obj.model_dump(exclude_none=True)
+                manual_data_objects[manual_data_ref.id] = manual_data_obj
+                manual_data[manual_data_ref.id] = manual_data_obj.model_dump(exclude_none=True)
             except Exception as e:
                 logger.error(f"[get_v2_full_config] 解析 ManualData 文件失败: {abs_path}, 错误: {e}")
         else:
@@ -273,19 +275,19 @@ def get_v2_full_config(
     # 前端资源树/检查器此前只能拿到模板 id（name 断链，节点标题显示 id），
     # 补齐内容字典对齐 schemas/regex_nodes 等资源模式
     templates: dict[str, Any] = {}
-    for ref in effective_manifest.templates or []:
+    for template_ref in effective_manifest.templates or []:
         # 同 Regex: 单条坏引用记日志跳过,不阻断整个接口(见上)
         try:
-            abs_path = _resolve_project_path(config_path, ref.path)
+            abs_path = _resolve_project_path(config_path, template_ref.path)
         except ValueError as e:
             logger.warning(
-                f"[get_v2_full_config] Template 引用路径非法,已跳过: id={ref.id}, path={ref.path}, 错误: {e}"
+                f"[get_v2_full_config] Template 引用路径非法,已跳过: id={template_ref.id}, path={template_ref.path}, 错误: {e}"
             )
             continue
         if os.path.isfile(abs_path):
             try:
                 template_obj = load_template(Path(abs_path))
-                templates[ref.id] = template_obj.model_dump(exclude_none=True)
+                templates[template_ref.id] = template_obj.model_dump(exclude_none=True)
             except Exception as e:
                 logger.error(f"[get_v2_full_config] 解析 Template 文件失败: {abs_path}, 错误: {e}")
         else:
@@ -341,7 +343,9 @@ def get_v2_full_config(
         500: {"description": "服务器内部错误"},
     },
 )
-def put_v2_full_config(payload: FullConfigV2Request, config_path: str = Depends(get_project_config_path)):
+def put_v2_full_config(
+    payload: FullConfigV2Request, config_path: str = Depends(get_project_config_path)
+) -> dict[str, str]:
     """
     @methoddesc 写入 V2 全量配置
 
@@ -369,7 +373,9 @@ def put_v2_full_config(payload: FullConfigV2Request, config_path: str = Depends(
         500: {"description": "服务器内部错误"},
     },
 )
-def compare_v2_full_config(payload: FullConfigV2Request, config_path: str = Depends(get_project_config_path)):
+def compare_v2_full_config(
+    payload: FullConfigV2Request, config_path: str = Depends(get_project_config_path)
+) -> ConfigDiffResult:
     """
     对比 V2 全量配置差异。
 

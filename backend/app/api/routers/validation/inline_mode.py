@@ -95,7 +95,7 @@ def _infer_column_type(series: pd.Series) -> str | None:
         },
     },
 )
-def validate_data_inline(request: InlineValidationRequest):
+def validate_data_inline(request: InlineValidationRequest) -> ValidationResponse:
     """
     基于行内数据的校验接口（Inline 模式）。
 

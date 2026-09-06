@@ -173,7 +173,7 @@ class ReportingConfig(BaseModel):
         500: {"description": "读取报告配置文件失败"},
     },
 )
-def get_reporting_config(store: ProjectStore = Depends(get_project_store)):
+def get_reporting_config(store: ProjectStore = Depends(get_project_store)) -> ReportingConfig:
     """获取报告配置
 
     从项目目录下的 reporting_config.yaml 读取配置。
@@ -221,7 +221,9 @@ def get_reporting_config(store: ProjectStore = Depends(get_project_store)):
         500: {"description": "写入报告配置文件失败"},
     },
 )
-def update_reporting_config(config: ReportingConfig, store: ProjectStore = Depends(get_project_store)):
+def update_reporting_config(
+    config: ReportingConfig, store: ProjectStore = Depends(get_project_store)
+) -> dict[str, str]:
     """更新报告配置
 
     将新的报告配置持久化保存到项目目录下的 reporting_config.yaml。

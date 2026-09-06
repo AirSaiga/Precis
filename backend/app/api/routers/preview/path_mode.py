@@ -63,7 +63,7 @@ def _infer_json_type(value: Any) -> str:
         500: {"description": "读取文件失败"},
     },
 )
-def preview_file_by_path(request: FilePathPreviewRequest):
+def preview_file_by_path(request: FilePathPreviewRequest) -> FilePreviewResponse:
     """
     @methoddesc 基于文件路径预览文件内容
 
@@ -344,7 +344,7 @@ def preview_file_by_path(request: FilePathPreviewRequest):
         500: {"description": "读取文件失败"},
     },
 )
-def switch_sheet_by_path(request: SheetSwitchRequest):
+def switch_sheet_by_path(request: SheetSwitchRequest) -> FilePreviewResponse:
     """
     @methoddesc 基于文件路径切换 Excel 工作表预览
 

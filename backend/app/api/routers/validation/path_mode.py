@@ -44,6 +44,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from fastapi import HTTPException
 
@@ -76,7 +77,7 @@ logger = logging.getLogger(__name__)
         },
     },
 )
-def validate_data_with_path(request: ValidationRequest):
+def validate_data_with_path(request: ValidationRequest) -> ValidationResponse:
     """
     基于文件路径的单条数据校验接口（Path 模式）。
 
@@ -165,7 +166,7 @@ def validate_data_with_path(request: ValidationRequest):
         },
     },
 )
-def validate_regex_with_path(request: RegexValidationRequest):
+def validate_regex_with_path(request: RegexValidationRequest) -> RegexValidationResponse:
     """
     基于文件路径的正则表达式校验接口（Path 模式）。
 
@@ -257,7 +258,7 @@ def validate_regex_with_path(request: RegexValidationRequest):
         },
     },
 )
-def validate_batch_with_path(requests: list[ValidationRequest]):
+def validate_batch_with_path(requests: list[ValidationRequest]) -> dict[str, Any]:
     """
     批量数据校验接口（基于文件路径）。
 

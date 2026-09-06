@@ -54,7 +54,7 @@ router = APIRouter(prefix="", tags=["Project-Regex"])
         500: {"description": "服务器内部错误"},
     },
 )
-def get_v2_regex_node(regex_id: str, config_path: str = Depends(get_project_config_path)):
+def get_v2_regex_node(regex_id: str, config_path: str = Depends(get_project_config_path)) -> RegexNodeFileV2:
     """
     读取指定 regex_id 的 regex 节点文件。
 
@@ -145,7 +145,7 @@ def put_v2_regex_node(
     regex_id: str,
     regex_node: RegexNodeFileV2,
     config_path: str = Depends(get_project_config_path),
-):
+) -> dict[str, str]:
     """
     写入指定 regex_id 的 regex 节点文件。
 
@@ -209,7 +209,7 @@ def put_v2_regex_node(
         500: {"description": "服务器内部错误"},
     },
 )
-def delete_v2_regex_node(regex_id: str, config_path: str = Depends(get_project_config_path)):
+def delete_v2_regex_node(regex_id: str, config_path: str = Depends(get_project_config_path)) -> dict[str, str]:
     """
     删除指定 regex_id 的 regex 文件，并从 manifest 中移除引用。
 
@@ -289,7 +289,7 @@ def update_v2_regex_node_display_name(
     regex_id: str,
     payload: DisplayNameUpdateRequest,
     config_path: str = Depends(get_project_config_path),
-):
+) -> dict[str, str]:
     """
     更新 regex 节点展示名（不改变 regex_id 与文件路径）。
 

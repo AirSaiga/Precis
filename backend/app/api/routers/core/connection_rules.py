@@ -62,7 +62,7 @@ def _rules_path(config_path: str) -> str:
         500: {"description": "加载连接规则失败"},
     },
 )
-def get_connection_rules(config_path: str = Depends(get_project_config_path)):
+def get_connection_rules(config_path: str = Depends(get_project_config_path)) -> ConnectionRulesModel:
     """
     获取当前项目的连接规则。
 
@@ -104,7 +104,9 @@ def get_connection_rules(config_path: str = Depends(get_project_config_path)):
         500: {"description": "保存连接规则失败"},
     },
 )
-def save_connection_rules(rules: ConnectionRulesModel, config_path: str = Depends(get_project_config_path)):
+def save_connection_rules(
+    rules: ConnectionRulesModel, config_path: str = Depends(get_project_config_path)
+) -> dict[str, str]:
     """
     保存当前项目的连接规则。
 
@@ -142,7 +144,7 @@ def save_connection_rules(rules: ConnectionRulesModel, config_path: str = Depend
         500: {"description": "重置连接规则失败"},
     },
 )
-def reset_connection_rules(config_path: str = Depends(get_project_config_path)):
+def reset_connection_rules(config_path: str = Depends(get_project_config_path)) -> dict[str, str]:
     """
     重置连接规则为默认值。
 

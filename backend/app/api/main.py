@@ -95,7 +95,7 @@ if _actual_port_env and _actual_port_env.isdigit():
 # ============================================================================
 
 
-def configure_logging():
+def configure_logging() -> None:
     """配置 logging 以显示 HTTP 请求和响应信息。"""
     log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
     uvicorn_logger = logging.getLogger("uvicorn")
@@ -234,7 +234,7 @@ app.include_router(connection_rules_router)  # 连接规则路由（画布连线
 
 
 @app.get("/")
-async def root():
+async def root() -> dict[str, str]:
     """
     @methoddesc 根路径路由，返回简单的欢迎信息
 
@@ -246,7 +246,7 @@ async def root():
 
 
 @app.get("/health")
-async def health():
+async def health() -> dict[str, str]:
     """
     @methoddesc 健康检查端点
 
@@ -260,7 +260,7 @@ async def health():
 
 
 @app.get("/api/latest/version", summary="获取应用版本号")
-def get_version():
+def get_version() -> dict[str, str]:
     """
     @methoddesc 返回当前应用版本号
 

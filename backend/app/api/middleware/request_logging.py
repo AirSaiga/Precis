@@ -20,8 +20,11 @@
 
 import logging
 import time
+from collections.abc import Awaitable, Callable
 
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +45,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         无额外属性，依赖父类 BaseHTTPMiddleware 的基础设施
     """
 
-    async def dispatch(self, request, call_next):
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         """
         分发并包装请求处理流程，记录访问日志和耗时
 

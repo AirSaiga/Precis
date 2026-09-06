@@ -23,6 +23,7 @@
 import logging
 import os
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -74,7 +75,7 @@ class CreatePatternResponse(BaseModel):
 def create_v2_pattern(
     payload: CreatePatternRequest,
     config_path: str = Depends(get_project_config_path),
-):
+) -> CreatePatternResponse:
     """
     创建新的 Pattern 文件。
 
@@ -137,7 +138,7 @@ def create_v2_pattern(
 def check_pattern_name_exists(
     pattern_name: str,
     config_path: str = Depends(get_project_config_path),
-):
+) -> dict[str, Any]:
     """
     检查指定名称的 Pattern 是否已存在。
 
@@ -169,11 +170,11 @@ def check_pattern_name_exists(
 )
 def list_v2_patterns(
     config_path: str = Depends(get_project_config_path),
-):
+) -> list[dict[str, Any]]:
     """列出项目 patterns/ 目录下的所有 Pattern。"""
     manifest = get_v2_manifest(config_path)
     patterns_dir = os.path.join(config_path, manifest.patterns_dir or "patterns")
-    result: list[dict] = []
+    result: list[dict[str, Any]] = []
     if not os.path.isdir(patterns_dir):
         return result
     for fname in sorted(os.listdir(patterns_dir)):
@@ -202,7 +203,7 @@ def update_v2_pattern(
     pattern_name: str,
     payload: CreatePatternRequest,
     config_path: str = Depends(get_project_config_path),
-):
+) -> CreatePatternResponse:
     """更新已存在的 Pattern 文件（覆盖写）。"""
     manifest = get_v2_manifest(config_path)
     patterns_dir = os.path.join(config_path, manifest.patterns_dir or "patterns")
@@ -239,7 +240,7 @@ def update_v2_pattern(
 def delete_v2_pattern(
     pattern_name: str,
     config_path: str = Depends(get_project_config_path),
-):
+) -> dict[str, Any]:
     """删除指定 Pattern 文件。"""
     manifest = get_v2_manifest(config_path)
     patterns_dir = os.path.join(config_path, manifest.patterns_dir or "patterns")

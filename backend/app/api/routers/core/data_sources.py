@@ -128,7 +128,7 @@ def _get_project_root(config_path: str) -> str:
         500: {"description": "服务器内部错误"},
     },
 )
-async def get_workspace_config(config_path: str = Depends(get_project_config_path)):
+async def get_workspace_config(config_path: str = Depends(get_project_config_path)) -> WorkspaceConfig:
     """
     获取工作区配置
 
@@ -173,7 +173,9 @@ async def get_workspace_config(config_path: str = Depends(get_project_config_pat
         500: {"description": "服务器内部错误"},
     },
 )
-async def update_workspace_config(config_data: dict[str, Any], config_path: str = Depends(get_project_config_path)):
+async def update_workspace_config(
+    config_data: dict[str, Any], config_path: str = Depends(get_project_config_path)
+) -> WorkspaceConfig:
     """
     更新工作区配置
 
@@ -199,7 +201,9 @@ async def update_workspace_config(config_data: dict[str, Any], config_path: str 
         500: {"description": "服务器内部错误"},
     },
 )
-async def add_data_source(data_source: dict[str, Any], config_path: str = Depends(get_project_config_path)):
+async def add_data_source(
+    data_source: dict[str, Any], config_path: str = Depends(get_project_config_path)
+) -> WorkspaceConfig:
     """
     添加数据源
 
@@ -270,7 +274,7 @@ async def add_data_source(data_source: dict[str, Any], config_path: str = Depend
         500: {"description": "服务器内部错误"},
     },
 )
-async def remove_data_source(source_id: str, config_path: str = Depends(get_project_config_path)):
+async def remove_data_source(source_id: str, config_path: str = Depends(get_project_config_path)) -> WorkspaceConfig:
     """
     移除数据源
 
@@ -296,7 +300,7 @@ async def remove_data_source(source_id: str, config_path: str = Depends(get_proj
 )
 async def update_data_source(
     source_id: str, data_source: dict[str, Any], config_path: str = Depends(get_project_config_path)
-):
+) -> WorkspaceConfig:
     """
     @methoddesc 更新数据源
 
@@ -334,7 +338,7 @@ async def update_data_source(
         500: {"description": "服务器内部错误"},
     },
 )
-async def clear_all_data_sources(config_path: str = Depends(get_project_config_path)):
+async def clear_all_data_sources(config_path: str = Depends(get_project_config_path)) -> WorkspaceConfig:
     """
     清空所有数据源
 

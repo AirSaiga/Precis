@@ -20,7 +20,7 @@
 """
 
 import re
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
@@ -93,7 +93,7 @@ PARAM_TYPE_REGEX_MAP = {
         500: {"description": "服务器内部错误"},
     },
 )
-def parse_pattern_to_regex(request: ParsePatternRequest):
+def parse_pattern_to_regex(request: ParsePatternRequest) -> dict[str, Any]:
     """将可视化模式片段解析为正则表达式
 
     遍历请求中的每个片段：
@@ -157,7 +157,7 @@ class TestRegexResponse(BaseModel):
         500: {"description": "服务器内部错误"},
     },
 )
-def test_regex_matching(request: TestRegexRequest):
+def test_regex_matching(request: TestRegexRequest) -> dict[str, Any]:
     """测试正则表达式匹配
 
     编译用户提供的正则表达式，并在测试字符串中搜索匹配。
@@ -244,7 +244,7 @@ class RegexValidateExtractResponse(BaseModel):
         500: {"description": "服务器内部错误"},
     },
 )
-def validate_and_extract_regex(request: RegexValidateExtractRequest):
+def validate_and_extract_regex(request: RegexValidateExtractRequest) -> dict[str, Any]:
     """批量验证数据并提取正则命名组
 
     对输入的一批数据值执行正则匹配：

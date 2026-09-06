@@ -87,7 +87,7 @@ def _resolve_table_filter_from_file_path(config_path: str, file_path: str) -> st
 def validate_v2_full(
     request: FullValidationRequest,
     config_path: str = Depends(get_project_config_path),
-):
+) -> FullValidationResponse:
     """
     执行项目全量数据校验。
 

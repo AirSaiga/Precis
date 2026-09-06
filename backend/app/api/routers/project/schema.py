@@ -99,7 +99,7 @@ class SchemaConflictInfo(BaseModel):
         500: {"description": "服务器内部错误"},
     },
 )
-def get_v2_schema(table_id: str, config_path: str = Depends(get_project_config_path)):
+def get_v2_schema(table_id: str, config_path: str = Depends(get_project_config_path)) -> TableSchemaFileV2:
     """
     读取指定 table_id 的 schema 文件。
 
@@ -158,7 +158,7 @@ def put_v2_schema(
     schema: TableSchemaFileV2,
     mode: SaveMode = SaveMode.OVERWRITE,
     config_path: str = Depends(get_project_config_path),
-):
+) -> dict[str, str]:
     """
     写入指定 table_id 的 schema 文件。
 
@@ -265,7 +265,7 @@ def check_schema_conflict(
     table_id: str,
     new_schema: TableSchemaFileV2,
     config_path: str = Depends(get_project_config_path),
-):
+) -> SchemaConflictInfo:
     """
     检查 schema 保存时的冲突情况。
 
@@ -325,7 +325,7 @@ def check_schema_conflict(
         500: {"description": "服务器内部错误"},
     },
 )
-def delete_v2_schema(table_id: str, config_path: str = Depends(get_project_config_path)):
+def delete_v2_schema(table_id: str, config_path: str = Depends(get_project_config_path)) -> dict[str, str]:
     """
     删除指定 table_id 的 schema 文件，并从 manifest 中移除引用。
 
@@ -452,7 +452,7 @@ def update_v2_schema_display_name(
     table_id: str,
     payload: DisplayNameUpdateRequest,
     config_path: str = Depends(get_project_config_path),
-):
+) -> dict[str, str]:
     """
     更新 schema 的展示名（不改变 table_id 与文件路径）。
 
@@ -515,7 +515,7 @@ def convert_implicit_to_explicit_binding(
     table_id: str,
     payload: ImplicitToExplicitBindingRequest,
     config_path: str = Depends(get_project_config_path),
-):
+) -> dict[str, str]:
     """
     将隐式正则匹配转换为显式绑定。
 

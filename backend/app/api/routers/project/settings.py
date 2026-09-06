@@ -22,6 +22,7 @@
 
 import logging
 import os
+from collections.abc import Callable
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -45,12 +46,12 @@ router = APIRouter(prefix="", tags=["Project-Settings"])
 
 def _save_manifest_field(
     config_path: str,
-    apply,
+    apply: Callable[[ProjectManifestV2], None],
     *,
     read_log: str,
     write_log: str,
     success_message: str,
-) -> dict:
+) -> dict[str, str]:
     """读取 manifest → 修改指定字段 → 写回的通用辅助函数。
 
     所有 PUT 端点共享此逻辑，仅 apply 回调（修改哪个字段）和文案不同。
@@ -93,7 +94,7 @@ def _save_manifest_field(
         500: {"description": "设置文件读取失败"},
     },
 )
-def get_v2_project_settings(config_path: str = Depends(get_project_config_path)):
+def get_v2_project_settings(config_path: str = Depends(get_project_config_path)) -> ProjectSettingsV2:
     """
     读取当前项目的设置（从 project.precis.yaml 的 settings 字段）。
 
@@ -131,7 +132,9 @@ def get_v2_project_settings(config_path: str = Depends(get_project_config_path))
         500: {"description": "设置文件保存失败"},
     },
 )
-def put_v2_project_settings(settings: ProjectSettingsV2, config_path: str = Depends(get_project_config_path)):
+def put_v2_project_settings(
+    settings: ProjectSettingsV2, config_path: str = Depends(get_project_config_path)
+) -> dict[str, str]:
     """
     写入当前项目的设置（更新 project.precis.yaml 的 settings 字段）。
 
@@ -166,7 +169,7 @@ def put_v2_project_settings(settings: ProjectSettingsV2, config_path: str = Depe
         500: {"description": "服务器内部错误"},
     },
 )
-def get_v2_validation_settings(config_path: str = Depends(get_project_config_path)):
+def get_v2_validation_settings(config_path: str = Depends(get_project_config_path)) -> ValidationSettingsV2:
     """
     读取当前项目的校验行为设置。
 
@@ -196,7 +199,9 @@ def get_v2_validation_settings(config_path: str = Depends(get_project_config_pat
         500: {"description": "设置文件保存失败"},
     },
 )
-def put_v2_validation_settings(validation: ValidationSettingsV2, config_path: str = Depends(get_project_config_path)):
+def put_v2_validation_settings(
+    validation: ValidationSettingsV2, config_path: str = Depends(get_project_config_path)
+) -> dict[str, str]:
     """
     写入当前项目的校验行为设置。
 
@@ -231,7 +236,7 @@ def put_v2_validation_settings(validation: ValidationSettingsV2, config_path: st
         500: {"description": "服务器内部错误"},
     },
 )
-def get_v2_file_processing_settings(config_path: str = Depends(get_project_config_path)):
+def get_v2_file_processing_settings(config_path: str = Depends(get_project_config_path)) -> FileProcessingSettingsV2:
     """
     读取当前项目的文件处理设置。
 
@@ -263,7 +268,7 @@ def get_v2_file_processing_settings(config_path: str = Depends(get_project_confi
 )
 def put_v2_file_processing_settings(
     file_processing: FileProcessingSettingsV2, config_path: str = Depends(get_project_config_path)
-):
+) -> dict[str, str]:
     """
     写入当前项目的文件处理设置。
 
@@ -298,7 +303,7 @@ def put_v2_file_processing_settings(
         500: {"description": "服务器内部错误"},
     },
 )
-def get_v2_script_security_settings(config_path: str = Depends(get_project_config_path)):
+def get_v2_script_security_settings(config_path: str = Depends(get_project_config_path)) -> ScriptSecuritySettingsV2:
     """
     读取当前项目的脚本安全设置。
 
@@ -330,7 +335,7 @@ def get_v2_script_security_settings(config_path: str = Depends(get_project_confi
 )
 def put_v2_script_security_settings(
     script_security: ScriptSecuritySettingsV2, config_path: str = Depends(get_project_config_path)
-):
+) -> dict[str, str]:
     """
     写入当前项目的脚本安全设置。
 

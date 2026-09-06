@@ -41,7 +41,7 @@ from app.shared.core.config.server import (
 logger = logging.getLogger(__name__)
 
 
-def main():
+def main() -> None:
     """
     主函数 - 解析命令行参数并启动 Uvicorn 服务器
 

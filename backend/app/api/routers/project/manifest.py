@@ -141,7 +141,7 @@ def _upsert_manifest_ref(
         500: {"description": "服务器内部错误"},
     },
 )
-def get_v2_manifest(config_path: str = Depends(get_project_config_path)):
+def get_v2_manifest(config_path: str = Depends(get_project_config_path)) -> ProjectManifestV2:
     """
     读取当前项目的 V2 清单（project.precis.yaml）。
 
@@ -193,7 +193,7 @@ def get_v2_manifest(config_path: str = Depends(get_project_config_path)):
 )
 def put_v2_manifest(
     manifest: ProjectManifestV2, config_path: str = Depends(get_project_config_path), replace: bool = False
-):
+) -> dict[str, str]:
     """
     写入当前项目的 V2 清单。
 
@@ -300,7 +300,9 @@ def put_v2_manifest(
         500: {"description": "服务器内部错误"},
     },
 )
-def update_manifest_schema_ref(schema_ref: SchemaRef, config_path: str = Depends(get_project_config_path)):
+def update_manifest_schema_ref(
+    schema_ref: SchemaRef, config_path: str = Depends(get_project_config_path)
+) -> StandardResponse:
     """
     更新 manifest 中单个 schema 引用。
 
@@ -328,7 +330,9 @@ def update_manifest_schema_ref(schema_ref: SchemaRef, config_path: str = Depends
         500: {"description": "服务器内部错误"},
     },
 )
-def update_manifest_constraint_ref(constraint_ref: ConstraintRef, config_path: str = Depends(get_project_config_path)):
+def update_manifest_constraint_ref(
+    constraint_ref: ConstraintRef, config_path: str = Depends(get_project_config_path)
+) -> StandardResponse:
     """
     更新 manifest 中单个 constraint 引用。
 
@@ -356,7 +360,9 @@ def update_manifest_constraint_ref(constraint_ref: ConstraintRef, config_path: s
         500: {"description": "服务器内部错误"},
     },
 )
-def update_manifest_regex_ref(regex_ref: RegexRef, config_path: str = Depends(get_project_config_path)):
+def update_manifest_regex_ref(
+    regex_ref: RegexRef, config_path: str = Depends(get_project_config_path)
+) -> StandardResponse:
     """
     更新 manifest 中单个 regex 节点引用。
 
@@ -387,7 +393,7 @@ def update_manifest_regex_ref(regex_ref: RegexRef, config_path: str = Depends(ge
 def update_manifest_template_instance_ref(
     instance_ref: TemplateInstanceRef,
     config_path: str = Depends(get_project_config_path),
-):
+) -> dict[str, str]:
     """
     更新 manifest 中单个 template_instance 引用。
 
@@ -439,7 +445,7 @@ def update_manifest_template_instance_ref(
 def delete_manifest_template_instance_ref(
     instance_id: str,
     config_path: str = Depends(get_project_config_path),
-):
+) -> dict[str, str]:
     """
     @methoddesc 删除 manifest 中单个 template_instance 引用（幂等）
 
@@ -486,7 +492,7 @@ def delete_manifest_template_instance_ref(
 )
 def deduplicate_constraint_refs(
     config_path: str = Depends(get_project_config_path),
-):
+) -> dict[str, str]:
     """
     @methoddesc 扫描 manifest.constraints，删除指向同文件但 id 不匹配的重复条目。
 

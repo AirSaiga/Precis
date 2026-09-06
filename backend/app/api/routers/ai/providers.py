@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from fastapi import HTTPException
 
@@ -100,7 +101,7 @@ def _provider_to_response(p: AIProvider, health: dict) -> ProviderResponse:
         500: {"description": "服务器内部错误"},
     },
 )
-async def get_config_info():
+async def get_config_info() -> dict[str, Any]:
     """
     获取 AI Provider 配置文件信息
 
@@ -147,7 +148,7 @@ defaults:
         500: {"description": "服务器内部错误"},
     },
 )
-async def list_providers():
+async def list_providers() -> list[ProviderResponse]:
     """
     获取所有已配置的 Provider
 
@@ -166,7 +167,7 @@ async def list_providers():
         500: {"description": "服务器内部错误"},
     },
 )
-async def get_active_provider():
+async def get_active_provider() -> ProviderResponse | None:
     """
     获取当前活动的 Provider
 
@@ -197,7 +198,7 @@ async def get_active_provider():
         500: {"description": "服务器内部错误"},
     },
 )
-async def discover_local_services():
+async def discover_local_services() -> DiscoverResponse:
     """
     扫描并发现本地 AI 服务
 
@@ -222,7 +223,7 @@ async def discover_local_services():
         500: {"description": "服务器内部错误"},
     },
 )
-async def add_discovered_service(service_id: str):
+async def add_discovered_service(service_id: str) -> dict[str, Any]:
     """
     将发现的服务添加到配置
 
@@ -277,7 +278,7 @@ async def add_discovered_service(service_id: str):
         500: {"description": "服务器内部错误"},
     },
 )
-async def test_provider(provider_id: str):
+async def test_provider(provider_id: str) -> TestProviderResponse:
     """
     测试 Provider 连接
 
@@ -314,7 +315,7 @@ async def test_provider(provider_id: str):
         500: {"description": "服务器内部错误"},
     },
 )
-async def activate_provider(provider_id: str):
+async def activate_provider(provider_id: str) -> ProviderResponse:
     """
     设置活动 Provider
 
@@ -338,7 +339,7 @@ async def activate_provider(provider_id: str):
     response_model=list[ProviderPresetResponse],
     summary="获取内置服务商预设列表",
 )
-async def list_presets():
+async def list_presets() -> list[dict[str, Any]]:
     """
     获取内置服务商预设列表
 
@@ -357,7 +358,7 @@ async def list_presets():
         500: {"description": "服务器内部错误"},
     },
 )
-async def create_provider(req: CreateProviderRequest):
+async def create_provider(req: CreateProviderRequest) -> ProviderResponse:
     """
     创建一个新的 Provider 并写入配置文件。
 
@@ -410,7 +411,7 @@ async def create_provider(req: CreateProviderRequest):
         500: {"description": "服务器内部错误"},
     },
 )
-async def update_provider(provider_id: str, req: UpdateProviderRequest):
+async def update_provider(provider_id: str, req: UpdateProviderRequest) -> ProviderResponse:
     """
     更新已有 Provider 的配置。
 
@@ -450,7 +451,7 @@ async def update_provider(provider_id: str, req: UpdateProviderRequest):
         500: {"description": "服务器内部错误"},
     },
 )
-async def delete_provider(provider_id: str):
+async def delete_provider(provider_id: str) -> dict[str, Any]:
     """
     删除指定的 Provider。
 

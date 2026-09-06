@@ -21,10 +21,12 @@
 
 import logging
 import traceback
+from collections.abc import Awaitable, Callable
 
 from fastapi import HTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import JSONResponse
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +46,7 @@ class ExceptionHandlerMiddleware(BaseHTTPMiddleware):
         无额外属性，依赖父类 BaseHTTPMiddleware 的基础设施
     """
 
-    async def dispatch(self, request, call_next):
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         """
         分发并包装请求处理流程，捕获未处理异常
 

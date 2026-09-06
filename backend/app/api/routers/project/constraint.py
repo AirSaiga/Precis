@@ -51,7 +51,7 @@ router = APIRouter(prefix="", tags=["Project-Constraint"])
         500: {"description": "服务器内部错误"},
     },
 )
-def get_v2_constraint(constraint_id: str, config_path: str = Depends(get_project_config_path)):
+def get_v2_constraint(constraint_id: str, config_path: str = Depends(get_project_config_path)) -> ConstraintFileV2:
     """
     读取指定 constraint_id 的 constraint 文件。
 
@@ -136,7 +136,7 @@ def put_v2_constraint(
     constraint_id: str,
     constraint: ConstraintFileV2,
     config_path: str = Depends(get_project_config_path),
-):
+) -> dict[str, str]:
     """
     写入指定 constraint_id 的 constraint 文件。
 
@@ -200,7 +200,7 @@ def put_v2_constraint(
         500: {"description": "服务器内部错误"},
     },
 )
-def delete_v2_constraint(constraint_id: str, config_path: str = Depends(get_project_config_path)):
+def delete_v2_constraint(constraint_id: str, config_path: str = Depends(get_project_config_path)) -> dict[str, str]:
     """
     删除指定 constraint_id 的 constraint 文件，并从 manifest 中移除引用。
 
@@ -275,7 +275,7 @@ def update_v2_constraint_display_name(
     constraint_id: str,
     payload: DisplayNameUpdateRequest,
     config_path: str = Depends(get_project_config_path),
-):
+) -> dict[str, str]:
     """
     更新 constraint 的展示名（不改变 constraint_id 与文件路径）。
 

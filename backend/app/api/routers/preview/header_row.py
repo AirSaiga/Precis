@@ -50,7 +50,7 @@ def _sanitize_schema_name(name: str) -> str:
 def handle_header_row_changed(
     request: HeaderRowChangedRequest,
     config_path: str = Depends(get_project_config_path),
-):
+) -> HeaderRowChangedResponse:
     """
     处理表头行变更请求。
 
