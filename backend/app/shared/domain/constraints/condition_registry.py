@@ -24,13 +24,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-
 # 1. 标准库导入
+import logging
+from collections.abc import Callable
 from typing import Any
 
 # 2. 第三方库导入
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 # ============================================================================
 # 全局条件注册表
@@ -68,7 +70,7 @@ def register_condition(name: str):
     def decorator(func: Callable[[Any], bool]) -> Callable[[Any], bool]:
         # 如果名称已存在，发出警告并覆盖
         if name in CONDITION_REGISTRY:
-            print(f"警告: 正在覆盖已注册的条件 '{name}'")
+            logger.warning(f"警告: 正在覆盖已注册的条件 '{name}'")
         CONDITION_REGISTRY[name] = func
         return func
 

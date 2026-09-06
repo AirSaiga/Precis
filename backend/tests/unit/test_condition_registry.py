@@ -64,24 +64,24 @@ class TestConditionRegistry:
         assert CONDITION_REGISTRY["is_positive_number"](None) is False
         assert CONDITION_REGISTRY["is_positive_number"]("") is False
 
-    def test_override_registered_condition_warning(self, capsys):
-        """覆盖已注册条件时应输出警告"""
+    def test_override_registered_condition_warning(self, caplog):
+        """覆盖已注册条件时应记录警告日志"""
 
         @register_condition("test_override")
         def _original(value):
             return True
 
-        captured = capsys.readouterr()
-        # 首次注册不应有警告
-        assert "警告" not in captured.out
+        # 首次注册不应有警告日志
+        assert not [r for r in caplog.records if "正在覆盖已注册的条件" in r.getMessage()]
 
         @register_condition("test_override")
         def _override(value):
             return False
 
-        captured = capsys.readouterr()
-        assert "警告" in captured.out
-        assert "test_override" in captured.out
+        # 覆盖注册应产生一条含条件名的警告日志
+        override_logs = [r for r in caplog.records if "正在覆盖已注册的条件" in r.getMessage()]
+        assert len(override_logs) == 1
+        assert "test_override" in override_logs[0].getMessage()
 
         # 确认已被覆盖
         assert CONDITION_REGISTRY["test_override"]("x") is False
