@@ -1,3 +1,20 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright 2026 Precis Team
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
 /**
  * @fileoverview 从后端 actions registry 生成前端 TS 类型与常量
  *
@@ -55,8 +72,33 @@ function generate(data) {
   const write = data.write_action_types
 
   const lines = []
+  // license 头与全仓补齐批保持一致（SPDX + Copyright + Apache-2.0 提示行）
+  lines.push('/*')
+  lines.push(' * SPDX-License-Identifier: Apache-2.0')
+  lines.push(' *')
+  lines.push(' * Copyright 2026 Precis Team')
+  lines.push(' *')
+  lines.push(' * Licensed under the Apache License, Version 2.0 (the "License");')
+  lines.push(' * you may not use this file except in compliance with the License.')
+  lines.push(' * You may obtain a copy of the License at')
+  lines.push(' *')
+  lines.push(' *     http://www.apache.org/licenses/LICENSE-2.0')
+  lines.push(' *')
+  lines.push(
+    ' * Unless required by applicable law or agreed to in writing, software'
+  )
+  lines.push(' * distributed under the License is distributed on an "AS IS" BASIS,')
+  lines.push(
+    ' * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.'
+  )
+  lines.push(
+    ' * See the License for the specific language governing permissions and'
+  )
+  lines.push(' * limitations under the License.')
+  lines.push(' */')
+  lines.push('')
   lines.push('/**')
-  lines.push(' * @file actions.ts — 自动生成,禁止手改')
+  lines.push(' * @fileoverview actions.ts — 自动生成,禁止手改')
   lines.push(' *')
   lines.push(' * 由 frontend/scripts/codegen.mjs 从后端 registry.py 生成。')
   lines.push(' * 改动作类型后跑 `npm run codegen` 重新生成;CI 会校验生成物与提交一致。')

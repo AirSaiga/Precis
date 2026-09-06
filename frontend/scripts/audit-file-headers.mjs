@@ -1,10 +1,27 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright 2026 Precis Team
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 // 文件头注释门禁（2026-09 规范审计 F3 采纳方案 B）：
-// - .ts：前 20 行内须有 @fileoverview（JSDoc 文件头）
+// - .ts：前 40 行内须有 @fileoverview（JSDoc 文件头；40 行窗为容纳 license 块 17 行下移）
 // - .vue：首个非空行须为 <!-- 开头的散文式文件头
 // - 存量无头文件在 file-header-audit-exceptions.json 豁免（渐进收紧：补头后从清单移除）
 // - tests/ 不在扫描范围；新文件不带头直接失败
@@ -45,7 +62,7 @@ function hasFileHeader(relativePath, content) {
     const firstLine = content.split('\n').find((line) => line.trim() !== '') ?? ''
     return firstLine.trimStart().startsWith('<!--')
   }
-  const head = content.split('\n').slice(0, 20).join('\n')
+  const head = content.split('\n').slice(0, 40).join('\n')
   return head.includes('@fileoverview')
 }
 

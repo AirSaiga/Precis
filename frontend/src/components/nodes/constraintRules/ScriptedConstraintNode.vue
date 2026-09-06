@@ -1,3 +1,20 @@
+<!--
+SPDX-License-Identifier: Apache-2.0
+
+Copyright 2026 Precis Team
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
 /** * @file ScriptedConstraintNode.vue * @description 脚本约束节点组件 * * 核心功能： * - 配置自定义
 JavaScript 脚本进行数据校验 * - 接收 Schema 节点列的输入 * -
 执行脚本校验（运行用户自定义的验证逻辑） * - 显示校验状态和错误数量 * * 数据流： * Schema列 →

@@ -199,6 +199,11 @@ jobs:
           done
           exit $fail
 
+      # 全仓源码文件 Apache-2.0 license 头守卫（2026-09 补齐批引入；1768 个四端源码
+      # 文件已全量补齐，新文件缺头在此失败。范围/判定与补头批一致，见脚本头注释）
+      - name: Check license headers (Apache-2.0)
+        run: node scripts/check-license-headers.mjs
+
   e2e:
     name: E2E Tests (Playwright)
     runs-on: ubuntu-latest

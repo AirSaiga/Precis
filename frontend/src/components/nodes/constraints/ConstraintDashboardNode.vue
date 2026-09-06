@@ -1,3 +1,20 @@
+<!--
+SPDX-License-Identifier: Apache-2.0
+
+Copyright 2026 Precis Team
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
 /** * @file ConstraintDashboardNode.vue * @description 约束仪表板节点组件 * * 核心功能： * -
 显示约束规则的仪表板视图 * - 展示所有约束规则的概览信息 * - 提供约束规则的统计和状态展示 * -
 支持快速导航到具体约束节点 * * 节点结构： * - Header：仪表板图标、标题 * - Stats：约束规则统计信息 *

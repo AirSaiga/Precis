@@ -1,3 +1,20 @@
+<!--
+SPDX-License-Identifier: Apache-2.0
+
+Copyright 2026 Precis Team
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
 /** * @file UniqueConstraintNode.vue * @description 唯一性约束节点组件 * * 核心功能： * -
 配置唯一性约束规则（单列或复合唯一） * - 接收 Schema 节点列的输入 * -
 执行唯一性校验（检查指定列的值是否唯一） * - 显示校验状态和重复行数 * * 数据流： * Schema列 →
