@@ -31,9 +31,11 @@ echo.
 :: Compile Electron main when missing OR sources are newer than the last compile
 :: ("exists → skip" silently ran a stale main process after source edits).
 :: Detection defaults to STALE when PowerShell is unavailable (fail closed).
+:: File leaves are read via Get-Item and only directories via Get-ChildItem
+:: -Recurse: a file path under -Recurse is a recursive wildcard pattern.
 set "ELECTRON_STALE=STALE"
 if exist "electron\dist\main.js" (
-    for /f "usebackq delims=" %%R in (`powershell -NoProfile -Command "$ErrorActionPreference='SilentlyContinue'; $newest = Get-ChildItem -Recurse -File 'electron\src','electron\package.json','electron\tsconfig.json' | Sort-Object LastWriteTime -Descending | Select-Object -First 1; $stamp = Get-Item 'electron\dist\main.js'; if ($newest -and $stamp -and $newest.LastWriteTime -gt $stamp.LastWriteTime) {'STALE'} else {'FRESH'}"`) do set "ELECTRON_STALE=%%R"
+    for /f "usebackq delims=" %%R in (`powershell -NoProfile -Command "$ErrorActionPreference='SilentlyContinue'; $files = @(Get-Item 'electron\package.json','electron\tsconfig.json') + @(Get-ChildItem -Recurse -File 'electron\src'); $newest = $files | Sort-Object LastWriteTime -Descending | Select-Object -First 1; $stamp = Get-Item 'electron\dist\main.js'; if ($newest -and $stamp -and $newest.LastWriteTime -gt $stamp.LastWriteTime) {'STALE'} else {'FRESH'}"`) do set "ELECTRON_STALE=%%R"
 )
 set "ELECTRON_BUILD_FAILED=0"
 if "!ELECTRON_STALE!"=="STALE" (

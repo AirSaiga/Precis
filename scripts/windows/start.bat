@@ -21,9 +21,13 @@ if exist "%PROJECT_ROOT%\backend\.venv\Scripts\python.exe" (
 :: Detection defaults to STALE when PowerShell is unavailable (fail closed).
 :: NOTE: error handling uses a flag + top-level exit /b. An exit /b inside the
 :: nested blocks empirically lost its exit code under cmd /c in some shapes.
+:: NOTE: file leaves are read via Get-Item and only directories via
+:: Get-ChildItem -Recurse: under -Recurse, a file path is treated as a recursive
+:: wildcard pattern (every index.html/package.json under node_modules/coverage
+:: would silently enter the watch set and trigger spurious rebuilds).
 set "FRONTEND_STALE=STALE"
 if exist "frontend\dist\index.html" (
-    for /f "usebackq delims=" %%R in (`powershell -NoProfile -Command "$ErrorActionPreference='SilentlyContinue'; $newest = Get-ChildItem -Recurse -File 'frontend\src','frontend\index.html','frontend\vite.config.ts','frontend\package.json' | Sort-Object LastWriteTime -Descending | Select-Object -First 1; $stamp = Get-Item 'frontend\dist\index.html'; if ($newest -and $stamp -and $newest.LastWriteTime -gt $stamp.LastWriteTime) {'STALE'} else {'FRESH'}"`) do set "FRONTEND_STALE=%%R"
+    for /f "usebackq delims=" %%R in (`powershell -NoProfile -Command "$ErrorActionPreference='SilentlyContinue'; $files = @(Get-Item 'frontend\index.html','frontend\vite.config.ts','frontend\package.json') + @(Get-ChildItem -Recurse -File 'frontend\src'); $newest = $files | Sort-Object LastWriteTime -Descending | Select-Object -First 1; $stamp = Get-Item 'frontend\dist\index.html'; if ($newest -and $stamp -and $newest.LastWriteTime -gt $stamp.LastWriteTime) {'STALE'} else {'FRESH'}"`) do set "FRONTEND_STALE=%%R"
 )
 set "FRONTEND_BUILD_FAILED=0"
 if "!FRONTEND_STALE!"=="STALE" (
@@ -45,9 +49,10 @@ if "!FRONTEND_BUILD_FAILED!"=="1" (
 )
 
 :: Recompile Electron main when missing OR sources are newer than the last compile.
+:: (File leaves via Get-Item / dirs via -Recurse, same rationale as the frontend probe.)
 set "ELECTRON_STALE=STALE"
 if exist "electron\dist\main.js" (
-    for /f "usebackq delims=" %%R in (`powershell -NoProfile -Command "$ErrorActionPreference='SilentlyContinue'; $newest = Get-ChildItem -Recurse -File 'electron\src','electron\package.json','electron\tsconfig.json' | Sort-Object LastWriteTime -Descending | Select-Object -First 1; $stamp = Get-Item 'electron\dist\main.js'; if ($newest -and $stamp -and $newest.LastWriteTime -gt $stamp.LastWriteTime) {'STALE'} else {'FRESH'}"`) do set "ELECTRON_STALE=%%R"
+    for /f "usebackq delims=" %%R in (`powershell -NoProfile -Command "$ErrorActionPreference='SilentlyContinue'; $files = @(Get-Item 'electron\package.json','electron\tsconfig.json') + @(Get-ChildItem -Recurse -File 'electron\src'); $newest = $files | Sort-Object LastWriteTime -Descending | Select-Object -First 1; $stamp = Get-Item 'electron\dist\main.js'; if ($newest -and $stamp -and $newest.LastWriteTime -gt $stamp.LastWriteTime) {'STALE'} else {'FRESH'}"`) do set "ELECTRON_STALE=%%R"
 )
 set "ELECTRON_BUILD_FAILED=0"
 if "!ELECTRON_STALE!"=="STALE" (
