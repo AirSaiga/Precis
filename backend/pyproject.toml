@@ -161,6 +161,10 @@ warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true
 explicit_package_bases = true
+# 强制全量类型注解（2026-09-06 规范批次开启）：存量 253 处缺口已全部补齐，
+# 此后新增无注解函数会在 CI mypy 门禁直接失败
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
 disable_error_code = ["import-untyped"]
 plugins = ["pydantic.mypy"]
 exclude = [
