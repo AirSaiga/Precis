@@ -374,16 +374,16 @@ export function useNodeOrganizer() {
     group.y += dy
 
     const nodeIdsToMove = new Set(group.nodeIds)
-    graphStore.nodes = nodes.value.map((node) => {
-      if (!nodeIdsToMove.has(node.id)) return node
-      return {
-        ...node,
-        position: {
-          x: node.position.x + dx,
-          y: node.position.y + dy,
-        },
-      }
-    })
+    // 增量落位（同 applyPositions）：分组拖动释放时一次性应用总位移，避免全量
+    // 数组替换触发 setNodes → createGraphNodes 整图重建级联。调用方为 HTML5
+    // dragend 单次触发（ZoneGroupOverlay mouseup 时 emit 累计总位移），读当前
+    // store 位置加总位移无逐帧时序风险。
+    for (const node of nodes.value) {
+      if (!nodeIdsToMove.has(node.id)) continue
+      graphStore.updateNodeData(node.id, {
+        position: { x: node.position.x + dx, y: node.position.y + dy },
+      })
+    }
   }
 
   async function toggleGroupCollapse(groupId: string): Promise<void> {

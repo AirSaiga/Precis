@@ -32,7 +32,7 @@
 import { logger } from '@/core/utils/logger'
 import { ref, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useVueFlow, type NodeMouseEvent } from '@vue-flow/core'
+import { useVueFlow, type NodeDragEvent, type NodeMouseEvent } from '@vue-flow/core'
 import { useGraphStore } from '@/stores/graphStore'
 import { useDragStore, type DragEventPayload } from '@/stores/dragStore'
 import { useResourceDragStore } from '@/stores/resourceDragStore'
@@ -40,6 +40,33 @@ import { useSourcePreview } from '../nodes/sourcePreview'
 import { toastError, toastSuccess, toastInfo } from '@/core/toast'
 import type { SourcePreviewNodeData } from '@/types/datasource'
 import type { ConstraintKind } from '@/services/constraints/types'
+import type { CustomNode } from '@/types/graph'
+
+/**
+ * 节点位置拖拽的位移增量判定（纯函数，S3 优化）。
+ *
+ * 节点位置拖拽手势只改被拖节点的 position——比对"dragstart 记录的起始位置"
+ * 与"dragstop 事件携带的终止位置"即可判定是否移动，替代全图 clone + 两次
+ * JSON.stringify（128 节点实测几十 ms 落手卡顿）。
+ *
+ * @param startPositions dragstart 记录的被拖节点起始位置
+ * @param snapshotNodes dragstart 快照内的节点（兜底起始来源）
+ * @param dragStopNodes dragstop 事件携带的被拖节点（含终止位置）
+ */
+export function hasNodePositionMoved(
+  startPositions: Map<string, { x: number; y: number }>,
+  snapshotNodes: CustomNode[],
+  dragStopNodes: NodeDragEvent['nodes']
+): boolean {
+  const beforePositionById = new Map(snapshotNodes.map((n) => [n.id, n.position]))
+  return dragStopNodes.some((node) => {
+    const start = startPositions.get(node.id)
+    if (!start) return true // 起始未知 → 保守视为移动（入栈不丢步）
+    const before = beforePositionById.get(node.id) ?? start
+    return before.x !== node.position.x || before.y !== node.position.y
+  })
+}
+
 /**
  * 画布节点操作组合式函数
  * 负责节点创建、拖拽等画布级别的操作
@@ -156,21 +183,38 @@ export function useCanvasNodeOperations(flowWrapper: Ref<HTMLElement | null>) {
 
   // ===== 节点位移的撤销历史 =====
   // Vue Flow 的 node-drag-start/stop（节点位置拖动，区别于上方 HTML5 字段拖拽）。
-  // 策略：dragstart 捕获快照（不入栈），dragstop 与当前状态比较——位置确有
-  // 变化才把 pre-captured 快照压入撤销栈，避免纯点击（无位移）产生空撤销步。
+  // 策略：dragstart 捕获快照（不入栈），dragstop 判定位移——位置确有变化才把
+  // pre-captured 快照压入撤销栈，避免纯点击（无位移）产生空撤销步。
+  // 位移判定走增量比对（dragstart 记录被拖节点起始位置，dragstop 只比对这批
+  // 节点的终止位置）：位置拖拽手势能触及的共享状态只有被拖节点 position 与
+  // selected/dragging 标志，比对被拖节点位置即可精确判定，无需全图 clone +
+  // 两次 JSON.stringify（128 节点实测几十 ms 落手卡顿，S3 优化）。
   let pendingPositionDragSnapshot: ReturnType<typeof store.captureState> | null = null
+  let pendingDragStartPositions: Map<string, { x: number; y: number }> | null = null
 
-  const handleNodePositionDragStart = () => {
+  const handleNodePositionDragStart = (payload?: NodeDragEvent) => {
     if (store.isHistorySuspended()) return
     pendingPositionDragSnapshot = store.captureState()
+    pendingDragStartPositions = new Map()
+    for (const node of payload?.nodes ?? []) {
+      pendingDragStartPositions.set(node.id, { x: node.position.x, y: node.position.y })
+    }
   }
 
-  const handleNodePositionDragStop = () => {
+  const handleNodePositionDragStop = (payload?: NodeDragEvent) => {
     const snapshot = pendingPositionDragSnapshot
+    const startPositions = pendingDragStartPositions
     pendingPositionDragSnapshot = null
+    pendingDragStartPositions = null
     if (!snapshot) return
-    const current = store.captureState()
-    if (JSON.stringify(snapshot) !== JSON.stringify(current)) {
+    // 增量判定为主；payload/起始记录缺失（理论不可达）时回退全图比较，行为同旧实现
+    let moved: boolean
+    if (payload?.nodes && startPositions) {
+      moved = hasNodePositionMoved(startPositions, snapshot.nodes, payload.nodes)
+    } else {
+      moved = JSON.stringify(snapshot) !== JSON.stringify(store.captureState())
+    }
+    if (moved) {
       store.saveState(snapshot)
     }
   }
