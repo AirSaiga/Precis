@@ -1,3 +1,10 @@
+/**
+ * @fileoverview 硬编码样式审查（prefers-color-scheme / 颜色字面量检测）
+ *
+ * 形态对齐 audit-i18n.mjs：支持例外清单 style-audit-exceptions.json，发现违规时
+ * process.exit(1)，供 lint:check / CI 调用。仅扫描 src/ 下 .vue（style 块与内联
+ * style 属性）与 .css 文件。
+ */
 import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'

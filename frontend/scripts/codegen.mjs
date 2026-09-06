@@ -1,11 +1,12 @@
-// @file codegen.mjs
-// @description 从后端 actions registry 生成前端 TS 类型与常量
-//
-// 设计说明:
-// - 后端 registry.py 是动作类型单一事实源,本脚本通过 subprocess 调用
-//   export_for_codegen() 读取,生成 frontend/src/types/generated/actions.ts
-// - 改后端动作类型后跑 `npm run codegen` 重新生成,CI 会校验生成物与提交一致
-// - 生成物禁止手改(文件头有标注)
+/**
+ * @fileoverview 从后端 actions registry 生成前端 TS 类型与常量
+ *
+ * 设计说明:
+ * - 后端 registry.py 是动作类型单一事实源,本脚本通过 subprocess 调用
+ *   export_for_codegen() 读取,生成 frontend/src/types/generated/actions.ts
+ * - 改后端动作类型后跑 `npm run codegen` 重新生成,CI 会校验生成物与提交一致
+ * - 生成物禁止手改(文件头有标注)
+ */
 
 import { writeFileSync, mkdirSync } from 'node:fs'
 import path from 'node:path'

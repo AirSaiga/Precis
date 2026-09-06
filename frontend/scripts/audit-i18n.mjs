@@ -1,6 +1,5 @@
 /**
- * @file audit-i18n.mjs
- * @description i18n key 完整性守卫（缺失 / 未用 key 检测）
+ * @fileoverview i18n key 完整性守卫（缺失 / 未用 key 检测）
  *
  * 形态对齐 audit-hardcoded-styles.mjs：支持 allowlist，发现违规时 process.exit(1)，
  * 供 lint:check / CI 调用。唯一外部依赖为 esbuild（已是 devDependency）——用它把

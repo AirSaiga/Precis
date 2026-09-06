@@ -223,6 +223,7 @@ V2 API 调用层在 `frontend/src/api/projectV2Api/`（目录，barrel 入口 `i
 - **导入顺序**: 惯例为空行分块书写，组内顺序不强制、无 lint 门禁（2026-09 审计实证按现状修订；引入 `import/order` 类门禁前勿按"外部组件→类型→组合式函数/工具"的旧描述做评审）
 - **命名**: 组件 PascalCase，组合式函数 `use*`，Store `use*Store`，常量 UPPER_SNAKE_CASE
 - **composables/ 目录**: 组合式函数文件名 `use*`；`composables/nodes/**` 例外允许承载节点行为 handler/registry 模块（connectionHandlers、transform 等非组合式处理器）
+- **文件头注释**（2026-09 审计 F3 采纳成文，门禁 `audit:headers` 已入 `lint:check`）: `src/` 下 `.ts` 须在前 20 行内含 `/** @fileoverview <文件职责一句话> */`；`.vue` 须以描述组件职责的 `<!-- ... -->` 块开头；**禁止只复读文件名的空洞头**。新增文件强制（不带头门禁即红）；存量无头文件在 `frontend/file-header-audit-exceptions.json` 豁免、渐进收紧（补头后从清单移除条目）；`tests/` 豁免，`scripts/*.mjs` 自觉对齐
 - **Props 必须定义类型**（`interface Props` + `defineProps<Props>()`）；非 feature 专属共享类型放 `src/types/`
 - **空值安全**: `strictNullChecks: true`，可能为 null/undefined 的值必须加空值守卫
 
