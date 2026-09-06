@@ -220,8 +220,9 @@ V2 API 调用层在 `frontend/src/api/projectV2Api/`（目录，barrel 入口 `i
 ### TypeScript/Vue 前端
 
 - **组件语法**: `<script setup lang="ts">` + Composition API
-- **导入顺序**: 外部组件 → 类型 → 组合式函数/工具
+- **导入顺序**: 惯例为空行分块书写，组内顺序不强制、无 lint 门禁（2026-09 审计实证按现状修订；引入 `import/order` 类门禁前勿按"外部组件→类型→组合式函数/工具"的旧描述做评审）
 - **命名**: 组件 PascalCase，组合式函数 `use*`，Store `use*Store`，常量 UPPER_SNAKE_CASE
+- **composables/ 目录**: 组合式函数文件名 `use*`；`composables/nodes/**` 例外允许承载节点行为 handler/registry 模块（connectionHandlers、transform 等非组合式处理器）
 - **Props 必须定义类型**（`interface Props` + `defineProps<Props>()`）；非 feature 专属共享类型放 `src/types/`
 - **空值安全**: `strictNullChecks: true`，可能为 null/undefined 的值必须加空值守卫
 

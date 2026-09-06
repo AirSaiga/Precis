@@ -12,7 +12,8 @@ import { defineStore } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
 import type { ExternalDataSource, WorkspaceConfig } from '@/types/graph'
 import i18n from '@/i18n'
-import { checkFileExists } from '@/core/utils/fileApi'
+// 文件能力统一走 capabilities 抽象层（2026-09 规范审计 F6：经 core/utils/fileApi 直连 Electron IPC 属遗留路径）
+import { checkFileExists } from '@/core/capabilities/fileApi'
 import {
   loadWorkspaceConfig,
   saveWorkspaceConfig,
