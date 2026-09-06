@@ -1,3 +1,5 @@
+"""路径工具函数：POSIX 风格规范化与跨平台路径等价比较。"""
+
 from __future__ import annotations
 
 import os

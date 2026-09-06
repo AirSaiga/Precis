@@ -1,3 +1,5 @@
+"""项目管理路由聚合：/api/latest/projects 下的扫描、打开、创建子路由。"""
+
 from fastapi import APIRouter
 
 from . import create, open, scan

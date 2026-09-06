@@ -1,3 +1,5 @@
+"""缓存装饰器 Provider：包装真实 provider 透明缓存 chat/流式响应。"""
+
 from __future__ import annotations
 
 from collections.abc import AsyncIterator

@@ -1,6 +1,3 @@
-# backend/app/cli/shell/commands/config/__init__.py
-from __future__ import annotations
-
 """
 @fileoverview CLI Shell 配置管理命令模块入口
 
@@ -20,6 +17,8 @@ from __future__ import annotations
 输出示例:
     子命令的执行结果
 """
+
+from __future__ import annotations
 
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.commands.config.check import ConfigCheckCommand

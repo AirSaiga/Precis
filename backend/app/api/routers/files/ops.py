@@ -1,3 +1,5 @@
+"""文件操作路由：读写文件、目录扫描与创建，路径校验限定在项目白名单根内。"""
+
 from __future__ import annotations
 
 import os

@@ -1,3 +1,5 @@
+"""文件操作 API 模型：读/写文件、目录扫描、mkdir、存在性检查的请求/响应定义。"""
+
 from __future__ import annotations
 
 from pydantic import BaseModel, Field

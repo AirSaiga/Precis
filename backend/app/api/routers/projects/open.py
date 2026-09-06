@@ -1,3 +1,5 @@
+"""项目打开路由：打开、关闭与查询当前项目。"""
+
 from __future__ import annotations
 
 import os

@@ -1,10 +1,12 @@
+"""项目管理 API 模型：项目扫描、打开、创建、关闭与当前项目查询的请求/响应定义。"""
+
 from __future__ import annotations
 
 from pydantic import BaseModel
 
 
 class ProjectInfo(BaseModel):
-    """Single project info returned by scan."""
+    """扫描返回的单个项目信息。"""
 
     name: str
     path: str
@@ -14,20 +16,20 @@ class ProjectInfo(BaseModel):
 
 
 class ScanResponse(BaseModel):
-    """Response from project scan endpoint."""
+    """项目扫描端点的响应。"""
 
     work_dir: str
     projects: list[ProjectInfo]
 
 
 class OpenProjectRequest(BaseModel):
-    """Request body for opening a project."""
+    """打开项目的请求体。"""
 
     path: str
 
 
 class OpenProjectResponse(BaseModel):
-    """Response from opening a project."""
+    """打开项目的响应。"""
 
     success: bool
     name: str
@@ -35,14 +37,14 @@ class OpenProjectResponse(BaseModel):
 
 
 class CreateProjectRequest(BaseModel):
-    """Request body for creating a new project scaffold."""
+    """创建新项目脚手架的请求体。"""
 
     path: str
     name: str
 
 
 class CreateProjectResponse(BaseModel):
-    """Response from creating a project."""
+    """创建项目的响应。"""
 
     success: bool
     name: str
@@ -50,7 +52,7 @@ class CreateProjectResponse(BaseModel):
 
 
 class CurrentProjectResponse(BaseModel):
-    """Response for current project query."""
+    """当前项目查询的响应。"""
 
     has_current: bool
     path: str | None = None
@@ -58,6 +60,6 @@ class CurrentProjectResponse(BaseModel):
 
 
 class CloseProjectResponse(BaseModel):
-    """Response from closing a project."""
+    """关闭项目的响应。"""
 
     success: bool

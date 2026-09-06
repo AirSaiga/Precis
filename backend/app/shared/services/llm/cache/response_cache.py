@@ -1,3 +1,5 @@
+"""LLM 响应缓存：LRU + TTL 的线程安全缓存与缓存键生成。"""
+
 from __future__ import annotations
 
 import hashlib

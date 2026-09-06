@@ -1,3 +1,5 @@
+"""项目扫描路由：扫描工作目录下所有包含 project.precis.yaml 的项目。"""
+
 from __future__ import annotations
 
 import os

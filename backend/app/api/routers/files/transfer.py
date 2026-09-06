@@ -1,3 +1,5 @@
+"""文件传输路由：Web 模式下的文件上传/下载（经服务器临时目录中转）。"""
+
 from __future__ import annotations
 
 import os
