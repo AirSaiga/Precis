@@ -110,16 +110,15 @@ export interface ValidationSettings {
 
 /**
  * 文件处理设置接口（与后端 API snake_case 命名一致）
+ *
+ * 字段必须与后端 FileProcessingSettings / 全量校验 override 模型白名单严格一致：
+ * 后端 override 模型为 extra="forbid"，多发字段会导致 /project/validate/full 返回 422。
  */
 export interface FileProcessingSettings {
   /** 默认文件编码 */
   default_encoding: 'utf-8' | 'gbk' | 'auto'
   /** CSV 分隔符 */
   csv_delimiter: string
-  /** 空值处理策略 */
-  null_value_strategy: 'null' | 'empty' | 'default'
-  /** 日期格式字符串 */
-  date_format: string
 }
 
 /**
@@ -194,8 +193,6 @@ export const defaultValidationSettings: ValidationSettings = {
 export const defaultFileProcessingSettings: FileProcessingSettings = {
   default_encoding: 'utf-8',
   csv_delimiter: ',',
-  null_value_strategy: 'null',
-  date_format: '%Y-%m-%d',
 }
 
 /** 脚本安全默认设置 */

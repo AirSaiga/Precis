@@ -963,6 +963,7 @@ export type ValidationRunSettings = ValidationSettings
  * 文件处理设置。
  *
  * 控制数据文件的读取和解析行为。
+ * 字段须与后端 FileProcessingSettings 白名单一致（override 模型 extra="forbid"）。
  */
 export interface FileProcessingSettings {
   /**
@@ -975,16 +976,6 @@ export interface FileProcessingSettings {
   default_encoding: 'utf-8' | 'gbk' | 'auto'
   /** CSV 字段分隔符 */
   csv_delimiter: string
-  /**
-   * 空值处理策略
-   * @values
-   * - 'null': 转为 null
-   * - 'empty': 转为空字符串
-   * - 'default': 使用默认值
-   */
-  null_value_strategy: 'null' | 'empty' | 'default'
-  /** 日期格式模板（如 'YYYY-MM-DD'） */
-  date_format: string
 }
 
 /**

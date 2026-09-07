@@ -270,8 +270,6 @@ export function buildSavePlan(nodes: CustomNode[], options: BuildSavePlanOptions
       file_processing: {
         default_encoding: 'utf-8',
         csv_delimiter: ',',
-        null_value_strategy: 'null',
-        date_format: '%Y-%m-%d',
       },
       script_security: {
         allow_eval: false,
@@ -453,8 +451,6 @@ function buildFullManifest(nodes: CustomNode[], options: BuildSavePlanOptions): 
       file_processing: {
         default_encoding: 'utf-8',
         csv_delimiter: ',',
-        null_value_strategy: 'null',
-        date_format: '%Y-%m-%d',
       },
       script_security: {
         allow_eval: false,

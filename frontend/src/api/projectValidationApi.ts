@@ -142,8 +142,6 @@ export interface ValidationSettingsOverride {
 export interface FileProcessingSettingsOverride {
   default_encoding?: 'utf-8' | 'gbk' | 'auto'
   csv_delimiter?: string
-  null_value_strategy?: 'null' | 'empty' | 'default'
-  date_format?: string
 }
 
 export interface ScriptSecuritySettingsOverride {
