@@ -49,12 +49,16 @@ from app.shared.core.pydantic_messages import localize_pydantic_msg
 logger = logging.getLogger(__name__)
 
 
-async def request_validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+async def request_validation_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """422 请求校验错误的全局 handler。
 
     保持 FastAPI 默认的响应结构（detail 为 loc/msg/type 数组，前端按此解析），
     仅把每条 msg 本地化为中文——否则 Pydantic 的英文校验消息
     （"Input should be a valid integer" 等）会经前端原样展示给用户。
+
+    签名收窄说明：Starlette 的 add_exception_handler 要求
+    Callable[[Request, Exception], ...]（参数逆变），用具体异常类型作
+    参数注解会挂 mypy 全量检查，故收宽为 Exception 后 isinstance 收窄。
 
     Args:
         request: 当前请求
@@ -62,7 +66,12 @@ async def request_validation_exception_handler(request: Request, exc: RequestVal
 
     Returns:
         422 JSONResponse，结构与 FastAPI 默认一致
+
+    Raises:
+        exc: 非 RequestValidationError 时原样上抛（注册绑定保证了不会走到）
     """
+    if not isinstance(exc, RequestValidationError):
+        raise exc
     errors = []
     for err in exc.errors():
         item = dict(err)
