@@ -102,7 +102,9 @@ class FullValidationResponseBuilder:
         # 加载阶段错误
         for le in result.get("loading_errors", []):
             error_type = str(le.get("error_type") or "LoadError")
-            message = str(le.get("message") or "")
+            # message 为空的加载错误（如 SchemaIdDuplicate 只填 title/description）回退到
+            # 描述/标题，避免用户只看到一句孤零零的"建议:"而不知道问题本身是什么
+            message = str(le.get("message") or le.get("description") or le.get("title") or "")
             suggestion = le.get("suggestion", "")
             if suggestion:
                 message = f"{message}\n建议: {suggestion}"

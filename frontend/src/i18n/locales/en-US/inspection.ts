@@ -215,8 +215,10 @@ const inspection = {
     saveBlocked: {
       title: 'Cannot save right now',
       description: '{description}',
-      fixHint: 'Please check the node configuration on the canvas',
-      fixHintWithField: 'Please check field "{field}" of node "{nodeId}"',
+      fixHint:
+        'Find the node described in the issue above and fix its configuration, then save again',
+      fixHintWithField:
+        'Find the node described in the issue above and fix the flagged field, then save again',
     },
     /**
      * Load-time errors (file not found / parse error / path issue / template expansion failure)

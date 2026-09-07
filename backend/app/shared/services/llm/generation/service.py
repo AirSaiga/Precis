@@ -1010,7 +1010,7 @@ class ConfigGenerationService:
             return parsed
         except json.JSONDecodeError as e:
             raise GenerationParseError(
-                f"无法解析 LLM 响应为有效 JSON: {e}",
+                f"AI 返回的内容无法解析为有效配置，请重试或调整描述后重试（{e}）",
                 raw_content=original[:2000],
             )
 

@@ -113,7 +113,11 @@ class TestExecuteTransformDag:
 
         out_datasets, out_errors = result
         assert len(out_errors) >= 1, f"regex 失败应上报错误,实际: {out_errors}"
-        assert "r1" in str(out_errors[0]) or "r1" in str(out_errors[0].get("message", ""))
+        message = out_errors[0].get("message", "")
+        # 提示用节点名而非 UUID，并附人话成因与修法
+        assert "正则「r1」执行失败" in message
+        assert "regex boom" in message
+        assert "命名分组的名字不能是纯数字" in message
 
 
 class TestSortRowsDagMerge:

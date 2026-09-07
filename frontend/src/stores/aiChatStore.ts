@@ -521,13 +521,15 @@ export const useAiChatStore = defineStore('aiChat', () => {
           },
           onError: (err) => {
             logger.error('SSE 错误:', err)
-            // 将后端错误映射为用户友好的 i18n 消息
-            const msg = err.message || ''
-            const isNoProvider =
-              msg.includes('No default provider') ||
-              msg.includes('no provider') ||
-              msg.includes('Provider not found')
-            const isNotFound = msg === 'Not Found' || msg.includes('404')
+            // 将后端错误映射为用户友好的 i18n 消息。
+            // 后端 detail 已中文化（2026-09 文案治理），旧英文串匹配会失效：
+            // 改为按 sseClient 附带的状态码 + 中文化 detail 的关键词判定
+            const errWithStatus = err as Error & { status?: number }
+            const msg = errWithStatus.message || ''
+            // "尚未设置默认的 AI 模型…"、"未找到对应的 AI 模型配置…"、"尚未指定要使用的 AI 模型…" 均含"AI 模型"
+            const isNoProvider = msg.includes('AI 模型')
+            const isNotFound =
+              !isNoProvider && (errWithStatus.status === 404 || msg.includes('404'))
             const userMessage = isNoProvider
               ? t('aiChat.noProviderConfigured')
               : isNotFound

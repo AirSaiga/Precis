@@ -494,7 +494,7 @@ limitations under the License.
                       <span class="loc-main">{{ e.location }}</span>
                       <span v-if="e.source_path" class="loc-sub">{{ e.source_path }}</span>
                     </div>
-                    <div class="col-type">{{ e.type_label }}</div>
+                    <div class="col-type">{{ validationErrorTypeLabel(t, e.type_label) }}</div>
                     <div class="col-msg">
                       <p class="msg-body">{{ e.display_message }}</p>
                       <p v-if="e.suggestion" class="msg-suggestion">
@@ -520,7 +520,7 @@ limitations under the License.
                       <span class="loc-main">{{ p.location }}</span>
                       <span v-if="p.source_path" class="loc-sub">{{ p.source_path }}</span>
                     </div>
-                    <div class="col-type">{{ p.type_label }}</div>
+                    <div class="col-type">{{ validationErrorTypeLabel(t, p.type_label) }}</div>
                     <div class="col-msg">
                       {{ formatValidationReportMessage(p.message, p.table) }}
                     </div>
@@ -599,6 +599,7 @@ limitations under the License.
     createValidationReportViewModel,
     formatValidationReportMessage,
     truncateLongIds,
+    validationErrorTypeLabel,
   } from '@/services/validationReportViewModel'
 
   interface Props {

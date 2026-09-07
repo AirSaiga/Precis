@@ -168,7 +168,7 @@ class ScriptedConstraint(Constraint):
                 {
                     "error_type": "PermissionError",
                     "table": self.table,
-                    "message": f"脚本化约束 '{self.name}' 因 'allow_unsafe_eval' 未开启而被跳过。",
+                    "message": f"脚本约束「{self.name}」已跳过：项目设置中的『允许执行脚本 eval』尚未开启。",
                 }
             )
             return {"errors": errors, "info": self.get_constraint_info()}

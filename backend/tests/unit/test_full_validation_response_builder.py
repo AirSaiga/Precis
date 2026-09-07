@@ -128,6 +128,34 @@ class TestBuildFromResult:
         assert resp.statistics.failed_count == 1
         assert resp.statistics.by_type.get("DataLoad", {}).get("failed") == 1
 
+    def test_loading_error_empty_message_falls_back_to_description(self):
+        """message 为空的加载错误（如 SchemaIdDuplicate 只填 title/description）应回退到描述。
+
+        原实现只取 message，空 message + suggestion 拼出的提示只剩一句
+        "建议: 修改其中一个 schema 文件的 id 字段…"，用户看不到问题本身是什么。
+        """
+        executor = _make_executor()
+        result = _make_result(
+            loading_errors=[
+                {
+                    "error_type": "SchemaIdDuplicate",
+                    "message": "",
+                    "title": "有表重名了：users",
+                    "description": "Schema ID 'users' 被 2 个 schema 配置使用，可能导致约束引用指向错误的表。",
+                    "suggestion": "修改其中一个 schema 文件的 id 字段，使其与其他 schema 不同",
+                }
+            ],
+        )
+        builder = FullValidationResponseBuilder(executor, started=time.monotonic())
+
+        resp = builder.build_from_result(result)
+
+        assert resp.success is False
+        assert len(resp.errors) == 1
+        message = resp.errors[0].message
+        assert "Schema ID 'users' 被 2 个 schema 配置使用" in message
+        assert "建议: 修改其中一个 schema 文件的 id 字段" in message
+
     def test_falsy_error_values_preserved(self):
         """回归 C3: 错误相关值为 0/False/空字符串时,不应被 falsy 判断吞成 None。
 

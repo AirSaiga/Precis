@@ -131,7 +131,7 @@ async def generate_v2_config(
         )
     except ValueError as e:
         # 参数校验失败（如文件不存在、Provider 未配置等）
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=f"生成请求无法处理：{e}")
     except GenerationParseError as e:
         # AI 返回的内容无法解析为有效配置
         raise HTTPException(status_code=422, detail=f"AI 响应解析失败: {e}")

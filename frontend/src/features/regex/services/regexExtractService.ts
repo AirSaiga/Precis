@@ -300,9 +300,9 @@ import apiClient from '@/core/services/httpClient'
  * 4. 通过 apiClient.post 发送请求
  *
  * 【错误处理】
- * - 网络错误：抛出异常，消息包含 "Validate request failed"
+ * - 网络错误：抛出异常，消息包含 "正则提取请求失败，请稍后重试"
  * - 业务错误 (success=false)：抛出异常，消息为 error 字段内容
- * - 数据缺失 (无 data)：抛出异常，消息为 "Request failed"
+ * - 数据缺失 (无 data)：抛出异常，消息为 "正则提取请求失败，请稍后重试"
  *
  * 【返回数据使用场景】
  * - 更新 RegexNode.validationStatus
@@ -323,6 +323,7 @@ export async function validateAndExtractRegex(
     { signal }
   )
   const result = response.data
-  if (!result.success || !result.data) throw new Error(result.error || 'Request failed')
+  if (!result.success || !result.data)
+    throw new Error(result.error || '正则提取请求失败，请稍后重试')
   return result.data
 }

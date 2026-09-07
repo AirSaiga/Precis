@@ -43,6 +43,7 @@ from pathlib import Path
 
 from app.cli.shell.formatter import Colors, Formatter
 from app.shared.services.ai.chat_orchestrator import ChatExecutionResult
+from app.shared.services.llm.actions.validation_types import action_display_name
 
 from .diff import _generate_diff
 
@@ -387,9 +388,9 @@ def _display_constraint_results(results: list[dict]) -> None:
             spec = r.get("action", {}).get("schemaSpec", {})
             name = spec.get("name", spec.get("schemaId", "未知"))
             if r.get("success"):
-                print(Formatter.success(f"  ✓ {action_type}: {name}"))
+                print(Formatter.success(f"  ✓ {action_display_name(action_type)}: {name}"))
             else:
-                print(Formatter.error(f"  ✗ {action_type}: {name} - {r.get('message', '')}"))
+                print(Formatter.error(f"  ✗ {action_display_name(action_type)}: {name} - {r.get('message', '')}"))
 
     # 显示 Regex 操作结果
     if regex_results:
@@ -399,9 +400,9 @@ def _display_constraint_results(results: list[dict]) -> None:
             spec = r.get("action", {}).get("regexSpec", {})
             name = spec.get("name", spec.get("regexId", "未知"))
             if r.get("success"):
-                print(Formatter.success(f"  ✓ {action_type}: {name}"))
+                print(Formatter.success(f"  ✓ {action_display_name(action_type)}: {name}"))
             else:
-                print(Formatter.error(f"  ✗ {action_type}: {name} - {r.get('message', '')}"))
+                print(Formatter.error(f"  ✗ {action_display_name(action_type)}: {name} - {r.get('message', '')}"))
 
     # 显示 Transform 操作结果
     if transform_results:
@@ -411,9 +412,9 @@ def _display_constraint_results(results: list[dict]) -> None:
             spec = r.get("action", {}).get("transformSpec", {})
             t_type = spec.get("type", spec.get("transformId", "未知"))
             if r.get("success"):
-                print(Formatter.success(f"  ✓ {action_type}: {t_type}"))
+                print(Formatter.success(f"  ✓ {action_display_name(action_type)}: {t_type}"))
             else:
-                print(Formatter.error(f"  ✗ {action_type}: {t_type} - {r.get('message', '')}"))
+                print(Formatter.error(f"  ✗ {action_display_name(action_type)}: {t_type} - {r.get('message', '')}"))
 
     # 显示 Settings 操作结果
     if settings_results:

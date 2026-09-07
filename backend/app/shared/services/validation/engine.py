@@ -207,7 +207,7 @@ def validate_full_dataset(
                     "table": table_id,
                     "error_type": "ValidationInterrupted",
                     "message": (
-                        f"遇错即停(error_handling=stop):表 '{table_id}' 格式校验发现首个错误,"
+                        f"已按项目设置『遇错即停』停止：表 '{table_id}' 的格式校验发现首个错误,"
                         f"剩余 {remaining_tables} 个表及约束校验未执行。"
                     ),
                 }
@@ -434,7 +434,7 @@ def validate_constraints(
                     "check_type": "ValidationInterrupted",
                     "table": None,
                     "error_type": "ValidationInterrupted",
-                    "message": (f"遇错即停(error_handling=stop):发现首个错误,剩余 {remaining} 个约束未执行。"),
+                    "message": (f"已按项目设置『遇错即停』停止：发现首个错误，剩余 {remaining} 个约束未执行。"),
                 }
             )
             logger.info(f"遇错即停:跳过剩余 {remaining} 个约束(含约束 {i + 2} 起)")

@@ -120,17 +120,17 @@ async def chat_stream(
     # 获取默认 provider(与 /chat 端点逻辑一致)
     provider_id = config.defaults.get("chat")
     if not provider_id:
-        raise HTTPException(400, detail="No default provider configured")
+        raise HTTPException(400, detail="尚未设置默认的 AI 模型，请先在设置中选择一个 AI 模型")
 
     provider_cfg = next((p for p in config.providers if p.id == provider_id), None)
     if not provider_cfg:
-        raise HTTPException(404, detail=f"Provider not found: {provider_id}")
+        raise HTTPException(404, detail=f"未找到对应的 AI 模型配置，可能已被删除（ID: {provider_id}）")
 
     # 实例化 provider
     try:
         provider = create(provider_cfg)
     except ImportError as e:
-        raise HTTPException(502, detail=f"Provider 实例化失败: {e}") from e
+        raise HTTPException(502, detail=f"AI 服务初始化失败，请检查模型配置是否正确（{e}）") from e
 
     # 创建 job 资源
     job_id = f"stream_{uuid.uuid4().hex[:12]}"

@@ -140,7 +140,7 @@ describe('validateAndExtractRegex', () => {
     }
     const request = makeRequest()
 
-    await expect(validateAndExtractRegex(request)).rejects.toThrow('Request failed')
+    await expect(validateAndExtractRegex(request)).rejects.toThrow('正则提取请求失败，请稍后重试')
   })
 
   it('throws when data is missing despite success=true', async () => {
@@ -150,7 +150,7 @@ describe('validateAndExtractRegex', () => {
     }
     const request = makeRequest()
 
-    await expect(validateAndExtractRegex(request)).rejects.toThrow('Request failed')
+    await expect(validateAndExtractRegex(request)).rejects.toThrow('正则提取请求失败，请稍后重试')
   })
 
   it('passes AbortSignal to axios config', async () => {

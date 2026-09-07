@@ -48,6 +48,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.dependencies import get_project_config_path
 from app.api.models import ExternalDataSource, UIPreferences, WorkspaceConfig
+from app.api.services.io_error_messages import describe_io_error
 from app.shared.core.config import ConfigPaths
 from app.shared.core.io.yaml import write_yaml_atomic
 
@@ -88,7 +89,9 @@ def load_workspace_config(project_root: str) -> dict[str, Any]:
         with open(config_path, encoding="utf-8") as f:
             return yaml.safe_load(f) or {}
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"加载工作区配置失败: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"加载数据源配置失败：{describe_io_error(e)}"
+        )
 
 
 def save_workspace_config(project_root: str, config: dict[str, Any]) -> None:
@@ -98,7 +101,9 @@ def save_workspace_config(project_root: str, config: dict[str, Any]) -> None:
     try:
         write_yaml_atomic(config_path, config)
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"保存工作区配置失败: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"保存数据源配置失败：{describe_io_error(e)}"
+        )
 
 
 def build_ui_preferences(config: dict[str, Any]) -> UIPreferences:

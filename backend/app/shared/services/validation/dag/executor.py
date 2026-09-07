@@ -205,6 +205,9 @@ def execute_transform_dag(
                         if col in output_df.columns:
                             existing_df[col] = output_df[col].values
             except Exception as e:
+                # 提示面向用户：用节点名而非 UUID 定位，并给出人话成因与修法，
+                # Python 原始报错保留在 cause 位置供高级用户排查
+                regex_display = getattr(rfile, "name", "") or node_id
                 logger.exception(f"Regex '{node_id}' 执行失败: {e}")
                 node_outputs[node_id] = input_df.copy()
                 dag_errors.append(
@@ -212,7 +215,11 @@ def execute_transform_dag(
                         "error_type": "RegexExecutionError",
                         "node_id": node_id,
                         "node_type": "regex",
-                        "message": f"Regex '{node_id}' 执行失败: {e}",
+                        "message": (
+                            f"正则「{regex_display}」执行失败：{e}。"
+                            "通常是它的匹配规则写法有误（例如命名分组的名字不能是纯数字），"
+                            "请修改该正则的匹配规则后重新校验"
+                        ),
                     }
                 )
 

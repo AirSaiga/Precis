@@ -410,6 +410,7 @@ limitations under the License.
 
 <script setup lang="ts">
   import { logger } from '@/core/utils/logger'
+  import { getApiErrorMessage } from '@/core/services/apiErrors'
   import { computed, onMounted, reactive, ref, watch } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
@@ -575,7 +576,7 @@ defaults:
         )
       }
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error)
+      const msg = getApiErrorMessage(error)
       showError(t('settings.aiAssistant.testFailedTitle'), msg)
       testResults.value[providerId] = {
         provider_id: providerId,
@@ -597,7 +598,7 @@ defaults:
         t('settings.aiAssistant.activateSuccessDesc')
       )
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error)
+      const msg = getApiErrorMessage(error)
       showError(t('settings.aiAssistant.activateFailedTitle'), msg)
     } finally {
       activatingProvider.value = null
@@ -658,7 +659,7 @@ defaults:
 
       await loadProviders()
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error)
+      const msg = getApiErrorMessage(error)
       showError(t('settings.aiAssistant.createdFailed'), msg)
     } finally {
       actionLoading.value = false
@@ -694,7 +695,7 @@ defaults:
       editingId.value = null
       await loadProviders()
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error)
+      const msg = getApiErrorMessage(error)
       showError(t('settings.aiAssistant.updatedFailed'), msg)
     } finally {
       actionLoading.value = false
@@ -718,7 +719,7 @@ defaults:
       delete testResults.value[providerId]
       await loadProviders()
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error)
+      const msg = getApiErrorMessage(error)
       showError(t('settings.aiAssistant.deletedFailed'), msg)
     } finally {
       actionLoading.value = false

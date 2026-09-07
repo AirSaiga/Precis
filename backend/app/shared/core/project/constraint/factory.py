@@ -159,9 +159,9 @@ def create_constraints(
                 constraints.append(constraint)
             elif error:
                 # 收集警告信息
-                warnings.append(f"约束 '{const.id}' 配置错误: {error}，已跳过")
+                warnings.append(f"约束「{const.description or const.id}」配置有误（{error}），本次校验已跳过它")
             # else: 约束未启用，忽略
         except Exception as e:
-            warnings.append(f"约束 '{const.id}' 实例化异常: {str(e)}，已跳过")
+            warnings.append(f"约束「{const.description or const.id}」加载时出现异常（{str(e)}），本次校验已跳过它")
 
     return constraints, warnings

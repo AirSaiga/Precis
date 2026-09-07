@@ -125,7 +125,7 @@ def _upsert_manifest_ref(
         existing_manifest = _read_manifest(manifest_path)
 
         if not existing_manifest:
-            raise HTTPException(status_code=404, detail="Manifest 文件不存在，请先保存项目")
+            raise HTTPException(status_code=404, detail="项目配置文件不存在，请先保存项目")
 
         # 获取当前引用列表（拷贝一份，避免就地修改原对象的列表）
         items = list(getattr(existing_manifest, field_name, None) or [])
@@ -182,7 +182,10 @@ def get_v2_manifest(config_path: str = Depends(get_project_config_path)) -> Proj
     """
     manifest_path = _v2_manifest_path(config_path)
     if not os.path.isfile(manifest_path):
-        raise HTTPException(status_code=404, detail=f"V2 清单文件未找到: {manifest_path}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"项目配置文件（project.precis.yaml）不存在，请确认项目是否已被移动或删除（配置目录: {manifest_path}）",
+        )
     # B-fix: 清单文件为空/损坏时 model_validate 会抛裸 ValidationError → 无 detail 的 500。
     # 对照 settings.py 的做法捕获并转为带说明的 422，让前端能提示用户修复清单。
     try:
@@ -429,7 +432,7 @@ def update_manifest_template_instance_ref(
         existing_manifest = _read_manifest(manifest_path)
 
         if not existing_manifest:
-            raise HTTPException(status_code=404, detail="Manifest 文件不存在，请先保存项目")
+            raise HTTPException(status_code=404, detail="项目配置文件不存在，请先保存项目")
 
         items = list(existing_manifest.template_instances or [])
         existing_ids = {item.id for item in items}
@@ -483,7 +486,7 @@ def delete_manifest_template_instance_ref(
         existing_manifest = _read_manifest(manifest_path)
 
         if not existing_manifest:
-            raise HTTPException(status_code=404, detail="Manifest 文件不存在，请先保存项目")
+            raise HTTPException(status_code=404, detail="项目配置文件不存在，请先保存项目")
 
         items = list(existing_manifest.template_instances or [])
         remaining = [item for item in items if item.id != instance_id]
@@ -533,7 +536,7 @@ def deduplicate_constraint_refs(
     manifest_path = _v2_manifest_path(config_path)
 
     if not os.path.isfile(manifest_path):
-        raise HTTPException(status_code=404, detail="Manifest 文件不存在，请先保存项目")
+        raise HTTPException(status_code=404, detail="项目配置文件不存在，请先保存项目")
 
     with project_lock(config_path):
         manifest = _read_manifest(manifest_path)

@@ -180,7 +180,9 @@ class ProjectManifest(BaseModel):
         for schema in self.schemas:
             if schema.id in seen_schema_ids:
                 existing_schema: SchemaRef = seen_schema_ids[schema.id]
-                warnings.append(f"Schema ID '{schema.id}' 重复，已跳过 '{schema.path}'，保留 '{existing_schema.path}'")
+                warnings.append(
+                    f"两个表结构定义使用了相同的 ID「{schema.id}」：已跳过 {schema.path}，保留 {existing_schema.path}"
+                )
             else:
                 seen_schema_ids[schema.id] = schema
                 unique_schemas.append(schema)
@@ -196,7 +198,7 @@ class ProjectManifest(BaseModel):
             if constraint.id in seen_constraint_ids:
                 existing_constraint: ConstraintRef = seen_constraint_ids[constraint.id]
                 warnings.append(
-                    f"Constraint ID '{constraint.id}' 重复，已跳过 '{constraint.path}'，保留 '{existing_constraint.path}'"
+                    f"两条约束使用了相同的 ID「{constraint.id}」：已跳过 {constraint.path}，保留 {existing_constraint.path}"
                 )
             else:
                 seen_constraint_ids[constraint.id] = constraint
@@ -208,7 +210,9 @@ class ProjectManifest(BaseModel):
         for regex in self.regex_nodes:
             if regex.id in seen_regex_ids:
                 existing_regex: RegexRef = seen_regex_ids[regex.id]
-                warnings.append(f"Regex ID '{regex.id}' 重复，已跳过 '{regex.path}'，保留 '{existing_regex.path}'")
+                warnings.append(
+                    f"两个正则定义使用了相同的 ID「{regex.id}」：已跳过 {regex.path}，保留 {existing_regex.path}"
+                )
             else:
                 seen_regex_ids[regex.id] = regex
                 unique_regex_nodes.append(regex)
@@ -220,7 +224,7 @@ class ProjectManifest(BaseModel):
             if transform.id in seen_transform_ids:
                 existing_transform: TransformRef = seen_transform_ids[transform.id]
                 warnings.append(
-                    f"Transform ID '{transform.id}' 重复，已跳过 '{transform.path}'，保留 '{existing_transform.path}'"
+                    f"两个数据转换使用了相同的 ID「{transform.id}」：已跳过 {transform.path}，保留 {existing_transform.path}"
                 )
             else:
                 seen_transform_ids[transform.id] = transform
@@ -233,7 +237,9 @@ class ProjectManifest(BaseModel):
         for md in self.manual_data:
             if md.id in seen_manual_data_ids:
                 existing_manual_data: ManualDataRef = seen_manual_data_ids[md.id]
-                warnings.append(f"ManualData ID '{md.id}' 重复，已跳过 '{md.path}'，保留 '{existing_manual_data.path}'")
+                warnings.append(
+                    f"两个手动数据定义使用了相同的 ID「{md.id}」：已跳过 {md.path}，保留 {existing_manual_data.path}"
+                )
             else:
                 seen_manual_data_ids[md.id] = md
                 unique_manual_data.append(md)
@@ -244,7 +250,9 @@ class ProjectManifest(BaseModel):
         for ds in self.data_sources:
             if ds.id in seen_data_source_ids:
                 existing_data_source: DataSourceRef = seen_data_source_ids[ds.id]
-                warnings.append(f"DataSource ID '{ds.id}' 重复，已跳过 '{ds.path}'，保留 '{existing_data_source.path}'")
+                warnings.append(
+                    f"两个数据源目录使用了相同的 ID「{ds.id}」：已跳过 {ds.path}，保留 {existing_data_source.path}"
+                )
             else:
                 seen_data_source_ids[ds.id] = ds
                 unique_data_sources.append(ds)

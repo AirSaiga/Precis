@@ -101,8 +101,8 @@ def inspect_id_consistency(
             manifest_display = schema_display(schema_files.get(schema_ref.id))
             file_display = schema_display(schema_file)
             msg = (
-                f"Schema ID 不一致: manifest 引用 ID '{schema_ref.id}' "
-                f"与文件内部 id '{schema_file.id}' 不匹配 (文件: {schema_ref.path})"
+                f"表结构 {schema_ref.path} 的 ID 与清单登记不一致"
+                f"（清单登记为「{schema_ref.id}」，文件内为「{schema_file.id}」），已按文件内的 ID 为准"
             )
             warnings.append(msg)
             loading_errors.append(
@@ -117,8 +117,8 @@ def inspect_id_consistency(
             manifest_display = constraint_display(constraint_files.get(constraint_ref.id))
             file_display = constraint_display(constraint_file)
             msg = (
-                f"Constraint ID 不一致: manifest 引用 ID '{constraint_ref.id}' "
-                f"与文件内部 id '{constraint_file.id}' 不匹配 (文件: {constraint_ref.path})"
+                f"约束 {constraint_ref.path} 的 ID 与清单登记不一致"
+                f"（清单登记为「{constraint_ref.id}」，文件内为「{constraint_file.id}」），已按文件内的 ID 为准"
             )
             warnings.append(msg)
             correct_ref_exists = any(

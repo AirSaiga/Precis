@@ -249,7 +249,8 @@ def preview_file_by_path(request: FilePathPreviewRequest) -> FilePreviewResponse
                         records = pd.json_normalize(records, record_path=request.record_path).to_dict("records")
                     except (KeyError, TypeError) as e:
                         raise HTTPException(
-                            status_code=400, detail=f"record_path '{request.record_path}' 无效: {str(e)}"
+                            status_code=400,
+                            detail=f"提取路径「{request.record_path}」在文件中不存在，请检查预览设置中的路径写法（{str(e)}）",
                         ) from e
 
                 # 限制返回的记录数

@@ -56,7 +56,7 @@ class TestConfigInspector:
         inspect_config(Path("."), manifest, {"manifest_id": schema_file}, {}, {}, {}, {}, warnings, errors)
 
         assert len(warnings) == 1
-        assert "ID 不一致" in warnings[0]
+        assert "ID 与清单登记不一致" in warnings[0]
         assert any(e.error_type == "IdMismatchWarning" for e in errors)
 
     def test_reference_integrity_missing_table(self):

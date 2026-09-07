@@ -122,7 +122,8 @@ class TestFormatValidationResult:
     def test_all_valid(self):
         result = ValidationResult()
         formatted = format_validation_result(result)
-        assert "[OK]" in formatted
+        # 文案治理 2026-09：机器标记 [OK]/[!] 移除，改为用户可读文本
+        assert "所有操作验证通过" in formatted
 
     def test_with_errors(self):
         result = ValidationResult()
@@ -136,7 +137,8 @@ class TestFormatValidationResult:
             )
         )
         formatted = format_validation_result(result)
-        assert "[!]" in formatted
+        # ADD_CONSTRAINT_NODE 应派生为中文名，而非裸枚举
+        assert "新增约束" in formatted
         assert "表 'users' 不存在" in formatted
         assert "是否指: user?" in formatted
 

@@ -248,7 +248,7 @@ async def add_discovered_service(service_id: str) -> dict[str, Any]:
     services = await scanner.scan()
     target = next((s for s in services if s.id == service_id), None)
     if not target:
-        raise HTTPException(404, detail="Service not found or no longer available")
+        raise HTTPException(404, detail="该 AI 服务已不存在或刚刚下线，请刷新服务列表后重试")
 
     config = loader.load()
 
@@ -302,7 +302,7 @@ async def test_provider(provider_id: str) -> TestProviderResponse:
     config = loader.load()
     provider_cfg = next((p for p in config.providers if p.id == provider_id), None)
     if not provider_cfg:
-        raise HTTPException(404, detail=f"Provider not found: {provider_id}")
+        raise HTTPException(404, detail=f"未找到对应的 AI 模型配置，可能已被删除（ID: {provider_id}）")
 
     # SSRF 防护：测试连接前校验 base_url（防止 /test 被用作 SSRF 探针）
     _validate_base_url(provider_cfg.base_url)
@@ -341,7 +341,7 @@ async def activate_provider(provider_id: str) -> ProviderResponse:
 
     provider_cfg = next((p for p in config.providers if p.id == provider_id), None)
     if not provider_cfg:
-        raise HTTPException(404, detail=f"Provider not found: {provider_id}")
+        raise HTTPException(404, detail=f"未找到对应的 AI 模型配置，可能已被删除（ID: {provider_id}）")
 
     config.defaults["chat"] = provider_id
     loader.save(config)
@@ -391,7 +391,7 @@ async def create_provider(req: CreateProviderRequest) -> ProviderResponse:
     try:
         provider_type = ProviderType(req.type)
     except ValueError:
-        raise HTTPException(400, detail=f"Unsupported provider type: {req.type}. Supported: openai, ollama")
+        raise HTTPException(400, detail=f"不支持的 AI 服务类型「{req.type}」，目前仅支持 openai、ollama 两种接入方式")
 
     _validate_base_url(req.base_url)  # SSRF 防护
 
@@ -436,7 +436,7 @@ async def update_provider(provider_id: str, req: UpdateProviderRequest) -> Provi
 
     idx = next((i for i, p in enumerate(config.providers) if p.id == provider_id), None)
     if idx is None:
-        raise HTTPException(404, detail=f"Provider not found: {provider_id}")
+        raise HTTPException(404, detail=f"未找到对应的 AI 模型配置，可能已被删除（ID: {provider_id}）")
 
     existing = config.providers[idx]
 
@@ -476,7 +476,7 @@ async def delete_provider(provider_id: str) -> dict[str, Any]:
 
     idx = next((i for i, p in enumerate(config.providers) if p.id == provider_id), None)
     if idx is None:
-        raise HTTPException(404, detail=f"Provider not found: {provider_id}")
+        raise HTTPException(404, detail=f"未找到对应的 AI 模型配置，可能已被删除（ID: {provider_id}）")
 
     config.providers.pop(idx)
 

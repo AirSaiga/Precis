@@ -48,7 +48,7 @@ class TestProjectManifest:
         )
         assert len(manifest.schemas) == 1
         assert manifest.schemas[0].path == "schemas/users.yaml"
-        assert any("重复" in w for w in manifest.warnings)
+        assert any("相同的 ID" in w for w in manifest.warnings)
 
     def test_minimal_manifest_fields(self):
         manifest = ProjectManifest(

@@ -312,7 +312,7 @@ columns:
         )
 
         result = load_project(str(manifest))
-        assert any("ID 不一致" in w for w in result.warnings)
+        assert any("ID 与清单登记不一致" in w for w in result.warnings)
         assert any(e.error_type == "IdMismatchWarning" for e in result.loading_errors)
 
     def test_reference_integrity_error(self, tmp_path):

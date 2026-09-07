@@ -105,7 +105,7 @@ def main() -> int:
     preferred_port = _resolve_port(args.port)
 
     if not os.path.isdir(work_dir):
-        print(f"Error: Work directory does not exist: {work_dir}", file=sys.stderr)
+        print(f"错误：工作目录不存在: {work_dir}", file=sys.stderr)
         return 1
 
     # OS 原子分配端口(preferred_port=0 时动态分配),并写入端口文件供外部发现

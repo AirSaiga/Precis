@@ -142,12 +142,14 @@ describe('projectV2Api - manifest 端点', () => {
       expect(captured!.params.replace).toBe(true)
     })
 
-    it('错误时抛出包含 X-Project-Config-Path 的友好 Error', async () => {
+    it('错误时抛出含后端 detail 的用户可读 Error（技术头信息只进日志）', async () => {
       mockResponse = { status: 404, data: { detail: 'Manifest 文件不存在' } }
       const manifest = { version: 2, project: { id: 'p', name: 'P' }, schemas: [] }
 
-      await expect(putV2Manifest(manifest, '/abs/proj')).rejects.toThrow(
-        /X-Project-Config-Path=.*Manifest/
+      await expect(putV2Manifest(manifest, '/abs/proj')).rejects.toThrow(/Manifest 文件不存在/)
+      // 回归：不再把 X-Project-Config-Path 头与 (cause: ...) 拼进用户消息
+      await expect(putV2Manifest(manifest, '/abs/proj')).rejects.not.toThrow(
+        /X-Project-Config-Path=|\(cause:/
       )
     })
 

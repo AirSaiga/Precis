@@ -21,66 +21,35 @@
  */
 
 import apiClient from '@/core/services/httpClient'
+import { logger } from '@/core/utils/logger'
+import { getApiErrorMessage, type ApiErrorLike } from '@/core/services/apiErrors'
 import type { ProjectManifestV2 } from '@/types/projectV2'
 import { withConfigPathHeader } from './shared'
 
-interface AxiosLikeError {
-  response?: { data?: unknown; status?: number }
-  config?: { headers?: Record<string, unknown> }
-  message?: string
-}
-
-function isAxiosLikeError(e: unknown): e is AxiosLikeError {
-  return typeof e === 'object' && e !== null && ('response' in e || 'config' in e)
+function isApiErrorLike(e: unknown): e is ApiErrorLike {
+  return typeof e === 'object' && e !== null && 'response' in e
 }
 
 /**
- * 从 Axios 风格错误中构建可读的异常信息，同时从请求头中提取 config path 便于排查。
- */
-function buildManifestErrorMessage(e: unknown): string {
-  if (!isAxiosLikeError(e)) {
-    return e instanceof Error ? e.message : '请求失败'
-  }
-
-  const data = e.response?.data as { detail?: unknown; error?: unknown } | undefined
-  const detail = data?.detail
-  const errorText =
-    typeof detail === 'string'
-      ? detail
-      : Array.isArray(detail)
-        ? detail
-            .map((d) =>
-              String(
-                (d as Record<string, unknown>).msg ??
-                  (d as Record<string, unknown>).message ??
-                  JSON.stringify(d)
-              )
-            )
-            .join('; ')
-        : String(data?.error ?? e.message ?? '请求失败')
-
-  const headers = e.config?.headers
-  const configPathFromHeader =
-    headers?.['X-Project-Config-Path'] ||
-    headers?.['x-project-config-path'] ||
-    headers?.['X-PROJECT-CONFIG-PATH']
-
-  return configPathFromHeader
-    ? `X-Project-Config-Path=${configPathFromHeader} | ${errorText}`
-    : errorText
-}
-
-/**
- * 抛出带原始错误信息的清单操作异常。
+ * 清单写操作的统一异常出口：用户消息只保留后端 detail 的可读文本，
+ * 技术上下文（项目路径、状态码、原始异常）记入日志。
  *
- * 选型说明：前端 tsconfig lib 为 ES2020（@vue/tsconfig），不含 ES2022 的
- * `ErrorOptions`/`error.cause` 类型，因此不走 `new Error(msg, { cause: e })`，
- * 改为将原始错误摘要以 `(cause: ...)` 形式附加到 message 末尾，
- * 保留原始错误的分类能力（如 Axios 的状态码消息），避免 catch 后信息丢失。
+ * 注意 getV2Manifest 刻意不走本函数：其 AxiosError 形状被编排器
+ * isProjectNotFound（404=首次保存）依赖，包裹会破坏该分支。
  */
 function throwManifestError(e: unknown): never {
-  const causeText = e instanceof Error ? e.message : String(e)
-  throw new Error(`${buildManifestErrorMessage(e)} (cause: ${causeText})`)
+  let status: number | undefined
+  let configPath: unknown
+  if (isApiErrorLike(e)) {
+    status = e.response?.status
+    const headers = (e as { config?: { headers?: Record<string, unknown> } }).config?.headers
+    configPath =
+      headers?.['X-Project-Config-Path'] ??
+      headers?.['x-project-config-path'] ??
+      headers?.['X-PROJECT-CONFIG-PATH']
+  }
+  logger.warn('[manifest API] 清单请求失败:', { status, configPath, error: e })
+  throw new Error(getApiErrorMessage(e, '清单操作失败，请稍后重试'))
 }
 
 /**

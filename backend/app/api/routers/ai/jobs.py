@@ -372,7 +372,7 @@ async def get_generate_job(job_id: str, config_path: str = Depends(get_project_c
     storage = _get_storage(config_path)
     status_data = storage.load_status(job_id)
     if not status_data:
-        raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
+        raise HTTPException(status_code=404, detail=f"未找到对应的任务，可能已完成或已过期（ID: {job_id}）")
     return ConfigGenerateJobStatus(**status_data)
 
 
@@ -467,7 +467,7 @@ async def cancel_generate_job(
     storage = _get_storage(config_path)
     status_data = storage.load_status(job_id)
     if not status_data:
-        raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
+        raise HTTPException(status_code=404, detail=f"未找到对应的任务，可能已完成或已过期（ID: {job_id}）")
 
     if status_data.get("status") in ("completed", "failed", "cancelled"):
         return ConfigGenerateJobStatus(**status_data)
@@ -508,7 +508,7 @@ async def resume_job(
 
     status_data = storage.load_status(job_id)
     if not status_data:
-        raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
+        raise HTTPException(status_code=404, detail=f"未找到对应的任务，可能已完成或已过期（ID: {job_id}）")
 
     # 从持久化的 payload 元数据重建请求
     raw = storage.load_full(job_id)

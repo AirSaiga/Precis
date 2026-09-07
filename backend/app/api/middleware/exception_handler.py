@@ -39,11 +39,36 @@ import traceback
 from collections.abc import Awaitable, Callable
 
 from fastapi import HTTPException
+from fastapi.exceptions import RequestValidationError
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+from app.shared.core.pydantic_messages import localize_pydantic_msg
+
 logger = logging.getLogger(__name__)
+
+
+async def request_validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """422 请求校验错误的全局 handler。
+
+    保持 FastAPI 默认的响应结构（detail 为 loc/msg/type 数组，前端按此解析），
+    仅把每条 msg 本地化为中文——否则 Pydantic 的英文校验消息
+    （"Input should be a valid integer" 等）会经前端原样展示给用户。
+
+    Args:
+        request: 当前请求
+        exc: FastAPI 请求体/参数校验错误
+
+    Returns:
+        422 JSONResponse，结构与 FastAPI 默认一致
+    """
+    errors = []
+    for err in exc.errors():
+        item = dict(err)
+        item["msg"] = localize_pydantic_msg(str(item.get("msg", "")))
+        errors.append(item)
+    return JSONResponse(status_code=422, content={"detail": errors})
 
 
 class ExceptionHandlerMiddleware(BaseHTTPMiddleware):
@@ -88,5 +113,5 @@ class ExceptionHandlerMiddleware(BaseHTTPMiddleware):
             # 返回安全的通用错误响应，避免将内部异常详情暴露给客户端
             return JSONResponse(
                 status_code=500,
-                content={"error": "Internal Server Error", "detail": "An unexpected error occurred"},
+                content={"error": "Internal Server Error", "detail": "服务器内部错误，请稍后重试"},
             )

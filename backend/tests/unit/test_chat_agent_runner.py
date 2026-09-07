@@ -467,7 +467,7 @@ async def test_orchestrator_legacy_all_invalid_actions_blocked():
 
     # 关键：校验失败 → 拒绝执行，process_actions 不得被调用
     assert result.success is False
-    assert "预校验失败" in (result.reply or "") or "预校验失败" in (result.error or "")
+    assert "项目未做任何改动" in (result.reply or "") or "未通过检查" in (result.error or "")
     mock_proc.assert_not_called()
 
 

@@ -39,6 +39,8 @@ import type {
   FullValidationResponse,
   ValidationPassedItem,
 } from '@/api/projectValidationApi'
+import type { TranslateFn } from '@/core/i18n/renderText'
+import { renderText } from '@/core/i18n/renderText'
 
 export interface ValidationReportErrorRow extends FullValidationErrorItem {
   key: string
@@ -90,6 +92,18 @@ function truncateId(id: string): string {
 
 export function truncateLongIds(message: string): string {
   return message.replace(ID_PATTERN, (match) => truncateId(match))
+}
+
+/**
+ * 错误类型码 → 用户可读标签。
+ *
+ * check_type/error_type 是机器码（DataLoad/RegexExecutionError/SchemaIdDuplicate 等），
+ * 对用户是黑话；已知码经 validation.errorTypes.* 渲染为当前语言文案，
+ * 未登记的码回退原文（renderText 按 key 存在性回退）。
+ */
+export function validationErrorTypeLabel(t: TranslateFn, code: string | null | undefined): string {
+  if (!code) return ''
+  return renderText(t, `validation.errorTypes.${code}`, code)
 }
 
 const SUGGESTION_SPLIT_RE = /(?:\s|^)[\s：:]*(?:建议|Suggestion)\s*[:：]\s*/i

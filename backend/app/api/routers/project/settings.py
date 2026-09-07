@@ -83,7 +83,10 @@ def _save_manifest_field(
     """
     manifest_path = _v2_manifest_path(config_path)
     if not os.path.isfile(manifest_path):
-        raise HTTPException(status_code=404, detail=f"V2 清单文件未找到: {manifest_path}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"项目配置文件（project.precis.yaml）不存在，请确认项目是否已被移动或删除（配置目录: {manifest_path}）",
+        )
     try:
         raw = read_yaml(Path(manifest_path))
         manifest = ProjectManifestV2.model_validate(raw)
@@ -105,7 +108,7 @@ def _save_manifest_field(
     response_model=ProjectSettingsV2,
     summary="读取当前项目的设置",
     responses={
-        404: {"description": "V2 清单文件未找到"},
+        404: {"description": "项目配置文件（project.precis.yaml）不存在"},
         500: {"description": "设置文件读取失败"},
     },
 )
@@ -128,7 +131,10 @@ def get_v2_project_settings(config_path: str = Depends(get_project_config_path))
     """
     manifest_path = _v2_manifest_path(config_path)
     if not os.path.isfile(manifest_path):
-        raise HTTPException(status_code=404, detail=f"V2 清单文件未找到: {manifest_path}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"项目配置文件（project.precis.yaml）不存在，请确认项目是否已被移动或删除（配置目录: {manifest_path}）",
+        )
     try:
         raw = read_yaml(Path(manifest_path))
         manifest = ProjectManifestV2.model_validate(raw)
@@ -143,7 +149,7 @@ def get_v2_project_settings(config_path: str = Depends(get_project_config_path))
     response_model=StandardResponse,
     summary="写入当前项目的设置",
     responses={
-        404: {"description": "V2 清单文件未找到"},
+        404: {"description": "项目配置文件（project.precis.yaml）不存在"},
         500: {"description": "设置文件保存失败"},
     },
 )
@@ -210,7 +216,7 @@ def get_v2_validation_settings(config_path: str = Depends(get_project_config_pat
     response_model=StandardResponse,
     summary="写入当前项目的校验行为设置",
     responses={
-        404: {"description": "V2 清单文件未找到"},
+        404: {"description": "项目配置文件（project.precis.yaml）不存在"},
         500: {"description": "设置文件保存失败"},
     },
 )
@@ -277,7 +283,7 @@ def get_v2_file_processing_settings(config_path: str = Depends(get_project_confi
     response_model=StandardResponse,
     summary="写入当前项目的文件处理设置",
     responses={
-        404: {"description": "V2 清单文件未找到"},
+        404: {"description": "项目配置文件（project.precis.yaml）不存在"},
         500: {"description": "设置文件保存失败"},
     },
 )
@@ -344,7 +350,7 @@ def get_v2_script_security_settings(config_path: str = Depends(get_project_confi
     response_model=StandardResponse,
     summary="写入当前项目的脚本安全设置",
     responses={
-        404: {"description": "V2 清单文件未找到"},
+        404: {"description": "项目配置文件（project.precis.yaml）不存在"},
         500: {"description": "设置文件保存失败"},
     },
 )

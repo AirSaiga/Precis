@@ -215,7 +215,10 @@ export function createSSEClient(): SSEClient {
       }
       // 4xx 客户端错误不重试（如 400 未配置 Provider），直接报错
       if (response.status >= 400 && response.status < 500) {
-        callbacksRef?.onError?.(new Error(errorDetail))
+        // 附带状态码供消费方按码映射文案（detail 文本已中文化，不宜做英文串匹配）
+        const err = new Error(errorDetail) as Error & { status?: number }
+        err.status = response.status
+        callbacksRef?.onError?.(err)
         callbacksRef?.onClose?.()
         return
       }

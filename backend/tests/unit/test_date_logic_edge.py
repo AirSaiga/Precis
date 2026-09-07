@@ -39,7 +39,7 @@ class TestDateLogicConstraintEdgeCases:
         df = pd.DataFrame({"birth_date": ["2000-01-01"]})
         result = c.validate({"users": df})
         assert len(result["errors"]) == 1
-        assert "target_value 转换失败" in result["errors"][0]["message"]
+        assert "无法转换为数字" in result["errors"][0]["message"]
 
     def test_unknown_logic_mode_reports_config_error(self):
         """回归: 未识别的 logic_mode 必须报 ConstraintConfigError，不得静默零错误通过。

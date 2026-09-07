@@ -110,7 +110,7 @@ class TestExceptionHandlerMiddleware:
         assert response.status_code == 500
         data = response.json()
         assert data["error"] == "Internal Server Error"
-        assert "unexpected" in data["detail"]
+        assert "服务器内部错误" in data["detail"]
 
     def test_logs_traceback_on_exception(self, caplog):
         app = FastAPI()

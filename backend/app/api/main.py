@@ -59,9 +59,13 @@ logger.info("[INIT] Precis Backend 启动中...")
 logger.info("[INIT] Python 版本: %s", sys.version)
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
-from .middleware.exception_handler import ExceptionHandlerMiddleware
+from .middleware.exception_handler import (
+    ExceptionHandlerMiddleware,
+    request_validation_exception_handler,
+)
 from .middleware.request_logging import RequestLoggingMiddleware
 from .middleware.token_auth import TokenOriginAuthMiddleware
 from .routers import (
@@ -203,6 +207,9 @@ origins = [
     # Electron 通用协议
     "electron://.",
 ]
+
+# 422 请求校验错误全局 handler：detail 结构保持 FastAPI 默认，msg 本地化为中文
+app.add_exception_handler(RequestValidationError, request_validation_exception_handler)
 
 app.add_middleware(
     DynamicPortCORSMiddleware,

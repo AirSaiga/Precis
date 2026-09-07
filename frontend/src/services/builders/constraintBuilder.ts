@@ -63,7 +63,7 @@ export function buildV2ConstraintFile(
 
   const schemaIdByNodeId = buildSchemaIdByNodeId(nodes)
   const v2Type = getV2ConstraintTypeByNodeType(node.type)
-  if (!v2Type) throw new Error('不支持的约束类型')
+  if (!v2Type) throw new Error('暂不支持这种约束类型')
   const data: Record<string, unknown> = (node.data || {}) as Record<string, unknown>
   const { refs, params } = buildConstraintExportPayload({
     nodes,

@@ -180,8 +180,7 @@ const settings = {
   file: {
     tab: 'File Processing',
     title: 'File Processing Settings',
-    description:
-      'Maintain project-level strategies for encoding, delimiters, null handling, and date parsing.',
+    description: 'Maintain project-level strategies for encoding and delimiters.',
     encoding: {
       title: 'Encoding Settings',
       label: 'Default Encoding',
@@ -196,16 +195,6 @@ const settings = {
       tab: 'Tab',
       custom: 'Custom',
       customLabel: 'Custom delimiter',
-    },
-    nullStrategy: {
-      label: 'Null Value Handling',
-      desc: 'How to handle null values in data',
-      empty: 'Empty string',
-      default: 'Default value',
-    },
-    dateFormat: {
-      label: 'Date Format',
-      desc: 'Parsing format for date data (e.g., %Y-%m-%d)',
     },
   },
   script: {

@@ -170,7 +170,7 @@ const settings = {
   file: {
     tab: '文件处理',
     title: '文件处理设置',
-    description: '集中维护编码、分隔符、空值与日期解析等项目级文件策略。',
+    description: '集中维护编码与分隔符等项目级文件策略。',
     encoding: {
       title: '编码设置',
       label: '默认编码',
@@ -185,16 +185,6 @@ const settings = {
       tab: '制表符',
       custom: '自定义',
       customLabel: '自定义分隔符',
-    },
-    nullStrategy: {
-      label: '空值处理',
-      desc: '如何处理数据中的空值',
-      empty: '空字符串',
-      default: '默认值',
-    },
-    dateFormat: {
-      label: '日期格式',
-      desc: '日期数据的解析格式（如 %Y-%m-%d）',
     },
   },
   script: {

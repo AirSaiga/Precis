@@ -44,6 +44,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.dependencies import get_project_config_path
+from app.api.services.io_error_messages import describe_io_error
 
 from .base import (
     ProjectViewV2Model,
@@ -126,7 +127,7 @@ def get_v2_project_view(config_path: str = Depends(get_project_config_path)) -> 
             data = json.load(f) or {}
         return ProjectViewV2Model(**data)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"读取视图文件失败: {e}")
+        raise HTTPException(status_code=500, detail=f"读取视图文件失败：{describe_io_error(e)}")
 
 
 @router.put(
@@ -171,6 +172,6 @@ def put_v2_project_view(
         # B-reliability: 原子写替代裸 open("w")，进程中断不再留下半个 JSON
         _write_json_atomic(view_path, payload.model_dump())
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"写入视图文件失败: {e}")
+        raise HTTPException(status_code=500, detail=f"写入视图文件失败：{describe_io_error(e)}")
 
     return StandardResponse(message="Project view saved")

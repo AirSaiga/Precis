@@ -37,6 +37,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from app.shared.core.pydantic_messages import localize_pydantic_msg
+
 
 class EmptyParams(BaseModel):
     """无参数约束（NotNull/Unique/Charset/Composite）的空参数模型。"""
@@ -185,6 +187,21 @@ class SpecParseError(Exception):
         self.errors = errors or [message]
 
 
+# spec 字段名（constraintSpec 等内部名）→ 用户可读名称
+_SPEC_FIELD_ZH: dict[str, str] = {
+    "schemaSpec": "表结构配置",
+    "constraintSpec": "约束配置",
+    "regexSpec": "正则配置",
+    "transformSpec": "数据转换配置",
+    "settingsSpec": "项目设置",
+    "canvasSpec": "画布配置",
+}
+
+
+def _spec_field_zh(spec_field: str) -> str:
+    return _SPEC_FIELD_ZH.get(spec_field, spec_field)
+
+
 def parse_action_spec(action: dict[str, Any]) -> BaseModel:
     """解析动作的 spec 字段并做**结构校验**。
 
@@ -217,17 +234,23 @@ def parse_action_spec(action: dict[str, Any]) -> BaseModel:
         # spec 缺失：对于 VALIDATE_PROJECT 是合法的（可空壳），其余视为结构错误
         if action_type == "VALIDATE_PROJECT":
             return EmptyParams()
-        raise SpecParseError(f"动作 {action_type} 缺少 {spec_field} 字段")
+        raise SpecParseError(f"动作 {_spec_field_zh(spec_field)}缺失，请补全后重试")
 
     if not isinstance(spec_data, dict):
-        raise SpecParseError(f"{spec_field} 必须是对象，实际为 {type(spec_data).__name__}")
+        raise SpecParseError(f"{_spec_field_zh(spec_field)}必须是对象，实际为 {type(spec_data).__name__}")
 
     try:
         return model_cls.model_validate(spec_data)
     except Exception as e:  # noqa: BLE001  Pydantic ValidationError 及子类
-        # 提取 Pydantic 的字段级错误信息
+        # 提取 Pydantic 的字段级错误信息（英文校验消息做常见项中文映射，
+        # 未命中的保留原文；spec 字段名同步翻译，避免 constraintSpec 等内部名外露）
         if isinstance(e, ValidationError):
-            messages = [f"{'.'.join(str(x) for x in err['loc'])}: {err['msg']}" for err in e.errors()]
+            messages = [
+                f"{'.'.join(str(x) for x in err['loc'])}: {localize_pydantic_msg(err['msg'])}" for err in e.errors()
+            ]
         else:
             messages = [str(e)]
-        raise SpecParseError(f"{spec_field} 校验失败: {'; '.join(messages)}", messages) from e
+        raise SpecParseError(
+            f"{_spec_field_zh(spec_field)}校验失败: {'; '.join(localize_pydantic_msg(m) for m in messages)}",
+            messages,
+        ) from e

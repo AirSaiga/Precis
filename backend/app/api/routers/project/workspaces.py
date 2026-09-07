@@ -44,6 +44,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.dependencies import get_project_config_path
+from app.api.services.io_error_messages import describe_io_error
 
 from .base import (
     StandardResponse,
@@ -121,7 +122,7 @@ def get_v2_workspaces(config_path: str = Depends(get_project_config_path)) -> Wo
             data = json.load(f) or {}
         return WorkspacesV2Model(**data)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"读取工作区文件失败: {e}")
+        raise HTTPException(status_code=500, detail=f"读取工作区文件失败：{describe_io_error(e)}")
 
 
 @router.put(
@@ -161,6 +162,6 @@ def put_v2_workspaces(
         # B-reliability: 原子写替代裸 open("w")，进程中断不再留下半个 JSON
         _write_json_atomic(workspaces_path, payload.model_dump())
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"写入工作区文件失败: {e}")
+        raise HTTPException(status_code=500, detail=f"写入工作区文件失败：{describe_io_error(e)}")
 
     return StandardResponse(message="Workspaces saved")

@@ -210,8 +210,8 @@ const inspection = {
     saveBlocked: {
       title: '暂时无法保存',
       description: '{description}',
-      fixHint: '请检查画布中的节点配置',
-      fixHintWithField: '请检查节点 {nodeId} 的 {field} 字段',
+      fixHint: '请按上方的问题描述找到对应节点，修正其配置后重新保存',
+      fixHintWithField: '请按上方的问题描述找到对应节点，修正标注的字段后重新保存',
     },
     /**
      * 加载期错误（文件不存在 / 解析失败 / 路径问题 / 模板展开失败）

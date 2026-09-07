@@ -19,6 +19,7 @@ limitations under the License.
   import { ref } from 'vue'
   import { useI18n } from 'vue-i18n'
   import type { ValidationReportErrorRow } from '@/services/validationReportViewModel'
+  import { validationErrorTypeLabel } from '@/services/validationReportViewModel'
 
   interface Props {
     groupName: string
@@ -75,7 +76,9 @@ limitations under the License.
             >
               {{ error.stage }}
             </span>
-            <span class="fv-error-type">{{ error.check_type || error.error_type }}</span>
+            <span class="fv-error-type">{{
+              validationErrorTypeLabel(t, error.check_type || error.error_type)
+            }}</span>
           </div>
           <p class="fv-error-msg">{{ error.display_message }}</p>
           <p v-if="error.suggestion" class="fv-error-suggestion">

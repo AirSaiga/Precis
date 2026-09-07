@@ -47,6 +47,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr, Field
 
 from app.api.dependencies import ProjectStore, get_project_store
+from app.api.services.io_error_messages import describe_io_error
 from app.shared.core.io.yaml import write_yaml_atomic
 
 router = APIRouter(prefix="/api/latest")
@@ -226,7 +227,7 @@ def get_reporting_config(store: ProjectStore = Depends(get_project_store)) -> Re
             config_data = yaml.safe_load(f)
         return ReportingConfig(**config_data)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"读取报告配置文件失败: {e}")
+        raise HTTPException(status_code=500, detail=f"读取报告配置文件失败：{describe_io_error(e)}")
 
 
 @router.post(
@@ -259,4 +260,4 @@ def update_reporting_config(
         write_yaml_atomic(Path(config_path), config.model_dump())
         return {"message": "报告配置已成功更新。"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"写入报告配置文件失败: {e}")
+        raise HTTPException(status_code=500, detail=f"写入报告配置文件失败：{describe_io_error(e)}")

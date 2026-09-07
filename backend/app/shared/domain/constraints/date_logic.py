@@ -497,7 +497,7 @@ class DateLogicConstraint(Constraint):
                                 "error_type": "ConstraintConfigError",
                                 "table": self.table,
                                 "column": self.column,
-                                "message": f"target_value 转换失败: '{self.target_value}' 无法转换为数值 - {str(e)}",
+                                "message": f"日期计算模式的目标值「{self.target_value}」无法转换为数字（{str(e)}），请检查约束配置",
                             }
                         )
                 else:

@@ -154,7 +154,7 @@ def get_v2_schema(table_id: str, config_path: str = Depends(get_project_config_p
                     # 读取失败，继续下一个文件
                     continue
 
-    raise HTTPException(status_code=404, detail=f"未找到 schema: {table_id}")
+    raise HTTPException(status_code=404, detail=f"未找到这张表结构定义，可能已被删除（ID: {table_id}）")
 
 
 @router.put(
@@ -208,14 +208,17 @@ def put_v2_schema(
         StandardResponse: 操作结果消息
     """
     if schema.id != table_id:
-        raise HTTPException(status_code=400, detail="schema.id 必须与路径参数 table_id 一致")
+        raise HTTPException(status_code=400, detail="请求中的表结构 ID 与地址栏不一致，请刷新页面后重试")
 
     manifest_path = _v2_manifest_path(config_path)
     manifest = (
         ProjectManifestV2.model_validate(read_yaml(Path(manifest_path))) if os.path.isfile(manifest_path) else None
     )
     if not manifest:
-        raise HTTPException(status_code=404, detail=f"V2 清单文件未找到: {manifest_path}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"项目配置文件（project.precis.yaml）不存在，请确认项目是否已被移动或删除（配置目录: {manifest_path}）",
+        )
 
     # 使用 _get_schema_path 获取实际的文件路径（处理大小写不一致问题）
     abs_schema_path = _get_schema_path(manifest, table_id, config_path)
@@ -369,7 +372,10 @@ def delete_v2_schema(table_id: str, config_path: str = Depends(get_project_confi
     """
     manifest_path = _v2_manifest_path(config_path)
     if not os.path.isfile(manifest_path):
-        raise HTTPException(status_code=404, detail=f"V2 清单文件未找到: {manifest_path}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"项目配置文件（project.precis.yaml）不存在，请确认项目是否已被移动或删除（配置目录: {manifest_path}）",
+        )
     manifest = ProjectManifestV2.model_validate(read_yaml(Path(manifest_path)))
 
     ref = next((s for s in manifest.schemas if s.id == table_id), None)

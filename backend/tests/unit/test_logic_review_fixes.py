@@ -338,7 +338,7 @@ class TestManifestWarningsPreserved:
             warnings=["手写的既有警告"],
         )
         assert "手写的既有警告" in m.warnings
-        assert any("重复" in w for w in m.warnings)
+        assert any("相同的 ID" in w for w in m.warnings)
 
 
 # ============================================================

@@ -53,6 +53,7 @@ from fastapi import Header, HTTPException
 from fastapi.responses import StreamingResponse
 
 from ....shared.services.ai.chat_orchestrator import execute_ai_chat_unified
+from ....shared.services.ai.failure_messages import describe_ai_failure
 from ....shared.services.llm.config import loader
 from ....shared.services.llm.providers import ChatMessage, ChatRequest, create
 from .models import AgentMeta, AiChatRequest, AiChatResponse, ChatRequestInput
@@ -95,12 +96,12 @@ async def chat(request: AiChatRequest, x_project_config_path: str | None = Heade
     # 获取默认 provider
     provider_id = config.defaults.get("chat")
     if not provider_id:
-        raise HTTPException(400, detail="No default provider configured")
+        raise HTTPException(400, detail="尚未设置默认的 AI 模型，请先在设置中选择一个 AI 模型")
 
     # 查找 Provider 配置
     provider_cfg = next((p for p in config.providers if p.id == provider_id), None)
     if not provider_cfg:
-        raise HTTPException(404, detail=f"Provider not found: {provider_id}")
+        raise HTTPException(404, detail=f"未找到对应的 AI 模型配置，可能已被删除（ID: {provider_id}）")
 
     # 转换上下文节点（将 Pydantic 模型转为字典）
     context_nodes = [node.model_dump() for node in request.context.selectedNodes]
@@ -124,7 +125,7 @@ async def chat(request: AiChatRequest, x_project_config_path: str | None = Heade
         )
     except Exception as exc:
         logging.getLogger(__name__).exception("AI chat failed")
-        raise HTTPException(status_code=502, detail=f"AI 服务调用失败: {exc}")
+        raise HTTPException(status_code=502, detail=describe_ai_failure(exc))
 
     # agent_meta 仅在 agent_mode=true 时填充，旧路径保持 None
     agent_meta = AgentMeta(iterations=result.iterations, tool_steps=result.tool_steps) if request.agent_mode else None
@@ -177,11 +178,11 @@ async def chat_completions(request: ChatRequestInput) -> StreamingResponse | dic
 
     provider_id = request.provider_id or config.defaults.get("chat")
     if not provider_id:
-        raise HTTPException(400, detail="No provider specified")
+        raise HTTPException(400, detail="尚未指定要使用的 AI 模型，请先在设置中选择")
 
     provider_cfg = next((p for p in config.providers if p.id == provider_id), None)
     if not provider_cfg:
-        raise HTTPException(404, detail=f"Provider not found: {provider_id}")
+        raise HTTPException(404, detail=f"未找到对应的 AI 模型配置，可能已被删除（ID: {provider_id}）")
 
     provider = create(provider_cfg)
     # 构建聊天请求对象
@@ -231,7 +232,7 @@ async def chat_completions(request: ChatRequestInput) -> StreamingResponse | dic
             resp = await provider.chat(chat_req)
         except Exception as exc:
             logging.getLogger(__name__).exception("Chat completion failed")
-            raise HTTPException(status_code=502, detail=f"AI 服务调用失败: {exc}")
+            raise HTTPException(status_code=502, detail=describe_ai_failure(exc))
         return {
             "id": "chatcmpl-local",
             "object": "chat.completion",

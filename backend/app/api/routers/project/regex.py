@@ -132,10 +132,12 @@ def get_v2_regex_node(regex_id: str, config_path: str = Depends(get_project_conf
                 break
 
     if not abs_path:
-        raise HTTPException(status_code=404, detail=f"regex_node '{regex_id}' 未找到")
+        raise HTTPException(status_code=404, detail=f"未找到这条正则规则，可能已被删除（ID: {regex_id}）")
 
     if not os.path.isfile(abs_path):
-        raise HTTPException(status_code=404, detail=f"regex_node 文件未找到: {abs_path}")
+        raise HTTPException(
+            status_code=404, detail="该正则规则在清单中登记的配置文件已不存在，请删除这条规则后重新创建"
+        )
 
     data = read_yaml(Path(abs_path))
 
@@ -190,10 +192,13 @@ def put_v2_regex_node(
         StandardResponse: 操作结果消息
     """
     if regex_node.id != regex_id:
-        raise HTTPException(status_code=400, detail="regex_node.id 必须与路径参数 regex_id 一致")
+        raise HTTPException(status_code=400, detail="请求中的正则规则 ID 与地址栏不一致，请刷新页面后重试")
     manifest_path = _v2_manifest_path(config_path)
     if not os.path.isfile(manifest_path):
-        raise HTTPException(status_code=404, detail=f"V2 清单文件未找到: {manifest_path}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"项目配置文件（project.precis.yaml）不存在，请确认项目是否已被移动或删除（配置目录: {manifest_path}）",
+        )
     manifest = ProjectManifestV2.model_validate(read_yaml(Path(manifest_path)))
 
     ref = next((r for r in manifest.regex_nodes if r.id == regex_id), None)
@@ -253,7 +258,10 @@ def delete_v2_regex_node(regex_id: str, config_path: str = Depends(get_project_c
     """
     manifest_path = _v2_manifest_path(config_path)
     if not os.path.isfile(manifest_path):
-        raise HTTPException(status_code=404, detail=f"V2 清单文件未找到: {manifest_path}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"项目配置文件（project.precis.yaml）不存在，请确认项目是否已被移动或删除（配置目录: {manifest_path}）",
+        )
     manifest = ProjectManifestV2.model_validate(read_yaml(Path(manifest_path)))
 
     ref = next((r for r in manifest.regex_nodes if r.id == regex_id), None)

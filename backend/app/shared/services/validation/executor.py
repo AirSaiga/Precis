@@ -810,7 +810,7 @@ class ValidationExecutor:
                                 "check_type": "ValidationInterrupted",
                                 "table": table_id,
                                 "message": (
-                                    f"遇错即停(error_handling=stop):表 '{table_id}' 分块 {chunk_idx + 1} "
+                                    f"已按项目设置『遇错即停』停止：表 '{table_id}' 分块 {chunk_idx + 1} "
                                     f"格式校验发现错误,剩余分块及约束校验未执行。"
                                 ),
                             }

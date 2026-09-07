@@ -48,7 +48,7 @@ class TestManifestTypes:
         )
         assert len(m.schemas) == 1
         assert len(m.warnings) == 1
-        assert "重复" in m.warnings[0]
+        assert "相同的 ID" in m.warnings[0]
 
     def test_duplicate_constraint_id(self):
         m = ProjectManifest(
@@ -60,7 +60,7 @@ class TestManifestTypes:
             ],
         )
         assert len(m.constraints) == 1
-        assert any("Constraint ID" in w for w in m.warnings)
+        assert any("两条约束" in w for w in m.warnings)
 
     def test_duplicate_regex_id(self):
         m = ProjectManifest(
@@ -72,7 +72,7 @@ class TestManifestTypes:
             ],
         )
         assert len(m.regex_nodes) == 1
-        assert any("Regex ID" in w for w in m.warnings)
+        assert any("两个正则定义" in w for w in m.warnings)
 
     def test_duplicate_data_source_id(self):
         m = ProjectManifest(
@@ -84,4 +84,4 @@ class TestManifestTypes:
             ],
         )
         assert len(m.data_sources) == 1
-        assert any("DataSource ID" in w for w in m.warnings)
+        assert any("两个数据源目录" in w for w in m.warnings)

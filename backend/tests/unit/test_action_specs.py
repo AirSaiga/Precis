@@ -103,12 +103,12 @@ class TestParseActionSpec:
 
     def test_parse_missing_spec_raises(self):
         """写动作缺 spec 字段报错。"""
-        with pytest.raises(SpecParseError, match="缺少"):
+        with pytest.raises(SpecParseError, match="缺失"):
             parse_action_spec({"actionType": "ADD_SCHEMA"})
 
     def test_parse_bad_spec_field_raises_with_message_attr(self):
         """spec 字段缺失时 SpecParseError 有 message 和 errors 属性。"""
         with pytest.raises(SpecParseError) as exc_info:
             parse_action_spec({"actionType": "ADD_SCHEMA"})  # 缺 schemaSpec
-        assert "缺少" in exc_info.value.message
+        assert "缺失" in exc_info.value.message
         assert len(exc_info.value.errors) > 0

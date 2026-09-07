@@ -297,7 +297,7 @@ def fix_id_mismatch(
     """将 manifest 中的旧引用 ID 更新为文件实际 ID。"""
     manifest_path = _v2_manifest_path(config_path)
     if not os.path.isfile(manifest_path):
-        raise HTTPException(status_code=404, detail="Manifest 文件不存在")
+        raise HTTPException(status_code=404, detail="项目配置文件不存在，请先保存项目")
 
     field_map = {
         "schema": "schemas",

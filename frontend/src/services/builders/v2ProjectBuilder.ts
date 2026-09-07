@@ -90,7 +90,7 @@ export function buildV2ConstraintFile(
 
   const schemaIdByNodeId = buildSchemaIdByNodeId(nodes)
   const v2Type = getV2ConstraintTypeByNodeType(node.type)
-  if (!v2Type) throw new Error('不支持的约束类型')
+  if (!v2Type) throw new Error('暂不支持这种约束类型')
   const data = (node.data || {}) as Record<string, unknown>
   const { refs, params } = buildConstraintExportPayload({
     nodes,
@@ -124,7 +124,7 @@ export function buildV2RegexNodeFile(nodes: CustomNode[], regexNodeId: string): 
   const node = nodes.find(
     (n) => n.id === regexNodeId && (n.type === 'regex' || n.type === 'regexExtract')
   )
-  if (!node) throw new Error('未找到Regex节点')
+  if (!node) throw new Error('未找到这条正则节点')
 
   const isExtract = node.type === 'regexExtract'
   const data = node.data as RegexNodeData | RegexExtractNodeData
@@ -194,7 +194,7 @@ export function buildV2TransformFile(
   transformNodeId: string
 ): TransformFileV2 {
   const node = nodes.find((n) => n.id === transformNodeId && n.type === 'transform')
-  if (!node) throw new Error('未找到Transform节点')
+  if (!node) throw new Error('未找到这个数据转换节点')
 
   const data = node.data as TransformNodeData
 

@@ -126,9 +126,12 @@ def get_v2_constraint(constraint_id: str, config_path: str = Depends(get_project
         # 如果 manifest 中有引用但文件都找不到，抛出更具体的错误
         if refs:
             raise HTTPException(
-                status_code=404, detail=f"manifest 中引用了 constraint '{constraint_id}'，但对应的文件均不存在"
+                status_code=404,
+                detail=f"清单中登记了这条约束，但它的配置文件已不存在（ID: {constraint_id}），请删除这条约束后重建",
             )
-        raise HTTPException(status_code=404, detail=f"manifest 中未找到 constraint且扫描目录也未发现: {constraint_id}")
+        raise HTTPException(
+            status_code=404, detail=f"未找到这条约束：清单中没有登记，项目目录里也没有对应文件（ID: {constraint_id}）"
+        )
 
     if not os.path.isfile(constraint_path):
         raise HTTPException(status_code=404, detail=f"constraint 文件未找到: {constraint_path}")
@@ -181,10 +184,13 @@ def put_v2_constraint(
         StandardResponse: 操作结果消息
     """
     if constraint.id != constraint_id:
-        raise HTTPException(status_code=400, detail="constraint.id 必须与路径参数 constraint_id 一致")
+        raise HTTPException(status_code=400, detail="请求中的约束 ID 与地址栏不一致，请刷新页面后重试")
     manifest_path = _v2_manifest_path(config_path)
     if not os.path.isfile(manifest_path):
-        raise HTTPException(status_code=404, detail=f"V2 清单文件未找到: {manifest_path}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"项目配置文件（project.precis.yaml）不存在，请确认项目是否已被移动或删除（配置目录: {manifest_path}）",
+        )
     manifest = ProjectManifestV2.model_validate(read_yaml(Path(manifest_path)))
 
     ref = next((c for c in manifest.constraints if c.id == constraint_id), None)
@@ -244,7 +250,10 @@ def delete_v2_constraint(constraint_id: str, config_path: str = Depends(get_proj
     """
     manifest_path = _v2_manifest_path(config_path)
     if not os.path.isfile(manifest_path):
-        raise HTTPException(status_code=404, detail=f"V2 清单文件未找到: {manifest_path}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"项目配置文件（project.precis.yaml）不存在，请确认项目是否已被移动或删除（配置目录: {manifest_path}）",
+        )
     manifest = ProjectManifestV2.model_validate(read_yaml(Path(manifest_path)))
 
     ref = next((c for c in manifest.constraints if c.id == constraint_id), None)

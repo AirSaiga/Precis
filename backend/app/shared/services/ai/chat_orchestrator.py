@@ -28,6 +28,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+from app.shared.services.ai.failure_messages import describe_ai_failure
 from app.shared.services.llm.actions.action_parser import (
     ActionParseError,
     process_actions,
@@ -212,7 +213,7 @@ class AIChatOrchestrator:
             llm_response = resp.content or ""
         except Exception as e:
             logger.error(f"LLM 调用失败: {e}")
-            return ChatExecutionResult(success=False, reply="", error=f"AI 服务调用失败: {str(e)}")
+            return ChatExecutionResult(success=False, reply="", error=describe_ai_failure(e))
 
         # 步骤 4: 解析响应（提取 reply 和 actions）
         self._notify_progress(options, "parsing", "解析 AI 响应...")
@@ -565,7 +566,7 @@ class AIChatOrchestrator:
                 logger.warning(f"[chat_orchestrator] 预校验失败，拒绝执行：\n{formatted}")
                 return ChatExecutionResult(
                     success=False,
-                    reply=f"动作预校验失败，未执行任何修改：\n{formatted}",
+                    reply=f"这批修改没有全部通过检查，项目未做任何改动：\n{formatted}",
                     actions=[],
                     error=formatted,
                     updated_history=updated_history,

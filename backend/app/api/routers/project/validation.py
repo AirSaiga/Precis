@@ -118,7 +118,10 @@ def validate_v2_full(
     manifest_path = _v2_manifest_path(config_path)
     logger.info(f"[validate_v2_full] manifest_path: {manifest_path}")
     if not os.path.isfile(manifest_path):
-        raise HTTPException(status_code=404, detail=f"V2 清单文件未找到: {manifest_path}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"项目配置文件（project.precis.yaml）不存在，请确认项目是否已被移动或删除（配置目录: {manifest_path}）",
+        )
 
     # 清单读取与校验必须先于 coverage 计算独立失败（422，与 GET /manifest 同口径）：
     # 原实现把清单损坏吞进 coverage 的 try/except 继续执行，返回 summary 全零的
