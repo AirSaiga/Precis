@@ -289,7 +289,9 @@ test.describe('约束类型覆盖（A1-A8）', () => {
       })
       const data = await resp.json()
       expect(data.success).toBe(true)
-      expect(JSON.stringify(data.data.error_rows)).toContain('allow_unsafe_eval')
+      // 跳过提示已人话化（2026-09 文案治理）：配置项名 allow_unsafe_eval 改为
+      // 用户可读的『允许执行脚本 eval』指引
+      expect(JSON.stringify(data.data.error_rows)).toContain('允许执行脚本 eval')
     }
   })
 

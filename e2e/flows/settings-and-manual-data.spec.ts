@@ -274,8 +274,8 @@ test.describe('手动数据节点 UI', () => {
   test('磁贴点击创建 → 编辑 → Ctrl+S 落盘 manual_data', async ({ projectPage, testProjectPath, apiHelper }) => {
     const page = projectPage
     // fixture 自带两类会触发前端 PreValidator BLOCKER 的内容（BLOCKER 拒绝整项目
-    // 保存，Ctrl+S 永远发不出 PUT）：①Python 风格 (?P<>) 正则——后端 Python 引擎
-    // 合法但 JS RegExp 判"语法无效"；②schema 内嵌 ForeignKey 用 from_column/to_table
+    // 保存，Ctrl+S 永远发不出 PUT）：①Python 风格 (?P<>) 正则——非法分组名由保存编排器的
+    // 后端权威校验 BLOCKER 拒绝（2026-09 起前端预检不再用 JS 判 Python 方言）；②schema 内嵌 ForeignKey 用 from_column/to_table
     // 命名，PreValidator 期望 from_table_id/from_column_id。本用例验证保存链路本身，
     // 在副本（temp 目录）上 fs 剥离：manifest 的 constraints/regex_nodes 引用 +
     // 各 schema 文件的内嵌 constraints 段。磁盘 schemas 引用与文件本体保留，
