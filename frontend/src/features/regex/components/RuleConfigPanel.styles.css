@@ -69,6 +69,19 @@
   flex-shrink: 0;
 }
 
+/* 语法即时校验失败提示（后端权威校验，防抖触发；合法时不渲染） */
+.syntax-error-hint {
+  flex-shrink: 0;
+  padding: var(--ui-space-xs) var(--ui-space-sm);
+  border: 1px solid var(--ui-danger, #e05252);
+  border-radius: var(--ui-radius-md);
+  background: color-mix(in srgb, var(--ui-danger, #e05252) 10%, var(--ui-bg-elevated));
+  color: var(--ui-danger, #e05252);
+  font-size: var(--ui-font-size-xs);
+  line-height: 1.5;
+  word-break: break-all;
+}
+
 /* ========== Sections ========== */
 
 .section {

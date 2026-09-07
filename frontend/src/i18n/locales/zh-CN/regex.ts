@@ -78,6 +78,7 @@ const expressions = {
     regex: '正则表达式',
     regexPlaceholder: '由构建器生成或手动输入',
     regexHint: '由构建器生成或手动编辑',
+    syntaxErrorHint: '这个正则表达式后端无法执行：{detail}',
     outputMapping: '输出映射',
     outputMappingHint: 'Key 即最终新增列名，建议使用语义化名称（通常等于捕获组名）。',
     outputTemplate: '输出模板 (Output)',
@@ -106,6 +107,7 @@ const expressions = {
     cancel: '取消',
     confirm: '确认',
     paramNameCannotBeEmpty: '参数名不能为空！',
+    paramNameInvalid: '参数名只能包含字母、数字和下划线，且不能以数字开头（例如 amount、col_2）',
   },
   ruleTestPanel: {
     realTimeTest: '实时测试',

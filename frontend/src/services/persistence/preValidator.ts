@@ -561,22 +561,28 @@ export class PreValidator {
       }
 
       if (file.pattern) {
-        // 正则语法校验
-        try {
-          new RegExp(file.pattern)
-        } catch {
-          this.addError(
-            locError(
-              {
-                severity: 'BLOCKER',
-                nodeId: regexId,
-                message: `Regex 语法无效: ${file.pattern}`,
-                field: 'pattern',
-              },
-              'validation.save.regexSyntaxInvalid',
-              { pattern: file.pattern }
+        // 正则语法本地预检（同步快网）。
+        // 权威校验在保存编排器：委托后端 Python re（执行引擎）编译。
+        // 含 (? 构造（命名分组/内联标志/反向引用等）的 pattern 双引擎语法不一致，
+        // JS 无法正确判定（如 (?P<name> 会被 JS 误杀、(?<name> 会被 JS 误放行），
+        // 一律跳过交给后端；这里只拦两引擎语法一致的普通 pattern。
+        if (!/\(\?/.test(file.pattern)) {
+          try {
+            new RegExp(file.pattern)
+          } catch {
+            this.addError(
+              locError(
+                {
+                  severity: 'BLOCKER',
+                  nodeId: regexId,
+                  message: `Regex 语法无效: ${file.pattern}`,
+                  field: 'pattern',
+                },
+                'validation.save.regexSyntaxInvalid',
+                { pattern: file.pattern }
+              )
             )
-          )
+          }
         }
       }
 

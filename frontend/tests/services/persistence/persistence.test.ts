@@ -61,6 +61,7 @@ import { buildSavePlan } from '@/services/persistence/planBuilder'
 import { PreValidator } from '@/services/persistence/preValidator'
 import { SaveOrchestrator } from '@/services/persistence/orchestrator'
 import * as projectV2Api from '@/api/projectV2Api'
+import * as regexApi from '@/api/regexApi'
 
 // ============================================================================
 // 测试辅助函数
@@ -753,6 +754,73 @@ describe('Persistence - Pre-Validator', () => {
     expect(validator.count('BLOCKER')).toBeGreaterThanOrEqual(1)
   })
 
+  it('Python 风格命名分组（合法组名）不判 BLOCKER', () => {
+    // 产品的正则方言是 Python re：含 (? 构造的 pattern 双引擎语法不一致，
+    // 前端预检一律跳过，交由保存编排器的后端 Python 引擎权威校验
+    const plan = buildSavePlan([], { projectName: 'Test', projectPath: '/tmp/test' })
+    plan.regexes.set('r-py-named', {
+      version: 2,
+      id: 'r-py-named',
+      name: 'Py Named Group',
+      pattern: '(?P<email>.* ?)@example\\.com',
+      match_mode: 'full',
+      case_sensitive: false,
+      flags: '',
+      enabled: true,
+      parameters: [],
+      rules: [],
+    } as any)
+
+    const validator = new PreValidator(plan, [])
+    validator.validate()
+
+    expect(validator.hasBlocker()).toBe(false)
+  })
+
+  it('纯数字命名分组等 (? 构造由后端权威校验，前端预检跳过', () => {
+    // (?P<1> 在 Python re 下同样非法，但判定权在后端编排器校验（携带具体原因），
+    // 前端 JS 预检不再对 (? 构造表态
+    const plan = buildSavePlan([], { projectName: 'Test', projectPath: '/tmp/test' })
+    plan.regexes.set('r-py-numeric', {
+      version: 2,
+      id: 'r-py-numeric',
+      name: 'Py Numeric Group',
+      pattern: '(?P<1>.* ?)@example\\.com',
+      match_mode: 'full',
+      case_sensitive: false,
+      flags: '',
+      enabled: true,
+      parameters: [],
+      rules: [],
+    } as any)
+
+    const validator = new PreValidator(plan, [])
+    validator.validate()
+
+    expect(validator.hasBlocker()).toBe(false)
+  })
+
+  it('不含 (? 构造的普通 pattern 语法非法时仍由预检拦截', () => {
+    const plan = buildSavePlan([], { projectName: 'Test', projectPath: '/tmp/test' })
+    plan.regexes.set('r-bad-plain', {
+      version: 2,
+      id: 'r-bad-plain',
+      name: 'Bad Plain Regex',
+      pattern: '[invalid(',
+      match_mode: 'full',
+      case_sensitive: false,
+      flags: '',
+      enabled: true,
+      parameters: [],
+      rules: [],
+    } as any)
+
+    const validator = new PreValidator(plan, [])
+    validator.validate()
+
+    expect(validator.hasBlocker()).toBe(true)
+  })
+
   it('ForeignKey 自引用时生成 INFO', () => {
     const plan = buildSavePlan([], { projectName: 'Test', projectPath: '/tmp/test' })
     plan.constraints.set('c-fk', {
@@ -792,6 +860,8 @@ describe('Persistence - SaveOrchestrator', () => {
         status: 404,
       } as AxiosResponse)
     )
+    // 默认正则后端权威校验通过；需要验证校验失败的用例自行 mock
+    vi.spyOn(regexApi, 'validateRegexSyntax').mockResolvedValue({ valid: true })
   })
 
   it('未配置项目路径时返回 BLOCKER', async () => {
@@ -862,6 +932,61 @@ describe('Persistence - SaveOrchestrator', () => {
     const result = await orchestrator.saveProject()
     expect(result.success).toBe(false)
     expect(result.errors?.[0].message).toContain('network error')
+  })
+
+  it('正则 pattern 后端权威校验失败时返回 BLOCKER 且不写盘', async () => {
+    // 产品的正则方言是 Python re（后端执行引擎）：(?P<1> 这类 Python 非法
+    // 但 JS 预检不表态的 pattern，由编排器委托后端编译判定并携带具体原因
+    vi.spyOn(projectV2Api, 'putV2FullConfig').mockResolvedValue(undefined)
+    vi.spyOn(projectV2Api, 'putV2ProjectView').mockResolvedValue(undefined)
+    vi.spyOn(regexApi, 'validateRegexSyntax').mockResolvedValue({
+      valid: false,
+      error: "bad character in group name '1' at position 4",
+    })
+
+    const regexNode = makeRegexNode('r-bad')
+    ;(regexNode.data as any).pattern = '(?P<1>.* ?)@example\\.com'
+
+    const orchestrator = new SaveOrchestrator({
+      nodes: { value: [regexNode] } as any,
+      edges: { value: [] } as any,
+      projectName: { value: 'Test' } as any,
+      getEffectiveProjectConfigPath: () => '/tmp/test/project.precis.yaml',
+      updateNodeData: vi.fn(),
+    })
+
+    const result = await orchestrator.saveProject()
+    expect(result.success).toBe(false)
+    const regexError = result.errors?.find((e) => e.nodeId === 'r-bad')
+    expect(regexError?.severity).toBe('BLOCKER')
+    expect(regexError?.messageKey).toBe('validation.save.regexSyntaxInvalidDetail')
+    expect(regexError?.params).toMatchObject({
+      pattern: '(?P<1>.* ?)@example\\.com',
+      detail: "bad character in group name '1' at position 4",
+    })
+    expect(projectV2Api.putV2FullConfig).not.toHaveBeenCalled()
+  })
+
+  it('后端正则校验服务不可用时 fail-open：跳过权威校验继续保存', async () => {
+    // 保存本身依赖后端，服务不可用时 PUT 会以更明确的错误失败，
+    // 权威校验不必重复报网络噪音——跳过即可
+    vi.spyOn(projectV2Api, 'putV2FullConfig').mockResolvedValue(undefined)
+    vi.spyOn(projectV2Api, 'putV2ProjectView').mockResolvedValue(undefined)
+    vi.spyOn(regexApi, 'validateRegexSyntax').mockRejectedValue(new Error('backend down'))
+
+    const regexNode = makeRegexNode('r-1')
+
+    const orchestrator = new SaveOrchestrator({
+      nodes: { value: [regexNode] } as any,
+      edges: { value: [] } as any,
+      projectName: { value: 'Test' } as any,
+      getEffectiveProjectConfigPath: () => '/tmp/test/project.precis.yaml',
+      updateNodeData: vi.fn(),
+    })
+
+    const result = await orchestrator.saveProject()
+    expect(result.success).toBe(true)
+    expect(regexApi.validateRegexSyntax).toHaveBeenCalledWith(regexNode.data.pattern)
   })
 
   it('读盘非 404 失败时 fail-closed：中止保存且不发出 PUT（防清空磁盘引用）', async () => {

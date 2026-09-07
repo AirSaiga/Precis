@@ -42,6 +42,10 @@ limitations under the License.
       />
       <span class="regex-marker">/{{ flagsDisplay }}</span>
     </div>
+    <!-- 语法即时校验（后端 Python 引擎，防抖 600ms；合法时不显示任何内容） -->
+    <div v-if="syntaxError" class="syntax-error-hint">
+      {{ t('expressions.ruleConfigPanel.syntaxErrorHint', { detail: syntaxError }) }}
+    </div>
 
     <!-- 样例文本输入 -->
     <div class="section">
@@ -195,12 +199,13 @@ limitations under the License.
 </template>
 
 <script setup lang="ts">
-  import { ref, watch, computed, reactive, nextTick } from 'vue'
+  import { ref, watch, computed, reactive, nextTick, onUnmounted } from 'vue'
   import { useI18n } from 'vue-i18n'
   import type { Rule } from '@/features/regex/types'
   import SelectionPopover from './SelectionPopover.vue'
   import ParamDefinitionModal from './ParamDefinitionModal.vue'
   import { useToast } from '@/composables/shared/useToast'
+  import { validateRegexSyntax } from '@/api/regexApi'
   const props = defineProps<{
     rule: Rule
     sampleText?: string
@@ -217,6 +222,44 @@ limitations under the License.
   // --- Regex state ---
   const localRegex = ref(props.rule.regex || '')
   const flagsDisplay = computed(() => props.flags ?? 'g')
+
+  // --- 语法即时校验（后端 Python 引擎为权威，防抖 600ms）---
+  const syntaxError = ref('')
+  let syntaxCheckTimer: ReturnType<typeof setTimeout> | null = null
+  let syntaxCheckSeq = 0
+
+  async function checkRegexSyntax(pattern: string): Promise<void> {
+    if (!pattern.trim()) {
+      syntaxError.value = ''
+      return
+    }
+    const seq = ++syntaxCheckSeq
+    try {
+      const result = await validateRegexSyntax(pattern)
+      // 仅当结果仍对应最新输入时才展示，防止慢响应覆盖新输入的状态
+      if (seq === syntaxCheckSeq && localRegex.value === pattern) {
+        syntaxError.value = result.error ?? ''
+      }
+    } catch {
+      // 服务不可用时静默：保存编排器在写盘前仍会做权威校验（fail-open）
+      if (seq === syntaxCheckSeq) syntaxError.value = ''
+    }
+  }
+
+  watch(localRegex, (pattern) => {
+    if (syntaxCheckTimer) clearTimeout(syntaxCheckTimer)
+    syntaxCheckTimer = setTimeout(() => {
+      syntaxCheckTimer = null
+      void checkRegexSyntax(pattern)
+    }, 600)
+  })
+
+  onUnmounted(() => {
+    if (syntaxCheckTimer) {
+      clearTimeout(syntaxCheckTimer)
+      syntaxCheckTimer = null
+    }
+  })
 
   // --- Pattern parts (builder state) ---
   interface PatternPart {

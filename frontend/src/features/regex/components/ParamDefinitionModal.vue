@@ -104,11 +104,18 @@ limitations under the License.
   const paramDefinition = reactive<ParamDefinition>({ name: '', type: 'int' })
 
   function onConfirm() {
-    if (paramDefinition.name.trim()) {
-      emit('confirm', { ...paramDefinition })
-    } else {
+    const name = paramDefinition.name.trim()
+    if (!name) {
       warning(t('expressions.paramDefinitionModal.paramNameCannotBeEmpty'))
+      return
     }
+    // 参数名会拼进 Python 命名捕获组 (?P<name>)，必须是合法标识符：
+    // 纯数字名（如 1）生成的 (?P<1>) 在后端 Python re 与前端 JS 均无法编译
+    if (!/^[A-Za-z_]\w*$/.test(name)) {
+      warning(t('expressions.paramDefinitionModal.paramNameInvalid'))
+      return
+    }
+    emit('confirm', { ...paramDefinition })
   }
 
   // ESC键关闭弹窗

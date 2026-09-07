@@ -64,37 +64,63 @@ const validation = {
     errors: '{count} error(s)',
     warnings: '{count} warning(s)',
   },
+  // Error/check type codes → user-readable labels (referenced dynamically via
+  // validationErrorTypeLabel; unregistered codes fall back to the raw code)
+  errorTypes: {
+    DataLoad: 'Data loading',
+    DataLoadingError: 'Data loading failed',
+    SchemaIdDuplicate: 'Duplicate schema ID',
+    RegexViolation: 'Regex mismatch',
+    RegexExecutionError: 'Regex execution error',
+    TransformExecutionError: 'Transform execution error',
+    ConstraintConfigError: 'Invalid constraint config',
+    ScriptCheckExecutionError: 'Script execution error',
+    Timeout: 'Validation timed out',
+  },
   // Pre-save validation (preValidator)
   save: {
-    schemaMissingSource: 'Schema is missing the data source path',
-    schemaNoColumns: 'Schema defines no columns',
-    columnMissingId: 'Column {index} is missing an ID, suggested: {suggestedId}',
-    columnMissingName: 'Column {index} is missing a name, suggested: {suggestedName}',
-    columnMissingType: 'Column "{column}" has no data type specified; defaulting to Str',
-    columnIdDuplicate: 'Duplicate column ID: {oldId}, fixed to: {newId}',
-    columnNameDuplicate: 'Duplicate column name: {oldName}, fixed to: {newName}',
-    constraintMissingTableId: 'Constraint {type} is missing the table_id reference',
+    schemaMissingSource:
+      'This table has no data file source yet: open the table node and choose the file to read',
+    schemaNoColumns: 'This table has no columns defined yet',
+    columnMissingId: 'Column {index} is missing an ID; "{suggestedId}" will be used on save',
+    columnMissingName: 'Column {index} is missing a name; "{suggestedName}" will be used on save',
+    columnMissingType:
+      'Column "{column}" has no data type; it will be treated as text (Str) automatically',
+    columnIdDuplicate: 'Column ID "{oldId}" is duplicated; it has been renamed to "{newId}"',
+    columnNameDuplicate:
+      'Column name "{oldName}" is duplicated; it has been renamed to "{newName}"',
+    constraintMissingTableId:
+      'This {type} constraint is not connected to any table: connect the constraint node to the table it should validate, then save again',
     constraintSchemaNotInPlan:
-      'The schema {tableId} referenced by the constraint is not in the current save plan',
-    foreignKeyMissingTableRefs: 'ForeignKey constraint is missing from_table_id or to_table_id',
-    foreignKeyMissingColumnRefs: 'ForeignKey constraint is missing from_column_id or to_column_id',
+      'The table "{tableId}" of this constraint no longer exists (it may have been deleted); reconnect the constraint to a table or remove it',
+    foreignKeyMissingTableRefs:
+      'This foreign key is not connected to both tables yet: check that it links the current table and the referenced table',
+    foreignKeyMissingColumnRefs:
+      'This foreign key has no columns selected yet: check that the columns are chosen on both ends',
     foreignKeySelfReference:
-      'ForeignKey self-reference (from and to point to the same column); please confirm this is intended',
+      'This foreign key starts and ends at the same column — if the self-reference is intentional, you can ignore this reminder',
     rangeMinGreaterThanMax:
-      'Range constraint min ({min}) is greater than max ({max}); automatically swapped',
-    allowedValuesEmpty: 'AllowedValues constraint has no allowed values configured',
-    scriptedExpressionEmpty: 'Scripted constraint expression is empty',
-    compositeNoSubConstraints: 'Composite constraint contains no sub-constraints',
-    compositeSelfReference: 'Composite constraint cannot contain itself (circular reference)',
-    compositeSubConstraintMissingId: 'Composite contains a sub-constraint missing an ID',
-    regexMissingPattern: 'Regex node must configure pattern or uses_pattern',
-    regexSyntaxInvalid: 'Invalid regex syntax: {pattern}',
+      'The minimum ({min}) of this range is greater than its maximum ({max}); they have been swapped automatically',
+    allowedValuesEmpty:
+      'This allowed-values constraint has no values configured yet; add at least one',
+    scriptedExpressionEmpty: 'This scripted constraint has no validation script yet',
+    compositeNoSubConstraints:
+      'This composite constraint has no sub-constraints yet; add at least one',
+    compositeSelfReference:
+      'A composite constraint cannot contain itself (that would be a circular reference)',
+    compositeSubConstraintMissingId: 'One sub-constraint in this composite is missing an ID',
+    regexMissingPattern: 'This regex node has no match rule yet',
+    regexSyntaxInvalid:
+      'The regex cannot be parsed: "{pattern}". Common causes: unbalanced parentheses, or an invalid group name (group names cannot be plain numbers, e.g. (?P<1>…)',
+    regexSyntaxInvalidDetail:
+      'The regex cannot be parsed: "{pattern}" ({detail}). Common causes: unbalanced parentheses, or an invalid group name (group names cannot be plain numbers, e.g. (?P<1>…)',
     regexSchemaNotInPlan:
-      'The schema {tableId} referenced by the regex is not in the current save plan',
-    transformNoOutputColumns: 'Transform has no output columns configured',
+      'The table "{tableId}" of this regex node no longer exists (it may have been deleted); reconnect it to a table or remove it',
+    transformNoOutputColumns: 'This transform has no output columns configured yet',
     transformInputNotInSchemas:
-      'The input node {nodeId} referenced by the transform is not in the current schema set (may be a transform chain reference)',
-    templateInstanceMissingId: 'TemplateInstance is missing template_id',
+      'The input node "{nodeId}" of this transform is not a saved table; if transforms are chained, you can ignore this notice',
+    templateInstanceMissingId:
+      'This template instance has no template selected yet; please choose a template',
   },
   // Not-null constraint (row errors)
   notNull: {

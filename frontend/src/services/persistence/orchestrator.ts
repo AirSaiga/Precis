@@ -35,12 +35,13 @@ import {
   putV2FullConfig,
   putV2ProjectView,
 } from '@/api/projectV2Api'
+import { validateRegexSyntax } from '@/api/regexApi'
 import { logger } from '@/core/utils/logger'
 import { buildV2ProjectView } from '@/services/builders'
 import { buildSavePlan, buildIncrementalSavePlan } from './planBuilder'
 import { isIncompleteDraftNode } from './utils'
 import { PreValidator } from './preValidator'
-import type { SavePlan, SaveResult, AutoFixRecord } from './types'
+import type { SavePlan, SaveResult, AutoFixRecord, PreValidationError } from './types'
 export interface OrchestratorDeps {
   nodes: Ref<CustomNode[]>
   edges: Ref<Edge[]>
@@ -119,6 +120,16 @@ export class SaveOrchestrator {
       return { success: false, errors: validationErrors, fixed: fixedRecords }
     }
 
+    // 正则语法权威校验（后端 Python 引擎）：本地预检之后、写盘之前执行
+    const regexSyntaxErrors = await this.validateRegexSyntaxWithBackend(plan)
+    if (regexSyntaxErrors.length > 0) {
+      return {
+        success: false,
+        errors: [...validationErrors, ...regexSyntaxErrors],
+        fixed: fixedRecords,
+      }
+    }
+
     const fullConfig = this.planToFullConfig(plan)
     try {
       await this.mergeDiskManifestRefs(fullConfig, configPath)
@@ -161,6 +172,53 @@ export class SaveOrchestrator {
         fixed: fixedRecords,
       }
     }
+  }
+
+  /**
+   * 正则语法的权威校验：委托后端 Python re 引擎（执行引擎）逐个编译。
+   *
+   * 前端 JS 预检只覆盖两引擎语法一致的普通 pattern（见 preValidator.validateRegexes），
+   * 含 (? 构造（命名分组/内联标志/反向引用等）的 Python 方言只能由 Python 判定，
+   * 否则两个方向都会错判："自家构建器生成的合法正则保存不过"（(?P<name> 被 JS 误杀）
+   * 与"JS 放行、后端执行才炸"（(?<name> 被 JS 误放行）。
+   *
+   * 失败语义：后端返回 error 的 pattern 映射为 BLOCKER（fail-closed）；
+   * 网络/服务异常时跳过本校验（fail-open）——保存本身依赖后端，随后 PUT 会以
+   * 更明确的错误失败，此处不必重复报网络噪音。
+   */
+  private async validateRegexSyntaxWithBackend(plan: SavePlan): Promise<PreValidationError[]> {
+    const nodeIdsByPattern = new Map<string, string[]>()
+    for (const [id, file] of plan.regexes) {
+      if (!file.pattern) continue
+      const ids = nodeIdsByPattern.get(file.pattern) ?? []
+      ids.push(id)
+      nodeIdsByPattern.set(file.pattern, ids)
+    }
+    if (nodeIdsByPattern.size === 0) return []
+
+    const errors: PreValidationError[] = []
+    await Promise.all(
+      Array.from(nodeIdsByPattern.entries()).map(async ([pattern, nodeIds]) => {
+        try {
+          const result = await validateRegexSyntax(pattern)
+          if (!result.valid && result.error) {
+            for (const nodeId of nodeIds) {
+              errors.push({
+                severity: 'BLOCKER',
+                nodeId,
+                message: `Regex 语法无效: ${pattern}（${result.error}）`,
+                messageKey: 'validation.save.regexSyntaxInvalidDetail',
+                params: { pattern, detail: result.error },
+                field: 'pattern',
+              })
+            }
+          }
+        } catch (error) {
+          logger.warn('[SaveOrchestrator] 后端正则语法校验不可用，跳过该 pattern:', error)
+        }
+      })
+    )
+    return errors
   }
 
   /**
@@ -278,6 +336,16 @@ export class SaveOrchestrator {
 
     if (validator.hasBlocker()) {
       return { success: false, errors: validationErrors, fixed: fixedRecords }
+    }
+
+    // 正则语法权威校验（后端 Python 引擎）：本地预检之后、写盘之前执行
+    const regexSyntaxErrors = await this.validateRegexSyntaxWithBackend(plan)
+    if (regexSyntaxErrors.length > 0) {
+      return {
+        success: false,
+        errors: [...validationErrors, ...regexSyntaxErrors],
+        fixed: fixedRecords,
+      }
     }
 
     const fullConfig = this.planToFullConfig(plan)

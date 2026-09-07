@@ -33,6 +33,7 @@ limitations under the License.
   import { useValidationErrorNavigator } from '@/composables/validation/useValidationErrorNavigator'
   import { createValidationReportViewModel } from '@/services/validationReportViewModel'
   import type { FullValidationErrorItem } from '@/api/projectValidationApi'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import ValidationScopeCards from '@/components/validation/ValidationScopeCards.vue'
   import ValidationContextBar from '@/components/validation/ValidationContextBar.vue'
   import ValidationSettingsGrid from '@/components/validation/ValidationSettingsGrid.vue'
