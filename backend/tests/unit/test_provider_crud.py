@@ -111,6 +111,57 @@ class TestListPresets:
             assert "models" in p
 
 
+class TestPresetCatalog:
+    """预设目录完整性：国内主流厂商覆盖与预设字段不变量（维护 SOP 见 presets.py 同目录文档）"""
+
+    @pytest.mark.asyncio
+    async def test_domestic_mainstream_providers_covered(self):
+        # 2026-09 标准：国内主流大模型厂商预设必须可被前端设置页与 CLI 获取
+        result = await list_presets()
+        ids = {p["id"] for p in result}
+        expected = {
+            "deepseek",
+            "qwen",
+            "glm",
+            "kimi",
+            "minimax",
+            "mimo",
+        }
+        assert expected <= ids
+
+    @pytest.mark.asyncio
+    async def test_preset_ids_unique(self):
+        result = await list_presets()
+        ids = [p["id"] for p in result]
+        assert len(ids) == len(set(ids))
+
+    @pytest.mark.asyncio
+    async def test_openai_presets_base_url_is_https_without_trailing_slash(self):
+        # openai SDK 会在 base_url 后拼接路径：云端端点必须 https，且不得带尾斜杠（避免双斜杠）
+        result = await list_presets()
+        for p in result:
+            if p["type"] == "openai":
+                assert p["base_url"].startswith("https://")
+                assert not p["base_url"].endswith("/")
+
+    @pytest.mark.asyncio
+    async def test_default_model_listed_in_models(self):
+        # 前端添加表单的模型下拉以 models 为唯一候选，默认模型必须在其中（Ollama 模型列表动态探测，豁免）
+        result = await list_presets()
+        for p in result:
+            if p["type"] == "openai":
+                assert p["default_model"] in p["models"]
+
+    @pytest.mark.asyncio
+    async def test_qwen_preset(self):
+        result = await list_presets()
+        q = next(p for p in result if p["id"] == "qwen")
+        assert q["name"] == "通义千问 Qwen"
+        assert q["type"] == "openai"
+        assert q["base_url"] == "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        assert q["default_model"] == "qwen3.8-max"
+
+
 class TestCreateProvider:
     @pytest.mark.asyncio
     async def test_create_first_provider(self, patch_loader, empty_config):

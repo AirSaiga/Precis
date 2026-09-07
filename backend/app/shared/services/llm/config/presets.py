@@ -26,6 +26,13 @@
 - 预设配置包含服务商元信息和可用模型列表
 - API 端点 GET /providers/presets 返回预设列表供前端和 CLI 使用
 - 这是 Provider 元数据的唯一来源，前端和 CLI 共用
+- 字典顺序即前端设置页下拉与 CLI 菜单的展示顺序（国内主流在前、本地服务在后）
+- base_url 必须是 OpenAI 兼容端点（openai SDK 会在其后拼接 /chat/completions），
+  含版本路径的厂商必须带全（如 /v1、/compatible-mode/v1、/api/paas/v4、/api/v3）
+
+维护约定:
+- 各厂商 base_url / 模型 ID / 鉴权要点 / 更新 SOP 见同目录 AI_PROVIDER_PRESETS.md
+- 模型列表有时效性（厂商滚动升级），更新时须对照官方模型列表并同步维护文档的核对日期
 
 输入示例:
     preset = PROVIDER_PRESETS["deepseek"]
@@ -50,13 +57,37 @@ PROVIDER_PRESETS: dict[str, dict[str, Any]] = {
         "default_model": "deepseek-v4-pro",
         "models": ["deepseek-v4-pro", "deepseek-v4-flash"],
     },
-    "ollama": {
-        "id": "ollama-local",
-        "name": "Ollama Local",
-        "type": "ollama",
-        "base_url": "http://localhost:11434",
-        "default_model": "llama3.2",
-        "models": [],
+    "qwen": {
+        "id": "qwen",
+        "name": "通义千问 Qwen",
+        "type": "openai",
+        "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "default_model": "qwen3.8-max",
+        "models": ["qwen3.8-max", "qwen3.7-plus", "qwen3.8-flash"],
+    },
+    "glm": {
+        "id": "glm",
+        "name": "智谱 GLM",
+        "type": "openai",
+        "base_url": "https://open.bigmodel.cn/api/paas/v4",
+        "default_model": "glm-5.3",
+        "models": ["glm-5.3", "glm-5.3-flash", "glm-5.2"],
+    },
+    "kimi": {
+        "id": "kimi",
+        "name": "月之暗面 Kimi",
+        "type": "openai",
+        "base_url": "https://api.moonshot.cn/v1",
+        "default_model": "kimi-k3",
+        "models": ["kimi-k3", "kimi-k2.7-code", "kimi-k2.6", "kimi-latest"],
+    },
+    "minimax": {
+        "id": "minimax",
+        "name": "MiniMax",
+        "type": "openai",
+        "base_url": "https://api.minimaxi.com/v1",
+        "default_model": "MiniMax-M3",
+        "models": ["MiniMax-M3", "MiniMax-M2.5", "MiniMax-M2.7-highspeed"],
     },
     "mimo": {
         "id": "mimo",
@@ -65,6 +96,14 @@ PROVIDER_PRESETS: dict[str, dict[str, Any]] = {
         "base_url": "https://api.xiaomimimo.com/v1",
         "default_model": "mimo-v2.5",
         "models": ["mimo-v2.5", "mimo-v2.5-pro"],
+    },
+    "ollama": {
+        "id": "ollama-local",
+        "name": "Ollama Local",
+        "type": "ollama",
+        "base_url": "http://localhost:11434",
+        "default_model": "llama3.2",
+        "models": [],
     },
 }
 

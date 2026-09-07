@@ -366,6 +366,10 @@ AI 动作类型（actionType，如 `ADD_SCHEMA`/`VALIDATE_PROJECT`）的**单一
 - 脚本 `frontend/scripts/codegen.mjs`（frontend 目录 `npm run codegen`）；CI 后端 job 末尾跑 codegen 并 `git diff` 校验生成物与提交一致
 - **修改 `registry.py` 的 `ACTIONS` 后必须跑 `npm run codegen` 重新生成并提交 `actions.ts`**，否则 CI 失败。前端业务代码从 `@/types/generated/actions` import，**禁止硬编码动作类型集合**
 
+### AI Provider 预设（国内大模型）
+
+AI Provider 预设的**单一事实源**是 `backend/app/shared/services/llm/config/presets.py`——前端设置页"添加 AI 模型"预设下拉、CLI `provider add` 菜单、TUI 均经 `GET /providers/presets` 消费，前端零硬编码。新增/更新国内大模型支持只改该文件数据（`type` 仅 `openai`/`ollama`，国内厂商一律 `openai`，base_url 须为 OpenAI 兼容端点且版本路径带全、无尾斜杠）。**更新时务必搜索核对模型型号是否最新**（厂商迭代快：GLM-5.1→5.3、MiniMax M2→M3 均数月内换代）。各家 base_url/模型 ID/鉴权陷阱（MiniMax 双 i 域名、GLM 旧模型名自动路由等）、收录范围决策与新增/更新 SOP 见 `backend/app/shared/services/llm/config/AI_PROVIDER_PRESETS.md`——**改预设必须同步该文档的表格与核对日期**；`TestPresetCatalog` 单测守卫国内主流厂商覆盖与字段不变量。
+
 ### 约束节点自注册
 
 新增约束类型需同步注册五处：
