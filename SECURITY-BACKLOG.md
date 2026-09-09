@@ -60,6 +60,7 @@
 - **现状**：仅做 `path.resolve`/`path.normalize` 词法比较（**不解析符号链接**），且**无基目录白名单**——允许读写任意绝对路径
 - **核实结论**：🟡 部分真实（字符串比较属实、symlink 未防御属实；但"基目录穿越"措辞不准——本就无基目录限制）
 - **对比**：后端 `path_validation.py` 使用 `Path.resolve()` 真正解析 symlink，Electron 侧未用
+- **更新（2026-09-09 复核）**：本节"现状"已全面过时——`read-file`/`write-file` 现均做**根目录包含校验**（`electron/src/ipc/filesystem.ts`：`getAllowedRoots()` = userData + `electron_launch.yaml` 授权的 configPath/dataPath，`isPathAllowed()` 以 `resolved === root || startsWith(root + path.sep)` 判定；read-file 见 :496 起，write-file 见 :541 起且更严——userData 相对受保护路径 `update-config.json`/`.precis/electron_launch.yaml` 拒写 + Windows 尾点/尾空格归一化，commit `0f5416a8`）；`open-file` 另有数据文件扩展名白名单。**仍有效的残留项**：校验用 `path.resolve` 为词法解析、**不跟符号链接**——授权根内指向根外的符号链接仍可被读写，与后端 `Path.resolve()` 真解析的差异未消除
 
 ---
 

@@ -149,8 +149,8 @@ npm run start:tui-rust:mac   # = start-tui-rust.sh
 | `start-cli.{bat,sh}` | Python CLI | — | 命令行交互校验 / CLI validation |
 | `start-tui-rust.{bat,sh}` | Rust TUI(需先起后端)/ Rust TUI | — | 终端界面 / Terminal UI |
 
-> 注：`start.bat` 在前端/Electron 产物缺失时会自动调用 `npm run build` 重新构建；`start-dev.bat` 仅在 `electron/dist/main.js` 缺失时编译 Electron。
-> Note: `start.bat` auto-runs `npm run build` when frontend/Electron artifacts are missing; `start-dev.bat` only compiles Electron when `electron/dist/main.js` is missing.
+> 注：启动脚本采用源码时间戳检测而非"产物存在即跳过"：产物戳早于受监视源文件（frontend：`src/`、`index.html`、`vite.config.ts`、`package.json`；electron：`src/`、`package.json`、`tsconfig.json`）任一最新修改时间即自动重建，新鲜则跳过。Windows 侧探测不可用时默认重建（fail-closed），构建失败输出日志尾部、删除半成品戳并非零退出。
+> Note: launchers use source-timestamp detection instead of "skip if artifacts exist": a rebuild triggers when the dist stamp is older than any watched source file (frontend: `src/`, `index.html`, `vite.config.ts`, `package.json`; electron: `src/`, `package.json`, `tsconfig.json`); fresh artifacts are skipped. On Windows the probe fails closed to "rebuild", and a failed build prints the log tail, drops the partial stamp, and exits non-zero.
 
 ## 手动部署 / Manual Deployment
 

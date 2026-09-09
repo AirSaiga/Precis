@@ -101,7 +101,7 @@ precis-tui/
 
 ## 语言 / Language
 
-界面文案默认**中文**。通过环境变量切换**英文**，优先级为 `PRECIS_LANG` → `LC_ALL` → `LC_CTYPE` → `LANG`（取顺序中第一个已设置的变量；值含 `en` 即英文，含 `zh` 或其他值均为中文默认）：
+界面文案默认**中文**。通过环境变量切换**英文**，优先级为 `PRECIS_LANG` → `LC_ALL` → `LC_CTYPE` → `LANG`（取顺序中第一个已设置**且非空**的变量，空串视同未设置、继续向下探测；值含 `en` 即英文，含 `zh` 或其他值均为中文默认）：
 
 ```bash
 PRECIS_LANG=en-US cargo run        # 英文界面 / English UI

@@ -223,7 +223,8 @@ V2 API 调用层在 `frontend/src/api/projectV2Api/`（目录，barrel 入口 `i
 - **导入顺序**: 惯例为空行分块书写，组内顺序不强制、无 lint 门禁（2026-09 审计实证按现状修订；引入 `import/order` 类门禁前勿按"外部组件→类型→组合式函数/工具"的旧描述做评审）
 - **命名**: 组件 PascalCase，组合式函数 `use*`，Store `use*Store`，常量 UPPER_SNAKE_CASE
 - **composables/ 目录**: 组合式函数文件名 `use*`；`composables/nodes/**` 例外允许承载节点行为 handler/registry 模块（connectionHandlers、transform 等非组合式处理器）
-- **文件头注释**（2026-09 审计 F3 采纳成文，门禁 `audit:headers` 已入 `lint:check`）: `src/` 下 `.ts` 须在前 20 行内含 `/** @fileoverview <文件职责一句话> */`；`.vue` 须以描述组件职责的 `<!-- ... -->` 块开头；**禁止只复读文件名的空洞头**。新增文件强制（不带头门禁即红）；存量无头文件在 `frontend/file-header-audit-exceptions.json` 豁免、渐进收紧（补头后从清单移除条目）；`tests/` 豁免，`scripts/*.mjs` 自觉对齐
+- **文件头注释**（2026-09 审计 F3 采纳成文，门禁 `audit:headers` 已入 `lint:check`）: `src/` 下 `.ts` 须在前 40 行内含 `/** @fileoverview <文件职责一句话> */`（40 行窗为容纳 license 头块下移）；`.vue` 须以描述组件职责的 `<!-- ... -->` 块开头；**禁止只复读文件名的空洞头**。新增文件强制（不带头门禁即红）；存量无头文件在 `frontend/file-header-audit-exceptions.json` 豁免、渐进收紧（补头后从清单移除条目）；`tests/` 豁免，`scripts/*.mjs` 自觉对齐
+- **源码 license 头**（2026-09 审计 F2 拍板，CI 守卫 `scripts/check-license-headers.mjs` 已入 ci.yml encoding-check job）: 新增源码文件须在前 15 行内含 Apache-2.0 头（`SPDX-License-Identifier: Apache-2.0` + Copyright 2026 Precis Team），范围：frontend（src/tests/scripts 及根级 ts/index.html，ts/mjs/vue/css/html）、backend `.py`、`electron/src` `.ts`、`tui-rust/src` `.rs`、`e2e` `.ts`——缺头 CI 直接失败；生成物 `types/generated/actions.ts` 由 codegen 模板带头，勿手插
 - **Props 必须定义类型**（`interface Props` + `defineProps<Props>()`）；非 feature 专属共享类型放 `src/types/`
 - **空值安全**: `strictNullChecks: true`，可能为 null/undefined 的值必须加空值守卫
 
