@@ -457,7 +457,6 @@
     "src/types/graph.ts",
     "src/types/index.ts",
     "src/types/nodes.ts",
-    "src/types/projectV2.ts",
     "src/types/resource/contextMenu.ts",
     "src/types/resource/index.ts",
     "src/types/resource/payload.ts",

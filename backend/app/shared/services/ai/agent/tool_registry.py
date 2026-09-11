@@ -33,7 +33,7 @@ import inspect
 import json
 import logging
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Protocol
 
 from pydantic import BaseModel, ValidationError
 
@@ -42,6 +42,20 @@ from app.shared.services.ai.agent.types import ToolCall, ToolResult
 logger = logging.getLogger(__name__)
 
 ToolHandler = Callable[[dict[str, Any]], Any]
+
+
+class ToolInstance(Protocol):
+    """可注册工具的鸭子类型接口（NAME/get_definition/run 三件套）。
+
+    generation 工具（tools/）与 chat 工具（chat_tools/）无共同基类，
+    均按此形状实现；register_tool 按本协议接收任意一族工具实例。
+    """
+
+    NAME: str
+
+    def get_definition(self) -> dict[str, Any]: ...
+
+    def run(self, arguments: dict[str, Any]) -> Any: ...
 
 
 def _format_validation_error(err: ValidationError) -> str:
@@ -109,6 +123,36 @@ class ToolRegistry:
         self._handlers[name] = handler
         self._args_models[name] = args_model
         self._read_only_flags[name] = read_only
+
+    def register_tool(
+        self,
+        tool: ToolInstance,
+        *,
+        read_only: bool = False,
+        args_model: type[BaseModel] | None = None,
+    ) -> None:
+        """
+        @methoddesc 从工具实例注册（name/description/parameters/handler 自动提取）
+
+        工具族（tools/ 与 chat_tools/）的统一注册入口：三处装配点
+        （chat_agent_runner / migrate_service / generation agent_wiring）
+        此前各自手写"get_definition 拆字段 + lambda 包装 run"的同构样板，
+        收敛到这里防止注册参数漂移。
+
+        参数:
+            tool: 实现 NAME/get_definition/run 三件套的工具实例
+            read_only: 是否纯只读（不写盘）。execute_many 据此分流——只读并发、写盘串行。默认 False（保守视为写盘）
+            args_model: 可选的 Pydantic 入参模型，语义同 register
+        """
+        definition = tool.get_definition()["function"]
+        self.register(
+            name=tool.NAME,
+            description=definition["description"],
+            parameters=definition["parameters"],
+            handler=lambda arguments: tool.run(arguments),
+            args_model=args_model,
+            read_only=read_only,
+        )
 
     def get_definitions(self) -> list[dict[str, Any]]:
         """获取 OpenAI tools 定义列表。"""

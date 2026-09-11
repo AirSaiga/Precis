@@ -484,62 +484,26 @@ class ConfigMigrationService(ConfigGenerationService):
         """创建迁移工具注册表。"""
         registry = ToolRegistry()
 
-        plan_tool = PlanChunksTool(
-            profiling_data=self._profiling_data,
-            file_paths=self._file_paths,
-            chunk_max_columns=20,
-            chunk_max_files=5,
+        # 工具注册统一走 register_tool（name/description/parameters/handler 自动提取）
+        registry.register_tool(
+            PlanChunksTool(
+                profiling_data=self._profiling_data,
+                file_paths=self._file_paths,
+                chunk_max_columns=20,
+                chunk_max_files=5,
+            )
         )
-        registry.register(
-            name=plan_tool.NAME,
-            description=plan_tool.get_definition()["function"]["description"],
-            parameters=plan_tool.get_definition()["function"]["parameters"],
-            handler=lambda args: plan_tool.run(args),
+        registry.register_tool(MergeResultsTool())
+        registry.register_tool(ScriptParseTool(self))
+        registry.register_tool(ConfigGenerateTool(self))
+        registry.register_tool(
+            ConfigValidateTool(
+                file_paths=self._file_paths,
+                profiling_data=self._profiling_data,
+                sample_size=validation_sample_size,
+            )
         )
-
-        merge_tool = MergeResultsTool()
-        registry.register(
-            name=merge_tool.NAME,
-            description=merge_tool.get_definition()["function"]["description"],
-            parameters=merge_tool.get_definition()["function"]["parameters"],
-            handler=lambda args: merge_tool.run(args),
-        )
-
-        parse_tool = ScriptParseTool(self)
-        registry.register(
-            name=parse_tool.NAME,
-            description=parse_tool.get_definition()["function"]["description"],
-            parameters=parse_tool.get_definition()["function"]["parameters"],
-            handler=lambda args: parse_tool.run(args),
-        )
-
-        generate_tool = ConfigGenerateTool(self)
-        registry.register(
-            name=generate_tool.NAME,
-            description=generate_tool.get_definition()["function"]["description"],
-            parameters=generate_tool.get_definition()["function"]["parameters"],
-            handler=lambda args: generate_tool.run(args),
-        )
-
-        validate_tool = ConfigValidateTool(
-            file_paths=self._file_paths,
-            profiling_data=self._profiling_data,
-            sample_size=validation_sample_size,
-        )
-        registry.register(
-            name=validate_tool.NAME,
-            description=validate_tool.get_definition()["function"]["description"],
-            parameters=validate_tool.get_definition()["function"]["parameters"],
-            handler=lambda args: validate_tool.run(args),
-        )
-
-        refine_tool = ConfigRefineTool(self)
-        registry.register(
-            name=refine_tool.NAME,
-            description=refine_tool.get_definition()["function"]["description"],
-            parameters=refine_tool.get_definition()["function"]["parameters"],
-            handler=lambda args: refine_tool.run(args),
-        )
+        registry.register_tool(ConfigRefineTool(self))
 
         return registry
 

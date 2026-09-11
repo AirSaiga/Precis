@@ -61,54 +61,26 @@ def create_agent_registry(
 
     registry = ToolRegistry()
 
-    plan_tool = PlanChunksTool(
-        profiling_data=service._profiling_data,
-        file_paths=service._file_paths,
-        chunk_max_columns=chunk_max_columns,
-        chunk_max_files=chunk_max_files,
+    # 工具注册统一走 register_tool（name/description/parameters/handler 自动提取）
+    registry.register_tool(
+        PlanChunksTool(
+            profiling_data=service._profiling_data,
+            file_paths=service._file_paths,
+            chunk_max_columns=chunk_max_columns,
+            chunk_max_files=chunk_max_files,
+        )
     )
-    registry.register(
-        name=plan_tool.NAME,
-        description=plan_tool.get_definition()["function"]["description"],
-        parameters=plan_tool.get_definition()["function"]["parameters"],
-        handler=lambda args: plan_tool.run(args),
+    registry.register_tool(MergeResultsTool())
+    # generate/refine 工具持有 service 引用（工具内部回调 service 的生成/精修能力）
+    registry.register_tool(ConfigGenerateTool(service))
+    registry.register_tool(
+        ConfigValidateTool(
+            file_paths=service._file_paths,
+            profiling_data=service._profiling_data,
+            sample_size=validation_sample_size,
+        )
     )
-
-    merge_tool = MergeResultsTool()
-    registry.register(
-        name=merge_tool.NAME,
-        description=merge_tool.get_definition()["function"]["description"],
-        parameters=merge_tool.get_definition()["function"]["parameters"],
-        handler=lambda args: merge_tool.run(args),
-    )
-
-    generate_tool = ConfigGenerateTool(service)
-    registry.register(
-        name=generate_tool.NAME,
-        description=generate_tool.get_definition()["function"]["description"],
-        parameters=generate_tool.get_definition()["function"]["parameters"],
-        handler=lambda args: generate_tool.run(args),
-    )
-
-    validate_tool = ConfigValidateTool(
-        file_paths=service._file_paths,
-        profiling_data=service._profiling_data,
-        sample_size=validation_sample_size,
-    )
-    registry.register(
-        name=validate_tool.NAME,
-        description=validate_tool.get_definition()["function"]["description"],
-        parameters=validate_tool.get_definition()["function"]["parameters"],
-        handler=lambda args: validate_tool.run(args),
-    )
-
-    refine_tool = ConfigRefineTool(service)
-    registry.register(
-        name=refine_tool.NAME,
-        description=refine_tool.get_definition()["function"]["description"],
-        parameters=refine_tool.get_definition()["function"]["parameters"],
-        handler=lambda args: refine_tool.run(args),
-    )
+    registry.register_tool(ConfigRefineTool(service))
 
     return registry
 

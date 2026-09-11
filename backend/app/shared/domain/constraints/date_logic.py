@@ -252,377 +252,11 @@ class DateLogicConstraint(Constraint):
         # 将目标列转换为 pandas 日期时间类型，无法转换的变为 NaT（Not a Time）
         target_series = pd.to_datetime(df[self.column], errors="coerce")
 
-        # ============================================================================
-        # 比较模式: 比较日期与参考值
-        # ============================================================================
+        # 模式分发：比较/计算两大分支的实现见 _validate_compare / _validate_calculation
         if self.logic_mode == "compare":
-            # 回归 D2: compare_op 默认 None 时,compare 模式回退到 gt(保持历史行为)。
-            # calculation 模式的默认由各计算分支自行解析(age→gte、days_diff→eq)。
-            cmp_op = self.compare_op or "gt"
-            start_values, start_errors = self._resolve_compare_boundary(df, "reference_date", "reference_column")
-            if start_errors:
-                errors.extend(start_errors)
-                return {"errors": errors, "info": self.get_constraint_info()}
-
-            # range 模式需要单独解析终点边界
-            if cmp_op == "range":
-                start_is_date = bool(self.reference_date)
-                end_is_date = bool(self.reference_date_end)
-                if start_values is None or (start_is_date != end_is_date):
-                    errors.append(
-                        {
-                            "error_type": "ConstraintConfigError",
-                            "table": self.table,
-                            "column": self.column,
-                            "message": "日期逻辑约束失败: range 模式必须同时指定起点和终点，且两者类型一致（同为固定日期或同为列引用）。",
-                        }
-                    )
-                    return {"errors": errors, "info": self.get_constraint_info()}
-
-                end_values, end_errors = self._resolve_compare_boundary(
-                    df, "reference_date_end", "reference_column_end", "终点"
-                )
-                if end_errors:
-                    errors.extend(end_errors)
-                    return {"errors": errors, "info": self.get_constraint_info()}
-                if end_values is None:
-                    errors.append(
-                        {
-                            "error_type": "ConstraintConfigError",
-                            "table": self.table,
-                            "column": self.column,
-                            "message": "日期逻辑约束失败: range 模式必须指定终点（reference_date_end 或 reference_column_end）。",
-                        }
-                    )
-                    return {"errors": errors, "info": self.get_constraint_info()}
-
-                # 创建有效值掩码: 目标值、起点、终点都必须是非空的有效日期
-                mask_valid = target_series.notna()
-                if isinstance(start_values, pd.Series):
-                    mask_valid &= start_values.notna()
-                if isinstance(end_values, pd.Series):
-                    mask_valid &= end_values.notna()
-
-                # 闭区间: start <= value <= end
-                mask_fail = pd.Series(False, index=df.index, dtype=bool)
-                if not isinstance(start_values, pd.Series) and not isinstance(end_values, pd.Series):
-                    mask_fail[mask_valid] = ~(
-                        (target_series[mask_valid] >= start_values) & (target_series[mask_valid] <= end_values)
-                    )
-                elif isinstance(start_values, pd.Series) and not isinstance(end_values, pd.Series):
-                    mask_fail[mask_valid] = ~(
-                        (target_series[mask_valid] >= start_values[mask_valid])
-                        & (target_series[mask_valid] <= end_values)
-                    )
-                elif not isinstance(start_values, pd.Series) and isinstance(end_values, pd.Series):
-                    mask_fail[mask_valid] = ~(
-                        (target_series[mask_valid] >= start_values)
-                        & (target_series[mask_valid] <= end_values[mask_valid])
-                    )
-                else:
-                    mask_fail[mask_valid] = ~(
-                        (target_series[mask_valid] >= start_values[mask_valid])
-                        & (target_series[mask_valid] <= end_values[mask_valid])
-                    )
-
-                # 收集失败的行并生成错误记录
-                failed_indices = df.index[mask_fail]
-                for idx in failed_indices:
-                    val = df.at[idx, self.column]
-                    start_val = df.at[idx, self.reference_column] if self.reference_column else self.reference_date
-                    end_val = (
-                        df.at[idx, self.reference_column_end] if self.reference_column_end else self.reference_date_end
-                    )
-                    errors.append(
-                        {
-                            "error_type": "DateLogicError",
-                            "table": self.table,
-                            "row_index": int(idx),
-                            "column": self.column,
-                            "value": str(val),
-                            "message": f"日期范围校验失败: {val} 不在 [{start_val}, {end_val}] 范围内",
-                        }
-                    )
-            else:
-                # 非 range 模式沿用单边界逻辑
-                if start_values is None:
-                    errors.append(
-                        {
-                            "error_type": "ConstraintConfigError",
-                            "table": self.table,
-                            "message": "日期逻辑约束失败: 比较模式必须指定 reference_column 或 reference_date。",
-                        }
-                    )
-                    return {"errors": errors, "info": self.get_constraint_info()}
-
-                ref_values = start_values
-
-                # 创建有效值掩码: 目标值和参考值都必须是非空的有效日期
-                mask_valid = target_series.notna()
-                if isinstance(ref_values, pd.Series):
-                    mask_valid &= ref_values.notna()
-
-                # 初始化失败掩码（全 False）
-                mask_fail = pd.Series(False, index=df.index, dtype=bool)
-
-                # 根据比较操作符判断哪些行不满足条件
-                # ~ 表示取反，即"不满足比较条件"
-                if cmp_op == "gt":
-                    mask_fail[mask_valid] = ~(
-                        target_series[mask_valid] > ref_values
-                        if not isinstance(ref_values, pd.Series)
-                        else target_series[mask_valid] > ref_values[mask_valid]
-                    )
-                elif cmp_op == "lt":
-                    mask_fail[mask_valid] = ~(
-                        target_series[mask_valid] < ref_values
-                        if not isinstance(ref_values, pd.Series)
-                        else target_series[mask_valid] < ref_values[mask_valid]
-                    )
-                elif cmp_op == "gte":
-                    mask_fail[mask_valid] = ~(
-                        target_series[mask_valid] >= ref_values
-                        if not isinstance(ref_values, pd.Series)
-                        else target_series[mask_valid] >= ref_values[mask_valid]
-                    )
-                elif cmp_op == "lte":
-                    mask_fail[mask_valid] = ~(
-                        target_series[mask_valid] <= ref_values
-                        if not isinstance(ref_values, pd.Series)
-                        else target_series[mask_valid] <= ref_values[mask_valid]
-                    )
-                elif cmp_op == "eq":
-                    mask_fail[mask_valid] = ~(
-                        target_series[mask_valid] == ref_values
-                        if not isinstance(ref_values, pd.Series)
-                        else target_series[mask_valid] == ref_values[mask_valid]
-                    )
-                else:
-                    errors.append(
-                        {
-                            "error_type": "ConstraintConfigError",
-                            "table": self.table,
-                            "column": self.column,
-                            "message": f"日期逻辑约束失败: 不支持比较操作符 '{cmp_op}'，支持的操作符为 gt/gte/lt/lte/eq/range。",
-                        }
-                    )
-                    return {"errors": errors, "info": self.get_constraint_info()}
-
-                # 收集失败的行并生成错误记录
-                failed_indices = df.index[mask_fail]
-                for idx in failed_indices:
-                    val = df.at[idx, self.column]
-                    ref_val = df.at[idx, self.reference_column] if self.reference_column else self.reference_date
-                    errors.append(
-                        {
-                            "error_type": "DateLogicError",
-                            "table": self.table,
-                            "row_index": int(idx),
-                            "column": self.column,
-                            "value": str(val),
-                            "message": f"日期比较失败: {val} 应该 {cmp_op} {ref_val}",
-                        }
-                    )
-
-        # ============================================================================
-        # 计算模式: 基于日期进行计算
-        # ============================================================================
+            errors = self._validate_compare(df, target_series)
         elif self.logic_mode == "calculation":
-            if self.calculation_type == "age":
-                # 年龄计算: 计算从出生日期到参考日期的年龄
-                ref_date = pd.Timestamp.now()
-                if self.reference_date:
-                    ref_date = pd.to_datetime(self.reference_date, errors="coerce")
-
-                if pd.isna(ref_date):
-                    errors.append(
-                        {
-                            "error_type": "ConstraintConfigError",
-                            "table": self.table,
-                            "message": "日期计算模式失败: 无效的参考日期。",
-                        }
-                    )
-                    return {"errors": errors, "info": self.get_constraint_info()}
-
-                # 只处理非空日期
-                mask_valid = target_series.notna()
-
-                def calculate_age(born: pd.Timestamp) -> int | None:
-                    """计算年龄: 年份差，再根据是否过生日调整"""
-                    if pd.isna(born):
-                        return None
-                    # 年份相减，如果还没到今年的生日则再减1
-                    return (
-                        int(ref_date.year) - int(born.year) - ((ref_date.month, ref_date.day) < (born.month, born.day))
-                    )
-
-                # 对有效日期计算年龄
-                ages = target_series[mask_valid].apply(calculate_age)
-
-                # 与目标值比较
-                if self.target_value is not None:
-                    try:
-                        target_age = float(self.target_value)
-                        op = self.compare_op or "gte"
-                        if op == "gt":
-                            mask_fail_local = ages <= target_age
-                        elif op == "lt":
-                            mask_fail_local = ages >= target_age
-                        elif op == "lte":
-                            mask_fail_local = ages > target_age
-                        elif op == "eq":
-                            mask_fail_local = ages != target_age
-                        else:
-                            mask_fail_local = ages < target_age
-                        op_desc = {"gt": "大于", "lt": "小于", "gte": "大于等于", "lte": "小于等于", "eq": "等于"}.get(
-                            op, "大于等于"
-                        )
-                        failed_indices = mask_fail_local[mask_fail_local].index
-                        for idx in failed_indices:
-                            val = df.at[idx, self.column]
-                            age = ages[idx]
-                            errors.append(
-                                {
-                                    "error_type": "DateLogicError",
-                                    "table": self.table,
-                                    "row_index": int(idx),
-                                    "column": self.column,
-                                    "value": str(val),
-                                    "message": f"年龄检查失败: {val} (年龄 {age}) 不满足条件 ({op_desc} {target_age})",
-                                }
-                            )
-                    except ValueError as e:
-                        errors.append(
-                            {
-                                "error_type": "ConstraintConfigError",
-                                "table": self.table,
-                                "column": self.column,
-                                "message": f"日期计算模式的目标值「{self.target_value}」无法转换为数字（{str(e)}），请检查约束配置",
-                            }
-                        )
-                else:
-                    # 回归: 缺少 target_value 必须报配置错误。原实现静默零错误通过（fail-open），
-                    # 用户漏配目标值时误以为年龄约束已生效。
-                    errors.append(
-                        {
-                            "error_type": "ConstraintConfigError",
-                            "table": self.table,
-                            "column": self.column,
-                            "message": "日期计算模式配置错误: calculation_type=age 必须指定 target_value。",
-                        }
-                    )
-
-            elif self.calculation_type == "days_diff":
-                # 天数差计算: 计算两个日期列之间的天数差
-                if self.target_column and self.target_column not in df.columns:
-                    errors.append(
-                        {
-                            "error_type": "ConstraintConfigError",
-                            "table": self.table,
-                            "column": self.target_column,
-                            "message": f"日期计算模式失败: 参考列 '{self.target_column}' 不在表 '{self.table}' 中。",
-                        }
-                    )
-                    return {"errors": errors, "info": self.get_constraint_info()}
-
-                mask_valid = target_series.notna()
-
-                if self.target_column:
-                    # 将参考列也转为日期类型
-                    ref_series = pd.to_datetime(df[self.target_column], errors="coerce")
-                    # 双方都必须有效
-                    mask_valid &= ref_series.notna()
-
-                    # 计算天数差的绝对值
-                    diff_days = (target_series[mask_valid] - ref_series[mask_valid]).abs().dt.days
-
-                    # 与目标值比较（接入 compare_op，过去硬编码 != 导致只能严格等于）
-                    if self.target_value is not None:
-                        try:
-                            expected_diff = int(self.target_value)
-                            # 与 age 分支保持一致的比较语义
-                            op = self.compare_op or "eq"
-                            if op == "gt":
-                                mask_fail_local = diff_days <= expected_diff
-                            elif op == "lt":
-                                mask_fail_local = diff_days >= expected_diff
-                            elif op == "gte":
-                                mask_fail_local = diff_days < expected_diff
-                            elif op == "lte":
-                                mask_fail_local = diff_days > expected_diff
-                            elif op == "eq":
-                                mask_fail_local = diff_days != expected_diff
-                            else:
-                                # 未知 op 回退到 eq 语义（与 age 分支一致）
-                                mask_fail_local = diff_days != expected_diff
-                            op_desc = {
-                                "gt": "大于",
-                                "lt": "小于",
-                                "gte": "大于等于",
-                                "lte": "小于等于",
-                                "eq": "等于",
-                            }.get(op, "等于")
-                            failed_indices = mask_fail_local[mask_fail_local].index
-                            for idx in failed_indices:
-                                val = df.at[idx, self.column]
-                                ref_val = df.at[idx, self.target_column]
-                                actual = diff_days[idx]
-                                errors.append(
-                                    {
-                                        "error_type": "DateLogicError",
-                                        "table": self.table,
-                                        "row_index": int(idx),
-                                        "column": self.column,
-                                        "value": str(val),
-                                        "message": f"天数差计算结果与目标不符: {val} vs {ref_val}，要求 {op_desc} {expected_diff} 天，实际 {actual} 天",
-                                    }
-                                )
-                        except ValueError as e:
-                            errors.append(
-                                {
-                                    "error_type": "ConstraintConfigError",
-                                    "table": self.table,
-                                    "column": self.column,
-                                    "message": f"target_value 转换失败: '{self.target_value}' 无法转换为整数 - {str(e)}",
-                                }
-                            )
-                    else:
-                        # 回归: 缺少 target_value 必须报配置错误（与 age 分支同口径的 fail-closed 守卫）
-                        errors.append(
-                            {
-                                "error_type": "ConstraintConfigError",
-                                "table": self.table,
-                                "column": self.column,
-                                "message": "日期计算模式配置错误: calculation_type=days_diff 必须指定 target_value。",
-                            }
-                        )
-                else:
-                    # 回归: 缺少 target_column 必须报配置错误。原实现整段跳过静默零错误通过（fail-open），
-                    # 与同分支缺 target_value 的守卫（上方 else）及未知 calculation_type 守卫不对称。
-                    errors.append(
-                        {
-                            "error_type": "ConstraintConfigError",
-                            "table": self.table,
-                            "column": self.column,
-                            "message": "日期计算模式配置错误: calculation_type=days_diff 必须指定 target_column（参考列）。",
-                        }
-                    )
-
-            else:
-                # 回归: 未识别的 calculation_type 必须报配置错误。原实现 age/days_diff
-                # 都不匹配时静默零错误通过（fail-open），拼错的类型名让约束形同虚设。
-                errors.append(
-                    {
-                        "error_type": "ConstraintConfigError",
-                        "table": self.table,
-                        "column": self.column,
-                        "message": (
-                            f"日期计算模式配置错误: 未知的 calculation_type '{self.calculation_type}'，"
-                            "支持的类型为: age, days_diff。"
-                        ),
-                    }
-                )
-
+            errors = self._validate_calculation(df, target_series)
         else:
             # 回归: 未识别的 logic_mode 必须报配置错误。原实现 compare/calculation
             # 都不匹配时静默零错误通过（fail-open），拼错的模式名让约束形同虚设。
@@ -640,3 +274,392 @@ class DateLogicConstraint(Constraint):
             )
 
         return {"errors": errors, "info": self.get_constraint_info()}
+
+    def _validate_compare(self, df: pd.DataFrame, target_series: pd.Series) -> list[dict[str, Any]]:
+        """
+        @methoddesc 比较模式校验：比较目标日期列与参考值（单边界或 range 区间）
+
+        参数:
+            df: 目标表 DataFrame
+            target_series: 已转为 datetime 的目标列（无效值为 NaT）
+
+        返回:
+            错误记录列表（配置错误或逐行违规）
+        """
+        errors: list[dict[str, Any]] = []
+
+        # 回归 D2: compare_op 默认 None 时,compare 模式回退到 gt(保持历史行为)。
+        # calculation 模式的默认由各计算分支自行解析(age→gte、days_diff→eq)。
+        cmp_op = self.compare_op or "gt"
+        start_values, start_errors = self._resolve_compare_boundary(df, "reference_date", "reference_column")
+        if start_errors:
+            errors.extend(start_errors)
+            return errors
+
+        # range 模式需要单独解析终点边界
+        if cmp_op == "range":
+            start_is_date = bool(self.reference_date)
+            end_is_date = bool(self.reference_date_end)
+            if start_values is None or (start_is_date != end_is_date):
+                errors.append(
+                    {
+                        "error_type": "ConstraintConfigError",
+                        "table": self.table,
+                        "column": self.column,
+                        "message": "日期逻辑约束失败: range 模式必须同时指定起点和终点，且两者类型一致（同为固定日期或同为列引用）。",
+                    }
+                )
+                return errors
+
+            end_values, end_errors = self._resolve_compare_boundary(
+                df, "reference_date_end", "reference_column_end", "终点"
+            )
+            if end_errors:
+                errors.extend(end_errors)
+                return errors
+            if end_values is None:
+                errors.append(
+                    {
+                        "error_type": "ConstraintConfigError",
+                        "table": self.table,
+                        "column": self.column,
+                        "message": "日期逻辑约束失败: range 模式必须指定终点（reference_date_end 或 reference_column_end）。",
+                    }
+                )
+                return errors
+
+            # 创建有效值掩码: 目标值、起点、终点都必须是非空的有效日期
+            mask_valid = target_series.notna()
+            if isinstance(start_values, pd.Series):
+                mask_valid &= start_values.notna()
+            if isinstance(end_values, pd.Series):
+                mask_valid &= end_values.notna()
+
+            # 闭区间: start <= value <= end
+            mask_fail = pd.Series(False, index=df.index, dtype=bool)
+            if not isinstance(start_values, pd.Series) and not isinstance(end_values, pd.Series):
+                mask_fail[mask_valid] = ~(
+                    (target_series[mask_valid] >= start_values) & (target_series[mask_valid] <= end_values)
+                )
+            elif isinstance(start_values, pd.Series) and not isinstance(end_values, pd.Series):
+                mask_fail[mask_valid] = ~(
+                    (target_series[mask_valid] >= start_values[mask_valid]) & (target_series[mask_valid] <= end_values)
+                )
+            elif not isinstance(start_values, pd.Series) and isinstance(end_values, pd.Series):
+                mask_fail[mask_valid] = ~(
+                    (target_series[mask_valid] >= start_values) & (target_series[mask_valid] <= end_values[mask_valid])
+                )
+            else:
+                mask_fail[mask_valid] = ~(
+                    (target_series[mask_valid] >= start_values[mask_valid])
+                    & (target_series[mask_valid] <= end_values[mask_valid])
+                )
+
+            # 收集失败的行并生成错误记录
+            failed_indices = df.index[mask_fail]
+            for idx in failed_indices:
+                val = df.at[idx, self.column]
+                start_val = df.at[idx, self.reference_column] if self.reference_column else self.reference_date
+                end_val = (
+                    df.at[idx, self.reference_column_end] if self.reference_column_end else self.reference_date_end
+                )
+                errors.append(
+                    {
+                        "error_type": "DateLogicError",
+                        "table": self.table,
+                        "row_index": int(idx),
+                        "column": self.column,
+                        "value": str(val),
+                        "message": f"日期范围校验失败: {val} 不在 [{start_val}, {end_val}] 范围内",
+                    }
+                )
+        else:
+            # 非 range 模式沿用单边界逻辑
+            if start_values is None:
+                errors.append(
+                    {
+                        "error_type": "ConstraintConfigError",
+                        "table": self.table,
+                        "message": "日期逻辑约束失败: 比较模式必须指定 reference_column 或 reference_date。",
+                    }
+                )
+                return errors
+
+            ref_values = start_values
+
+            # 创建有效值掩码: 目标值和参考值都必须是非空的有效日期
+            mask_valid = target_series.notna()
+            if isinstance(ref_values, pd.Series):
+                mask_valid &= ref_values.notna()
+
+            # 初始化失败掩码（全 False）
+            mask_fail = pd.Series(False, index=df.index, dtype=bool)
+
+            # 根据比较操作符判断哪些行不满足条件
+            # ~ 表示取反，即"不满足比较条件"
+            if cmp_op == "gt":
+                mask_fail[mask_valid] = ~(
+                    target_series[mask_valid] > ref_values
+                    if not isinstance(ref_values, pd.Series)
+                    else target_series[mask_valid] > ref_values[mask_valid]
+                )
+            elif cmp_op == "lt":
+                mask_fail[mask_valid] = ~(
+                    target_series[mask_valid] < ref_values
+                    if not isinstance(ref_values, pd.Series)
+                    else target_series[mask_valid] < ref_values[mask_valid]
+                )
+            elif cmp_op == "gte":
+                mask_fail[mask_valid] = ~(
+                    target_series[mask_valid] >= ref_values
+                    if not isinstance(ref_values, pd.Series)
+                    else target_series[mask_valid] >= ref_values[mask_valid]
+                )
+            elif cmp_op == "lte":
+                mask_fail[mask_valid] = ~(
+                    target_series[mask_valid] <= ref_values
+                    if not isinstance(ref_values, pd.Series)
+                    else target_series[mask_valid] <= ref_values[mask_valid]
+                )
+            elif cmp_op == "eq":
+                mask_fail[mask_valid] = ~(
+                    target_series[mask_valid] == ref_values
+                    if not isinstance(ref_values, pd.Series)
+                    else target_series[mask_valid] == ref_values[mask_valid]
+                )
+            else:
+                errors.append(
+                    {
+                        "error_type": "ConstraintConfigError",
+                        "table": self.table,
+                        "column": self.column,
+                        "message": f"日期逻辑约束失败: 不支持比较操作符 '{cmp_op}'，支持的操作符为 gt/gte/lt/lte/eq/range。",
+                    }
+                )
+                return errors
+
+            # 收集失败的行并生成错误记录
+            failed_indices = df.index[mask_fail]
+            for idx in failed_indices:
+                val = df.at[idx, self.column]
+                ref_val = df.at[idx, self.reference_column] if self.reference_column else self.reference_date
+                errors.append(
+                    {
+                        "error_type": "DateLogicError",
+                        "table": self.table,
+                        "row_index": int(idx),
+                        "column": self.column,
+                        "value": str(val),
+                        "message": f"日期比较失败: {val} 应该 {cmp_op} {ref_val}",
+                    }
+                )
+
+        return errors
+
+    def _validate_calculation(self, df: pd.DataFrame, target_series: pd.Series) -> list[dict[str, Any]]:
+        """
+        @methoddesc 计算模式校验：基于日期计算（age 年龄 / days_diff 天数差）后与目标值比较
+
+        参数:
+            df: 目标表 DataFrame
+            target_series: 已转为 datetime 的目标列（无效值为 NaT）
+
+        返回:
+            错误记录列表（配置错误或逐行违规）
+        """
+        errors: list[dict[str, Any]] = []
+
+        if self.calculation_type == "age":
+            # 年龄计算: 计算从出生日期到参考日期的年龄
+            ref_date = pd.Timestamp.now()
+            if self.reference_date:
+                ref_date = pd.to_datetime(self.reference_date, errors="coerce")
+
+            if pd.isna(ref_date):
+                errors.append(
+                    {
+                        "error_type": "ConstraintConfigError",
+                        "table": self.table,
+                        "message": "日期计算模式失败: 无效的参考日期。",
+                    }
+                )
+                return errors
+
+            # 只处理非空日期
+            mask_valid = target_series.notna()
+
+            def calculate_age(born: pd.Timestamp) -> int | None:
+                """计算年龄: 年份差，再根据是否过生日调整"""
+                if pd.isna(born):
+                    return None
+                # 年份相减，如果还没到今年的生日则再减1
+                return int(ref_date.year) - int(born.year) - ((ref_date.month, ref_date.day) < (born.month, born.day))
+
+            # 对有效日期计算年龄
+            ages = target_series[mask_valid].apply(calculate_age)
+
+            # 与目标值比较
+            if self.target_value is not None:
+                try:
+                    target_age = float(self.target_value)
+                    op = self.compare_op or "gte"
+                    if op == "gt":
+                        mask_fail_local = ages <= target_age
+                    elif op == "lt":
+                        mask_fail_local = ages >= target_age
+                    elif op == "lte":
+                        mask_fail_local = ages > target_age
+                    elif op == "eq":
+                        mask_fail_local = ages != target_age
+                    else:
+                        mask_fail_local = ages < target_age
+                    op_desc = {"gt": "大于", "lt": "小于", "gte": "大于等于", "lte": "小于等于", "eq": "等于"}.get(
+                        op, "大于等于"
+                    )
+                    failed_indices = mask_fail_local[mask_fail_local].index
+                    for idx in failed_indices:
+                        val = df.at[idx, self.column]
+                        age = ages[idx]
+                        errors.append(
+                            {
+                                "error_type": "DateLogicError",
+                                "table": self.table,
+                                "row_index": int(idx),
+                                "column": self.column,
+                                "value": str(val),
+                                "message": f"年龄检查失败: {val} (年龄 {age}) 不满足条件 ({op_desc} {target_age})",
+                            }
+                        )
+                except ValueError as e:
+                    errors.append(
+                        {
+                            "error_type": "ConstraintConfigError",
+                            "table": self.table,
+                            "column": self.column,
+                            "message": f"日期计算模式的目标值「{self.target_value}」无法转换为数字（{str(e)}），请检查约束配置",
+                        }
+                    )
+            else:
+                # 回归: 缺少 target_value 必须报配置错误。原实现静默零错误通过（fail-open），
+                # 用户漏配目标值时误以为年龄约束已生效。
+                errors.append(
+                    {
+                        "error_type": "ConstraintConfigError",
+                        "table": self.table,
+                        "column": self.column,
+                        "message": "日期计算模式配置错误: calculation_type=age 必须指定 target_value。",
+                    }
+                )
+
+        elif self.calculation_type == "days_diff":
+            # 天数差计算: 计算两个日期列之间的天数差
+            if self.target_column and self.target_column not in df.columns:
+                errors.append(
+                    {
+                        "error_type": "ConstraintConfigError",
+                        "table": self.table,
+                        "column": self.target_column,
+                        "message": f"日期计算模式失败: 参考列 '{self.target_column}' 不在表 '{self.table}' 中。",
+                    }
+                )
+                return errors
+
+            mask_valid = target_series.notna()
+
+            if self.target_column:
+                # 将参考列也转为日期类型
+                ref_series = pd.to_datetime(df[self.target_column], errors="coerce")
+                # 双方都必须有效
+                mask_valid &= ref_series.notna()
+
+                # 计算天数差的绝对值
+                diff_days = (target_series[mask_valid] - ref_series[mask_valid]).abs().dt.days
+
+                # 与目标值比较（接入 compare_op，过去硬编码 != 导致只能严格等于）
+                if self.target_value is not None:
+                    try:
+                        expected_diff = int(self.target_value)
+                        # 与 age 分支保持一致的比较语义
+                        op = self.compare_op or "eq"
+                        if op == "gt":
+                            mask_fail_local = diff_days <= expected_diff
+                        elif op == "lt":
+                            mask_fail_local = diff_days >= expected_diff
+                        elif op == "gte":
+                            mask_fail_local = diff_days < expected_diff
+                        elif op == "lte":
+                            mask_fail_local = diff_days > expected_diff
+                        elif op == "eq":
+                            mask_fail_local = diff_days != expected_diff
+                        else:
+                            # 未知 op 回退到 eq 语义（与 age 分支一致）
+                            mask_fail_local = diff_days != expected_diff
+                        op_desc = {
+                            "gt": "大于",
+                            "lt": "小于",
+                            "gte": "大于等于",
+                            "lte": "小于等于",
+                            "eq": "等于",
+                        }.get(op, "等于")
+                        failed_indices = mask_fail_local[mask_fail_local].index
+                        for idx in failed_indices:
+                            val = df.at[idx, self.column]
+                            ref_val = df.at[idx, self.target_column]
+                            actual = diff_days[idx]
+                            errors.append(
+                                {
+                                    "error_type": "DateLogicError",
+                                    "table": self.table,
+                                    "row_index": int(idx),
+                                    "column": self.column,
+                                    "value": str(val),
+                                    "message": f"天数差计算结果与目标不符: {val} vs {ref_val}，要求 {op_desc} {expected_diff} 天，实际 {actual} 天",
+                                }
+                            )
+                    except ValueError as e:
+                        errors.append(
+                            {
+                                "error_type": "ConstraintConfigError",
+                                "table": self.table,
+                                "column": self.column,
+                                "message": f"target_value 转换失败: '{self.target_value}' 无法转换为整数 - {str(e)}",
+                            }
+                        )
+                else:
+                    # 回归: 缺少 target_value 必须报配置错误（与 age 分支同口径的 fail-closed 守卫）
+                    errors.append(
+                        {
+                            "error_type": "ConstraintConfigError",
+                            "table": self.table,
+                            "column": self.column,
+                            "message": "日期计算模式配置错误: calculation_type=days_diff 必须指定 target_value。",
+                        }
+                    )
+            else:
+                # 回归: 缺少 target_column 必须报配置错误。原实现整段跳过静默零错误通过（fail-open），
+                # 与同分支缺 target_value 的守卫（上方 else）及未知 calculation_type 守卫不对称。
+                errors.append(
+                    {
+                        "error_type": "ConstraintConfigError",
+                        "table": self.table,
+                        "column": self.column,
+                        "message": "日期计算模式配置错误: calculation_type=days_diff 必须指定 target_column（参考列）。",
+                    }
+                )
+
+        else:
+            # 回归: 未识别的 calculation_type 必须报配置错误。原实现 age/days_diff
+            # 都不匹配时静默零错误通过（fail-open），拼错的类型名让约束形同虚设。
+            errors.append(
+                {
+                    "error_type": "ConstraintConfigError",
+                    "table": self.table,
+                    "column": self.column,
+                    "message": (
+                        f"日期计算模式配置错误: 未知的 calculation_type '{self.calculation_type}'，"
+                        "支持的类型为: age, days_diff。"
+                    ),
+                }
+            )
+
+        return errors

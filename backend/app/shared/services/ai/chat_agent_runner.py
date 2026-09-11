@@ -384,81 +384,57 @@ class ChatAgentRunner:
         """
         registry = ToolRegistry()
 
-        read_project_tool = ReadProjectTool(project_path=self.project_path)
-        registry.register(
-            name=read_project_tool.NAME,
-            description=read_project_tool.get_definition()["function"]["description"],
-            parameters=read_project_tool.get_definition()["function"]["parameters"],
-            handler=lambda args: read_project_tool.run(args),
-            args_model=MODEL_FOR_TOOL.get(read_project_tool.NAME),
+        # 工具注册统一走 register_tool；只读工具显式标 read_only（execute_many 并发分流）
+        registry.register_tool(
+            ReadProjectTool(project_path=self.project_path),
             read_only=True,
+            args_model=MODEL_FOR_TOOL.get(ReadProjectTool.NAME),
         )
-
-        read_table_tool = ReadTableTool(project_path=self.project_path)
-        registry.register(
-            name=read_table_tool.NAME,
-            description=read_table_tool.get_definition()["function"]["description"],
-            parameters=read_table_tool.get_definition()["function"]["parameters"],
-            handler=lambda args: read_table_tool.run(args),
-            args_model=MODEL_FOR_TOOL.get(read_table_tool.NAME),
+        registry.register_tool(
+            ReadTableTool(project_path=self.project_path),
             read_only=True,
+            args_model=MODEL_FOR_TOOL.get(ReadTableTool.NAME),
         )
 
         # 关键：apply_actions 注入 collected_instructions 共享引用 + 两阶段确认参数
         # 同时传入 user_message，用于工具内部做意图范围校验，防止 LLM 越界修改。
         # job_id 用于生成 apply_id（"{job_id}#{seq}"），每次 apply 创建独立确认控制器
         # apply_actions 是写盘工具（read_only 默认 False），execute_many 会串行化同轮多个 apply
-        apply_actions_tool = ApplyActionsTool(
-            project_path=self.project_path,
-            collected_instructions=self.collected_instructions,
-            dry_run_enabled=self.dry_run_enabled,
-            apply_callbacks=self.apply_callbacks,
-            job_id=self.job_id,
-            user_message=user_message,
-        )
-        registry.register(
-            name=apply_actions_tool.NAME,
-            description=apply_actions_tool.get_definition()["function"]["description"],
-            parameters=apply_actions_tool.get_definition()["function"]["parameters"],
-            handler=lambda args: apply_actions_tool.run(args),
-            args_model=MODEL_FOR_TOOL.get(apply_actions_tool.NAME),
+        registry.register_tool(
+            ApplyActionsTool(
+                project_path=self.project_path,
+                collected_instructions=self.collected_instructions,
+                dry_run_enabled=self.dry_run_enabled,
+                apply_callbacks=self.apply_callbacks,
+                job_id=self.job_id,
+                user_message=user_message,
+            ),
+            args_model=MODEL_FOR_TOOL.get(ApplyActionsTool.NAME),
         )
 
-        validate_tool = ValidateTableTool(project_path=self.project_path)
-        registry.register(
-            name=validate_tool.NAME,
-            description=validate_tool.get_definition()["function"]["description"],
-            parameters=validate_tool.get_definition()["function"]["parameters"],
-            handler=lambda args: validate_tool.run(args),
-            args_model=MODEL_FOR_TOOL.get(validate_tool.NAME),
+        registry.register_tool(
+            ValidateTableTool(project_path=self.project_path),
             read_only=True,
+            args_model=MODEL_FOR_TOOL.get(ValidateTableTool.NAME),
         )
 
         # read_canvas：注入前端请求体携带的画布节点快照，供 LLM 查询画布真实状态
-        read_canvas_tool = ReadCanvasTool(canvas_nodes=self.canvas_nodes)
-        registry.register(
-            name=read_canvas_tool.NAME,
-            description=read_canvas_tool.get_definition()["function"]["description"],
-            parameters=read_canvas_tool.get_definition()["function"]["parameters"],
-            handler=lambda args: read_canvas_tool.run(args),
-            args_model=MODEL_FOR_TOOL.get(read_canvas_tool.NAME),
+        registry.register_tool(
+            ReadCanvasTool(canvas_nodes=self.canvas_nodes),
             read_only=True,
+            args_model=MODEL_FOR_TOOL.get(ReadCanvasTool.NAME),
         )
 
         # ask_user：交互问答工具，注入 ask_callbacks 与 dry_run_enabled
         # ask_user 不写盘（标 read_only），与其他工具同轮调用时并发安全
-        ask_tool = AskUserTool(
-            job_id=self.job_id,
-            ask_callbacks=self.ask_callbacks,
-            dry_run_enabled=self.dry_run_enabled,
-        )
-        registry.register(
-            name=ask_tool.NAME,
-            description=ask_tool.get_definition()["function"]["description"],
-            parameters=ask_tool.get_definition()["function"]["parameters"],
-            handler=lambda args: ask_tool.run(args),
-            args_model=MODEL_FOR_TOOL.get(ask_tool.NAME),
+        registry.register_tool(
+            AskUserTool(
+                job_id=self.job_id,
+                ask_callbacks=self.ask_callbacks,
+                dry_run_enabled=self.dry_run_enabled,
+            ),
             read_only=True,
+            args_model=MODEL_FOR_TOOL.get(AskUserTool.NAME),
         )
 
         return registry

@@ -502,7 +502,9 @@ class AIChatOrchestrator:
         """
         @methoddesc 处理 AI 返回的动作列表
 
-        包括歧义解析、预验证、执行和收集前端指令。
+        阶段编排（细节在各 _xxx_gate 阶段方法）：
+        6.1 歧义解析门（交互式 CLI）→ 6.2 预验证门（含交互确认与 all-or-nothing 拒绝）
+        → 6.3 fail-closed 确认门检查 + 执行 → 6.4 收集前端指令。
 
         参数:
             actions: 动作列表
@@ -520,59 +522,16 @@ class AIChatOrchestrator:
         action_results: list[dict[str, Any]] = []
 
         # 6.1 歧义解析（交互式 CLI 使用）
-        if options.enable_interactive and options.ambiguity_resolver:
-            self._notify_progress(options, "resolving", "解析表名歧义...")
-            should_continue = options.ambiguity_resolver(actions, project_path)
-            if not should_continue:
-                return ChatExecutionResult(
-                    success=True,
-                    reply=reply,
-                    actions=actions,
-                    updated_history=updated_history,
-                )
+        early = self._resolve_ambiguity_gate(actions, project_path, reply, options, updated_history)
+        if early is not None:
+            return early
 
         # 6.2 动作预验证
         if not options.skip_action_validation:
-            self._notify_progress(options, "validating", "验证操作...")
-            validator = ActionValidator(project_path)
-            validation_result_obj = validator.validate(actions)
-            validation_result = {
-                "has_errors": validation_result_obj.has_errors,
-                "has_warnings": validation_result_obj.has_warnings,
-                "valid_actions": validation_result_obj.valid_actions,
-            }
-
-            # 交互式确认
-            if options.enable_interactive and options.confirm_callback:
-                if options.pause_callback:
-                    options.pause_callback()
-                confirmed = options.confirm_callback(actions, reply)
-                if not confirmed:
-                    return ChatExecutionResult(
-                        success=True,
-                        reply=reply,
-                        actions=actions,
-                        updated_history=updated_history,
-                        validation_result=validation_result,
-                    )
-
-            # 校验失败处理：有 error 时直接返回失败 + 错误清单，不执行（all-or-nothing 语义）
-            # 修复 #5：旧逻辑 `if valid_actions:` 在全部非法时（valid_actions==[]）走 else
-            # 把原始的全部非法动作交给 process_actions 写盘，造成校验绕过。
-            if validation_result_obj.has_errors:
-                from app.shared.services.llm.actions.validation_types import format_validation_result
-
-                formatted = format_validation_result(validation_result_obj)
-                logger.warning(f"[chat_orchestrator] 预校验失败，拒绝执行：\n{formatted}")
-                return ChatExecutionResult(
-                    success=False,
-                    reply=f"这批修改没有全部通过检查，项目未做任何改动：\n{formatted}",
-                    actions=[],
-                    error=formatted,
-                    updated_history=updated_history,
-                    validation_result=validation_result,
-                )
-            actions = validation_result_obj.valid_actions
+            early, validated = self._validate_actions_gate(actions, project_path, reply, options, updated_history)
+            if early is not None:
+                return early
+            actions, validation_result = validated
 
         # 6.3 执行动作
         # B-sec: 无确认门环境(API 模式 enable_interactive=False 且无 confirm_callback)对写盘
@@ -618,6 +577,100 @@ class AIChatOrchestrator:
                     frontend_instructions.append(instructions)
 
         return actions, validation_result, action_results, frontend_instructions
+
+    def _resolve_ambiguity_gate(
+        self,
+        actions: list[dict[str, Any]],
+        project_path: str,
+        reply: str,
+        options: ChatOptions,
+        updated_history: list[dict[str, str]],
+    ) -> ChatExecutionResult | None:
+        """
+        @methoddesc 6.1 歧义解析门（交互式 CLI 使用）
+
+        调用方可选注入的 ambiguity_resolver 决定是否继续（如表名歧义时人工选择）。
+
+        返回:
+            调用方要求中止时返回"成功但不执行"的 ChatExecutionResult；继续执行返回 None
+        """
+        if not (options.enable_interactive and options.ambiguity_resolver):
+            return None
+
+        self._notify_progress(options, "resolving", "解析表名歧义...")
+        should_continue = options.ambiguity_resolver(actions, project_path)
+        if not should_continue:
+            return ChatExecutionResult(
+                success=True,
+                reply=reply,
+                actions=actions,
+                updated_history=updated_history,
+            )
+        return None
+
+    def _validate_actions_gate(
+        self,
+        actions: list[dict[str, Any]],
+        project_path: str,
+        reply: str,
+        options: ChatOptions,
+        updated_history: list[dict[str, str]],
+    ) -> tuple[ChatExecutionResult | None, tuple[list[dict[str, Any]], dict[str, Any]]]:
+        """
+        @methoddesc 6.2 动作预验证门
+
+        预验证动作合法性 → 交互确认（CLI）→ all-or-nothing 拒绝（有 error 不执行任何动作）。
+
+        返回:
+            (提前返回的 ChatExecutionResult 或 None, (过滤后的合法动作, 验证结果摘要))
+        """
+        self._notify_progress(options, "validating", "验证操作...")
+        validator = ActionValidator(project_path)
+        validation_result_obj = validator.validate(actions)
+        validation_result = {
+            "has_errors": validation_result_obj.has_errors,
+            "has_warnings": validation_result_obj.has_warnings,
+            "valid_actions": validation_result_obj.valid_actions,
+        }
+
+        # 交互确认
+        if options.enable_interactive and options.confirm_callback:
+            if options.pause_callback:
+                options.pause_callback()
+            confirmed = options.confirm_callback(actions, reply)
+            if not confirmed:
+                return (
+                    ChatExecutionResult(
+                        success=True,
+                        reply=reply,
+                        actions=actions,
+                        updated_history=updated_history,
+                        validation_result=validation_result,
+                    ),
+                    (actions, validation_result),
+                )
+
+        # 校验失败处理：有 error 时直接返回失败 + 错误清单，不执行（all-or-nothing 语义）
+        # 修复 #5：旧逻辑 `if valid_actions:` 在全部非法时（valid_actions==[]）走 else
+        # 把原始的全部非法动作交给 process_actions 写盘，造成校验绕过。
+        if validation_result_obj.has_errors:
+            from app.shared.services.llm.actions.validation_types import format_validation_result
+
+            formatted = format_validation_result(validation_result_obj)
+            logger.warning(f"[chat_orchestrator] 预校验失败，拒绝执行：\n{formatted}")
+            return (
+                ChatExecutionResult(
+                    success=False,
+                    reply=f"这批修改没有全部通过检查，项目未做任何改动：\n{formatted}",
+                    actions=[],
+                    error=formatted,
+                    updated_history=updated_history,
+                    validation_result=validation_result,
+                ),
+                (actions, validation_result),
+            )
+
+        return None, (validation_result_obj.valid_actions, validation_result)
 
 
 # =============================================================================
