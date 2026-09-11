@@ -300,7 +300,6 @@
     "src/i18n/locales/zh-CN/validation.ts",
     "src/i18n/locales/zh-CN/validationHistory.ts",
     "src/main.ts",
-    "src/services/aiChatInstructionService.ts",
     "src/services/builders/constraintBuilder.ts",
     "src/services/builders/index.ts",
     "src/services/builders/manifestBuilder.ts",

@@ -59,6 +59,13 @@ from .chunked_loader import ChunkedDataLoader
 from .data_loader import DataLoader
 from .engine import execute_dag_if_needed, validate_constraints, validate_full_dataset
 from .memory_monitor import MemoryMonitor
+from .postprocess import (
+    attach_source_info,
+    build_id_to_name_map,
+    build_table_source_map,
+    map_table_id,
+    postprocess_result,
+)
 from .progress import ProgressEvent
 from .resolver import DataSourceResolver
 
@@ -254,84 +261,22 @@ class ValidationExecutor:
         return bool(allow_eval and not sandbox_mode)
 
     def _build_table_source_map(self) -> dict[str, dict[str, str | None]]:
-        """
-        @methoddesc 构建表 ID 到数据源信息的映射字典
-
-        用于在校验结果中附加数据源文件名和 Sheet 名，
-        使前端能够显示"配置文件内定义的文件名+Sheet名"格式的位置信息。
-
-        返回:
-            映射字典，键为表 ID，值为 {"source_file": ..., "source_sheet": ...}
-        """
-        result: dict[str, dict[str, str | None]] = {}
-        for table_id, schema_file in self._schema_by_id.items():
-            source_file = None
-            source_sheet = None
-            if schema_file.source:
-                source_file = schema_file.source.path
-                source_sheet = schema_file.source.sheet
-            if not source_sheet and schema_file.sheet:
-                source_sheet = schema_file.sheet
-            result[table_id] = {"source_file": source_file, "source_sheet": source_sheet}
-        return result
+        """构建表 ID 到数据源信息的映射（委托 postprocess.build_table_source_map）。"""
+        return build_table_source_map(self._schema_by_id)
 
     @staticmethod
     def _attach_source_info(item: dict[str, Any], table_source_map: dict[str, dict[str, str | None]]) -> None:
-        """
-        @methoddesc 将数据源信息附加到错误/通过项字典中
-
-        根据 item 中的 table 或 table_id 查找对应的数据源配置，
-        并将 source_file 和 source_sheet 写入 item。
-
-        参数:
-            item: 包含 table/table_id 的字典（会被就地修改）
-            table_source_map: 表 ID → 数据源信息的映射
-        """
-        table_id = item.get("table_id") or item.get("table")
-        if table_id and table_id in table_source_map:
-            item["source_file"] = table_source_map[table_id]["source_file"]
-            item["source_sheet"] = table_source_map[table_id]["source_sheet"]
+        """将数据源信息附加到条目字典（委托 postprocess.attach_source_info）。"""
+        attach_source_info(item, table_source_map)
 
     @staticmethod
     def _build_id_to_name_map(dataset_schema: DataSetSchema) -> dict[str, str]:
-        """
-        @methoddesc 构建表 ID 到显示名称的映射字典
-
-        用于在校验结果中将内部表 ID 替换为用户友好的表名称。
-
-        参数:
-            dataset_schema: 数据集 Schema 定义
-
-        返回:
-            映射字典，键为表 ID，值为表显示名称
-        """
-        id_to_name: dict[str, str] = {}
-        if dataset_schema and dataset_schema.tables:
-            for tid, schema in dataset_schema.tables.items():
-                target_name = schema.name or tid
-                if schema.id:
-                    id_to_name[schema.id] = target_name
-                id_to_name[tid] = target_name
-        return id_to_name
+        """构建表 ID 到显示名称的映射（委托 postprocess.build_id_to_name_map）。"""
+        return build_id_to_name_map(dataset_schema)
 
     def _postprocess_result(self, result: dict[str, Any]) -> None:
-        id_to_name = self._build_id_to_name_map(self.dataset_schema)
-        table_source_map = self._build_table_source_map()
-
-        for error in result["errors"]:
-            self._map_table_id(error, id_to_name)
-            self._attach_source_info(error, table_source_map)
-        for error in result["loading_errors"]:
-            self._map_table_id(error, id_to_name)
-            self._attach_source_info(error, table_source_map)
-        if "format_checks" in result["validation_details"]:
-            for item in result["validation_details"]["format_checks"]:
-                self._map_table_id(item, id_to_name)
-                self._attach_source_info(item, table_source_map)
-        if "constraint_checks" in result["validation_details"]:
-            for item in result["validation_details"]["constraint_checks"]:
-                self._map_table_id(item, id_to_name)
-                self._attach_source_info(item, table_source_map)
+        """结果统一后处理（委托 postprocess.postprocess_result）。"""
+        postprocess_result(result, self.dataset_schema, self._schema_by_id)
 
     def _finalize_result(self, result: dict[str, Any], started: float) -> None:
         result["duration_ms"] = int((time.monotonic() - started) * 1000)
@@ -379,19 +324,8 @@ class ValidationExecutor:
 
     @staticmethod
     def _map_table_id(item: dict[str, Any], id_to_name: dict[str, str]) -> None:
-        """
-        @methoddesc 将错误信息中的表 ID 替换为表显示名称
-
-        就地修改传入的字典，将 table/from_table/to_table 字段中的
-        内部 ID 替换为用户可读的名称。
-
-        参数:
-            item: 包含表相关字段的错误信息字典
-            id_to_name: ID 到名称的映射字典
-        """
-        for key in ("table", "from_table", "to_table"):
-            if key in item and item[key] in id_to_name:
-                item[key] = id_to_name[item[key]]
+        """将条目中的表 ID 替换为表显示名称（委托 postprocess.map_table_id）。"""
+        map_table_id(item, id_to_name)
 
     def execute(
         self,
@@ -463,6 +397,33 @@ class ValidationExecutor:
             logger.info("检测到大文件，启用分块处理模式")
             return self._execute_chunked(data_directory, options, started, result, progress_callback)
 
+        # Step 2-8: 标准模式流水线（加载→校验→后处理→超时检查）
+        return self._execute_standard(data_directory, options, started, result, progress_callback)
+
+    def _execute_standard(
+        self,
+        data_directory: str,
+        options: ValidationOptions,
+        started: float,
+        result: dict[str, Any],
+        progress_callback: ProgressCallback | None = None,
+    ) -> dict[str, Any]:
+        """
+        @methoddesc 执行标准（非分块）模式校验流水线
+
+        承接 execute 的 Step 2-8：数据加载、加载阶段超时与空数据检查、
+        格式解析与约束校验、结果后处理、校验阶段超时检查。
+
+        参数:
+            data_directory: 数据文件所在目录
+            options: 校验执行选项
+            started: 开始时间（time.monotonic()）
+            result: 已初始化的结果字典（chunked_mode=False）
+            progress_callback: 可选进度回调
+
+        返回:
+            完整的校验结果字典
+        """
         # Step 2: 加载数据源（标准模式）
         raw_datasets, loading_errors = self._data_loader.load_data_sources(
             data_directory, table_filter=options.table_filter
@@ -721,7 +682,87 @@ class ValidationExecutor:
         # C6 遇错即停:error_handling="stop" 时,分块格式校验发现首个错误即停止后续分块
         stop_on_first_error = options.error_handling == "stop"
 
-        # 逐块执行校验，聚合结果
+        # 逐块执行格式解析（跳过约束），聚合各块结果
+        all_parsed_datasets, all_errors, all_validation_details, chunk_interrupted = self._parse_chunks_loop(
+            chunked_datasets,
+            options=options,
+            started=started,
+            total_rows=total_rows,
+            total_chunks=total_chunks,
+            allow_unsafe_eval=allow_unsafe_eval,
+            deadline=deadline,
+            stop_on_first_error=stop_on_first_error,
+            progress_callback=progress_callback,
+        )
+
+        # 合并分块解析结果并对全量数据执行 Transform DAG 与约束校验
+        self._apply_chunked_global_validation(
+            all_parsed_datasets,
+            all_errors,
+            all_validation_details,
+            result=result,
+            options=options,
+            allow_unsafe_eval=allow_unsafe_eval,
+            deadline=deadline,
+            stop_on_first_error=stop_on_first_error,
+            chunk_interrupted=chunk_interrupted,
+        )
+
+        # 结果后处理
+        self._postprocess_result(result)
+
+        # 检查总超时
+        if (time.monotonic() - started) > options.timeout_seconds:
+            result["timeout_occurred"] = True
+
+        # 进度：分块模式全部完成
+        self._emit_progress(
+            progress_callback,
+            started,
+            stage="done",
+            table=None,
+            chunk_total=total_chunks,
+            rows_done=total_rows,
+            rows_total=total_rows,
+            errors_so_far=len(result["errors"]),
+        )
+
+        self._finalize_result(result, started)
+        return result
+
+    def _parse_chunks_loop(
+        self,
+        chunked_datasets: dict[str, list[pd.DataFrame]],
+        options: ValidationOptions,
+        started: float,
+        total_rows: int,
+        total_chunks: int,
+        allow_unsafe_eval: bool,
+        deadline: float | None,
+        stop_on_first_error: bool,
+        progress_callback: ProgressCallback | None = None,
+    ) -> tuple[dict[str, list[pd.DataFrame]], list[dict], dict[str, list[dict]], bool]:
+        """
+        @methoddesc 逐块执行格式解析（跳过约束校验），聚合各块结果
+
+        【分块解析】每块只跑格式解析+派生列，跳过 Transform DAG 和约束校验；
+        行变 transform 与跨表/跨块约束都需要全局数据，由
+        _apply_chunked_global_validation 在 concat 全量后统一执行。
+        分块循环内按块边界触发进度回调（sparkline 主数据源）。
+
+        参数:
+            chunked_datasets: 表 ID → 分块 DataFrame 列表
+            options: 校验选项
+            started: 开始时间（time.monotonic()）
+            total_rows/total_chunks: 总行数与总分块数（进度事件用）
+            allow_unsafe_eval: 脚本执行权限
+            deadline: 校验阶段超时截止时间
+            stop_on_first_error: C6 遇错即停
+            progress_callback: 可选进度回调
+
+        返回:
+            (按表聚合的解析结果, 聚合错误列表, 聚合校验详情, 是否因 stop 中断)
+        """
         all_parsed_datasets: dict[str, list[pd.DataFrame]] = {}
         all_errors: list[dict] = []
         all_validation_details: dict[str, list[dict]] = {
@@ -771,7 +812,7 @@ class ValidationExecutor:
                     validation_details: dict[str, list[dict]]
                     # 【分块解析】每块只跑格式解析+派生列，跳过 Transform DAG 和约束校验。
                     # 行变 transform（FilterRows/DropDuplicates）与跨表/跨块约束都需要全局数据，
-                    # 在下方 concat 全量 parsed 后统一执行（execute_dag_if_needed + validate_constraints），
+                    # 在 concat 全量 parsed 后统一执行（execute_dag_if_needed + validate_constraints），
                     # 以避免分块模式下的结果错误（行变 transform 块内失效、FK 假阳性、Unique 假阴性）。
                     parsed_datasets, validation_errors, validation_details = validate_full_dataset(
                         {table_id: chunk_df},
@@ -846,17 +887,44 @@ class ValidationExecutor:
                     errors_so_far=len(all_errors),
                 )
 
-        # 合并分块的解析结果
-        # 【设计意图】分块仅用于"加载与格式解析省内存"；Transform DAG 与约束校验
-        # 都需要全局数据，因此在所有块解析完成后 concat 为全量 parsed，再统一执行。
+        return all_parsed_datasets, all_errors, all_validation_details, chunk_interrupted
+
+    def _apply_chunked_global_validation(
+        self,
+        all_parsed_datasets: dict[str, list[pd.DataFrame]],
+        all_errors: list[dict],
+        all_validation_details: dict[str, list[dict]],
+        result: dict[str, Any],
+        options: ValidationOptions,
+        allow_unsafe_eval: bool,
+        deadline: float | None,
+        stop_on_first_error: bool,
+        chunk_interrupted: bool,
+    ) -> None:
+        """
+        @methoddesc 合并分块解析结果并执行全量 DAG 与约束校验（就地写入 result）
+
+        【设计意图】分块仅用于"加载与格式解析省内存"；Transform DAG 与约束校验
+        都需要全局数据，因此在所有块解析完成后 concat 为全量 parsed，再统一执行。
+        行变 transform 在分块下逐块执行会导致结果与全量不一致，故 DAG 移到
+        concat 后统一执行；必须在约束校验之前，因约束可能依赖 transform 产生的
+        派生列。全量约束校验修复跨表 ForeignKey（不再缺目标表）与跨块 Unique
+        （整列去重）的正确性。
+
+        参数:
+            all_parsed_datasets/all_errors/all_validation_details: _parse_chunks_loop 的聚合输出
+            result: 校验结果字典（就地写入 parsed_datasets/errors/validation_details/interrupted）
+            options: 校验选项
+            allow_unsafe_eval: 脚本执行权限
+            deadline: 校验阶段超时截止时间
+            stop_on_first_error: C6 遇错即停
+            chunk_interrupted: 分块阶段是否已因 stop 中断（中断则跳过约束校验）
+        """
         merged_parsed: dict[str, pd.DataFrame] = {}
         for table_id, dfs in all_parsed_datasets.items():
             if dfs:
                 merged_parsed[table_id] = pd.concat(dfs, ignore_index=True)
 
-        # 【全量 Transform DAG】行变 transform（FilterRows/DropDuplicates/Aggregate）在
-        # 分块下逐块执行会导致结果与全量不一致，故 DAG 移到 concat 后统一执行。
-        # 必须在约束校验之前，因约束可能依赖 transform 产生的派生列。
         merged_parsed, dag_errors = execute_dag_if_needed(
             merged_parsed,
             transform_files=getattr(self.loaded_project, "transform_files", None) if self.loaded_project else None,
@@ -867,8 +935,6 @@ class ValidationExecutor:
         for dag_err in dag_errors:
             result["errors"].append({"stage": "loading", **dag_err})
 
-        # 【全量约束校验】对 concat（+DAG）后的全量 parsed 执行阶段二约束校验，
-        # 修复跨表 ForeignKey（不再缺目标表）与跨块 Unique（整列去重）的正确性。
         # C6: 若分块阶段已因 stop 中断,跳过约束校验(已停在前面的格式错误)。
         if merged_parsed and not chunk_interrupted:
             constraint_errors, constraint_details = validate_constraints(
@@ -895,28 +961,6 @@ class ValidationExecutor:
             stop_on_first_error and any(e.get("error_type") == "ValidationInterrupted" for e in all_errors)
         ):
             result["interrupted"] = True
-
-        # 结果后处理
-        self._postprocess_result(result)
-
-        # 检查总超时
-        if (time.monotonic() - started) > options.timeout_seconds:
-            result["timeout_occurred"] = True
-
-        # 进度：分块模式全部完成
-        self._emit_progress(
-            progress_callback,
-            started,
-            stage="done",
-            table=None,
-            chunk_total=total_chunks,
-            rows_done=total_rows,
-            rows_total=total_rows,
-            errors_so_far=len(result["errors"]),
-        )
-
-        self._finalize_result(result, started)
-        return result
 
 
 def create_executor(manifest_path: str, settings_override: dict[str, Any] | None = None) -> ValidationExecutor:
