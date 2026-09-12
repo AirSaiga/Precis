@@ -203,6 +203,7 @@ Precis/
 ├── e2e/            # Playwright E2E 测试
 ├── qa_test/        # 内置示例/测试数据（qa_simple 等）
 ├── scripts/        # 构建与部署脚本（完整启动指南见 scripts/README.md）
+├── docs/           # 架构参考（ARCHITECTURE.md，已入库）
 ├── AGENTS.md       # AI 辅助开发指南（详细的架构与规范）
 └── package.json    # Monorepo 脚本入口
 ```
@@ -219,7 +220,8 @@ Precis/
 - [CONTRIBUTING.md](CONTRIBUTING.md) — 贡献与开发流程
 - [SECURITY.md](SECURITY.md) — 安全说明
 - [AGENTS.md](AGENTS.md) — AI 辅助开发指南（架构与规范）
-- 各端详情：[backend](backend/README.md) · [frontend](frontend/README.md) · [electron](electron/README.md) · [tui-rust](tui-rust/README.md) · [scripts](scripts/README.md)
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — 架构实现细节参考（文件清单/调用图索引）
+- 各端详情：[backend](backend/README.md) · [frontend](frontend/README.md) · [electron](electron/README.md) · [tui-rust](tui-rust/README.md) · [scripts](scripts/README.md) · [e2e](e2e/README.md)
 
 ## 许可证
 
@@ -407,6 +409,7 @@ Precis/
 ├── e2e/            # Playwright E2E tests
 ├── qa_test/        # Built-in sample/test data (qa_simple etc.)
 ├── scripts/        # Build and deployment scripts (full startup guide in scripts/README.md)
+├── docs/           # Architecture reference (ARCHITECTURE.md, tracked in git)
 ├── AGENTS.md       # AI-assisted development guide (detailed architecture & conventions)
 └── package.json    # Monorepo script entry point
 ```
@@ -423,7 +426,8 @@ Precis/
 - [CONTRIBUTING.md](CONTRIBUTING.md) — Contributing & development workflow
 - [SECURITY.md](SECURITY.md) — Security notes
 - [AGENTS.md](AGENTS.md) — AI-assisted development guide (architecture & conventions)
-- Per-app details: [backend](backend/README.md) · [frontend](frontend/README.md) · [electron](electron/README.md) · [tui-rust](tui-rust/README.md) · [scripts](scripts/README.md)
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — Architecture implementation reference (file inventory & call-graph index)
+- Per-app details: [backend](backend/README.md) · [frontend](frontend/README.md) · [electron](electron/README.md) · [tui-rust](tui-rust/README.md) · [scripts](scripts/README.md) · [e2e](e2e/README.md)
 
 ## License
 

@@ -20,14 +20,23 @@ scripts/
 ├── build-tui.sh              # Mac 打包 TUI(Rust) 为自包含 tar.gz / Mac TUI packaging
 ├── README.md                 # 本文档 / This document
 │
+├── release.mjs                       # 版本发布脚本(npm run release)/ Release script
+├── release-gui.mjs + release-gui.html # 发布控制台 GUI(npm run release:gui)
+├── verify-release-assets.mjs         # CD 产物自检闸门 / Release asset verification
+├── extract-release-notes.mjs         # CD 提取 Release notes / Release notes extraction
+├── check-license-headers.mjs         # CI license 头守卫 / License header guard
+├── tests/                            # 发布脚本测试(npm run test:scripts)
+│
 ├── windows/                            # Windows 启动脚本 / Windows startup scripts
 │   ├── start.bat                       # 标准模式(Electron 自行 spawn 后端)/ Standard mode
 │   ├── start-dev.bat                   # 开发模式(后端 + Vite + Electron)/ Dev mode
 │   ├── start-backend.bat               # 仅启动后端 / Backend only
 │   ├── start-frontend.bat              # 仅启动前端 Vite / Frontend Vite only
 │   ├── start-electron.bat              # 仅启动 Electron / Electron only
+│   ├── start-electron-smoke.bat        # Electron 冒烟启动 / Electron smoke launch
 │   ├── start-cli.bat                   # 交互式 CLI / Interactive CLI
 │   ├── start-tui-rust.bat              # Rust TUI 终端界面 / Rust TUI
+│   ├── release-gui.bat                 # 发布控制台 GUI 入口 / Release GUI entry
 │   ├── free-port.bat                   # 端口清理工具(手动)/ Port cleanup (manual)
 │   └── clean-cache.ps1                 # 清理缓存 / Cache cleanup
 │
@@ -39,7 +48,8 @@ scripts/
     ├── start-frontend.sh               # 仅启动前端 Vite / Frontend Vite only
     ├── start-electron.sh               # 仅启动 Electron / Electron only
     ├── start-cli.sh                    # 交互式 CLI / Interactive CLI
-    └── start-tui-rust.sh               # Rust TUI 终端界面 / Rust TUI
+    ├── start-tui-rust.sh               # Rust TUI 终端界面 / Rust TUI
+    └── release-gui.sh                  # 发布控制台 GUI 入口 / Release GUI entry
 ```
 
 > Windows 和 Mac/Linux 的启动脚本一一对应。`free-port.bat`(端口清理)和 `clean-cache.ps1`(缓存清理)为 Windows 专属手动工具。Mac 脚本同样适用于 Linux。
@@ -147,7 +157,7 @@ npm run start:tui-rust:mac   # = start-tui-rust.sh
 | `start-frontend.{bat,sh}` | Vite 开发服务器 / Vite dev server | 5173 | 纯前端开发(无桌面壳)/ Frontend-only dev |
 | `start-electron.{bat,sh}` | 仅 Electron(需先起前后端)/ Electron only | — | 已手动启动前后端 / Backend + frontend already running |
 | `start-cli.{bat,sh}` | Python CLI | — | 命令行交互校验 / CLI validation |
-| `start-tui-rust.{bat,sh}` | Rust TUI(需先起后端)/ Rust TUI | — | 终端界面 / Terminal UI |
+| `start-tui-rust.{bat,sh}` | Rust TUI(自动复用已运行后端,无则由 TUI 自行拉起)/ Rust TUI (reuses a running backend, spawns its own otherwise) | — | 终端界面 / Terminal UI |
 
 > 注：启动脚本采用源码时间戳检测而非"产物存在即跳过"：产物戳早于受监视源文件（frontend：`src/`、`index.html`、`vite.config.ts`、`package.json`；electron：`src/`、`package.json`、`tsconfig.json`）任一最新修改时间即自动重建，新鲜则跳过。Windows 侧探测不可用时默认重建（fail-closed），构建失败输出日志尾部、删除半成品戳并非零退出。
 > Note: launchers use source-timestamp detection instead of "skip if artifacts exist": a rebuild triggers when the dist stamp is older than any watched source file (frontend: `src/`, `index.html`, `vite.config.ts`, `package.json`; electron: `src/`, `package.json`, `tsconfig.json`); fresh artifacts are skipped. On Windows the probe fails closed to "rebuild", and a failed build prints the log tail, drops the partial stamp, and exits non-zero.

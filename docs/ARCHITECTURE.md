@@ -14,8 +14,8 @@
 
 | 内容 | 真实位置 |
 |------|---------|
-| 约束三层命名映射(ConstraintKind ↔ ConstraintNodeType ↔ V2Type) | `frontend/src/services/constraints/constraintMeta.ts` 的 `CONSTRAINT_TYPES`(18-59 行),派生 `typeToMeta`/`kindToMeta` 索引。注:`validationRegistryCore.ts` 已拆分为 5 子模块并退化为 barrel re-export,不再直接定义 `CONSTRAINT_TYPES` |
-| Schema ID 生成方案 | `frontend/src/services/persistence/builders/schemaBuilder.ts`(277 行,`schemaId = node.id`);节点 ID 来自 `modules/factories/createBaseNodeFactory.ts`(uuid v4 或显式传入) |
+| 约束三层命名映射(ConstraintKind ↔ ConstraintNodeType ↔ V2Type) | `frontend/src/services/constraints/constraintMeta.ts` 的 `CONSTRAINT_TYPES`,派生 `typeToMeta`/`kindToMeta` 索引。注:`validationRegistryCore.ts` 已拆分为 5 子模块并退化为 barrel re-export,不再直接定义 `CONSTRAINT_TYPES` |
+| Schema ID 生成方案 | `frontend/src/services/persistence/builders/schemaBuilder.ts`(`schemaId = node.id`);节点 ID 来自 `modules/factories/createBaseNodeFactory.ts`(uuid v4 或显式传入) |
 | 约束校验执行入口 | `frontend/src/services/constraints/validationRegistryCore.ts` 的 `validateConstraintNode`(实际实现在拆分后的 `validationExecutors.ts`) |
 | V2 API 调用层 | `frontend/src/api/projectV2Api/`(目录,barrel 入口 `index.ts`) |
 | 删除节点实现 | `frontend/src/stores/graphStore/modules/nodeOps.ts` 的 `deleteNode`/`deleteNodes` |
@@ -188,12 +188,12 @@ loadProjectFromV2Config()
 
 ### 模板展开系统
 
-`templateInstance` 节点是可展开的约束模板容器。展开流程在 `modules/templateExpand.ts`:
+`templateInstance` 节点是可展开的约束模板容器。展开流程分两个文件：纯规划与节点数据构建在 `modules/templateExpandPlanning.ts`,工厂闭包(展开状态/布局/物化/折叠)在 `modules/templateExpand.ts`:
 
 ```
-expandOnCanvas(instanceNodeId)
-  ├── 1. collectExpandItems → 调用后端 expandV2Template() API
-  ├── 2. buildDagPlan → 构建 DAG 节点+边,插入 transformOutput/manualData
+expandOnCanvas(instanceNodeId)                    [templateExpand.ts]
+  ├── 1. collectExpandItems → 调用后端 expandV2Template() API   [templateExpandPlanning.ts]
+  ├── 2. buildDagPlan → 构建 DAG 节点+边,插入 transformOutput/manualData  [templateExpandPlanning.ts]
   ├── 3. computeLayout → 拓扑排序 + 计算位置
   ├── 4. materializeNodes → 创建子节点(parentNode=instanceNodeId, extent='parent')
   └── 5. materializeEdges → 创建内部边 + 回写 inputFromNode
@@ -274,7 +274,7 @@ expandOnCanvas(instanceNodeId)
 
 > ⚠️ `e2e/flows/` 目录,独立 `package.json` 与 `playwright.config.ts`。spec 数量会增长,以 `ls e2e/flows/*.spec.ts` 实测为准。
 
-按主题分组(当前 36 个 spec):
+按主题分组(当前 37 个 spec):
 
 | 主题 | spec 文件 |
 |------|----------|
@@ -292,6 +292,7 @@ expandOnCanvas(instanceNodeId)
 | 检查器/报告 | `inspector-batch.spec.ts`、`inspection-fix.spec.ts`、`report-history.spec.ts` |
 | 画布交互/回归 | `ui-canvas-interactions.spec.ts`、`canvas-interaction-regression.spec.ts`、`typography-regression.spec.ts` |
 | 模式切换/修复回归 | `mode-toggle.spec.ts`、`decision-fixes.spec.ts` |
+| 设置/手动数据 | `settings-and-manual-data.spec.ts` |
 | 全生命周期/roundtrip | `full-lifecycle.spec.ts`、`roundtrip.spec.ts` |
 | 健康检查/CORS | `health.spec.ts` |
 | 正则校验 | `regex-validation.spec.ts` |

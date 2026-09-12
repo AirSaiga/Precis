@@ -8,7 +8,7 @@
 e2e/
 ├── config.ts                      # 公共配置（超时、重试、环境变量）
 ├── fixtures/                      # 测试夹具（基础夹具 / 打开项目 / Electron 启动）
-├── flows/                         # Web 模式测试（38 个 spec，按用户流程分组）
+├── flows/                         # Web 模式测试（37 个 spec，按用户流程分组）
 │   ├── ai-*.spec.ts               # AI 聊天 / 配置生成 / 迁移（无 Provider 时自动 skip）
 │   ├── canvas-*.spec.ts           # 画布交互回归
 │   ├── constraint-*.spec.ts       # 约束 CRUD 与类型覆盖

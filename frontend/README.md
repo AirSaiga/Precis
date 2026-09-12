@@ -64,9 +64,12 @@ src/
 │   ├── validation/         # 校验相关
 │   └── useAppBootstrap.ts  # 应用启动编排
 ├── core/                   # 核心功能
-│   ├── managers/           # 管理器
-│   ├── registry/           # 注册表
-│   └── services/           # 核心服务（HTTP、日志、Toast）
+│   ├── capabilities/       # 能力抽象层（Electron/Web 解耦，详见其 README）
+│   ├── i18n/               # 核心层国际化（renderText 等）
+│   ├── services/           # 核心服务（HTTP、日志）
+│   ├── toast/              # Toast 通知
+│   ├── utils/              # 核心层工具
+│   └── eventBus.ts         # 应用级事件总线（mitt）
 ├── features/               # 垂直功能模块
 │   ├── ai-config-generator/# AI 配置生成器
 │   ├── keyboard/           # 键盘快捷键
@@ -75,15 +78,20 @@ src/
 ├── i18n/                   # 国际化（zh-CN / en-US）
 ├── router/                 # Vue Router 路由
 ├── services/               # 业务服务
-│   ├── api/                # API 服务
+│   ├── aiChatInstructions/ # AI 聊天指令分发（canvasOps/connectionOps 等按域拆分）
 │   ├── builders/           # V2 配置构建器
 │   ├── canvas/             # 画布服务（连接策略、Vue Flow API）
 │   ├── constraints/        # 约束系统（双注册表 + 校验编排）
 │   ├── disconnect/         # 断开连接清理
+│   ├── i18n/               # 服务层本地化消息（LocalizedMessage）
 │   ├── managers/           # 服务管理器
+│   ├── persistence/        # V2 持久化构建
+│   ├── preview/            # 预览服务
+│   ├── regex/              # 正则服务
 │   ├── registry/           # 服务注册表
 │   ├── reportExport/       # 报告导出
 │   ├── rules/              # 连接规则（22 条）
+│   ├── templateExpand/     # 模板展开纯规划
 │   └── validationReportViewModel.ts
 ├── stores/                 # Pinia 状态管理
 │   ├── graphStore/         # 画布核心 Store（Setup Store + 工厂模块）
@@ -94,7 +102,7 @@ src/
 │   ├── graph.ts            # 节点/边核心类型
 │   ├── nodes.ts            # CustomNodeData discriminated union
 │   ├── constraints.ts      # 约束类型
-│   ├── projectV2.ts        # V2 项目配置类型
+│   ├── projectV2.ts        # V2 项目配置类型（barrel，实体域拆分在 projectV2/ 目录）
 │   └── ...
 ├── utils/                  # 工具函数
 ├── App.vue                 # 根组件

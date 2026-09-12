@@ -39,6 +39,7 @@
 - **风险**：可读取进程有权限的任意文件（绝对路径，无需 `..` 穿越）
 - **核实结论**：✅ 真实（同文件 `switch_sheet:157` 调用了 `validate_file_access`，说明是遗漏而非设计；对比 `path_mode.py` 的 `/file/path` 端点也有校验）
 - **修复方向**：复用现有 `validate_file_access`，增加基目录校验
+- **更新（2026-09-12 复核）**：本项**已修复**——`preview_file` 现以 `request.file_path = validate_file_access(request.file_path)` 校验后才读取（`content_mode.py:68` 起，commit `9c77f971`，与姊妹端点 `/file/path`、`/switch-sheet` 对齐）。本项关闭，后续仅剩远程部署形态下的基目录白名单统一治理（见文末"统一修复方向"）
 
 ### 1.3 `expand-paths` — 绝对路径直接返回
 
@@ -64,18 +65,18 @@
 
 ---
 
-## 二、异常处理契约（21 处裸 except）
+## 二、异常处理契约（22 处裸 except）
 
-6 个路由文件共 **21 处** 裸 `except Exception` 捕获后返回 HTTP 200 + `success=False`，掩盖编程错误。
+6 个路由文件共 **22 处** 裸 `except Exception` 捕获后返回 HTTP 200 + `success=False`，掩盖编程错误。（2026-09-12 复核刷新：计数与行号随代码演进更新）
 
 | 文件 | 出现次数 |
 |---|---|
-| `preview/content_mode.py` | 4（72, 134, 178, 238）|
-| `preview/path_mode.py` | 6（154, 189, 309, 320, 405, 410）|
-| `validation/content_mode.py` | 4（122, 231, 237, 314）|
-| `validation/path_mode.py` | 2（141, 236）|
-| `validation/inline_mode.py` | 1（164）|
-| `project/validation.py` | 4（62, 112, 121, 184）|
+| `preview/content_mode.py` | 4（91, 153, 197, 257）|
+| `preview/path_mode.py` | 6（171, 206, 328, 339, 424, 429）|
+| `validation/content_mode.py` | 4（142, 260, 266, 347）|
+| `validation/path_mode.py` | 2（159, 257）|
+| `validation/inline_mode.py` | 1（186）|
+| `project/validation.py` | 5（77, 132, 142, 151, 214）|
 
 - **风险**：未预期异常（编程错误）被静默吞掉，返回 200 而非 500，掩盖真实问题，增加调试难度
 - **核实结论**：✅ 真实（注意 `path_mode.py` 部分会 `raise HTTPException(500)`，并非全部返回 200）
@@ -95,10 +96,10 @@
 
 ## 四、正则 ReDoS 风险
 
-- **文件**：
-  - `backend/app/shared/domain/constraints/regex.py:137,147-149`（约束校验）
-  - `backend/app/api/routers/core/regex.py:176,178,275,289,292`（test-regex / regex/validate-extract 端点）
-  - `backend/app/shared/core/utils/regex_utils.py`
+- **文件**（2026-09-12 复核刷新：`regex_utils.py` 已随 `943dd3be` 清理删除，等价逻辑现居 `regex_extract.py`）：
+  - `backend/app/shared/domain/constraints/regex.py:152`（约束校验）
+  - `backend/app/api/routers/core/regex.py:191,290`（test-regex / regex/validate-extract 端点）
+  - `backend/app/shared/core/utils/regex_extract.py:68`（提取执行）
 - **现状**：正则编译/匹配**无超时、无 pattern 长度/复杂度限制、无输入长度上限**
 - **风险**：恶意构造的正则（如 `(a+)+$`）针对长输入导致指数级回溯（ReDoS）
 - **核实结论**：✅ 真实（用户提供的正则模式直接 `re.compile`，test-regex/validate-extract 端点直接接受外部 regex）
@@ -119,7 +120,7 @@
 
 ## 统一修复方向（待产品形态明确后执行）
 
-1. **基目录校验**：引入 `BasePathValidator` / `ProjectStore` 依赖注入，覆盖 1.1-1.4 的全部端点 + upload（第三项）
+1. **基目录校验**：引入 `BasePathValidator` / `ProjectStore` 依赖注入，覆盖 1.1、1.3、1.4 的剩余端点 + upload（第三项；1.2 已随 `9c77f971` 关闭）
 2. **异常契约**：校验/预览路由只捕获已知业务异常，未预期异常上抛返回 500
 3. **上传限制**：`MAX_UPLOAD_SIZE` + 流式写入 + upload 路径校验
 4. **正则防护**：pattern 长度上限 + 编译超时（signal.alarm 或线程超时）+ 输入长度上限
