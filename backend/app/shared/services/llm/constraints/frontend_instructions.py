@@ -34,6 +34,7 @@ import yaml
 
 from app.shared.services.llm.constraints.constraint_id import _generate_constraint_id
 from app.shared.services.llm.schema_resolver import _resolve_id_from_name
+from app.shared.services.llm.suggestion_utils import normalize_constraint_type
 
 logger = logging.getLogger(__name__)
 
@@ -103,12 +104,20 @@ def _generate_constraint_instruction(action: dict[str, Any], workspace_path: str
     action_type = action.get("actionType")
     constraint_spec = action.get("constraintSpec", {})
 
-    constraint_type = constraint_spec.get("type", "")
+    # 标准化为 PascalCase 正名再下发：提示词教 AI 输出 PascalCase（NotNull），
+    # 但 LLM 也可能回大写下划线（NOT_NULL）。写盘路径已做同样的标准化，
+    # 此处对齐可保证前端指令与已写入的约束文件类型一致，避免前端拿到
+    # 自己无法识别的类型字符串而静默不建节点（幽灵约束）。
+    constraint_type = normalize_constraint_type(constraint_spec.get("type", ""))
     target_node_id = constraint_spec.get("targetNodeId", "")
     target_column_id = constraint_spec.get("targetColumnId", "")
     table_name = constraint_spec.get("tableName", "")
     target_column = constraint_spec.get("targetColumn", "")
     is_inline = constraint_spec.get("isInline", False)
+    # params 原样透传（min/max/allowedValues/expression/toTableId 等）：
+    # 前端建独立约束节点时须据此填充节点 data，否则保存链路会用空 params
+    # 覆盖后端已写入的参数（静默数据丢失）。
+    params = constraint_spec.get("params", {})
 
     # 关键：与写 YAML 路径（_build_constraint_refs）相同的 fallback 解析
     # 当 workspace_path 可用时，把 tableName/targetColumn 解析为确定性的 schema/column ID
@@ -138,6 +147,7 @@ def _generate_constraint_instruction(action: dict[str, Any], workspace_path: str
             "targetColumn": target_column,
             "constraintId": constraint_id,
             "isInline": is_inline,
+            "params": params,
         },
     }
 

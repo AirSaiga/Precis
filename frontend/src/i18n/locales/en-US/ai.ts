@@ -38,8 +38,13 @@ const aiChat = {
   targetNodeNotFound: 'Target node not found. Please ensure the table node is on the canvas.',
   constraintCreated: 'Created standalone constraint for {table}.{column}',
   constraintDeleted: 'Deleted constraint for {table}.{column}',
+  constraintUpdated: 'Updated constraint params for {table}.{column}',
   inlineConstraintCreated: 'Added inline constraint for {table}.{column}',
   inlineConstraintDeleted: 'Deleted inline constraint for {column}',
+  inlineConstraintUnsupported:
+    'Constraint type {type} does not support inline storage. Use a standalone constraint node instead.',
+  inlineAllowedValuesMissing:
+    'Inline allowed-values constraint missing allowedValues param. Not written.',
   columnNotFound: 'Column {column} not found. Please check the table structure.',
   unsupportedConstraintType: 'Unsupported constraint type: {type}',
   schemaCreated: 'Schema "{name}" created',

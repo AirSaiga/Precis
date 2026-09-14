@@ -14,7 +14,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 /**
  * @fileoverview 从后端 actions registry 生成前端 TS 类型与常量
  *
@@ -70,6 +70,26 @@ function generate(data) {
   const byCategory = data.by_category
   const readOnly = data.read_only_action_types
   const write = data.write_action_types
+  const constraintTypes = data.constraint_types
+  const constraintAliases = data.constraint_type_aliases
+
+  // PascalCase 正名 → 前端 camelCase ConstraintKind（首字母小写即得，10 种均满足）；
+  // 别名（大写下划线/REGEX）先归一到正名再取 kind
+  const decapitalize = (s) => s.charAt(0).toLowerCase() + s.slice(1)
+  const mapEntries = []
+  for (const t of constraintTypes) mapEntries.push([t, decapitalize(t)])
+  for (const [alias, canonical] of Object.entries(constraintAliases)) {
+    mapEntries.push([alias, decapitalize(canonical)])
+  }
+  // 按键排序保证生成物稳定可 diff
+  mapEntries.sort((a, b) => a[0].localeCompare(b[0]))
+  // prettier quoteProps=as-needed：合法标识符键输出为不带引号
+  const mapBody = mapEntries.map(([k, v]) => `  ${k}: '${v}',`).join('\n')
+  // 别名声明表（alias → PascalCase 正名），供契约测试精确断言"map 键集 = 正名 ∪ 已声明别名"
+  const aliasEntries = Object.entries(constraintAliases)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([k, v]) => `  ${k}: '${v}',`)
+    .join('\n')
 
   const lines = []
   // license 头与全仓补齐批保持一致（SPDX + Copyright + Apache-2.0 提示行）
@@ -84,16 +104,10 @@ function generate(data) {
   lines.push(' *')
   lines.push(' *     http://www.apache.org/licenses/LICENSE-2.0')
   lines.push(' *')
-  lines.push(
-    ' * Unless required by applicable law or agreed to in writing, software'
-  )
+  lines.push(' * Unless required by applicable law or agreed to in writing, software')
   lines.push(' * distributed under the License is distributed on an "AS IS" BASIS,')
-  lines.push(
-    ' * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.'
-  )
-  lines.push(
-    ' * See the License for the specific language governing permissions and'
-  )
+  lines.push(' * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.')
+  lines.push(' * See the License for the specific language governing permissions and')
   lines.push(' * limitations under the License.')
   lines.push(' */')
   lines.push('')
@@ -127,6 +141,28 @@ function generate(data) {
     `export const WRITE_ACTION_TYPES: ReadonlySet<ActionType> = new Set(${fmtArray(write)})`
   )
   lines.push('')
+  lines.push('// 约束类型标准名（PascalCase，sorted；单一事实源：后端 registry.CONSTRAINT_TYPES）')
+  lines.push(
+    `export const CANONICAL_CONSTRAINT_TYPES: readonly string[] = ${fmtArray(constraintTypes)}`
+  )
+  lines.push('')
+  lines.push(
+    '// 约束类型映射（单一事实源：后端 registry.CONSTRAINT_TYPES + CONSTRAINT_TYPE_ALIASES）'
+  )
+  lines.push(
+    '// key = PascalCase 正名 + 大写别名（LLM 两种写法都可能回），value = 前端 ConstraintKind（camelCase）'
+  )
+  lines.push('export const CONSTRAINT_TYPE_MAP: Record<string, string> = {')
+  lines.push(mapBody)
+  lines.push('}')
+  lines.push('')
+  lines.push(
+    '// 约束类型别名声明（alias → PascalCase 正名；单一事实源：后端 registry.CONSTRAINT_TYPE_ALIASES）'
+  )
+  lines.push('export const CONSTRAINT_TYPE_ALIASES: Record<string, string> = {')
+  lines.push(aliasEntries)
+  lines.push('}')
+  lines.push('')
 
   return lines.join('\n')
 }
@@ -137,7 +173,9 @@ function main() {
   mkdirSync(outDir, { recursive: true })
   writeFileSync(outFile, content, 'utf8')
   console.log(`[codegen] 已生成 ${path.relative(repoRoot, outFile)}`)
-  console.log(`[codegen] 动作类型 ${data.all_action_types.length} 个`)
+  console.log(
+    `[codegen] 动作类型 ${data.all_action_types.length} 个，约束类型 ${data.constraint_types.length} 个`
+  )
 }
 
 main()

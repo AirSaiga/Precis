@@ -198,6 +198,8 @@ def test_export_for_codegen_structure():
         "by_category",
         "read_only_action_types",
         "write_action_types",
+        "constraint_types",
+        "constraint_type_aliases",
     }
 
     # actions 数量与 ACTIONS 一致，且每项字段齐全

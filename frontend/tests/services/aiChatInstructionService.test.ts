@@ -369,17 +369,16 @@ describe('aiChatInstructionService', () => {
       expect(mocks.graphStore.reconcileAll).toHaveBeenCalled()
     })
 
-    it('内联约束：从列移除约束', async () => {
+    it('内联约束：按 camelCase 键从列移除约束', async () => {
       mocks.graphStore.nodes = [
         makeSchemaNode('schema-1', [{ id: 'col_email', columnName: 'email' } as never]),
       ]
-      // 先用内联结构模拟列上有约束
+      // 列上已有契约格式的内联约束（camelCase 键 + 布尔值，与手动连接/Inspector 写入一致）
       ;(mocks.graphStore.nodes[0].data as { columns: Array<Record<string, unknown>> }).columns[0] =
         {
           id: 'col_email',
           columnName: 'email',
-          // CONSTRAINT_TYPE_MAP 把 'NOT_NULL' 映射为 'notNull'，toLowerCase 后键为 'not_null'
-          constraints: { not_null: { id: 'nn1', enabled: true } },
+          constraints: { notNull: true },
         }
 
       const instruction = makeConstraintInstruction({
@@ -397,6 +396,11 @@ describe('aiChatInstructionService', () => {
         'schema-1',
         expect.objectContaining({ columns: expect.any(Array) })
       )
+      // 断言 notNull 键确实被移除（而非旧实现那样因键格式不匹配静默返回）
+      const patches = mocks.graphStore.updateNodeData.mock.calls[0][1] as {
+        columns: Array<{ columnName: string; constraints?: Record<string, unknown> }>
+      }
+      expect(patches.columns[0].constraints).toEqual({})
     })
   })
 
@@ -545,6 +549,157 @@ describe('aiChatInstructionService', () => {
         'tf-1',
         expect.objectContaining({ params: { to: 'integer' } })
       )
+    })
+  })
+
+  // ============================================================
+  // 漂移回归：大小写断层 / params 丢失 / UPDATE 建副本 / 内联契约
+  //（对应后端指令类型标准化 + params 透传；防 AI 链路再次掉队）
+  // ============================================================
+  describe('约束指令漂移回归', () => {
+    it('PascalCase 类型（NotNull）可创建独立约束节点', async () => {
+      mocks.graphStore.nodes = [makeSchemaNode('schema-1', [{ id: 'col-1', columnName: 'name' }])]
+
+      await processFrontendInstructions([makeConstraintInstruction({ type: 'NotNull' })])
+
+      expect(mocks.addNodes).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'notNullConstraint' })
+      )
+    })
+
+    it('Range 约束把 params 写进节点 data（min/max → minValue/maxValue）', async () => {
+      mocks.graphStore.nodes = [makeSchemaNode('schema-1', [{ id: 'col-1', columnName: 'age' }])]
+
+      await processFrontendInstructions([
+        makeConstraintInstruction({
+          type: 'RANGE',
+          targetColumn: 'age',
+          params: { min: 18, max: 60 },
+        }),
+      ])
+
+      expect(mocks.addNodes).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'rangeConstraint',
+          data: expect.objectContaining({ minValue: 18, maxValue: 60 }),
+        })
+      )
+    })
+
+    it('UPDATE 独立约束：刷新已有节点参数而不是建副本', async () => {
+      mocks.graphStore.nodes = [
+        makeSchemaNode('schema-1', [{ id: 'col-1', columnName: 'age' }]),
+        {
+          id: 'range-node-1',
+          type: 'rangeConstraint',
+          position: { x: 350, y: 0 },
+          data: { configName: 'r1', table: 'Users', column: 'age', minValue: 1, maxValue: 10 },
+        } as VueFlowNode,
+      ]
+
+      const instruction = makeConstraintInstruction({
+        type: 'Range',
+        targetColumn: 'age',
+        constraintId: 'r2',
+        params: { min: 18, max: 60 },
+      })
+      instruction.actionType = 'UPDATE_CONSTRAINT_NODE'
+
+      await processFrontendInstructions([instruction])
+
+      expect(mocks.addNodes).not.toHaveBeenCalled()
+      expect(mocks.graphStore.updateNodeData).toHaveBeenCalledWith(
+        'range-node-1',
+        expect.objectContaining({ minValue: 18, maxValue: 60, validationStatus: 'idle' })
+      )
+    })
+
+    it('UPDATE 独立约束找不到已有节点时回退为创建', async () => {
+      mocks.graphStore.nodes = [makeSchemaNode('schema-1', [{ id: 'col-1', columnName: 'age' }])]
+
+      const instruction = makeConstraintInstruction({
+        type: 'Range',
+        targetColumn: 'age',
+        params: { min: 18 },
+      })
+      instruction.actionType = 'UPDATE_CONSTRAINT_NODE'
+
+      await processFrontendInstructions([instruction])
+
+      expect(mocks.addNodes).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'rangeConstraint' })
+      )
+    })
+
+    it('内联 NotNull：按契约写 camelCase 布尔键', async () => {
+      mocks.graphStore.nodes = [makeSchemaNode('schema-1', [{ id: 'col-1', columnName: 'email' }])]
+
+      await processFrontendInstructions([
+        makeConstraintInstruction({ type: 'NotNull', targetColumn: 'email', isInline: true }),
+      ])
+
+      const patches = mocks.graphStore.updateNodeData.mock.calls[0][1] as {
+        columns: Array<{ columnName: string; constraints?: Record<string, unknown> }>
+      }
+      const col = patches.columns.find((c) => c.columnName === 'email')
+      expect(col?.constraints).toEqual({ notNull: true })
+    })
+
+    it('内联 AllowedValues：写入值数组', async () => {
+      mocks.graphStore.nodes = [makeSchemaNode('schema-1', [{ id: 'col-1', columnName: 'status' }])]
+
+      await processFrontendInstructions([
+        makeConstraintInstruction({
+          type: 'ALLOWED_VALUES',
+          targetColumn: 'status',
+          isInline: true,
+          params: { allowedValues: ['active', 'inactive'] },
+        }),
+      ])
+
+      const patches = mocks.graphStore.updateNodeData.mock.calls[0][1] as {
+        columns: Array<{ columnName: string; constraints?: Record<string, unknown> }>
+      }
+      const col = patches.columns.find((c) => c.columnName === 'status')
+      expect(col?.constraints).toEqual({ allowedValues: ['active', 'inactive'] })
+    })
+
+    it('不支持内联的约束类型：拒绝写入死数据并提示', async () => {
+      mocks.graphStore.nodes = [makeSchemaNode('schema-1', [{ id: 'col-1', columnName: 'age' }])]
+
+      await processFrontendInstructions([
+        makeConstraintInstruction({
+          type: 'Range',
+          targetColumn: 'age',
+          isInline: true,
+          params: { min: 18 },
+        }),
+      ])
+
+      expect(mocks.graphStore.updateNodeData).not.toHaveBeenCalled()
+      expect(mocks.toastError).toHaveBeenCalled()
+    })
+
+    it('DELETE 内联约束跨大小写可命中（ADD 写 NotNull、DELETE 用 NOT_NULL）', async () => {
+      mocks.graphStore.nodes = [makeSchemaNode('schema-1', [{ id: 'col-1', columnName: 'email' }])]
+      // 模拟此前内联 ADD（PascalCase 归一后写入 camelCase 键）
+      ;(mocks.graphStore.nodes[0].data as { columns: Array<Record<string, unknown>> }).columns[0] =
+        { id: 'col-1', columnName: 'email', constraints: { notNull: true } }
+
+      const instruction = makeConstraintInstruction({
+        type: 'NOT_NULL',
+        targetColumn: 'email',
+        isInline: true,
+      })
+      instruction.actionType = 'DELETE_CONSTRAINT_NODE'
+
+      await processFrontendInstructions([instruction])
+
+      const patches = mocks.graphStore.updateNodeData.mock.calls[0][1] as {
+        columns: Array<{ columnName: string; constraints?: Record<string, unknown> }>
+      }
+      const col = patches.columns.find((c) => c.columnName === 'email')
+      expect(col?.constraints).toEqual({})
     })
   })
 })

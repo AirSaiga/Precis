@@ -363,9 +363,9 @@ FastAPI 0.138+ 中 `app.include_router()` 的路由器不再把每条 `APIRoute`
 
 AI 动作类型（actionType，如 `ADD_SCHEMA`/`VALIDATE_PROJECT`）的**单一事实源**是后端 `backend/app/shared/services/llm/actions/registry.py`。前端类型与分类集合由 codegen 生成：
 
-- 生成物 `frontend/src/types/generated/actions.ts`（`ActionType` 联合类型 + 4 个分类 Set + 只读/写盘 Set）——**禁止手改**
+- 生成物 `frontend/src/types/generated/actions.ts`（`ActionType` 联合类型 + 4 个分类 Set + 只读/写盘 Set + **约束类型映射** `CONSTRAINT_TYPE_MAP`/`CONSTRAINT_TYPE_ALIASES`/`CANONICAL_CONSTRAINT_TYPES`）——**禁止手改**
 - 脚本 `frontend/scripts/codegen.mjs`（frontend 目录 `npm run codegen`）；CI 后端 job 末尾跑 codegen 并 `git diff` 校验生成物与提交一致
-- **修改 `registry.py` 的 `ACTIONS` 后必须跑 `npm run codegen` 重新生成并提交 `actions.ts`**，否则 CI 失败。前端业务代码从 `@/types/generated/actions` import，**禁止硬编码动作类型集合**
+- **修改 `registry.py` 的 `ACTIONS`/`CONSTRAINT_TYPES`/`CONSTRAINT_TYPE_ALIASES` 后必须跑 `npm run codegen` 重新生成并提交 `actions.ts`**，否则 CI 失败。前端业务代码从 `@/types/generated/actions` import，**禁止硬编码动作类型集合与约束类型映射**（`services/aiChatInstructions/connectionOps.ts` 的 `CONSTRAINT_TYPE_MAP` 即是 re-export 生成物，勿回退为手写表）
 
 ### AI Provider 预设（国内大模型）
 
@@ -382,6 +382,28 @@ AI Provider 预设的**单一事实源**是 `backend/app/shared/services/llm/con
 5. **约束类型名 i18n** — `frontend/src/i18n/locales/{zh-CN,en-US}/constraints.ts` 的 `constraintTypes.<kind>.{name,description}` 补双侧条目（key 为 camelCase 的 ConstraintKind）。菜单/节点库/布局器统一从此命名空间取显示名，不在组件里硬编码；`ConstraintNodeRegistration` 接口已不含 `displayName`/`description`
 
 所有注册表经 barrel 文件的 side-effect import 触发自注册。
+
+### AI 聊天自动化维护（指令链路防漂移）
+
+AI 聊天（agent 模式）经 `frontend_instruction` SSE 事件驱动前端 `services/aiChatInstructions/` 各 handler 创建/修改/删除画布节点。链路为：**后端提示词 → LLM action → 写盘（constraints/schemas/...）→ `frontend_instructions.py` 生成指令 → 前端 handler 镜像到画布**。2026-09 审计实证：节点类型/连接规则改了而 AI 链路没跟上时**静默失效**（regexExtract 拆分后 `resolveTargetHandle` 无对应 case 即建边必败，CI 无任何红灯）。维护规则：
+
+**单一事实源与契约守卫**（已就位，勿绕过）：
+
+- 约束类型映射 `CONSTRAINT_TYPE_MAP` 由 codegen 从后端 registry 生成（见上文 AI 动作类型契约），handler 禁止手写类型表
+- 契约测试 `frontend/tests/types/generated/actions.test.ts` 守卫"生成物 × constraintMeta × i18n 双侧"三方对齐——**新增约束类型漏改任一侧即红**
+- 后端指令生成器 `_generate_constraint_instruction` 已把 type 标准化为 PascalCase 正名并透传 `params`；前端 handler 按 `constraintNodeData.ts` 的映射把 params 落进节点 data（保存链路从节点 data 重建约束文件，漏写会被空值覆盖）
+- 内联约束的列内契约是 **camelCase 键**（`notNull`/`unique` 布尔、`allowedValues` 数组），与 `useSchemaInteractions`/Inspector 写入格式一致；无内联表示的类型（Range/Scripted 等）handler 须拒绝写入而非落死数据
+
+**改动时的触点清单**：
+
+| 改动 | AI 链路必查触点 |
+|------|----------------|
+| 新增约束类型 | 后端 registry 白名单+别名 → `npm run codegen` → 前端五处注册（见上节）→ `constraintNodeData.ts` params 映射 → 提示词约束清单（`chat_system_prompt.py`，建议从 registry 派生） |
+| 新增/拆分节点类型 | `resolveTargetHandle` case → `connectionRules.ts` 规则 → 对应 handler 的建边/删除兜底 → **显式决策并记录**：该类型 AI 是否可操作，不可操作要在提示词中告知 |
+| 修改节点 data 结构 | handler 硬编码字段 ↔ `persistence/builders/**` 读取侧**双侧对照**（只改一侧 = 保存 roundtrip 数据丢失） |
+| handler 新增 actionType 分支 | `frontend/tests/services/aiChatInstructionService.test.ts` 补用例（mock 边界：graphStore + vueFlowApi） |
+
+**已知缺口（后续）**：E2E `ai-chat-agent.spec.ts` 依赖真实 Provider、CI 无 key 时整体 skip，AI 链路缺确定性端到端守卫（候选方案：后端 fake provider 演练模式）；`ADD_*` 指令无幂等查重（当前依赖流式/completed 双通道去重）。
 
 ### CustomNodeData 到 Record<string, unknown> 的安全转换
 

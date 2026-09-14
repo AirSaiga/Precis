@@ -125,21 +125,11 @@ export function addValidatedAIConnection(input: AINodeConnectionInput): Edge {
 /**
  * AI 返回的约束类型到前端 ConstraintKind 的映射表
  *
- * AI 使用大写下划线格式（如 NOT_NULL），前端使用 camelCase（如 notNull）。
- * 覆盖全部 10 种约束类型。
+ * 由 codegen 从后端 registry（CONSTRAINT_TYPES + CONSTRAINT_TYPE_ALIASES）生成，
+ * 单一事实源在后端；key 同时含 PascalCase 正名与大写下划线别名（LLM 两种写法都可能回），
+ * value 为 camelCase 的 ConstraintKind（如 notNull）。
  */
-export const CONSTRAINT_TYPE_MAP: Record<string, string> = {
-  NOT_NULL: 'notNull',
-  UNIQUE: 'unique',
-  ALLOWED_VALUES: 'allowedValues',
-  RANGE: 'range',
-  FOREIGN_KEY: 'foreignKey',
-  CONDITIONAL: 'conditional',
-  SCRIPTED: 'scripted',
-  CHARSET: 'charset',
-  DATE_LOGIC: 'dateLogic',
-  COMPOSITE: 'composite',
-}
+export { CONSTRAINT_TYPE_MAP } from '@/types/generated/actions'
 
 /**
  * 解析约束指令的目标节点（前端兜底）

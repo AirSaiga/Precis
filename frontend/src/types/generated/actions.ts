@@ -104,3 +104,56 @@ export const WRITE_ACTION_TYPES: ReadonlySet<ActionType> = new Set([
   'UPDATE_SETTINGS',
   'UPDATE_TRANSFORM',
 ])
+
+// 约束类型标准名（PascalCase，sorted；单一事实源：后端 registry.CONSTRAINT_TYPES）
+export const CANONICAL_CONSTRAINT_TYPES: readonly string[] = [
+  'AllowedValues',
+  'Charset',
+  'Composite',
+  'Conditional',
+  'DateLogic',
+  'ForeignKey',
+  'NotNull',
+  'Range',
+  'Scripted',
+  'Unique',
+]
+
+// 约束类型映射（单一事实源：后端 registry.CONSTRAINT_TYPES + CONSTRAINT_TYPE_ALIASES）
+// key = PascalCase 正名 + 大写别名（LLM 两种写法都可能回），value = 前端 ConstraintKind（camelCase）
+export const CONSTRAINT_TYPE_MAP: Record<string, string> = {
+  ALLOWED_VALUES: 'allowedValues',
+  AllowedValues: 'allowedValues',
+  Charset: 'charset',
+  CHARSET: 'charset',
+  Composite: 'composite',
+  COMPOSITE: 'composite',
+  Conditional: 'conditional',
+  CONDITIONAL: 'conditional',
+  DATE_LOGIC: 'dateLogic',
+  DateLogic: 'dateLogic',
+  FOREIGN_KEY: 'foreignKey',
+  ForeignKey: 'foreignKey',
+  NOT_NULL: 'notNull',
+  NotNull: 'notNull',
+  Range: 'range',
+  RANGE: 'range',
+  REGEX: 'scripted',
+  Scripted: 'scripted',
+  Unique: 'unique',
+  UNIQUE: 'unique',
+}
+
+// 约束类型别名声明（alias → PascalCase 正名；单一事实源：后端 registry.CONSTRAINT_TYPE_ALIASES）
+export const CONSTRAINT_TYPE_ALIASES: Record<string, string> = {
+  ALLOWED_VALUES: 'AllowedValues',
+  CHARSET: 'Charset',
+  COMPOSITE: 'Composite',
+  CONDITIONAL: 'Conditional',
+  DATE_LOGIC: 'DateLogic',
+  FOREIGN_KEY: 'ForeignKey',
+  NOT_NULL: 'NotNull',
+  RANGE: 'Range',
+  REGEX: 'Scripted',
+  UNIQUE: 'Unique',
+}

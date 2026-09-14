@@ -308,7 +308,13 @@ def export_for_codegen() -> dict[str, object]:
             "by_category": { "constraint": [...], ... },
             "read_only_action_types": [...],
             "write_action_types": [...],
+            "constraint_types": [...],            # 约束类型标准名（PascalCase，sorted）
+            "constraint_type_aliases": {...},     # 大写别名 → 标准名
         }
+
+    constraint_types/constraint_type_aliases 供前端 codegen 生成约束类型映射，
+    使前端 AI 指令处理器与后端提示词/写盘路径消费同一份约束类型清单，
+    消灭"新增约束类型时前端 map/提示词漏同步"类漂移。
     """
     return {
         # 按 ACTIONS 插入序保留（dict 保序），便于生成稳定 TS
@@ -325,4 +331,6 @@ def export_for_codegen() -> dict[str, object]:
         "by_category": {k: sorted(v) for k, v in BY_CATEGORY.items()},
         "read_only_action_types": sorted(READ_ONLY_ACTION_TYPES),
         "write_action_types": sorted(WRITE_ACTION_TYPES),
+        "constraint_types": sorted(CONSTRAINT_TYPES),
+        "constraint_type_aliases": dict(sorted(CONSTRAINT_TYPE_ALIASES.items())),
     }

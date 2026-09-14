@@ -131,3 +131,95 @@ class TestGenerateRegexInstruction:
         action = {"actionType": "DELETE_REGEX", "regexSpec": {"regexId": "phone", "name": "phone"}}
         instruction = generate_frontend_instructions(action, str(tmp_path))
         assert instruction["regexSpec"]["regexId"] == "phone"
+
+
+class TestGenerateConstraintInstruction:
+    """约束指令：类型标准化为 PascalCase 正名 + params 透传。"""
+
+    def test_pascalcase_type_passes_through(self):
+        """提示词教的 PascalCase（NotNull）原样下发（标准化后为自身）。"""
+        action = {
+            "actionType": "ADD_CONSTRAINT_NODE",
+            "constraintSpec": {
+                "type": "NotNull",
+                "tableName": "users",
+                "targetColumn": "email",
+                "isInline": False,
+            },
+        }
+        instruction = generate_frontend_instructions(action)
+        assert instruction["constraintSpec"]["type"] == "NotNull"
+
+    def test_upper_snake_type_is_normalized(self):
+        """LLM 回大写下划线（NOT_NULL）时必须标准化为 PascalCase，与写盘路径一致。"""
+        action = {
+            "actionType": "ADD_CONSTRAINT_NODE",
+            "constraintSpec": {
+                "type": "NOT_NULL",
+                "tableName": "users",
+                "targetColumn": "email",
+                "isInline": False,
+            },
+        }
+        instruction = generate_frontend_instructions(action)
+        assert instruction["constraintSpec"]["type"] == "NotNull"
+
+    def test_lowercase_snake_alias_is_normalized(self):
+        """小写下划线别名（not_null / regex）同样标准化。"""
+        for raw, expected in [("not_null", "NotNull"), ("regex", "Scripted"), ("date_logic", "DateLogic")]:
+            action = {
+                "actionType": "ADD_CONSTRAINT_NODE",
+                "constraintSpec": {
+                    "type": raw,
+                    "tableName": "users",
+                    "targetColumn": "email",
+                    "isInline": False,
+                },
+            }
+            instruction = generate_frontend_instructions(action)
+            assert instruction["constraintSpec"]["type"] == expected, f"{raw} 未标准化为 {expected}"
+
+    def test_update_and_delete_also_normalize(self):
+        """UPDATE/DELETE 与 ADD 走同一生成器，类型同样须标准化（前端按标准名定位节点）。"""
+        for action_type in ("UPDATE_CONSTRAINT_NODE", "DELETE_CONSTRAINT_NODE"):
+            action = {
+                "actionType": action_type,
+                "constraintSpec": {
+                    "type": "ALLOWED_VALUES",
+                    "tableName": "users",
+                    "targetColumn": "status",
+                    "isInline": False,
+                },
+            }
+            instruction = generate_frontend_instructions(action)
+            assert instruction["constraintSpec"]["type"] == "AllowedValues"
+
+    def test_params_echoed_to_frontend(self):
+        """params 必须透传到前端指令：前端建独立约束节点时据此填充节点 data，
+        否则保存链路会用空 params 覆盖后端已写入的参数（静默数据丢失）。"""
+        action = {
+            "actionType": "ADD_CONSTRAINT_NODE",
+            "constraintSpec": {
+                "type": "Range",
+                "tableName": "users",
+                "targetColumn": "age",
+                "isInline": False,
+                "params": {"min": 18, "max": 60},
+            },
+        }
+        instruction = generate_frontend_instructions(action)
+        assert instruction["constraintSpec"]["params"] == {"min": 18, "max": 60}
+
+    def test_params_defaults_to_empty_dict(self):
+        """AI 未给 params 时下发空对象（而非缺字段），前端可无条件读取。"""
+        action = {
+            "actionType": "ADD_CONSTRAINT_NODE",
+            "constraintSpec": {
+                "type": "NotNull",
+                "tableName": "users",
+                "targetColumn": "email",
+                "isInline": False,
+            },
+        }
+        instruction = generate_frontend_instructions(action)
+        assert instruction["constraintSpec"]["params"] == {}
