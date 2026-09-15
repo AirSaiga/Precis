@@ -89,7 +89,7 @@ def _load_referenced_files(
                     error_type=f"{file_type}PathValidationError",
                     file_path=str(file_path),
                     ref_id=ref.id,
-                    **loading_error_messages.path_validation_error(file_type, ref.id, str(e)),
+                    **loading_error_messages.path_validation_error(file_type, ref.id, str(e), str(file_path)),
                 )
             )
             continue
@@ -240,6 +240,7 @@ def load_project(
                     **loading_error_messages.template_expansion_error(
                         instance.id,
                         ValueError(f"模板 '{instance.template_id}' 未找到"),
+                        str(manifest_file),
                     ),
                 )
             )
@@ -284,7 +285,7 @@ def load_project(
                     error_type="TemplateExpansionError",
                     file_path=str(manifest_file),
                     ref_id=instance.id,
-                    **loading_error_messages.template_expansion_error(instance.id, e),
+                    **loading_error_messages.template_expansion_error(instance.id, e, str(manifest_file)),
                 )
             )
 

@@ -37,6 +37,11 @@ from __future__ import annotations
 
 import os
 
+from app.shared.core.project.loader.loader_parts.inspector_helpers import (
+    file_entity_label,
+    involved_entity,
+)
+
 # 文件类型 → 中文友好名称映射（用于文案插值）
 # key 为小写化的 file_type（main.py 传入 "ManualData" 等首字母大写形式）
 _RESOURCE_LABELS: dict[str, str] = {
@@ -55,13 +60,32 @@ def _resource_label(file_type: str) -> str:
     return _RESOURCE_LABELS.get(key, file_type or "配置文件")
 
 
-def path_validation_error(file_type: str, ref_id: str, raw_message: str) -> dict:
+def _resource_kind(file_type: str) -> str:
+    """文件类型 → involved 实体 kind（小写化；ManualData 归一为 manual_data，与 id 检查一致）。"""
+    kind = (file_type or "").strip().lower()
+    return "manual_data" if kind == "manualdata" else kind
+
+
+def _file_involved(file_type: str, ref_id: str, file_path: str) -> dict:
+    """加载期错误的涉事实体：出问题的文件本身（role=file，文件无画布节点 → 不可导航）。"""
+    return involved_entity(
+        kind=_resource_kind(file_type),
+        entity_id=ref_id,
+        path=file_path,
+        label=file_entity_label(file_path),
+        navigable=False,
+        role="file",
+    )
+
+
+def path_validation_error(file_type: str, ref_id: str, raw_message: str, file_path: str = "") -> dict:
     """路径校验失败（路径越界/非法字符等）。
 
     Args:
         file_type: 文件类型（schema/constraint/...）
         ref_id: manifest 中的引用 ID
         raw_message: 原始异常字符串（保留供排查）
+        file_path: 校验失败的目标文件路径（绝对路径，供 involved 实体展示）
 
     Returns:
         LoadingError 友好字段 dict（title/description/fix_hint/severity 等）
@@ -73,6 +97,7 @@ def path_validation_error(file_type: str, ref_id: str, raw_message: str) -> dict
         "description": f"项目清单里指向「{label}」的路径（编号 {ref_id}）无法被安全访问。这通常是路径写错了，或指向了项目目录之外的位置。",
         "fix_hint": "请检查项目清单中该资源的 path 是否正确，确保它指向项目目录内的文件。",
         "message": raw_message,
+        "context": {"involved": [_file_involved(file_type, ref_id, file_path)]},
         "title_key": "inspection.issues.load.pathValidation.title",
         "description_key": "inspection.issues.load.pathValidation.description",
         "fix_hint_key": "inspection.issues.load.pathValidation.fixHint",
@@ -100,6 +125,7 @@ def file_not_found_error(file_type: str, ref_id: str, file_path: str) -> dict:
         "description": f"项目清单里引用的「{label}」（编号 {ref_id}）对应的文件「{filename or file_path}」不存在。可能文件被移动、删除或改名了。",
         "fix_hint": "请确认该文件是否还在，或从项目清单中移除这条已经失效的引用。",
         "message": f"{file_type} 文件不存在: {file_path}",
+        "context": {"involved": [_file_involved(file_type, ref_id, file_path)]},
         "title_key": "inspection.issues.load.notFound.title",
         "description_key": "inspection.issues.load.notFound.description",
         "fix_hint_key": "inspection.issues.load.notFound.fixHint",
@@ -140,6 +166,7 @@ def parse_error(file_type: str, ref_id: str, file_path: str, raw_exception: Base
         "description": desc,
         "fix_hint": fix_hint,
         "message": f"{file_type} 文件解析失败: {raw_text}",
+        "context": {"involved": [_file_involved(file_type, ref_id, file_path)]},
         "title_key": "inspection.issues.load.parseError.title",
         "description_key": "inspection.issues.load.parseError.description",
         "fix_hint_key": "inspection.issues.load.parseError.fixHint",
@@ -147,12 +174,13 @@ def parse_error(file_type: str, ref_id: str, file_path: str, raw_exception: Base
     }
 
 
-def template_expansion_error(instance_id: str, raw_exception: BaseException) -> dict:
+def template_expansion_error(instance_id: str, raw_exception: BaseException, file_path: str = "") -> dict:
     """模板展开失败。
 
     Args:
         instance_id: 模板实例 ID
         raw_exception: 原始异常
+        file_path: 模板实例所在配置文件路径（通常是 project.precis.yaml），供 involved 实体展示
 
     Returns:
         LoadingError 友好字段 dict
@@ -163,6 +191,7 @@ def template_expansion_error(instance_id: str, raw_exception: BaseException) -> 
         "description": f"画布上的模板（编号 {instance_id}）在展开成具体规则时出错了。可能是模板参数没填全，或模板定义本身有问题。",
         "fix_hint": "请检查该模板的参数是否完整、引用的列/表是否存在，必要时删除该模板重新创建。",
         "message": f"模板实例 '{instance_id}' 展开失败: {raw_exception}",
+        "context": {"involved": [_file_involved("template", instance_id, file_path)]},
         "title_key": "inspection.issues.load.templateExpansion.title",
         "description_key": "inspection.issues.load.templateExpansion.description",
         "fix_hint_key": "inspection.issues.load.templateExpansion.fixHint",

@@ -78,6 +78,16 @@ const inspection = {
   context: {
     availableSchemas: 'Pick a table to use',
     availableColumns: 'Pick a column to use',
+    /** Section title of the structured involved-entities list for uniqueness conflicts */
+    involvedEntities: 'Involved',
+  },
+  /** Role tags of involved entities (static mapping of backend involved[].role enum) */
+  roles: {
+    conflicting: 'Conflicting',
+    referrer: 'Referrer',
+    target: 'Target',
+    file: 'File',
+    manifest: 'Manifest',
   },
   /** Neutral label used to replace a raw id when it is machine-generated (UUID/encoded) */
   machineIdLabel: {
@@ -253,21 +263,21 @@ const inspection = {
           'Check the template params and referenced columns/tables, or delete and recreate it.',
       },
     },
-    /** Multiple tables share the same name */
+    /** Multiple schema files reuse the same table ID (constraints reference tables by ID) */
     schemaIdDuplicate: {
-      title: 'Tables share the same name',
+      title: 'Duplicate table ID',
       description:
-        'The table name "{schemaId}" is used by {count} tables. Other rules can get confused when looking up a table by name, so each name must be unique.',
+        'The table ID "{schemaId}" is used by {count} schema files. Constraints reference tables by ID, so a duplicate ID makes those references point at the wrong table.',
       fixHint:
-        'Rename one of the tables to something unique (click "Navigate to node" to jump and edit).',
+        'Open any conflicting file below and change the id field in one of the schemas to a new unique value.',
     },
-    /** Multiple tables point to the same data file */
+    /** Multiple schemas point to the same data source */
     sourceDuplicate: {
-      title: 'Tables point to the same data file',
+      title: 'Multiple tables point to the same data file',
       description:
-        'The data file "{sourceDisplay}" is defined by {count} tables ({schemas}). A data file can only be defined by one table, otherwise reads will conflict.',
+        'The data file "{sourceDisplay}" is defined by {count} tables. A data file can only be defined by one table, otherwise reads will conflict.',
       fixHint:
-        'Keep only one table and delete or change the others (click "Navigate to node" to jump and handle).',
+        'Keep only one table and delete or change the others. See the involved entities below.',
     },
   },
 }

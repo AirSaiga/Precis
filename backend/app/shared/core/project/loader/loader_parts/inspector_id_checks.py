@@ -29,6 +29,8 @@ from app.shared.core.project.loader.loader_parts import inspection_ids as ids
 from app.shared.core.project.loader.loader_parts.inspector_helpers import (
     constraint_display,
     default_actions_for_file,
+    file_entity_label,
+    involved_entity,
     manual_data_display,
     regex_display,
     schema_display,
@@ -53,7 +55,12 @@ def build_id_mismatch_loading_error(
     manifest_display: str,
     file_display: str,
 ) -> LoadingError:
-    """构建 ID 不一致类型的 LoadingError（通用）。"""
+    """构建 ID 不一致类型的 LoadingError（通用）。
+
+    involved 实体双侧对照，说明"哪一边的什么对不上"：
+        - file: 文件实体（文件内 id 为准，但画布无法按文件路径寻址 → 不可导航）
+        - manifest: project.precis.yaml 中的引用条目（不可导航）
+    """
     return LoadingError(
         id=ids.id_mismatch(resource_type, manifest_id, file_id),
         severity="warning",
@@ -67,6 +74,26 @@ def build_id_mismatch_loading_error(
         ref_id=manifest_id,
         suggestion="请更新项目配置中的引用编号，或修改文件内部的编号使其一致",
         actions=default_actions_for_file(file_path, manifest_id),
+        context={
+            "involved": [
+                involved_entity(
+                    kind=resource_type,
+                    entity_id=file_id,
+                    path=file_path,
+                    label=file_entity_label(file_path),
+                    navigable=False,
+                    role="file",
+                ),
+                involved_entity(
+                    kind=resource_type,
+                    entity_id=manifest_id,
+                    path="project.precis.yaml",
+                    label="project.precis.yaml",
+                    navigable=False,
+                    role="manifest",
+                ),
+            ]
+        },
         title_key=f"inspection.issues.idMismatch.{resource_type}.title",
         description_key=f"inspection.issues.idMismatch.{resource_type}.description",
         fix_hint_key=f"inspection.issues.idMismatch.{resource_type}.fixHint",
@@ -144,6 +171,27 @@ def inspect_id_consistency(
                         message=msg,
                         suggestion="请更新项目配置中的引用编号，或修改文件内部的编号使其一致",
                         actions=default_actions_for_file("project.precis.yaml", constraint_ref.id),
+                        # involved：被重复登记的规则文件 + project.precis.yaml 中的多余引用条目
+                        context={
+                            "involved": [
+                                involved_entity(
+                                    kind="constraint",
+                                    entity_id=constraint_file.id,
+                                    path=constraint_ref.path,
+                                    label=file_entity_label(constraint_ref.path),
+                                    navigable=False,
+                                    role="file",
+                                ),
+                                involved_entity(
+                                    kind="constraint",
+                                    entity_id=constraint_ref.id,
+                                    path="project.precis.yaml",
+                                    label="project.precis.yaml",
+                                    navigable=False,
+                                    role="manifest",
+                                ),
+                            ]
+                        },
                         title_key="inspection.issues.dupConstraintRef.title",
                         description_key="inspection.issues.dupConstraintRef.description",
                         fix_hint_key="inspection.issues.dupConstraintRef.fixHint",

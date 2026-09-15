@@ -78,6 +78,16 @@ const inspection = {
   context: {
     availableSchemas: '选择一张表替换',
     availableColumns: '选择一列替换',
+    /** 唯一性冲突类问题的结构化涉事实体清单标题 */
+    involvedEntities: '涉及',
+  },
+  /** 涉事实体角色标签（后端 involved[].role 枚举的静态映射，勿用动态 key 前缀） */
+  roles: {
+    conflicting: '冲突方',
+    referrer: '引用方',
+    target: '目标',
+    file: '文件',
+    manifest: '清单',
   },
   /** 当引用项的 id 是机器生成的（UUID/编码）时，用来替代原始 id 的中性称谓 */
   machineIdLabel: {
@@ -243,19 +253,19 @@ const inspection = {
         fixHint: '请检查模板参数是否完整、引用的列/表是否存在，必要时删掉重新创建。',
       },
     },
-    /** 多张表用了同一个表名 */
+    /** 多个 schema 文件使用了同一个表 ID（约束按 id 引用表，不是表名重复） */
     schemaIdDuplicate: {
-      title: '有表重名了',
+      title: '表 ID 重复',
       description:
-        '表名「{schemaId}」被 {count} 张表同时使用。别的规则按名字找表时会搞混，每张表的名字应保持唯一。',
-      fixHint: '给其中一张表换个不重复的名字即可（点「定位到节点」可跳转修改）。',
+        '表 ID「{schemaId}」被 {count} 个 schema 文件同时使用。约束按 ID 引用表，ID 重复会导致约束引用指向错误的表。',
+      fixHint: '请打开下方任一冲突文件，把其中一个 schema 的 id 字段改成新的唯一值。',
     },
-    /** 多张表指向同一个数据文件 */
+    /** 多个 schema 指向同一个数据源 */
     sourceDuplicate: {
-      title: '有表指向了同一个数据文件',
+      title: '有多个表指向同一个数据文件',
       description:
-        '数据文件「{sourceDisplay}」被 {count} 张表同时定义（{schemas}）。一个数据文件只能由一张表定义，否则读取会冲突。',
-      fixHint: '只保留其中一张表，删掉或修改其余的（点「定位到节点」可跳转处理）。',
+        '数据文件「{sourceDisplay}」被 {count} 张表同时定义。一个数据文件只能由一张表定义，否则读取会冲突。',
+      fixHint: '只保留其中一张表，删掉或修改其余的。涉事实体见下方清单。',
     },
   },
 }

@@ -60,6 +60,58 @@ export interface InspectionFixApi {
 }
 
 /**
+ * 配置自检 — 问题涉及实体（结构化涉事实体清单条目）
+ *
+ * 配置自检各检查项在 issue.context.involved 中下发全部涉事实体，
+ * 供面板卡片渲染"涉及"清单（label + 打开文件 / 复制 ID / 定位到节点 + 角色标签）。
+ * 字段契约与后端 loader 的 involved_entity / _schema_involved_entity 一致。
+ */
+export interface InspectionInvolvedEntity {
+  /** 实体类型（schema / constraint / regex / transform / manual_data 等） */
+  kind: string
+  /** 实体 id（schema id / 画布节点 id / 文件内 id / 引用 id） */
+  id: string
+  /** 相对配置文件路径（未知时缺失或为空串，前端据此隐藏"打开文件"） */
+  path?: string
+  /** 用户可读显示名（优先文件名 basename，可附表名） */
+  label: string
+  /**
+   * 画布节点可否按 id 唯一寻址。
+   * false 时不渲染"定位到节点"（如 id 冲突时同 id 节点无法区分，
+   * 修复需直接改配置文件里的 id 字段）。
+   */
+  navigable: boolean
+  /**
+   * 实体角色（后端只发枚举串，显示由前端静态映射 inspection.roles.*）：
+   * - conflicting: 冲突方（唯一性冲突的各方）
+   * - referrer:    引用方（引用缺失表/列的约束、正则节点）
+   * - target:      被引用目标（被引用的表）
+   * - file:        纯文件实体（id 不一致的文件、加载失败的文件）
+   * - manifest:    project.precis.yaml 中的引用条目
+   */
+  role?: string
+}
+
+/**
+ * 配置自检 — 问题上下文数据
+ *
+ * 后端 LoadingError.context 的开放字典，各检查项按需填充已知字段：
+ * - available_schemas / available_columns：候选替换列表（引用缺失类问题）
+ * - involved：结构化涉事实体清单（唯一性冲突类问题）
+ * 其余检查项自定义字段经索引签名开放扩展。
+ */
+export interface InspectionIssueContext {
+  /** 可用表候选列表（FK 悬挂 / 表不存在等问题） */
+  available_schemas?: Array<{ id: string; name?: string }>
+  /** 可用列候选列表（列不存在等问题） */
+  available_columns?: string[]
+  /** 涉事实体清单（SchemaIdDuplicate / SchemaSourceDuplicate 等唯一性冲突） */
+  involved?: InspectionInvolvedEntity[]
+  /** 其他检查项自定义字段（开放扩展） */
+  [key: string]: unknown
+}
+
+/**
  * 单条配置自检问题
  *
  * 后端 LoadingError.to_dict() 直接序列化为此结构。
@@ -93,8 +145,8 @@ export interface InspectionIssue {
   actions: InspectionAction[]
   /** 一键修复 API 描述（仅安全操作） */
   fix_api?: InspectionFixApi
-  /** 上下文数据，用于渲染对比表（如 available_schemas、available_columns 等） */
-  context?: Record<string, unknown>
+  /** 上下文数据：候选替换列表 / 涉事实体清单等（见 InspectionIssueContext） */
+  context?: InspectionIssueContext
   /** i18n key for title（可选，存在时前端优先用 i18n 渲染） */
   title_key?: string
   /** i18n key for description（可选） */

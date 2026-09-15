@@ -34,6 +34,7 @@ from app.shared.core.project.loader.loader_parts import inspection_ids as ids
 from app.shared.core.project.loader.loader_parts.inspector_helpers import (
     actions_for_node_ref,
     collect_column_identifiers,
+    involved_entity,
     is_machine_id,
     regex_display,
     schema_display,
@@ -99,7 +100,28 @@ def _check_table_missing(
             message=msg,
             suggestion=f"请检查约束关联的表是否正确，可用的表: {[s['id'] for s in available_schemas]}",
             actions=actions_for_node_ref(constraint_id),
-            context={"available_schemas": available_schemas, "missing_table_id": table_id},
+            context={
+                "available_schemas": available_schemas,
+                "missing_table_id": table_id,
+                # 涉事实体：引用方约束节点（画布可按 id 定位）+ 被引用表（已缺失，无路径、不可导航）
+                "involved": [
+                    involved_entity(
+                        kind="constraint",
+                        entity_id=constraint_id,
+                        path=file_path,
+                        label=constraint_display,
+                        navigable=True,
+                        role="referrer",
+                    ),
+                    involved_entity(
+                        kind="schema",
+                        entity_id=table_id,
+                        label=schema_disp,
+                        navigable=False,
+                        role="target",
+                    ),
+                ],
+            },
             title_key=title_key,
             description_key=description_key,
             fix_hint_key=fix_hint_key,
@@ -135,10 +157,13 @@ def _check_column_missing(
     warnings: list[str],
     role_label: str,
     file_path: str = "",
+    schema_path: str = "",
 ) -> None:
     """检查引用的列是否存在，不存在时生成 LoadingError。
 
     file_path 为该约束所属配置文件路径，用于前端"按文件"分组展示。
+    schema_path 为被引用表（此处必然存在）的配置文件路径，来自 manifest 路径映射；
+    缺省时 involved 目标实体不带路径（前端仅不显示"打开文件"）。
     """
     schema = schema_files.get(table_id)
     available_cols = sorted(schema_column_cache.get(table_id, set()))
@@ -163,6 +188,25 @@ def _check_column_missing(
                 "table_id": table_id,
                 "available_columns": available_cols,
                 "missing_column_id": col_id,
+                # 涉事实体：引用方约束节点（画布可按 id 定位）+ 被引用表（存在，可导航、带路径）
+                "involved": [
+                    involved_entity(
+                        kind="constraint",
+                        entity_id=constraint_id,
+                        path=file_path,
+                        label=constraint_display,
+                        navigable=True,
+                        role="referrer",
+                    ),
+                    involved_entity(
+                        kind="schema",
+                        entity_id=table_id,
+                        path=schema_path,
+                        label=schema_display(schema),
+                        navigable=True,
+                        role="target",
+                    ),
+                ],
             },
             title_key=title_key,
             description_key=description_key,
@@ -197,13 +241,17 @@ def inspect_reference_integrity(
     warnings: list[str],
     loading_errors: list[LoadingError],
     constraint_paths: dict[str, str] | None = None,
+    schema_paths: dict[str, str] | None = None,
 ) -> None:
     """检查约束引用的完整性。
 
     constraint_paths: 约束 id → 文件相对路径（来自 manifest 引用），
     用于把问题归属到具体配置文件；缺省时按 V2 命名规范推导。
+    schema_paths: schema id → 文件相对路径（来自 manifest 引用），
+    用于列缺失问题在 involved 清单里给"被引用表"实体带配置文件路径；缺省时留空。
     """
     resolved_constraint_paths = constraint_paths or {}
+    resolved_schema_paths = schema_paths or {}
     schema_column_cache: dict[str, set[str]] = {}
     for schema_id, schema_file in schema_files.items():
         schema_column_cache[schema_id] = collect_column_identifiers(schema_file.columns)
@@ -278,6 +326,7 @@ def inspect_reference_integrity(
                         warnings,
                         "数据来源",
                         file_path=constraint_file_path,
+                        schema_path=resolved_schema_paths.get(from_table_id, ""),
                     )
 
             if to_table_id:
@@ -313,6 +362,7 @@ def inspect_reference_integrity(
                         warnings,
                         "关联目标",
                         file_path=constraint_file_path,
+                        schema_path=resolved_schema_paths.get(to_table_id, ""),
                     )
 
             continue
@@ -424,6 +474,7 @@ def inspect_reference_integrity(
                                     warnings,
                                     f"（子规则 #{idx + 1}）",
                                     file_path=constraint_file_path,
+                                    schema_path=resolved_schema_paths.get(sub_table_id, ""),
                                 )
             # Composite 已自行完成引用校验，跳过下方通用逻辑
             continue
@@ -467,6 +518,7 @@ def inspect_reference_integrity(
                         warnings,
                         "",
                         file_path=constraint_file_path,
+                        schema_path=resolved_schema_paths.get(table_id, ""),
                     )
 
 
@@ -476,13 +528,17 @@ def inspect_regex_reference_integrity(
     warnings: list[str],
     loading_errors: list[LoadingError],
     regex_paths: dict[str, str] | None = None,
+    schema_paths: dict[str, str] | None = None,
 ) -> None:
     """检查正则节点的 source_ref 引用完整性。
 
     regex_paths: 正则节点 id → 文件相对路径（来自 manifest 引用），
     用于把问题归属到具体配置文件；缺省时按 V2 命名规范推导。
+    schema_paths: schema id → 文件相对路径（来自 manifest 引用），
+    用于列缺失问题在 involved 清单里给"被引用表"实体带配置文件路径；缺省时留空。
     """
     resolved_regex_paths = regex_paths or {}
+    resolved_schema_paths = schema_paths or {}
     schema_column_cache: dict[str, set[str]] = {}
     for table_id, schema_file in schema_files.items():
         schema_column_cache[table_id] = collect_column_identifiers(schema_file.columns)
@@ -520,7 +576,28 @@ def inspect_regex_reference_integrity(
                     message=msg,
                     suggestion="请检查正则节点关联的表是否正确",
                     actions=actions_for_node_ref(regex_id),
-                    context={"available_schemas": available_schemas, "missing_table_id": table_id},
+                    context={
+                        "available_schemas": available_schemas,
+                        "missing_table_id": table_id,
+                        # 涉事实体：引用方正则节点（画布可按 id 定位）+ 被引用表（已缺失，无路径、不可导航）
+                        "involved": [
+                            involved_entity(
+                                kind="regex",
+                                entity_id=regex_id,
+                                path=regex_file_path,
+                                label=regex_disp,
+                                navigable=True,
+                                role="referrer",
+                            ),
+                            involved_entity(
+                                kind="schema",
+                                entity_id=table_id,
+                                label=schema_display(None, fallback_id=table_id),
+                                navigable=False,
+                                role="target",
+                            ),
+                        ],
+                    },
                     title_key="inspection.issues.regex.tableMissing.title",
                     description_key="inspection.issues.regex.tableMissing.description",
                     fix_hint_key="inspection.issues.regex.tableMissing.fixHint",
@@ -565,6 +642,25 @@ def inspect_regex_reference_integrity(
                         "table_id": table_id,
                         "available_columns": available_cols,
                         "missing_column_id": column_id,
+                        # 涉事实体：引用方正则节点（画布可按 id 定位）+ 被引用表（存在，可导航、带路径）
+                        "involved": [
+                            involved_entity(
+                                kind="regex",
+                                entity_id=regex_id,
+                                path=regex_file_path,
+                                label=regex_disp,
+                                navigable=True,
+                                role="referrer",
+                            ),
+                            involved_entity(
+                                kind="schema",
+                                entity_id=table_id,
+                                path=resolved_schema_paths.get(table_id, ""),
+                                label=schema_display(schema_files.get(table_id)),
+                                navigable=True,
+                                role="target",
+                            ),
+                        ],
                     },
                     title_key="inspection.issues.regex.colMissing.title",
                     description_key="inspection.issues.regex.colMissing.description",

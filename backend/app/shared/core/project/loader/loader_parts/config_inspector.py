@@ -118,9 +118,13 @@ def inspect_config(
 
     inspect_source_uniqueness(schema_files, loading_errors, schema_paths)
 
-    inspect_reference_integrity(schema_files, constraint_files, warnings, loading_errors, constraint_paths)
+    inspect_reference_integrity(
+        schema_files, constraint_files, warnings, loading_errors, constraint_paths, schema_paths
+    )
 
-    inspect_regex_reference_integrity(regex_node_files, schema_files, warnings, loading_errors, regex_paths)
+    inspect_regex_reference_integrity(
+        regex_node_files, schema_files, warnings, loading_errors, regex_paths, schema_paths
+    )
 
     errors_found = len(loading_errors) - errors_before
     warnings_found = len(warnings) - warnings_before

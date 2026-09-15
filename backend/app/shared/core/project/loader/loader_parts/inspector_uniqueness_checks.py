@@ -38,32 +38,72 @@ if TYPE_CHECKING:
     from app.shared.core.project.schema.types import TableSchemaFile
 
 
+def _schema_entity_label(path: str, name: str | None, schema_id: str) -> str:
+    """生成 schema 实体的用户可读显示名：优先文件名 basename，扫描时已解析出表名则附上。
+
+    表名与 id/basename 完全相同时不重复附加（如 id=name=users 的常见配置），避免噪音。
+    """
+    label = Path(path).name if path else ""
+    cleaned = (name or "").strip()
+    if cleaned and cleaned != schema_id and cleaned != label:
+        label = f"{label}（{cleaned}）" if label else cleaned
+    return label
+
+
+def _schema_involved_entity(schema_id: str, path: str, name: str | None, navigable: bool) -> dict:
+    """构造 context.involved 实体条目（前后端契约，镜像前端 InspectionInvolvedEntity）。
+
+    唯一性冲突的实体固定标注 role='conflicting'（冲突方）。字段说明:
+        - kind: 实体类型（当前仅 schema）
+        - id: 实体 id（schema id）
+        - path: 相对配置文件路径（未知时为空串，前端据此隐藏"打开文件"）
+        - label: 用户可读显示名（优先文件名 basename）
+        - navigable: 画布节点可否按 id 唯一寻址（id 冲突时为 False，
+          前端不渲染"定位到节点"，因为同 id 节点无法区分）
+    """
+    return {
+        "kind": "schema",
+        "id": schema_id,
+        "path": path,
+        "label": _schema_entity_label(path, name, schema_id),
+        "navigable": navigable,
+        "role": "conflicting",
+    }
+
+
 def _report_schema_id_duplicates(
-    id_to_refs: dict[str, list[str]],
+    id_to_refs: dict[str, list[tuple[str, str]]],
     loading_errors: list[LoadingError],
 ) -> None:
     """根据 id → refs 索引上报重复 id 的 blocker 错误。
 
     被 inspect_schema_id_orphan_conflict 调用，基于磁盘扫描结果上报。
-    ref_keys 为冲突 schema 的相对文件路径（schemas/xxx.schema.yaml）。
+    ref_keys 为 (相对文件路径, 文件内表名) 元组列表（schemas/xxx.schema.yaml）。
     """
     for sid, ref_keys in id_to_refs.items():
         count = len(ref_keys)
         if count > 1:
-            primary_ref = ref_keys[0]
+            primary_ref = ref_keys[0][0]
+            # 结构化涉事实体清单：列出全部冲突文件（id 冲突，画布节点无法按 id 区分 → 不可导航）
+            involved = [_schema_involved_entity(sid, path, name, False) for path, name in ref_keys]
             loading_errors.append(
                 LoadingError(
                     id=ids.schema_id_duplicate(sid),
                     severity="blocker",
-                    title=f"有表重名了：{sid}",
-                    description=f"Schema ID '{sid}' 被 {count} 个 schema 配置使用，可能导致约束引用指向错误的表。请确保每个 schema ID 唯一。",
-                    fix_hint=f"请为重复的 schema 重新命名 ID（当前: {sid}），使其在项目内唯一。",
+                    title=f"表 ID「{sid}」重复",
+                    description=(
+                        f"表 ID「{sid}」被 {count} 个 schema 文件同时使用。"
+                        f"约束按 ID 引用表，ID 重复会导致约束引用指向错误的表。"
+                        f"请确保每个 schema 的 id 字段唯一。"
+                    ),
+                    fix_hint=f"请打开下方任一冲突文件，把其中一个 schema 的 id 字段改为新的唯一值（当前均为「{sid}」）。",
                     error_type="SchemaIdDuplicate",
                     # 归属到第一个冲突 schema 文件，前端"按文件"分组可见
                     file_path=primary_ref,
                     ref_id=sid,
                     message="",
                     suggestion="修改其中一个 schema 文件的 id 字段，使其与其他 schema 不同",
+                    context={"involved": involved},
                     actions=[
                         # 导航到画布中第一个重复 schema 节点，便于用户定位修改
                         # （画布节点以 schema id 为节点 id，target 必须是 sid 而非文件路径）
@@ -124,8 +164,9 @@ def inspect_schema_id_orphan_conflict(
 
     from app.shared.core.io.yaml import read_yaml
 
-    # 扫磁盘所有 .schema.yaml，按「文件内 id」索引到文件路径
-    id_to_paths: dict[str, list[str]] = {}
+    # 扫磁盘所有 .schema.yaml，按「文件内 id」索引到 (相对路径, 文件内表名)
+    # 表名一并收集，用于构造 involved 实体的友好显示名
+    id_to_refs: dict[str, list[tuple[str, str]]] = {}
     for filename in os.listdir(schemas_dir):
         if not filename.lower().endswith(".schema.yaml"):
             continue
@@ -139,10 +180,13 @@ def inspect_schema_id_orphan_conflict(
         file_id = raw.get("id")
         if not isinstance(file_id, str) or not file_id.strip():
             continue
-        id_to_paths.setdefault(file_id.strip(), []).append(f"schemas/{filename}")
+        file_name = raw.get("name")
+        id_to_refs.setdefault(file_id.strip(), []).append(
+            (f"schemas/{filename}", file_name.strip() if isinstance(file_name, str) else "")
+        )
 
     # 同一 id 被 ≥2 个文件使用 → 冲突
-    conflict_index = {sid: paths for sid, paths in id_to_paths.items() if len(paths) > 1}
+    conflict_index = {sid: refs for sid, refs in id_to_refs.items() if len(refs) > 1}
 
     if conflict_index:
         _report_schema_id_duplicates(conflict_index, loading_errors)
@@ -180,19 +224,33 @@ def inspect_source_uniqueness(
             if sheet_str:
                 source_display += f" ({sheet_str})"
             primary_ref = sids[0]
+            # 结构化涉事实体清单：列出全部指向同一数据源的 schema（id 各不相同 → 可导航）
+            involved = [
+                _schema_involved_entity(
+                    sid,
+                    resolved_schema_paths.get(sid, ""),
+                    getattr(schema_files[sid], "name", None),
+                    True,
+                )
+                for sid in sids
+            ]
             loading_errors.append(
                 LoadingError(
                     id=ids.schema_source_duplicate(path_str, sheet_str),
                     severity="blocker",
                     title=f"有表指向了同一个数据文件：{source_display}",
-                    description=f"数据源 '{source_display}' 被 {len(sids)} 个 schema 引用: {', '.join(sids)}。每个数据源只能被一个 schema 定义。请删除重复的 schema 或修改其 source.path。",
-                    fix_hint=f"请保留其中一个 schema（如 {sids[0]}），删除或修改其他的。",
+                    description=(
+                        f"数据源 '{source_display}' 被 {len(sids)} 个 schema 引用: {', '.join(sids)}。"
+                        f"每个数据源只能被一个 schema 定义，否则读取会冲突。请删除重复的 schema 或修改其 source.path。"
+                    ),
+                    fix_hint=f"请保留其中一个 schema（如 {sids[0]}），删除或修改其他的。涉事实体见下方清单。",
                     error_type="SchemaSourceDuplicate",
                     # 归属到第一个引用该数据源的 schema 文件，前端"按文件"分组可见
                     file_path=resolved_schema_paths.get(primary_ref, ""),
                     ref_id=primary_ref,
                     message="",
                     suggestion=f"保留 schema '{sids[0]}'，删除或修改: {', '.join(sids[1:])}",
+                    context={"involved": involved},
                     actions=[
                         # 导航到第一个重复 schema 节点
                         {

@@ -174,6 +174,36 @@ class TestInspectIdConsistency:
         assert err.message_params["fileId"] == "users"
         assert len(warnings) == 1
 
+    def test_schema_id_mismatch_involved_lists_file_and_manifest(self):
+        """ID 不一致的 involved 应双侧对照：文件实体（role=file）+ manifest 引用条目（role=manifest）。"""
+        manifest = make_manifest(schemas=[SchemaRef(id="users_ref", path="schemas/users.schema.yaml")])
+        schema_files = {"users_ref": make_schema(id="users")}
+        _, errors = run_inspect_id(manifest, schema_files, {}, {}, {})
+
+        assert len(errors) == 1
+        err = errors[0]
+        # 稳定 id / 归属文件 / ref_id 契约不变
+        assert err.id == "id_mismatch_schema:users_ref:users"
+        assert err.file_path == "schemas/users.schema.yaml"
+        assert err.ref_id == "users_ref"
+        involved = err.context["involved"]
+        assert len(involved) == 2
+        file_entity, manifest_entity = involved
+        # 文件实体：文件内 id 为准；画布无法按文件路径寻址 → 不可导航
+        assert file_entity["kind"] == "schema"
+        assert file_entity["id"] == "users"
+        assert file_entity["path"] == "schemas/users.schema.yaml"
+        assert file_entity["label"] == "users.schema.yaml"
+        assert file_entity["navigable"] is False
+        assert file_entity["role"] == "file"
+        # manifest 引用条目：指向 project.precis.yaml，不可导航
+        assert manifest_entity["kind"] == "schema"
+        assert manifest_entity["id"] == "users_ref"
+        assert manifest_entity["path"] == "project.precis.yaml"
+        assert manifest_entity["label"] == "project.precis.yaml"
+        assert manifest_entity["navigable"] is False
+        assert manifest_entity["role"] == "manifest"
+
     def test_constraint_id_mismatch_simple_generates_warning(self):
         """constraint ID 不一致且无重复登记 → 走通用 mismatch 路径。"""
         manifest = make_manifest(constraints=[ConstraintRef(id="c_old", path="constraints/c.constraint.yaml")])
@@ -205,6 +235,44 @@ class TestInspectIdConsistency:
         ]
         assert len(dup_errors) == 1
         assert "重复" in dup_errors[0].title or "重复" in dup_errors[0].description
+
+    def test_constraint_dup_ref_involved_lists_file_and_manifest(self):
+        """重复登记的 involved：被重复登记的规则文件（role=file）+ 多余引用条目（role=manifest）。"""
+        manifest = make_manifest(
+            constraints=[
+                ConstraintRef(id="c_correct", path="constraints/c.constraint.yaml"),
+                ConstraintRef(id="c_wrong", path="constraints/c.constraint.yaml"),
+            ]
+        )
+        constraint_files = {
+            "c_correct": make_constraint(id="c_correct"),
+            "c_wrong": make_constraint(id="c_correct"),
+        }
+        _, errors = run_inspect_id(manifest, {}, constraint_files, {}, {})
+
+        dup_errors = [
+            e for e in errors if e.fix_api and e.fix_api.get("path") == "/project/manifest/constraint/deduplicate"
+        ]
+        assert len(dup_errors) == 1
+        err = dup_errors[0]
+        # 稳定 id / 归属文件 / ref_id 契约不变
+        assert err.id == "id_mismatch_constraint:c_wrong:c_correct"
+        assert err.file_path == "project.precis.yaml"
+        assert err.ref_id == "c_wrong"
+        involved = err.context["involved"]
+        assert len(involved) == 2
+        file_entity, manifest_entity = involved
+        assert file_entity["kind"] == "constraint"
+        assert file_entity["id"] == "c_correct"
+        assert file_entity["path"] == "constraints/c.constraint.yaml"
+        assert file_entity["label"] == "c.constraint.yaml"
+        assert file_entity["navigable"] is False
+        assert file_entity["role"] == "file"
+        assert manifest_entity["kind"] == "constraint"
+        assert manifest_entity["id"] == "c_wrong"
+        assert manifest_entity["path"] == "project.precis.yaml"
+        assert manifest_entity["navigable"] is False
+        assert manifest_entity["role"] == "manifest"
 
     def test_regex_and_transform_mismatch_handled(self):
         """regex/transform 的 ID 不一致也应有 fix_api。"""
@@ -325,6 +393,56 @@ class TestInspectSchemaIdOrphanConflict:
         inspect_schema_id_orphan_conflict(tmp_path, manifest, schema_files, errors)
         assert errors == []
 
+    def test_id_duplicate_lists_all_conflict_files_as_involved(self, tmp_path):
+        """ID 冲突的 context.involved 应列出全部冲突文件，且均不可导航（id 无法区分节点）。"""
+        (tmp_path / "schemas").mkdir()
+        # name 与 id 相同（常见配置）→ label 不重复附加表名
+        (tmp_path / "schemas" / "users.csv.schema.yaml").write_text(
+            "version: 2\nid: users\nname: users\ncolumns:\n  - id: id\n    name: id\n    type: integer\n",
+            encoding="utf-8",
+        )
+        # name 与 id 不同 → label 在 basename 后附表名
+        (tmp_path / "schemas" / "users.schema.yaml").write_text(
+            "version: 2\nid: users\nname: 用户表副本\ncolumns:\n  - id: email\n    name: email\n    type: string\n",
+            encoding="utf-8",
+        )
+        (tmp_path / "schemas" / "users-backup.schema.yaml").write_text(
+            "version: 2\nid: users\nname: users-backup\ncolumns:\n  - id: phone\n    name: phone\n    type: string\n",
+            encoding="utf-8",
+        )
+
+        manifest = make_manifest(schemas=[SchemaRef(id="users", path="schemas/users.csv.schema.yaml")])
+        schema_files = {"users": make_schema(id="users")}
+        errors: list[LoadingError] = []
+        inspect_schema_id_orphan_conflict(tmp_path, manifest, schema_files, errors)
+
+        assert len(errors) == 1
+        err = errors[0]
+        # issue id / ref_id 契约保持不变；归属文件仍是冲突文件之一（磁盘扫描顺序不假定）
+        assert err.id == "schema_id_duplicate:users"
+        assert err.ref_id == "users"
+        conflict_paths = {
+            "schemas/users.csv.schema.yaml",
+            "schemas/users.schema.yaml",
+            "schemas/users-backup.schema.yaml",
+        }
+        assert err.file_path in conflict_paths
+        # involved 列出全部 3 个冲突文件；id 冲突时画布节点无法按 id 区分 → navigable=False
+        involved = err.context["involved"]
+        assert len(involved) == 3
+        assert {e["path"] for e in involved} == conflict_paths
+        for entity in involved:
+            assert entity["kind"] == "schema"
+            assert entity["id"] == "users"
+            assert entity["navigable"] is False
+            assert entity["role"] == "conflicting"
+        labels = {e["path"]: e["label"] for e in involved}
+        assert labels["schemas/users.csv.schema.yaml"] == "users.csv.schema.yaml"
+        assert labels["schemas/users.schema.yaml"] == "users.schema.yaml（用户表副本）"
+        assert labels["schemas/users-backup.schema.yaml"] == "users-backup.schema.yaml（users-backup）"
+        # to_dict 序列化后契约不变（前端按此结构渲染）
+        assert err.to_dict()["context"]["involved"] == involved
+
 
 # ============================================================================
 # inspect_source_uniqueness 测试
@@ -383,6 +501,59 @@ class TestInspectSourceUniqueness:
         inspect_source_uniqueness(schema_files, errors)
         assert errors == []
 
+    def test_duplicate_source_involved_lists_all_schemas_with_paths(self):
+        """数据源重复的 context.involved 应列出全部 schema（id 各不相同 → 可导航）。"""
+        errors: list[LoadingError] = []
+        schema_files = {
+            "users": make_schema(source=SourceSpec(mode="relative_file", path="data/users.xlsx")),
+            "dup": make_schema(
+                id="dup", name="users 副本", source=SourceSpec(mode="relative_file", path="data/users.xlsx")
+            ),
+        }
+        inspect_source_uniqueness(
+            schema_files,
+            errors,
+            {"users": "schemas/users.schema.yaml", "dup": "schemas/dup.schema.yaml"},
+        )
+
+        assert len(errors) == 1
+        err = errors[0]
+        # issue id / ref_id / 归属文件契约保持不变
+        assert err.id == "schema_source_duplicate:data/users.xlsx:None"
+        assert err.ref_id == "users"
+        assert err.file_path == "schemas/users.schema.yaml"
+        involved = err.context["involved"]
+        assert len(involved) == 2
+        by_id = {e["id"]: e for e in involved}
+        # schema id 各不相同，画布节点可按 id 唯一定位 → navigable=True
+        assert by_id["users"]["kind"] == "schema"
+        assert by_id["users"]["path"] == "schemas/users.schema.yaml"
+        assert by_id["users"]["navigable"] is True
+        assert by_id["users"]["role"] == "conflicting"
+        # make_schema 默认 name=id=users → label 即文件名 basename
+        assert by_id["users"]["label"] == "users.schema.yaml"
+        # name 与 id 不同 → label 在 basename 后附表名
+        assert by_id["dup"]["path"] == "schemas/dup.schema.yaml"
+        assert by_id["dup"]["label"] == "dup.schema.yaml（users 副本）"
+        assert by_id["dup"]["navigable"] is True
+        assert by_id["dup"]["role"] == "conflicting"
+
+    def test_duplicate_source_involved_keeps_empty_path_without_path_map(self):
+        """无路径映射时 involved 实体 path 留空串（前端据此隐藏"打开文件"），仍可导航。"""
+        errors: list[LoadingError] = []
+        schema_files = {
+            "users": make_schema(source=SourceSpec(mode="relative_file", path="data/users.xlsx")),
+            "dup": make_schema(id="dup", source=SourceSpec(mode="relative_file", path="data/users.xlsx")),
+        }
+        inspect_source_uniqueness(schema_files, errors)
+
+        assert len(errors) == 1
+        involved = errors[0].context["involved"]
+        assert len(involved) == 2
+        assert all(e["path"] == "" for e in involved)
+        assert all(e["navigable"] is True for e in involved)
+        assert all(e["role"] == "conflicting" for e in involved)
+
 
 # ============================================================================
 # inspect_reference_integrity 测试
@@ -416,6 +587,20 @@ class TestInspectReferenceIntegrity:
         # context 应含可用表列表
         assert len(err.context["available_schemas"]) == 1
         assert err.context["available_schemas"][0]["id"] == "users"
+        # involved：引用方约束（画布可定位）+ 被引用表（已缺失 → 无路径、不可导航）
+        involved = err.context["involved"]
+        assert len(involved) == 2
+        referrer, target = involved
+        assert referrer["kind"] == "constraint"
+        assert referrer["id"] == "c1"
+        assert referrer["path"] == "constraints/c1.constraint.yaml"
+        assert referrer["navigable"] is True
+        assert referrer["role"] == "referrer"
+        assert target["kind"] == "schema"
+        assert target["id"] == "ghost"
+        assert target["path"] == ""
+        assert target["navigable"] is False
+        assert target["role"] == "target"
 
     def test_not_null_missing_column_generates_blocker(self):
         warnings: list[str] = []
@@ -432,6 +617,38 @@ class TestInspectReferenceIntegrity:
         # context 应含该表可用列
         available_cols = err.context["available_columns"]
         assert "id" in available_cols and "email" in available_cols
+        # involved：被引用表存在 → 可导航；无 schema 路径映射 → 不带路径
+        involved = err.context["involved"]
+        assert len(involved) == 2
+        referrer, target = involved
+        assert referrer["role"] == "referrer"
+        assert referrer["navigable"] is True
+        assert target["kind"] == "schema"
+        assert target["id"] == "users"
+        assert target["path"] == ""
+        assert target["navigable"] is True
+        assert target["role"] == "target"
+
+    def test_missing_column_involved_target_carries_schema_path(self):
+        """列缺失 + schema 路径映射时，involved 目标实体应携带配置文件路径。"""
+        warnings: list[str] = []
+        errors: list[LoadingError] = []
+        schema_files = {"users": make_schema()}
+        constraint_files = {"c1": make_constraint(refs={"table_id": "users", "column_id": "ghost_col"})}
+        inspect_reference_integrity(
+            schema_files,
+            constraint_files,
+            warnings,
+            errors,
+            None,
+            {"users": "schemas/users.schema.yaml"},
+        )
+
+        assert len(errors) == 1
+        involved = errors[0].context["involved"]
+        target = next(e for e in involved if e["role"] == "target")
+        assert target["path"] == "schemas/users.schema.yaml"
+        assert target["navigable"] is True
 
     def test_unique_missing_column_checked(self):
         """Unique 约束的 column_ids 列表中的列缺失也要检测。"""
@@ -467,6 +684,15 @@ class TestInspectReferenceIntegrity:
         err = errors[0]
         assert err.fix_api["path"] == "/project/inspection/fix-table-ref"
         assert err.fix_api["body"]["field"] == "fk_src_table_missing"
+        # FK 同样经统一 involved 契约：引用方约束 + 被引用表（数据来源）
+        involved = err.context["involved"]
+        assert [e["role"] for e in involved] == ["referrer", "target"]
+        assert involved[0]["kind"] == "constraint"
+        assert involved[0]["id"] == "c1"
+        assert involved[0]["navigable"] is True
+        assert involved[1]["kind"] == "schema"
+        assert involved[1]["id"] == "ghost_src"
+        assert involved[1]["navigable"] is False
 
     def test_foreign_key_dst_column_missing(self):
         warnings: list[str] = []
@@ -522,6 +748,14 @@ class TestInspectReferenceIntegrity:
         assert len(errors) == 1
         # 子约束表缺失，field 含子规则索引
         assert "composite_sub_table_missing" in errors[0].fix_api["body"]["field"]
+        # involved 引用方是复合约束节点本身（子规则无独立画布节点）
+        involved = errors[0].context["involved"]
+        assert involved[0]["role"] == "referrer"
+        assert involved[0]["kind"] == "constraint"
+        assert involved[0]["id"] == "c1"
+        assert involved[1]["role"] == "target"
+        assert involved[1]["id"] == "ghost"
+        assert involved[1]["navigable"] is False
 
     def test_composite_sub_constraint_column_missing_detected(self):
         """Composite 子约束引用的列缺失应报 blocker。"""
@@ -594,16 +828,42 @@ class TestInspectRegexReferenceIntegrity:
         assert err.severity == "blocker"
         assert err.fix_api["path"] == "/project/inspection/fix-regex-table-ref"
         assert err.fix_api["body"]["regex_id"] == "r1"
+        # involved：引用方正则节点（kind=regex，画布可定位）+ 被引用表（已缺失）
+        involved = err.context["involved"]
+        assert len(involved) == 2
+        referrer, target = involved
+        assert referrer["kind"] == "regex"
+        assert referrer["id"] == "r1"
+        assert referrer["path"] == "regex/r1.regex.yaml"
+        assert referrer["navigable"] is True
+        assert referrer["role"] == "referrer"
+        assert target["kind"] == "schema"
+        assert target["id"] == "ghost"
+        assert target["path"] == ""
+        assert target["navigable"] is False
+        assert target["role"] == "target"
 
-    def test_regex_missing_column_generates_blocker(self):
+    def test_regex_missing_column_involved_target_carries_schema_path(self):
+        """正则列缺失 + schema 路径映射时，involved 目标实体应携带配置文件路径。"""
         warnings: list[str] = []
         errors: list[LoadingError] = []
         schema_files = {"users": make_schema()}
         regex_files = {"r1": make_regex(source_ref=RegexSourceRef(table_id="users", column_id="ghost"))}
-        inspect_regex_reference_integrity(regex_files, schema_files, warnings, errors)
+        inspect_regex_reference_integrity(
+            regex_files,
+            schema_files,
+            warnings,
+            errors,
+            None,
+            {"users": "schemas/users.schema.yaml"},
+        )
 
         assert len(errors) == 1
         assert errors[0].fix_api["path"] == "/project/inspection/fix-regex-column-ref"
+        involved = errors[0].context["involved"]
+        assert [e["role"] for e in involved] == ["referrer", "target"]
+        assert involved[1]["path"] == "schemas/users.schema.yaml"
+        assert involved[1]["navigable"] is True
 
     def test_regex_without_source_ref_skipped(self):
         warnings: list[str] = []

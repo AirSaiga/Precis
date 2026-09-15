@@ -26,6 +26,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 from typing import TYPE_CHECKING
 
@@ -247,6 +248,50 @@ def actions_for_node_ref(node_id: str | None) -> list[dict]:
         }
     )
     return actions
+
+
+# ============================================================================
+# 涉事实体工具（context.involved 清单构建）
+# ============================================================================
+
+
+def file_entity_label(path: str) -> str:
+    """文件实体的用户可读显示名：取路径 basename；路径为空时回退原始串。"""
+    return os.path.basename(path) if path else ""
+
+
+def involved_entity(
+    kind: str,
+    entity_id: str = "",
+    path: str = "",
+    label: str = "",
+    navigable: bool = False,
+    role: str = "",
+) -> dict:
+    """构造 context.involved 实体条目（前后端契约，镜像前端 InspectionInvolvedEntity）。
+
+    所有配置自检问题经此统一发射涉事实体，kind/role 枚举与前端静态映射保持一致：
+        - kind: 实体类型 —— schema / constraint / regex / transform / manual_data 等
+        - role: 实体角色 —— conflicting（冲突方）/ referrer（引用方）/ target（被引用目标）
+                / file（纯文件实体）/ manifest（manifest 引用条目）；为空时不发射该字段
+        - navigable: 画布节点可否按 id 唯一寻址（如 id 冲突无法区分时为 False）
+
+    参数:
+        kind: 实体类型（必填）
+        entity_id: 实体 id（画布节点 id / 文件内 id / 引用 id）
+        path: 相对配置文件路径（未知时为空串，前端据此隐藏"打开文件"）
+        label: 用户可读显示名（缺省时回退 entity_id，再退化为 path）
+        navigable: 画布节点可否按 id 唯一寻址
+        role: 实体角色枚举串（空串表示不标注角色）
+    """
+    return {
+        "kind": kind,
+        "id": entity_id,
+        "path": path,
+        "label": label or entity_id or path,
+        "navigable": navigable,
+        **({"role": role} if role else {}),
+    }
 
 
 # ============================================================================

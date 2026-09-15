@@ -23,9 +23,10 @@ limitations under the License.
   1. 头部：严重度图标 + 标题 + 单条忽略按钮
   2. 根因说明（一句话）
   3. 修复建议（高亮）
-  4. 动作按钮（打开文件 / 一键修复 / 复制 / 忽略）
-  5. 上下文数据（如果有）：可用表 / 可用列（可点击直接修正引用）
-  6. 原始信息（兜底）
+  4. 涉事实体清单（唯一性冲突类问题）：label + 打开文件 / 复制 ID / 定位到节点
+  5. 动作按钮（打开文件 / 一键修复 / 复制 / 忽略）
+  6. 上下文数据（如果有）：可用表 / 可用列（可点击直接修正引用）
+  7. 原始信息（兜底）
 
   i18n 渲染策略：
   - issue.title_key / description_key / fix_hint_key 存在时优先用 i18n 渲染
@@ -72,6 +73,61 @@ limitations under the License.
       <div v-if="fixHintText" class="fix-hint">
         <span class="section-label"><AppIcon name="bulb" :size="16" /></span>
         <span class="hint-text">{{ fixHintText }}</span>
+      </div>
+
+      <!-- 上下文：涉事实体清单（唯一性冲突：表 ID 重复 / 多表指向同一数据源）。
+           每行提供 label + 打开文件 / 复制 ID /（可导航时）定位到节点，
+           动作构造为 InspectionAction 复用 Drawer 的 handleAction 统一处理 -->
+      <div
+        v-if="involvedEntities.length > 0"
+        class="context-block"
+        :title="t('inspection.context.involvedEntities')"
+      >
+        <div class="context-label">
+          <AppIcon name="bulb" :size="12" /> {{ t('inspection.context.involvedEntities') }}
+        </div>
+        <ul class="schema-list">
+          <li
+            v-for="entity in involvedEntities"
+            :key="entity.path || entity.id"
+            class="schema-item"
+          >
+            <div class="entity-label-row">
+              <span class="schema-name">{{ entity.label }}</span>
+              <span v-if="entity.role" class="entity-role-tag">{{
+                entityRoleLabel(entity.role)
+              }}</span>
+            </div>
+            <div class="involved-actions">
+              <button
+                v-if="entity.path"
+                class="action-btn"
+                :title="t('inspection.actions.openFile')"
+                @click="$emit('action', issue, openEntityFileAction(entity))"
+              >
+                <span class="action-icon"><AppIcon name="folder-open" :size="12" /></span>
+                <span class="action-label">{{ t('inspection.actions.openFile') }}</span>
+              </button>
+              <button
+                class="action-btn"
+                :title="t('inspection.actions.copyId')"
+                @click="$emit('action', issue, copyEntityIdAction(entity))"
+              >
+                <span class="action-icon"><AppIcon name="clipboard" :size="12" /></span>
+                <span class="action-label">{{ t('inspection.actions.copyId') }}</span>
+              </button>
+              <button
+                v-if="entity.navigable"
+                class="action-btn"
+                :title="t('inspection.actions.navigateToNode')"
+                @click="$emit('action', issue, navigateEntityAction(entity))"
+              >
+                <span class="action-icon"><AppIcon name="arrow-right" :size="12" /></span>
+                <span class="action-label">{{ t('inspection.actions.navigateToNode') }}</span>
+              </button>
+            </div>
+          </li>
+        </ul>
       </div>
 
       <!-- 动作按钮 -->
@@ -169,7 +225,11 @@ limitations under the License.
   import { computed } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { X } from '@lucide/vue'
-  import type { InspectionAction, InspectionIssue } from '@/types/projectV2'
+  import type {
+    InspectionAction,
+    InspectionInvolvedEntity,
+    InspectionIssue,
+  } from '@/types/projectV2'
   import AppIcon from '@/components/icons/AppIcon.vue'
   import { useClipboard } from '@/composables/useClipboard'
   import { toastSuccess, toastError } from '@/core/toast'
@@ -293,21 +353,78 @@ limitations under the License.
 
   /** 上下文中的可用表列表（用于 FK 悬挂 / 表不存在） */
   const availableSchemas = computed<Array<{ id: string; name?: string }>>(() => {
-    const ctx = props.issue.context as Record<string, unknown> | undefined
-    const list = ctx?.available_schemas
+    const list = props.issue.context?.available_schemas
     if (!Array.isArray(list)) return []
     return list.filter(
       (x): x is { id: string; name?: string } =>
-        typeof x === 'object' && x !== null && typeof (x as Record<string, unknown>).id === 'string'
+        typeof x === 'object' && x !== null && typeof x.id === 'string'
     )
   })
 
   /** 上下文中的可用列列表（用于列不存在） */
   const availableColumns = computed<string[]>(() => {
-    const ctx = props.issue.context as Record<string, unknown> | undefined
-    const list = ctx?.available_columns
+    const list = props.issue.context?.available_columns
     return Array.isArray(list) ? list.filter((x): x is string => typeof x === 'string') : []
   })
+
+  /** 上下文中的涉事实体清单（唯一性冲突类问题）；运行时数据可能不符契约，做防御性过滤 */
+  const involvedEntities = computed<InspectionInvolvedEntity[]>(() => {
+    const list = props.issue.context?.involved
+    if (!Array.isArray(list)) return []
+    return list.filter(
+      (entity): entity is InspectionInvolvedEntity =>
+        typeof entity === 'object' &&
+        entity !== null &&
+        typeof entity.id === 'string' &&
+        typeof entity.label === 'string' &&
+        typeof entity.navigable === 'boolean'
+    )
+  })
+
+  /** 构造"打开文件"动作，emit 给 Drawer 的 handleAction（Electron IPC，Web 降级复制路径） */
+  function openEntityFileAction(entity: InspectionInvolvedEntity): InspectionAction {
+    return {
+      type: 'open_file',
+      label: t('inspection.actions.openFile'),
+      label_key: 'inspection.actions.openFile',
+      file_path: entity.path ?? '',
+    }
+  }
+
+  /** 构造"复制 ID"动作，emit 给 Drawer 的 handleAction（剪贴板 + toast） */
+  function copyEntityIdAction(entity: InspectionInvolvedEntity): InspectionAction {
+    return {
+      type: 'copy',
+      label: t('inspection.actions.copyId'),
+      label_key: 'inspection.actions.copyId',
+      text: entity.id,
+    }
+  }
+
+  /** 构造"定位到节点"动作，emit 给 Drawer 的 handleAction → navigateToNode（画布跳转/导入聚焦） */
+  function navigateEntityAction(entity: InspectionInvolvedEntity): InspectionAction {
+    return {
+      type: 'navigate',
+      label: t('inspection.actions.navigateToNode'),
+      label_key: 'inspection.actions.navigateToNode',
+      target: entity.id,
+    }
+  }
+
+  /** involved 实体角色 → i18n key 静态映射（保持字面量 key，勿改动态前缀写法，会触发 audit:i18n 误判） */
+  const ROLE_LABEL_KEYS: Record<string, string> = {
+    conflicting: 'inspection.roles.conflicting',
+    referrer: 'inspection.roles.referrer',
+    target: 'inspection.roles.target',
+    file: 'inspection.roles.file',
+    manifest: 'inspection.roles.manifest',
+  }
+
+  /** 角色标签文案：未知角色回退原始枚举串 */
+  function entityRoleLabel(role: string): string {
+    const key = ROLE_LABEL_KEYS[role]
+    return key ? t(key) : role
+  }
 
   /** 复制 schema id 到剪贴板 */
   async function handleCopyId(id: string): Promise<void> {
@@ -572,6 +689,38 @@ limitations under the License.
   .fix-select-btn:hover {
     background: var(--ui-accent-hover, #2563eb);
     border-color: var(--ui-accent-hover, #2563eb);
+  }
+
+  .involved-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .involved-actions .action-btn {
+    padding: 2px 8px;
+    font-size: 11px;
+  }
+
+  .entity-label-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  .entity-role-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 6px;
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.6;
+    background: var(--ui-bg-elevated);
+    border: 1px solid var(--ui-border-subtle, rgba(0, 0, 0, 0.06));
+    color: var(--ui-text-subtle);
+    flex-shrink: 0;
   }
 
   .column-chips {
