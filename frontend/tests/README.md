@@ -30,6 +30,7 @@ frontend/tests/
 ├── services/         # 服务层：约束、builder、规则、断开连接处理等
 ├── shared/           # 共享纯工具函数
 ├── stores/           # 业务 Store 与 graphStore 工厂模块（见下）
+├── types/            # 类型契约守卫（settings 键集合、生成物×注册表×i18n 对齐）
 └── utils/            # 通用工具函数
 ```
 
@@ -45,6 +46,7 @@ frontend/tests/
 - `features/nodeLayoutOrganizer/*.test.ts` — 布局计算纯算法
 - `features/regex/*.test.ts` — regex 构建与提取纯逻辑
 - `services/*` — 约束、builder、规则、断开连接处理等服务层逻辑
+- `types/` — 类型契约守卫（`settings.test.ts` 设置键集合=后端白名单；`generated/actions.test.ts` codegen 生成物×constraintMeta×i18n 双侧三方对齐）
 - `shared/`、`utils/` — 通用工具函数
 - `stores/graphStore/` — GraphStore 工厂模块闭包与 v2 导入/持久化模块
 
