@@ -25,11 +25,15 @@ import type { BuilderContext, NodeBuilder } from '../../types'
 import { buildSingleColumnRefs } from './helpers'
 
 /**
- * 根据子约束节点数据构建 params
+ * 根据子约束节点数据构建 params。
+ *
+ * subType 必须由调用方从 node.type 派生（V2 正名，如 'Range'/'Scripted'）显式传入：
+ * 节点 data 上没有 type 字段，从 subData 读 type 会恒落 default 返回 {}（B1 回归）。
  */
-function buildSubConstraintParams(subData: Record<string, unknown>): Record<string, unknown> {
-  const subType = (subData.type as string) || ''
-
+export function buildSubConstraintParams(
+  subData: Record<string, unknown>,
+  subType: string
+): Record<string, unknown> {
   switch (subType) {
     case 'Range':
       return {
@@ -100,14 +104,16 @@ export const compositeBuilder: NodeBuilder<ConstraintFileV2> = {
       .map((subNode) => {
         const subData = (subNode.data || {}) as Record<string, unknown>
         const subType = subNode.type!.replace('Constraint', '')
+        // V2 正名（首字母大写）：type 字段与 params 构建共用同一派生值（B1 回归）
+        const subTypeName = subType.charAt(0).toUpperCase() + subType.slice(1)
         return {
           id: subNode.id,
-          type: subType.charAt(0).toUpperCase() + subType.slice(1),
+          type: subTypeName,
           enabled: subData.enabled !== false,
           description:
             (subData.configName as string) || (subData.description as string) || undefined,
           refs: buildSingleColumnRefs(subData, nodes, schemaIdByNodeId),
-          params: buildSubConstraintParams(subData),
+          params: buildSubConstraintParams(subData, subTypeName),
         }
       })
 

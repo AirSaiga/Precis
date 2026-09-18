@@ -343,6 +343,106 @@ describe('constraintExportAdapter - Composite', () => {
     })
     expect(result.params.logic).toBe('all')
   })
+
+  it('includedNodeIds 分支逐字段保留子约束 params（B1 回归）', () => {
+    const nodes = [
+      ...makeNodes(),
+      {
+        id: 'sub-range',
+        type: 'rangeConstraint',
+        data: {
+          sourceRef: { nodeId: 'schema-1', columnId: 'col-age' },
+          minValue: 18,
+          maxValue: 60,
+          boundaryMode: 'exclusive',
+          configName: '年龄范围',
+        },
+      } as any,
+      {
+        id: 'sub-allowed',
+        type: 'allowedValuesConstraint',
+        data: {
+          sourceRef: { nodeId: 'schema-1', columnId: 'col-status' },
+          allowedValues: ['active', 'inactive'],
+          configName: '状态枚举',
+        },
+      } as any,
+      {
+        id: 'sub-scripted',
+        type: 'scriptedConstraint',
+        data: {
+          sourceRef: { nodeId: 'schema-1', columnId: 'col-email' },
+          script: 'value > 0',
+          configName: '正数检查',
+        },
+      } as any,
+    ]
+    const result = buildConstraintExportPayload({
+      nodes,
+      constraintNodeId: 'comp-1',
+      v2Type: 'Composite',
+      data: {
+        sourceRef: { nodeId: 'schema-1', columnId: 'col-email' },
+        logic: 'all',
+        includedNodeIds: ['sub-range', 'sub-allowed', 'sub-scripted'],
+      },
+      schemaIdByNodeId: schemaIdMap,
+    })
+
+    const subs = result.params.sub_constraints as Array<{
+      id: string
+      type: string
+      params: Record<string, unknown>
+    }>
+    expect(subs).toHaveLength(3)
+    expect(subs[0].params).toEqual({ min: 18, max: 60, boundary_mode: 'exclusive' })
+    expect(subs[1].params).toEqual({ allowed_values: ['active', 'inactive'] })
+    expect(subs[2].params).toEqual({ name: '正数检查', expression: 'value > 0' })
+  })
+
+  it('subGraph 分支逐字段保留子约束 params（B1 回归）', () => {
+    const result = buildConstraintExportPayload({
+      nodes: makeNodes(),
+      constraintNodeId: 'comp-1',
+      v2Type: 'Composite',
+      data: {
+        sourceRef: { nodeId: 'schema-1', columnId: 'col-email' },
+        logic: 'or',
+        subGraph: {
+          nodes: [
+            {
+              id: 'sub-1',
+              type: 'scriptedConstraint',
+              data: {
+                sourceRef: { nodeId: 'schema-1', columnId: 'col-email' },
+                script: 'len(value) > 3',
+                configName: '长度检查',
+              },
+            },
+            {
+              id: 'sub-2',
+              type: 'rangeConstraint',
+              data: {
+                sourceRef: { nodeId: 'schema-1', columnId: 'col-age' },
+                minValue: 0,
+                maxValue: 150,
+              },
+            },
+          ],
+        },
+      },
+      schemaIdByNodeId: schemaIdMap,
+    })
+
+    const subs = result.params.sub_constraints as Array<{
+      id: string
+      type: string
+      params: Record<string, unknown>
+    }>
+    expect(subs).toHaveLength(2)
+    expect(subs[0].params).toEqual({ name: '长度检查', expression: 'len(value) > 3' })
+    expect(subs[1].params).toEqual({ min: 0, max: 150, boundary_mode: 'inclusive' })
+  })
 })
 
 describe('constraintExportAdapter - Conditional', () => {

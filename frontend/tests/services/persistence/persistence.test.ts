@@ -434,6 +434,62 @@ describe('Persistence - Standalone Constraint Builders', () => {
     expect((file.params.sub_constraints as any[])[0].id).toBe('c-sub-1')
     expect((file.params.sub_constraints as any[])[1].id).toBe('c-sub-2')
   })
+
+  it('composite builder 逐字段保留子约束 params（B1 回归）', () => {
+    const rangeSub = makeConstraintNode(
+      'rangeConstraint',
+      {
+        configName: '年龄范围',
+        minValue: 18,
+        maxValue: 60,
+        boundaryMode: 'exclusive',
+      },
+      'c-sub-range'
+    )
+    const allowedSub = makeConstraintNode(
+      'allowedValuesConstraint',
+      { configName: '状态枚举', allowedValues: ['active', 'inactive'] },
+      'c-sub-allowed'
+    )
+    const scriptedSub = makeConstraintNode(
+      'scriptedConstraint',
+      { configName: '正数检查', script: 'value > 0' },
+      'c-sub-scripted'
+    )
+    const composite = makeConstraintNode(
+      'compositeConstraint',
+      {
+        configName: '复合',
+        logic: 'all',
+        includedNodeIds: ['c-sub-range', 'c-sub-allowed', 'c-sub-scripted'],
+      },
+      'c-composite'
+    )
+
+    const builder = findBuilderFor(composite)!
+    const { file } = builder.build({
+      nodes: [schema, rangeSub, allowedSub, scriptedSub, composite],
+      node: composite,
+      schemaIdByNodeId,
+      configPath: '/tmp',
+    })
+
+    const subs = file.params.sub_constraints as Array<{
+      id: string
+      type: string
+      params: Record<string, unknown>
+    }>
+    expect(subs).toHaveLength(3)
+
+    expect(subs[0].type).toBe('Range')
+    expect(subs[0].params).toEqual({ min: 18, max: 60, boundary_mode: 'exclusive' })
+
+    expect(subs[1].type).toBe('AllowedValues')
+    expect(subs[1].params).toEqual({ allowed_values: ['active', 'inactive'] })
+
+    expect(subs[2].type).toBe('Scripted')
+    expect(subs[2].params).toEqual({ name: '正数检查', expression: 'value > 0' })
+  })
 })
 
 // ============================================================================

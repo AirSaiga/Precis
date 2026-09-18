@@ -40,6 +40,7 @@ import type { AnyRecord } from '@/types/utility'
 import { deepToRaw } from '@/utils/typeHelpers'
 // resolveSchemaAndColumnIdByName 单一定义在 persistence/builders/constraint/helpers
 import { resolveSchemaAndColumnIdByName } from '@/services/persistence/builders/constraint/helpers'
+import { buildSubConstraintParams } from '@/services/persistence/builders/constraint/composite'
 
 /** 通用节点引用结构 */
 type RefLike = { nodeId?: string; columnId?: string }
@@ -249,16 +250,17 @@ export function buildConstraintExportPayload(params: {
               subRefs.table_id = normalizeSchemaId(subSourceRef.nodeId)
               subRefs.column_id = subSourceRef.columnId
             }
+            const subType = subV2Type.charAt(0).toUpperCase() + subV2Type.slice(1)
             return {
               id: subNode.id,
-              type: subV2Type.charAt(0).toUpperCase() + subV2Type.slice(1),
+              type: subType,
               enabled: (subData.enabled as boolean | undefined) !== false,
               description:
                 (subData.configName as string | undefined) ||
                 (subData.description as string | undefined) ||
                 undefined,
               refs: subRefs,
-              params: {},
+              params: buildSubConstraintParams(subData, subType),
             }
           })
           .filter(Boolean)
@@ -288,16 +290,17 @@ export function buildConstraintExportPayload(params: {
               subRefs.table_id = normalizeSchemaId(subSourceRef.nodeId)
               subRefs.column_id = subSourceRef.columnId
             }
+            const subType = subV2Type.charAt(0).toUpperCase() + subV2Type.slice(1)
             return {
               id: subNode.id,
-              type: subV2Type.charAt(0).toUpperCase() + subV2Type.slice(1),
+              type: subType,
               enabled: (subData.enabled as boolean | undefined) !== false,
               description:
                 (subData.configName as string | undefined) ||
                 (subData.description as string | undefined) ||
                 undefined,
               refs: subRefs,
-              params: {},
+              params: buildSubConstraintParams(subData, subType),
             }
           })
       }

@@ -401,27 +401,55 @@ function buildConstraintNodeData(
       base.boundaryMode = params.boundary_mode || 'inclusive'
       break
 
-    case 'conditional':
+    case 'conditional': {
       base.ifColumn = refs.if_column_id || ''
       base.ifValue = ''
-      base.ifConditions = params.if_conditions || []
+      // adapter 写 refs.if_conditions（constraintExportAdapter.ts Conditional 分支），
+      // 展开侧必须同键读回；每条条件物化为 ConditionalConstraintNodeData.ifConditions
+      // 结构（ref 携带表/列 ID，保存时 adapter 优先读 ref.columnId）
+      base.ifConditions = ((refs.if_conditions as Array<Record<string, unknown>>) || []).map(
+        (cond) => ({
+          ref: { nodeId: tableId, columnId: cond.if_column_id },
+          operator: cond.operator,
+          value: cond.value,
+          values: cond.values,
+        })
+      )
       base.ifLogic = refs.if_logic || 'and'
-      base.thenColumn = refs.then_column_id || ''
+      // refs.then_column_id 是列 ID，而 thenColumn 字段语义是列名；
+      // 写 thenRef（保存侧 thenRef.columnId 优先），保持 roundtrip 不双写不一致
+      const thenColumnId = refs.then_column_id || ''
+      if (thenColumnId) {
+        base.thenRef = { nodeId: tableId, columnId: thenColumnId }
+      }
+      // THEN 谓词配置由 adapter 写 params.then_condition，同键读回
+      base.thenConditionConfig = params.then_condition
       break
+    }
 
     case 'scripted':
       base.column = effectiveColumnId
-      base.expression = params.expression || ''
+      // adapter 写 params.expression = data.script；画布字段名是 script（ScriptedConstraintNodeData）
+      base.script = params.expression || ''
       break
 
     case 'charset':
       base.column = effectiveColumnId
       base.charsetMode = params.charset_mode || 'ascii'
+      if (params.allowed_chars) base.allowedChars = params.allowed_chars
+      if (params.disallowed_chars) base.disallowedChars = params.disallowed_chars
       break
 
     case 'dateLogic':
       base.column = effectiveColumnId
       base.logicMode = params.logic_mode || 'compare'
+      // 以下参数 adapter 按同键写入 params，逐字段读回（B2 回归：只读 mode 会丢参数）
+      if (params.compare_op) base.compareOp = params.compare_op
+      if (params.reference_date) base.referenceDate = params.reference_date
+      if (params.reference_column) base.referenceColumn = params.reference_column
+      if (params.calculation_type) base.calculationType = params.calculation_type
+      if (params.target_value !== undefined) base.targetValue = params.target_value
+      if (params.target_column) base.targetColumn = params.target_column
       break
 
     case 'composite':

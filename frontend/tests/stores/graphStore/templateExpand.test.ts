@@ -70,6 +70,8 @@ vi.mock('@/services/templateExpand', () => ({
 
 import { createTemplateExpandModule } from '@/stores/graphStore/modules/templateExpand'
 import type { TemplateExpandResult } from '@/api/projectV2Api'
+import type { ConstraintTypeV2 } from '@/types/projectV2'
+import { buildConstraintExportPayload } from '@/services/constraints/constraintExportAdapter'
 import {
   addNodes,
   addEdges,
@@ -887,6 +889,200 @@ describe('templateExpand module', () => {
       const constraint = allAddedNodes.find((n) => n.id === 'c1')
       expect(constraint).toBeDefined()
       expect((constraint!.data as Record<string, unknown>).inputFromNode).toBeUndefined()
+    })
+  })
+
+  // --------------------------------------------------------------------------
+  // 模板展开 → 保存 roundtrip（B2 回归）
+  // 写入契约：buildConstraintExportPayload 输出的 {refs, params} 直接作为模板条目
+  // （useTemplateFromSelection），展开物化后再经同一 adapter 保存，逐字段断言不丢。
+  // --------------------------------------------------------------------------
+  describe('expand → save roundtrip（B2 回归）', () => {
+    const schemaNodes: CustomNode[] = [
+      makeNode('schema-1', 'schema', {
+        tableName: 'users',
+        columns: [
+          { id: 'col-email', columnName: 'email' },
+          { id: 'col-age', columnName: 'age' },
+          { id: 'col-status', columnName: 'status' },
+        ],
+      }),
+    ]
+    const schemaIdByNodeId: Record<string, string> = { 'schema-1': 'sc_users' }
+
+    const asRecord = (v: unknown): Record<string, unknown> => v as Record<string, unknown>
+
+    /** 六类约束的画布节点 data（模拟模板创建时的源节点状态） */
+    const cases: Array<{
+      id: string
+      v2Type: ConstraintTypeV2
+      data: Record<string, unknown>
+    }> = [
+      {
+        id: 'c-range',
+        v2Type: 'Range',
+        data: {
+          configName: '年龄范围',
+          sourceRef: { nodeId: 'schema-1', columnId: 'col-age' },
+          minValue: 18,
+          maxValue: 60,
+          boundaryMode: 'exclusive',
+        },
+      },
+      {
+        id: 'c-allowed',
+        v2Type: 'AllowedValues',
+        data: {
+          configName: '状态枚举',
+          sourceRef: { nodeId: 'schema-1', columnId: 'col-status' },
+          allowedValues: ['active', 'inactive'],
+        },
+      },
+      {
+        id: 'c-scripted',
+        v2Type: 'Scripted',
+        data: {
+          configName: '正数检查',
+          sourceRef: { nodeId: 'schema-1', columnId: 'col-email' },
+          script: 'value > 0',
+        },
+      },
+      {
+        id: 'c-conditional',
+        v2Type: 'Conditional',
+        data: {
+          configName: '条件检查',
+          thenRef: { nodeId: 'schema-1', columnId: 'col-age' },
+          ifLogic: 'or',
+          ifConditions: [
+            {
+              operator: 'eq',
+              value: 'active',
+              ref: { nodeId: 'schema-1', columnId: 'col-status' },
+            },
+          ],
+          thenConditionConfig: { type: 'range', min: 18 },
+        },
+      },
+      {
+        id: 'c-charset',
+        v2Type: 'Charset',
+        data: {
+          configName: '字符集检查',
+          sourceRef: { nodeId: 'schema-1', columnId: 'col-email' },
+          charsetMode: 'chinese',
+          allowedChars: 'abc',
+          disallowedChars: 'xyz',
+        },
+      },
+      {
+        id: 'c-datelogic',
+        v2Type: 'DateLogic',
+        data: {
+          configName: '日期逻辑',
+          sourceRef: { nodeId: 'schema-1', columnId: 'col-age' },
+          logicMode: 'compare',
+          compareOp: 'gt',
+          referenceDate: '2025-01-01',
+          referenceColumn: 'dob',
+          calculationType: 'age',
+          targetValue: '18',
+          targetColumn: 'dob',
+        },
+      },
+    ]
+
+    it('六类约束展开后保存，params/refs 逐字段不丢', async () => {
+      nodes.value = [makeNode('ti-1', 'templateInstance', {})]
+
+      // 模板创建：adapter 输出即模板条目 {refs, params}（写入契约）
+      const savedPayloads = new Map<
+        string,
+        { refs: Record<string, unknown>; params: Record<string, unknown> }
+      >()
+      const templateConstraints = cases.map(({ id, v2Type, data }) => {
+        const payload = buildConstraintExportPayload({
+          nodes: schemaNodes,
+          constraintNodeId: id,
+          v2Type,
+          data,
+          schemaIdByNodeId,
+        })
+        savedPayloads.set(id, { refs: payload.refs, params: payload.params })
+        return {
+          id,
+          type: v2Type,
+          input_from_node: null,
+          description: data.configName as string,
+          refs: payload.refs,
+          params: payload.params,
+        }
+      })
+
+      await module.expandOnCanvas('ti-1', makeExpandResult({ constraints: templateConstraints }))
+
+      const createdById = new Map(
+        addNodes.mock.calls.map((c) => {
+          const n = c[0] as CustomNode
+          return [n.id, n]
+        })
+      )
+      expect(createdById.size).toBe(6)
+
+      // ---- Scripted：表达式必须落在画布字段 script 上（而不是无用的 expression）----
+      const scripted = asRecord(createdById.get('c-scripted')!.data)
+      expect(scripted.script).toBe('value > 0')
+
+      // ---- Conditional：if 侧读 refs、then 侧写 thenRef（列 ID）并保留 THEN 谓词 ----
+      const conditional = asRecord(createdById.get('c-conditional')!.data)
+      expect(conditional.ifLogic).toBe('or')
+      expect(conditional.ifConditions).toEqual([
+        {
+          ref: { nodeId: 'sc_users', columnId: 'col-status' },
+          operator: 'eq',
+          value: 'active',
+          values: undefined,
+        },
+      ])
+      expect(conditional.thenRef).toEqual({ nodeId: 'sc_users', columnId: 'col-age' })
+      expect(conditional.thenConditionConfig).toEqual({ type: 'range', min: 18 })
+
+      // ---- Charset：charset_mode 之外的 allowed/disallowed 参数全部读回 ----
+      const charset = asRecord(createdById.get('c-charset')!.data)
+      expect(charset.charsetMode).toBe('chinese')
+      expect(charset.allowedChars).toBe('abc')
+      expect(charset.disallowedChars).toBe('xyz')
+
+      // ---- DateLogic：logic_mode 之外的 compare/reference/calculation/target 参数全部读回 ----
+      const dateLogic = asRecord(createdById.get('c-datelogic')!.data)
+      expect(dateLogic.logicMode).toBe('compare')
+      expect(dateLogic.compareOp).toBe('gt')
+      expect(dateLogic.referenceDate).toBe('2025-01-01')
+      expect(dateLogic.referenceColumn).toBe('dob')
+      expect(dateLogic.calculationType).toBe('age')
+      expect(dateLogic.targetValue).toBe('18')
+      expect(dateLogic.targetColumn).toBe('dob')
+
+      // ---- 保存：对展开产物再次执行 adapter，逐字段比对模板条目 ----
+      for (const { id, v2Type } of cases) {
+        const payload1 = savedPayloads.get(id)!
+        const payload2 = buildConstraintExportPayload({
+          nodes: schemaNodes,
+          constraintNodeId: id,
+          v2Type,
+          data: asRecord(createdById.get(id)!.data),
+          schemaIdByNodeId,
+        })
+
+        // Scripted 的 params.name 落盘值为 constraintName（展开侧固定写节点 id），
+        // 属展开侧既有行为不在 B2 范围；表达式字段必须不丢
+        if (id === 'c-scripted') {
+          expect(payload2.params.expression).toBe('value > 0')
+        } else {
+          expect(payload2.params).toEqual(payload1.params)
+        }
+        expect(payload2.refs).toEqual(payload1.refs)
+      }
     })
   })
 })
