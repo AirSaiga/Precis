@@ -1419,7 +1419,7 @@ class TestValidateSettings:
     def test_invalid_timeout_seconds_zero(self):
         errors = _validate_settings("validation", {"timeout_seconds": 0})
         assert len(errors) == 1
-        assert "正数" in errors[0]
+        assert "timeout_seconds" in errors[0]
 
     def test_invalid_timeout_seconds_str(self):
         errors = _validate_settings("validation", {"timeout_seconds": "abc"})
@@ -1453,7 +1453,7 @@ class TestValidateSettings:
         assert len(errors) >= 1
 
     def test_valid_script_security(self):
-        errors = _validate_settings("scriptSecurity", {"timeout_seconds": 10, "sandbox_mode": "strict"})
+        errors = _validate_settings("scriptSecurity", {"timeout_seconds": 10, "sandbox_mode": True})
         assert errors == []
 
     def test_invalid_allow_eval(self):
@@ -1466,9 +1466,42 @@ class TestValidateSettings:
         assert len(errors) == 1
         assert "sandbox_mode" in errors[0]
 
+    def test_invalid_sandbox_mode_legacy_strings(self):
+        """回归(C3): 旧白名单 {"strict","normal"} 与模型 bool 矛盾——
+        字符串值必须被拒(落盘后下次加载 model_validate 422,项目无法打开)"""
+        errors = _validate_settings("scriptSecurity", {"sandbox_mode": "strict"})
+        assert len(errors) == 1
+        assert "sandbox_mode" in errors[0]
+        errors = _validate_settings("scriptSecurity", {"sandbox_mode": "normal"})
+        assert len(errors) == 1
+
     def test_invalid_script_security_timeout(self):
         errors = _validate_settings("scriptSecurity", {"timeout_seconds": 0})
         assert len(errors) >= 1
+
+    def test_timeout_seconds_upper_bound(self):
+        """回归(C3): timeout/batch 只查 >0 无上限,模型有 le=300/le=1000——越界必须被拒"""
+        errors = _validate_settings("validation", {"timeout_seconds": 301})
+        assert len(errors) == 1
+        assert "timeout_seconds" in errors[0]
+        errors = _validate_settings("validation", {"timeout_seconds": 300})
+        assert errors == []
+        errors = _validate_settings("validation", {"batch_max_files": 1001})
+        assert len(errors) == 1
+        assert "batch_max_files" in errors[0]
+        errors = _validate_settings("validation", {"batch_max_files": 1000})
+        assert errors == []
+        errors = _validate_settings("scriptSecurity", {"timeout_seconds": 61})
+        assert len(errors) == 1
+        errors = _validate_settings("scriptSecurity", {"timeout_seconds": 60})
+        assert errors == []
+
+    def test_timeout_seconds_float_rejected(self):
+        """模型字段为 int 型,float 值(YAML 60.0)落盘后会 model_validate 失败"""
+        errors = _validate_settings("validation", {"timeout_seconds": 60.0})
+        assert len(errors) == 1
+        errors = _validate_settings("scriptSecurity", {"timeout_seconds": 10.5})
+        assert len(errors) == 1
 
     def test_multiple_errors(self):
         errors = _validate_settings(
@@ -1573,6 +1606,60 @@ class TestProcessSettingsAction:
             data = yaml.safe_load(f)
         assert data["settings"]["validation"]["error_handling"] == "continue"
         assert data["settings"]["validation"]["timeout_seconds"] == 60
+
+    def test_sandbox_mode_string_rejected_and_manifest_unchanged(self, tmp_path):
+        """回归(C3): sandbox_mode 传字符串(旧白名单误放行)必须被拒且不落盘"""
+        import yaml
+
+        manifest_path = tmp_path / "project.precis.yaml"
+        with open(manifest_path, "w") as f:
+            yaml.safe_dump({"version": 2, "project": {"id": "p1"}}, f)
+
+        result = process_settings_action(
+            {
+                "actionType": "UPDATE_SETTINGS",
+                "settingsSpec": {
+                    "category": "scriptSecurity",
+                    "settings": {"sandbox_mode": "strict"},
+                },
+            },
+            str(tmp_path),
+        )
+        assert result["success"] is False
+        with open(manifest_path, encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+        assert "settings" not in data  # 文件未被污染
+
+    def test_merged_section_must_pass_model(self, tmp_path):
+        """回归(C3): 文件里已存在的非法值与本次合法更新合并后过不了模型,
+        也必须拒绝写入——否则项目下次加载即 422 无法打开"""
+        import yaml
+
+        manifest_path = tmp_path / "project.precis.yaml"
+        with open(manifest_path, "w") as f:
+            yaml.safe_dump(
+                {
+                    "version": 2,
+                    "project": {"id": "p1"},
+                    "settings": {"validation": {"timeout_seconds": 600}},
+                },
+                f,
+            )
+
+        result = process_settings_action(
+            {
+                "actionType": "UPDATE_SETTINGS",
+                "settingsSpec": {
+                    "category": "validation",
+                    "settings": {"error_handling": "stop"},
+                },
+            },
+            str(tmp_path),
+        )
+        assert result["success"] is False
+        with open(manifest_path, encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+        assert data["settings"]["validation"]["timeout_seconds"] == 600  # 未被改动
 
 
 # ============================================================

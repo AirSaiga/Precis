@@ -33,7 +33,11 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from pydantic import BaseModel, ValidationError
 
+from app.shared.core.project.manifest.types_parts.settings_file_processing import FileProcessingSettings
+from app.shared.core.project.manifest.types_parts.settings_script_security import ScriptSecuritySettings
+from app.shared.core.project.manifest.types_parts.settings_validation import ValidationSettings
 from app.shared.services.llm.yaml_io import FileLock, atomic_write_yaml
 
 logger = logging.getLogger(__name__)
@@ -47,10 +51,17 @@ CATEGORY_TO_YAML_KEY = {
     "scriptSecurity": "script_security",
 }
 
+# 分类 → manifest 设置模型：值域/类型的单一事实源是模型 Field 约束（C3 修复），
+# handler 校验与落盘前模型重建均以此为准，避免两套事实打架写坏 manifest。
+CATEGORY_TO_SETTINGS_MODEL: dict[str, type[BaseModel]] = {
+    "validation": ValidationSettings,
+    "fileProcessing": FileProcessingSettings,
+    "scriptSecurity": ScriptSecuritySettings,
+}
+
 VALID_ERROR_HANDLING = {"stop", "continue", "report"}
 VALID_ENCODINGS = {"utf-8", "gbk", "auto"}
 VALID_ALLOW_EVAL = {False}
-VALID_SANDBOX_MODES = {"strict", "normal"}
 
 
 def process_settings_action(action: dict[str, Any], workspace_path: str) -> dict[str, Any]:
@@ -103,6 +114,15 @@ def process_settings_action(action: dict[str, Any], workspace_path: str) -> dict
             # 合并设置（不覆盖未指定的字段）
             data["settings"][yaml_key].update(settings)
 
+            # C3: 落盘前经模型重建校验——非法值(如 sandbox_mode="strict"、
+            # timeout_seconds>300)直接落盘会导致下次加载 model_validate 422、
+            # 项目无法打开。模型是值域的单一事实源，merge 后的完整段必须能过模型。
+            model = CATEGORY_TO_SETTINGS_MODEL[category]
+            try:
+                model.model_validate(data["settings"][yaml_key])
+            except ValidationError as e:
+                return {"success": False, "message": f"设置校验失败: {e}"}
+
             atomic_write_yaml(manifest_path, data)
 
     except Exception as e:
@@ -122,12 +142,14 @@ def _validate_settings(category: str, settings: dict[str, Any]) -> list[str]:
                 errors.append(f"error_handling 必须为: {', '.join(VALID_ERROR_HANDLING)}")
         if "timeout_seconds" in settings:
             val = settings["timeout_seconds"]
-            if not isinstance(val, (int, float)) or val <= 0:
-                errors.append("timeout_seconds 必须为正数")
+            # 对齐 ValidationSettings: int 型, 1-300 (bool 是 int 子类,须显式排除)
+            if isinstance(val, bool) or not isinstance(val, int) or not 1 <= val <= 300:
+                errors.append("timeout_seconds 必须为 1-300 的整数")
         if "batch_max_files" in settings:
             val = settings["batch_max_files"]
-            if not isinstance(val, int) or val <= 0:
-                errors.append("batch_max_files 必须为正整数")
+            # 对齐 ValidationSettings: int 型, 1-1000
+            if isinstance(val, bool) or not isinstance(val, int) or not 1 <= val <= 1000:
+                errors.append("batch_max_files 必须为 1-1000 的整数")
 
     elif category == "fileProcessing":
         if "default_encoding" in settings:
@@ -141,13 +163,18 @@ def _validate_settings(category: str, settings: dict[str, Any]) -> list[str]:
     elif category == "scriptSecurity":
         if "timeout_seconds" in settings:
             val = settings["timeout_seconds"]
-            if not isinstance(val, (int, float)) or val <= 0:
-                errors.append("timeout_seconds 必须为正数")
+            # 对齐 ScriptSecuritySettings: int 型, 1-60
+            if isinstance(val, bool) or not isinstance(val, int) or not 1 <= val <= 60:
+                errors.append("timeout_seconds 必须为 1-60 的整数")
         if "allow_eval" in settings:
             if settings["allow_eval"] not in VALID_ALLOW_EVAL:
                 errors.append("allow_eval 不允许通过 AI 修改")
         if "sandbox_mode" in settings:
-            if settings["sandbox_mode"] not in VALID_SANDBOX_MODES:
-                errors.append(f"sandbox_mode 必须为: {', '.join(VALID_SANDBOX_MODES)}")
+            val = settings["sandbox_mode"]
+            # 对齐 ScriptSecuritySettings.sandbox_mode: bool 型——
+            # 旧白名单 {"strict","normal"} 与模型矛盾:唯一合法值 true 被拒、
+            # 非法字符串被放行,落盘后下次加载 model_validate 直接 422。
+            if not isinstance(val, bool):
+                errors.append("sandbox_mode 必须为布尔值")
 
     return errors
