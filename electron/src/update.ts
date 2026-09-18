@@ -170,6 +170,9 @@ class UpdateManager {
       }
     }
 
+    // 先保留写前配置副本：落盘失败时回滚内存态，避免内存已合并、磁盘仍是旧值的
+    // 不一致状态（重启后加载旧配置，造成"保存成功"的假象）
+    const previousConfig = this.config;
     this.config = { ...this.config, ...config };
 
     this.applyFeedUrl();
@@ -178,7 +181,11 @@ class UpdateManager {
       fs.writeFileSync(this.configPath, JSON.stringify(this.config, null, 2), 'utf-8');
       logger.debug('[UpdateManager] 配置已保存');
     } catch (error) {
+      // 对齐 ipc/config.ts save-config 的语义：写盘失败回滚内存态并返回 false，
+      // 渲染进程设置面板据此提示失败，而不是误以为配置已生效
       logger.error('[UpdateManager] 保存配置失败:', error);
+      this.config = previousConfig;
+      return false;
     }
     return true;
   }

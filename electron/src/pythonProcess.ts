@@ -290,15 +290,18 @@ export async function startPythonServer(backendPath: string): Promise<number> {
       resolved = true;
       clearTimeout(startupTimeout);
 
-      if (appState.pythonProcess) {
-        const pid = appState.pythonProcess.pid;
-        appState.pythonProcess.removeAllListeners();
-        if (pid) {
-          await killProcessTree(pid).catch(() => {
-            // 忽略清理失败，确保 reject 优先返回给调用方
-          });
-        }
+      // 对齐 stopPythonServer 的"先局部后全局"顺序：清理对象必须是本次 spawn 的闭包
+      // proc，而非 appState.pythonProcess——并发二次 start 时全局引用可能已指向 B 的
+      // 新进程，直接按全局清理会误杀 B（附表12）。全局引用仅当仍指向本进程时才清空。
+      const pid = proc.pid;
+      proc.removeAllListeners();
+      if (appState.pythonProcess === proc) {
         appState.pythonProcess = null;
+      }
+      if (pid) {
+        await killProcessTree(pid).catch(() => {
+          // 忽略清理失败，确保 reject 优先返回给调用方
+        });
       }
 
       appState.isPythonServerReady = false;

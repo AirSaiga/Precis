@@ -224,11 +224,14 @@ interface ElectronAPI {
    * 注意事项:
    * - 重启过程中 pythonReady 会变为 false
    * - 重启后端口可能变化，需要重新获取服务器状态
+   * - 重启会重新生成后端 API 一次性 token，结果中携带新 token，
+   *   调用方（capabilities 层）收到后须刷新内存态，否则旧 token 请求全部被拒
    * - 重启可能需要几秒钟时间
    *
-   * @returns Promise<{ ready: boolean; port: number }> - 重启结果和新的端口号
+   * @returns Promise<{ ready: boolean; port?: number; token?: string }> -
+   *   重启结果、新端口号与当前后端 API token（未生成 token 的环境缺省）
    */
-  restartPythonServer: () => Promise<{ ready: boolean; port: number }>
+  restartPythonServer: () => Promise<{ ready: boolean; port?: number; token?: string }>
 
   /**
    * 获取后端 API 一次性 token

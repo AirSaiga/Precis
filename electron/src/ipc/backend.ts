@@ -46,6 +46,17 @@ interface RestartResult {
   ready: boolean;
   port?: number;
   error?: string;
+  /**
+   * 本次重启后 appState 持有的后端 API token。
+   *
+   * 背景（F3）：startPythonServer 每次启动都重新生成一次性 token 并注入后端
+   * PRECIS_API_TOKEN，而渲染进程只在应用启动时取一次 token（main.ts setApiToken）。
+   * 软重启后若不下发新 token，渲染进程继续携带旧 token，后端 compare_digest 失败
+   * 拒绝 null Origin 的 CORS，全部请求失效。故重启结果必须携带当前 token，
+   * 渲染进程据此刷新内存态。token 恒随 appState.backendApiToken 返回（含失败路径：
+   * 失败时后端已死，渲染进程与主进程对齐到同一 token 无副作用）。
+   */
+  token?: string;
 }
 
 /**
@@ -67,11 +78,12 @@ async function restartPythonServerOnce(backendPath: string): Promise<RestartResu
   await stopPythonServer();
 
   try {
-    // 重新启动（会自动查找新的可用端口）
+    // 重新启动（会自动查找新的可用端口；启动过程重新生成 API token 存入 appState）
     const port = await startPythonServer(backendPath);
     return {
       ready: true,
       port,
+      token: appState.backendApiToken,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -80,6 +92,7 @@ async function restartPythonServerOnce(backendPath: string): Promise<RestartResu
       ready: false,
       error: errorMessage,
       port: appState.currentPythonServerPort,
+      token: appState.backendApiToken,
     };
   }
 }

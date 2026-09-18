@@ -37,7 +37,7 @@ import { app, BrowserWindow, shell, dialog } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import { appState } from '../app-state';
-import { logger } from '../logger';
+import { logger, flushLogs } from '../logger';
 import { ensureFeedbackDir, getPendingCrashPath } from '../ipc/feedback';
 import { stopPythonServerSync } from '../pythonProcess';
 import { closeSplashWindow, sendSplashStage } from './splashWindow';
@@ -200,6 +200,10 @@ export function createWindow(config: WindowConfig): void {
       // 否则后端进程成为孤儿（残留端口占用与数据文件句柄，且 relaunch 后的新实例
       // 会因旧进程未退出而状态污染）。与 main.ts 退出钩子复用同一清理函数。
       stopPythonServerSync(appState.pythonProcess);
+      // 同步 flush 日志流再退出：上方刚 logger.error 记录了崩溃原因，恰是最需
+      // 落盘的一行；app.exit() 不走 before-quit 钩子的 flushLogs()（main.ts 正常
+      // 退出链是 stopPythonServerSync + flushLogs 成对），此处补齐（附表14）。
+      flushLogs();
       app.relaunch();
       app.exit(0);
     } else {

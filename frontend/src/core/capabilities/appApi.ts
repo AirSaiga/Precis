@@ -27,6 +27,7 @@
 
 import { isElectron, getElectronAPI } from '@/core/utils/electronDetector'
 import apiClient, { updateApiBaseUrl } from '@/core/services/httpClient'
+import { setApiToken } from '@/core/services/apiToken'
 import { logger } from '@/core/utils/logger'
 
 export interface ProjectLaunchConfig {
@@ -37,6 +38,20 @@ export interface ProjectLaunchConfig {
 export interface ServerStatus {
   pythonReady: boolean
   port: number
+}
+
+/**
+ * 后端重启结果。
+ *
+ * Electron 软重启会重新生成后端 API 一次性 token（startPythonServer 每次启动
+ * 重新生成并注入后端 PRECIS_API_TOKEN），主进程随重启结果下发新 token；
+ * token 缺省表示无 token 环境（Web / 开发模式外部后端）。
+ */
+export interface RestartBackendResult {
+  /** 重启是否成功（后端就绪可服务） */
+  ready: boolean
+  /** 本次重启生成的新后端 API token；无 token 环境缺省 */
+  token?: string
 }
 
 export interface AppApi {
@@ -61,8 +76,8 @@ export interface AppApi {
   loadRecentProject(): Promise<ProjectLaunchConfig>
   /** 保存最近一次打开的项目配置 */
   saveRecentProject(paths: ProjectLaunchConfig): Promise<void>
-  /** 重启后端服务（Electron 有效） */
-  restartBackend(): Promise<boolean>
+  /** 重启后端服务（Electron 有效）；结果携带新 API token 时自动刷新内存态 */
+  restartBackend(): Promise<RestartBackendResult>
   /** 同步应用语言到桌面壳，使主进程原生对话框等用户可见文案跟随（Electron 有效，Web 空操作） */
   syncAppLocale(locale: string): void
 }
@@ -172,9 +187,15 @@ class ElectronAppAdapter implements AppApi {
     await getElectronAPI().saveConfig(paths.configPath || '', paths.dataPath || '')
   }
 
-  async restartBackend(): Promise<boolean> {
+  async restartBackend(): Promise<RestartBackendResult> {
     const result = await getElectronAPI().restartPythonServer()
-    return result.ready
+    // 软重启会重新生成后端 API 一次性 token：随重启结果下发，在此刷新内存态。
+    // 否则渲染进程继续携带应用启动时的旧 token，后端 compare_digest 失败拒绝
+    // null Origin 的 CORS，重启后全部请求失效（F3 断链修复）
+    if (result.token) {
+      setApiToken(result.token)
+    }
+    return { ready: result.ready, token: result.token }
   }
 
   syncAppLocale(locale: string): void {
@@ -255,9 +276,9 @@ class WebAppAdapter implements AppApi {
     writeRecentProjectToStorage(paths)
   }
 
-  async restartBackend(): Promise<boolean> {
+  async restartBackend(): Promise<RestartBackendResult> {
     logger.warn('[appApi] Web 模式下不支持重启后端服务')
-    return false
+    return { ready: false }
   }
 
   syncAppLocale(_locale: string): void {

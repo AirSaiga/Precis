@@ -40,6 +40,8 @@ const mocks = vi.hoisted(() => {
     windows: [] as Array<Record<string, unknown>>,
     /** fs 状态：update-config.json 内容（null = 文件不存在） */
     configJson: null as string | null,
+    /** fs.writeFileSync（落盘成功/失败可由用例注入） */
+    writeFileSync: vi.fn(),
     stopSync: vi.fn(),
   }
 })
@@ -64,7 +66,7 @@ vi.mock('electron', () => ({
 vi.mock('fs', () => ({
   existsSync: vi.fn((p: string) => p.includes('update-config.json') && mocks.configJson !== null),
   readFileSync: vi.fn(() => mocks.configJson ?? '{}'),
-  writeFileSync: vi.fn(),
+  writeFileSync: mocks.writeFileSync,
 }))
 
 vi.mock('../src/logger', () => ({
@@ -90,6 +92,8 @@ async function freshManager() {
 
 beforeEach(() => {
   mocks.configJson = null
+  mocks.writeFileSync.mockReset()
+  mocks.writeFileSync.mockImplementation(() => undefined)
 })
 
 describe('自定义更新源持久化（重启重放 setFeedURL）', () => {
@@ -214,6 +218,46 @@ describe('update:install 安装前清理', () => {
     expect(quitAndInstall).toHaveBeenCalled()
     // 铁律顺序：先终止 Python 进程树（释放 resources 文件占用），后启动安装器
     expect(stopSync.mock.invocationCallOrder[0]).toBeLessThan(quitAndInstall.mock.invocationCallOrder[0])
+  })
+})
+
+describe('saveConfig 落盘失败（F1 回归）', () => {
+  it('writeFileSync 抛错时返回 false 且内存 config 回滚到写前状态', async () => {
+    const manager = await freshManager()
+    mocks.writeFileSync.mockImplementation(() => {
+      throw new Error('ENOSPC: no space left on device')
+    })
+
+    const ok = manager.saveConfig({ autoDownload: true })
+
+    expect(ok).toBe(false)
+    // 内存态未被污染：仍是默认配置而非本次合并值
+    expect(manager.getConfig().autoDownload).toBe(false)
+  })
+
+  it('writeFileSync 抛错后再次成功保存可正常生效（回滚不残留脏状态）', async () => {
+    const manager = await freshManager()
+    mocks.writeFileSync.mockImplementation(() => {
+      throw new Error('EPERM')
+    })
+    expect(manager.saveConfig({ autoDownload: true })).toBe(false)
+
+    mocks.writeFileSync.mockImplementation(() => undefined)
+    expect(manager.saveConfig({ autoDownload: true })).toBe(true)
+    expect(manager.getConfig().autoDownload).toBe(true)
+    expect(mocks.writeFileSync).toHaveBeenCalledTimes(2)
+  })
+
+  it('成功路径仍返回 true 且内存 config 已合并、确实落盘', async () => {
+    const manager = await freshManager()
+    const ok = manager.saveConfig({ autoDownload: true })
+
+    expect(ok).toBe(true)
+    expect(manager.getConfig().autoDownload).toBe(true)
+    expect(mocks.writeFileSync).toHaveBeenCalledTimes(1)
+    // 落盘内容含合并后的配置（JSON 序列化，缩进 2）
+    const written = (mocks.writeFileSync.mock.calls[0] as unknown[])[1] as string
+    expect(JSON.parse(written)).toMatchObject({ autoDownload: true })
   })
 })
 
