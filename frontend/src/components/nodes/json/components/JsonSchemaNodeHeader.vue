@@ -75,8 +75,8 @@ limitations under the License.
           v-model="localTableName"
           class="title-input-field"
           @blur="confirmEdit"
-          @keydown.enter="onEnter"
-          @keydown.esc="emit('cancelEdit')"
+          @keydown.enter="!$event.isComposing && $event.keyCode !== 229 && onEnter()"
+          @keydown.esc="!$event.isComposing && $event.keyCode !== 229 && emit('cancelEdit')"
           autofocus
           :placeholder="t('customNodes.jsonSchemaNode.tableNamePlaceholder')"
         />

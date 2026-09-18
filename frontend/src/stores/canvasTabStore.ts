@@ -112,6 +112,22 @@ function safeClone<T>(obj: T): T {
     return raw.map((item) => safeClone(item)) as T
   }
 
+  // 处理 Set（如约束节点 data.allowedValues: Set<string>）——for...in 无法枚举
+  // Set 成员，缺失分支会被克隆成 {}，导致切 Tab 后允许值集合静默丢失
+  if (raw instanceof Set) {
+    return new Set(Array.from(raw, (item) => safeClone(item))) as T
+  }
+
+  // 处理 Map
+  if (raw instanceof Map) {
+    return new Map(Array.from(raw, ([key, value]) => [key, safeClone(value)] as const)) as T
+  }
+
+  // 处理 Date
+  if (raw instanceof Date) {
+    return new Date(raw.getTime()) as T
+  }
+
   // 处理对象
   const result: Record<string, unknown> = {}
   const recordRaw = raw as Record<string, unknown>
@@ -125,6 +141,61 @@ function safeClone<T>(obj: T): T {
     }
   }
   return result as T
+}
+
+/**
+ * AllowedValues 约束节点类型（其 data.allowedValues 为 Set<string>，
+ * 单一事实源见 services/constraints/constraintMeta.ts 的 CONSTRAINT_TYPES）
+ */
+const ALLOWED_VALUES_NODE_TYPE = 'allowedValuesConstraint'
+
+/**
+ * 工作区快照序列化编码：深遍历把 Set 转成数组。
+ *
+ * Tab 快照经 axios JSON 序列化落盘（PUT /project/workspaces）时，Set 会被
+ * 序列化成 {}（后端模型 nodes 为 list[dict] 原样存储），重启恢复即丢值。
+ * 仅转换为纯 JSON 安全数据，不修改传入的快照对象本身。
+ */
+function encodeSnapshotSets<T>(value: T): T {
+  if (value instanceof Set) {
+    return Array.from(value, (item) => encodeSnapshotSets(item)) as T
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => encodeSnapshotSets(item)) as T
+  }
+  if (value !== null && typeof value === 'object' && !(value instanceof Date)) {
+    const out: Record<string, unknown> = {}
+    for (const [key, item] of Object.entries(value)) {
+      out[key] = encodeSnapshotSets(item)
+    }
+    return out as T
+  }
+  return value
+}
+
+/**
+ * 工作区快照加载解码：把 AllowedValues 约束节点 data.allowedValues 的数组
+ * 还原为 Set（与 encodeSnapshotSets 对称；仅针对该节点类型，不误伤 schema
+ * 列内联约束的 allowedValues 数组契约）。
+ *
+ * compositeConstraint 的 data.subGraph.nodes 内的 AllowedValues 子节点递归处理。
+ */
+function decodeSnapshotNodes(nodes: CustomNode[]): CustomNode[] {
+  return nodes.map((node) => {
+    const data = (node.data || {}) as Record<string, unknown>
+    let newData = data
+    if (node.type === ALLOWED_VALUES_NODE_TYPE && Array.isArray(data.allowedValues)) {
+      newData = { ...data, allowedValues: new Set(data.allowedValues) }
+    }
+    const subGraph = data.subGraph as { nodes?: CustomNode[] } | undefined
+    if (subGraph && Array.isArray(subGraph.nodes)) {
+      newData = {
+        ...newData,
+        subGraph: { ...subGraph, nodes: decodeSnapshotNodes(subGraph.nodes) },
+      }
+    }
+    return newData === data ? node : ({ ...node, data: newData } as CustomNode)
+  })
 }
 
 export const useCanvasTabStore = defineStore('canvasTab', () => {
@@ -205,7 +276,7 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
           createdAt: w.createdAt,
           lastActiveAt: w.lastActiveAt,
           visibleNodeIds: w.nodes?.map((n) => n.id) || [],
-          nodes: w.nodes || [],
+          nodes: (w.nodes || []).map((n) => encodeSnapshotSets(n)),
           edges: w.edges || [],
         })),
       }
@@ -257,7 +328,7 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
           hasUnsavedChanges: false,
           createdAt: w.createdAt,
           lastActiveAt: w.lastActiveAt,
-          nodes: w.nodes || [],
+          nodes: w.nodes ? decodeSnapshotNodes(w.nodes) : [],
           edges: w.edges || [],
         }))
         activeTabId.value = data.activeWorkspaceId || tabs.value[0]?.id || null

@@ -138,8 +138,12 @@ export async function handleRegexInstruction(instruction: FrontendInstruction): 
   const regexId = spec.regexId || spec.name
   let existing = graphStore.nodes.find((n) => n.id === regexId)
   if (!existing) {
+    // 兜底按 configName 定位：创建分支对 matchMode=extract 生成的是 regexExtract 节点，
+    // 兜底条件必须与创建分支的类型集合一致，否则 UPDATE/DELETE 永远找不到 extract 节点
     existing = graphStore.nodes.find(
-      (n) => n.type === 'regex' && (n.data as Record<string, unknown>).configName === spec.name
+      (n) =>
+        (n.type === 'regex' || n.type === 'regexExtract') &&
+        (n.data as Record<string, unknown>).configName === spec.name
     )
   }
 

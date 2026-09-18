@@ -248,6 +248,11 @@ limitations under the License.
    * 当 Inspector 组件触发 update:data 事件时调用
    * 将更新后的数据同步到 GraphStore
    *
+   * 统一补 saveState: 'draft' 标记（useProjectReload 注释约定各持久化类型以该
+   * 字段为准）——否则 Inspector 编辑产生的未保存更改会绕过关闭确认
+   * （useSchemaSaving）与项目重载守卫（useProjectReload）两道闸门。
+   * 节点本体编辑（useSchemaEditing 等）已各自写 draft，此处是 Inspector 路径的补漏。
+   *
    * @param newData - 更新的属性数据
    */
   function handleDataUpdate(newData: Partial<CustomNodeData>) {
@@ -255,7 +260,7 @@ limitations under the License.
     if (!node.value) return
     const currentNode = node.value
     // 调用 GraphStore 的 updateNodeData 方法更新节点数据
-    store.updateNodeData(currentNode.id, newData)
+    store.updateNodeData(currentNode.id, { ...newData, saveState: 'draft' })
     // 同步更新资源树显示名称（schema / jsonSchema 节点的 tableName 变更时）
     if (currentNode.type === 'schema' || currentNode.type === 'jsonSchema') {
       const tableName = (newData as Record<string, unknown>).tableName

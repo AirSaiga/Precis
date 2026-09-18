@@ -454,6 +454,27 @@ describe('aiChatInstructionService', () => {
       expect(mocks.removeNodes).toHaveBeenCalledWith('some-other-id')
     })
 
+    it('DELETE_REGEX 按 configName 兜底定位 regexExtract 节点', async () => {
+      // 创建分支对 matchMode=extract 生成 regexExtract 节点，兜底类型集合须与其一致
+      mocks.graphStore.nodes = [
+        {
+          id: 'extract-node-1',
+          type: 'regexExtract',
+          position: { x: 0, y: 0 },
+          data: { configName: 'emailRegex' },
+        } as VueFlowNode,
+      ]
+
+      const instruction = {
+        actionType: 'DELETE_REGEX',
+        regexSpec: { name: 'emailRegex', regexId: 'missing-id' },
+      } as unknown as FrontendInstruction
+
+      await processFrontendInstructions([instruction])
+
+      expect(mocks.removeNodes).toHaveBeenCalledWith('extract-node-1')
+    })
+
     it('DELETE_TRANSFORM 按 id 删除', async () => {
       mocks.graphStore.nodes = [
         {
@@ -525,6 +546,35 @@ describe('aiChatInstructionService', () => {
       expect(mocks.graphStore.updateNodeData).toHaveBeenCalledWith(
         'regex-1',
         expect.objectContaining({ pattern: '^\\d+$' })
+      )
+    })
+
+    it('UPDATE_REGEX 按 configName 兜底刷新 regexExtract 节点', async () => {
+      mocks.graphStore.nodes = [
+        {
+          id: 'extract-node-1',
+          type: 'regexExtract',
+          position: { x: 0, y: 0 },
+          data: { configName: 'emailRegex' },
+        } as VueFlowNode,
+      ]
+
+      const instruction = {
+        actionType: 'UPDATE_REGEX',
+        regexSpec: {
+          name: 'emailRegex',
+          regexId: 'missing-id',
+          pattern: '^\\w+$',
+          matchMode: 'extract',
+          caseSensitive: false,
+        },
+      } as unknown as FrontendInstruction
+
+      await processFrontendInstructions([instruction])
+
+      expect(mocks.graphStore.updateNodeData).toHaveBeenCalledWith(
+        'extract-node-1',
+        expect.objectContaining({ pattern: '^\\w+$' })
       )
     })
 

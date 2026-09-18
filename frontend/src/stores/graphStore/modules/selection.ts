@@ -91,7 +91,8 @@ export function createSelectionModule(params: {
    *
    * 逻辑说明：
    * - 仅选中一个节点时，同步更新单选焦点
-   * - 未选中任何节点时，清空单选焦点
+   * - 多选（>1）或清空（0）时，单选焦点让位（置 null）——Inspector 不应显示
+   *   多选集合之外的旧焦点节点，否则键盘 Delete 等操作会误删集合外节点
    */
   function setSelection(nodeIds: string[]) {
     selectedNodeIds.value = [...nodeIds]
@@ -100,7 +101,7 @@ export function createSelectionModule(params: {
       if (firstId !== undefined) {
         selectedNodeId.value = firstId
       }
-    } else if (nodeIds.length === 0) {
+    } else {
       selectedNodeId.value = null
     }
   }

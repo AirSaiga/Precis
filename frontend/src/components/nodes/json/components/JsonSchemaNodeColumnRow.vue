@@ -128,9 +128,9 @@ limitations under the License.
         class="column-name-input"
         :class="{ 'input-error': !isValidName && localColumnName.length > 0 }"
         @blur="confirmEdit"
-        @keydown.enter="onEnter"
-        @keydown.esc="cancelEdit"
-        @keydown.tab="onTab"
+        @keydown.enter="!$event.isComposing && $event.keyCode !== 229 && onEnter()"
+        @keydown.esc="!$event.isComposing && $event.keyCode !== 229 && cancelEdit()"
+        @keydown.tab="!$event.isComposing && $event.keyCode !== 229 && onTab()"
         :placeholder="t('customNodes.jsonSchemaNode.columnName.placeholder')"
       />
       <span

@@ -116,6 +116,13 @@ describe('createSelectionModule', () => {
       expect(selectedNodeId.value).toBe('n1')
     })
 
+    it('多选时清空单选焦点（Inspector 不显示集合外节点）', () => {
+      selectedNodeId.value = 'n1'
+      module.setSelection(['n2', 'n3'])
+      expect(selectedNodeIds.value).toEqual(['n2', 'n3'])
+      expect(selectedNodeId.value).toBeNull()
+    })
+
     it('空列表时清空 selectedNodeId', () => {
       selectedNodeId.value = 'n1'
       module.setSelection([])

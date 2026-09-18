@@ -22,13 +22,12 @@
  * 职责：
  * - 注册/清理画布相关的全局事件监听器
  * - 处理来自子组件的跨组件通信事件
- * - 键盘快捷键（Ctrl+H 聚焦项目）
- * - 聚焦到项目根节点
+ * - 聚焦到项目根节点（Ctrl+H 快捷键由 features/keyboard 命令体系统一注册，
+ *   本文件不再维护旁路的 window 级 keydown 监听）
  */
 
 import { onMounted, onUnmounted } from 'vue'
 import { useVueFlow } from '@vue-flow/core'
-import { platformDetector } from '@/features/keyboard/platform'
 import { useGraphStore } from '@/stores/graphStore'
 import { useDragStore } from '@/stores/dragStore'
 import { logger } from '@/core/utils/logger'
@@ -114,25 +113,6 @@ export function useCanvasLifecycle(options: CanvasLifecycleOptions = {}) {
     }
   }
 
-  /**
-   * @description 处理全局键盘按下事件
-   * @param evt - 键盘事件对象
-   */
-  const handleGlobalKeydown = (evt: KeyboardEvent) => {
-    // 根据操作系统判断使用 Ctrl 还是 Command(Meta) 键
-    const isMac = platformDetector.isMac()
-    const isCtrlOrMeta = isMac ? evt.metaKey : evt.ctrlKey
-
-    // Ctrl+H / Command+H：快捷键聚焦到项目根节点
-    if (isCtrlOrMeta && evt.key.toLowerCase() === 'h') {
-      // 仅在项目已加载时响应快捷键
-      if (!store.isProjectLoaded) return
-      evt.preventDefault()
-      evt.stopPropagation()
-      focusToProjectRoot()
-    }
-  }
-
   const handleHeaderRowChanged = (detail: AppEvents['headerRowChanged']) => {
     options.onHeaderRowChanged?.(detail)
   }
@@ -165,7 +145,6 @@ export function useCanvasLifecycle(options: CanvasLifecycleOptions = {}) {
     eventBus.on('regex-pattern-updated', handleRegexPatternUpdated)
     eventBus.on('sourceNodeDisconnected', handleSourceNodeDisconnected)
     eventBus.on('focus-canvas-nodes', handleFocusCanvasNodes)
-    window.addEventListener('keydown', handleGlobalKeydown)
   })
 
   onUnmounted(() => {
@@ -176,7 +155,6 @@ export function useCanvasLifecycle(options: CanvasLifecycleOptions = {}) {
     eventBus.off('regex-pattern-updated', handleRegexPatternUpdated)
     eventBus.off('sourceNodeDisconnected', handleSourceNodeDisconnected)
     eventBus.off('focus-canvas-nodes', handleFocusCanvasNodes)
-    window.removeEventListener('keydown', handleGlobalKeydown)
     delete (window as unknown as { __focusToProjectRoot?: () => void }).__focusToProjectRoot
     // 清除拖拽悬浮状态
     dragStore.clearHover()

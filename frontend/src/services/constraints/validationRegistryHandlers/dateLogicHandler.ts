@@ -47,7 +47,9 @@ register({
         }
       } else {
         validationConfig.calculation_type = nodeData.calculationType || 'age'
-        if (nodeData.targetType === 'value') validationConfig.target_value = nodeData.targetValue
+        // targetType 字段无生产者（仅导入路径强制写 'value'），按 targetValue 有无推导，
+        // 与 DateLogicConstraintNode UI（props.data.targetValue ? 'value' : 'column'）一致
+        if (nodeData.targetValue) validationConfig.target_value = nodeData.targetValue
         else validationConfig.target_column = nodeData.targetColumn
       }
       const response = await validateInline({
@@ -91,7 +93,9 @@ register({
       }
     } else {
       validationConfig.calculation_type = nodeData.calculationType || 'age'
-      if (nodeData.targetType === 'value') validationConfig.target_value = nodeData.targetValue
+      // targetType 字段无生产者（仅导入路径强制写 'value'），按 targetValue 有无推导，
+      // 与 DateLogicConstraintNode UI（props.data.targetValue ? 'value' : 'column'）一致
+      if (nodeData.targetValue) validationConfig.target_value = nodeData.targetValue
       else validationConfig.target_column = nodeData.targetColumn
     }
     const request: Parameters<typeof validateDateLogic>[0] = {

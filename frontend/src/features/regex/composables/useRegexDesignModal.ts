@@ -222,6 +222,8 @@ export function useRegexDesignModal<T extends object>(
   }
 
   function handleKeydown(event: KeyboardEvent) {
+    // IME 合成中（拼音/日文/韩文选词阶段）一律放行，避免误触 Escape 关闭弹窗 / Ctrl+S 保存
+    if (event.isComposing || event.keyCode === 229) return
     if (!props.visible) return
     if (event.key === 'Escape') {
       event.preventDefault()

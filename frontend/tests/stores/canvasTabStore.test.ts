@@ -24,6 +24,11 @@
  * - setActiveTab 同 Tab 早退，不触发保存/重置/PUT 全流程
  * - 恢复快照时剥离 selected 标志（防幽灵选中）
  * - syncTabsToBackend 成功后清除全部脏标记
+ *
+ * 重点回归（Set/Map/Date 快照保真，B5）：
+ * - safeClone 保留 Set/Map/Date（AllowedValues 值集切 Tab 不丢）
+ * - syncTabsToBackend 序列化时 Set → 数组（后端落盘不再是 {}）
+ * - loadTabs 加载时 AllowedValues 节点数组 → Set 对称还原
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -296,5 +301,123 @@ describe('canvasTabStore', () => {
       store.tabs = tabs
       return tabs
     }
+  })
+
+  describe('快照 Set/Map/Date 保真（B5）', () => {
+    function makeAllowedValuesNode(id: string, values: string[]): CustomNode {
+      return {
+        id,
+        type: 'allowedValuesConstraint',
+        position: { x: 0, y: 0 },
+        data: {
+          table: 'Users',
+          column: 'status',
+          allowedValues: new Set(values),
+        },
+      } as unknown as CustomNode
+    }
+
+    function seedActiveTab(store: ReturnType<typeof useCanvasTabStore>, nodes: CustomNode[]) {
+      store.tabs = [
+        {
+          id: 'tab-1',
+          index: 1,
+          title: 'W1',
+          icon: 'image',
+          hasUnsavedChanges: false,
+          createdAt: '2026-01-01T00:00:00Z',
+          lastActiveAt: '2026-01-01T00:00:00Z',
+          nodes: [],
+          edges: [],
+        },
+      ]
+      store.activeTabId = 'tab-1'
+      return nodes
+    }
+
+    it('saveCurrentCanvasData → loadCanvasDataFromTab：allowedValues Set 往返不丢', () => {
+      const store = useCanvasTabStore()
+      seedActiveTab(store, [])
+
+      store.saveCurrentCanvasData([makeAllowedValuesNode('c1', ['active', 'inactive'])], [])
+
+      const restored = store.loadCanvasDataFromTab()
+      expect(restored).not.toBeNull()
+      const data = restored!.nodes[0]!.data as { allowedValues: unknown }
+      expect(data.allowedValues).toBeInstanceOf(Set)
+      expect([...(data.allowedValues as Set<string>)]).toEqual(['active', 'inactive'])
+    })
+
+    it('safeClone 保留 Map 与 Date 分支', () => {
+      const store = useCanvasTabStore()
+      seedActiveTab(store, [])
+
+      const now = new Date('2026-06-01T00:00:00Z')
+      const node = {
+        id: 'n1',
+        type: 'manualData',
+        position: { x: 0, y: 0 },
+        data: { meta: new Map([['k', 'v']]), updatedAt: now },
+      } as unknown as CustomNode
+
+      store.saveCurrentCanvasData([node], [])
+      const restored = store.loadCanvasDataFromTab()
+      const data = restored!.nodes[0]!.data as { meta: unknown; updatedAt: unknown }
+      expect(data.meta).toBeInstanceOf(Map)
+      expect([...(data.meta as Map<string, string>).entries()]).toEqual([['k', 'v']])
+      expect(data.updatedAt).toBeInstanceOf(Date)
+      expect((data.updatedAt as Date).getTime()).toBe(now.getTime())
+    })
+
+    it('syncTabsToBackend 序列化后 allowedValues 为数组且内容非空', async () => {
+      const store = useCanvasTabStore()
+      seedActiveTab(store, [])
+      store.saveCurrentCanvasData([makeAllowedValuesNode('c1', ['a', 'b'])], [])
+
+      await store.syncTabsToBackend()
+
+      const payload = vi.mocked(putV2Workspaces).mock.calls[0]![0] as {
+        workspaces: Array<{ nodes: Array<{ data: { allowedValues: unknown } }> }>
+      }
+      const allowedValues = payload.workspaces[0]!.nodes[0]!.data.allowedValues
+      expect(Array.isArray(allowedValues)).toBe(true)
+      expect(allowedValues).toEqual(['a', 'b'])
+      // 内存快照仍保留 Set（序列化不污染 Tab 状态）
+      const tab = store.tabs.find((w) => w.id === 'tab-1')
+      expect((tab?.nodes?.[0]?.data as { allowedValues: unknown }).allowedValues).toBeInstanceOf(
+        Set
+      )
+    })
+
+    it('loadTabs 把 AllowedValues 节点数组还原为 Set（重启恢复不丢值）', async () => {
+      vi.mocked(getV2Workspaces).mockResolvedValue({
+        workspaces: [
+          {
+            id: 'tab-1',
+            index: 1,
+            title: 'W1',
+            createdAt: '2026-01-01T00:00:00Z',
+            lastActiveAt: '2026-01-01T00:00:00Z',
+            nodes: [
+              {
+                id: 'c1',
+                type: 'allowedValuesConstraint',
+                position: { x: 0, y: 0 },
+                data: { table: 'Users', column: 'status', allowedValues: ['x', 'y'] },
+              },
+            ],
+            edges: [],
+          },
+        ],
+        activeWorkspaceId: 'tab-1',
+      } as never)
+
+      const store = useCanvasTabStore()
+      await store.loadTabs('/proj')
+
+      const data = store.tabs[0]!.nodes![0]!.data as { allowedValues: unknown }
+      expect(data.allowedValues).toBeInstanceOf(Set)
+      expect([...(data.allowedValues as Set<string>)]).toEqual(['x', 'y'])
+    })
   })
 })
