@@ -193,6 +193,11 @@ export async function handleConstraintInstruction(instruction: FrontendInstructi
     if (error instanceof AIInstructionError) {
       logger.error(error.message)
       toastError(error.message)
+      // 建边失败：约束节点已入画布但没有连接边，仍 reconcile 保持画布连接状态一致，
+      // 然后早退——不能落到下方 toastSuccess（否则同一操作先报错再报成功）
+      await nextTick()
+      graphStore.reconcileAll()
+      return
     } else {
       throw error
     }

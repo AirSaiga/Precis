@@ -180,12 +180,18 @@ describe('createV2ImportToCanvas', () => {
       expect(getV2RegexNode).toHaveBeenCalledWith('r1')
     })
 
-    it('pattern/regex_node 归一化为 regex', async () => {
+    it('pattern 委托 importPattern 创建带前缀节点（裸 id 的同 id 节点是不同实体，不拦截）', async () => {
       nodes.value = [makeNode('r1', 'regex')]
+      vi.mocked(getV2FullConfig).mockResolvedValue({
+        regex_registries: { r1: { definition: { pattern: '\\d+' } } },
+      } as any)
 
       const result = await importer.importV2ResourceToCanvas('pattern', 'r1', { x: 0, y: 0 })
 
-      expect(result).toBe('r1')
+      // pattern 节点 id 带 `pattern-` 前缀，且不会误命中同裸 id 的 regex 节点
+      expect(result).toBe('pattern-r1')
+      expect(nodes.value.some((n) => n.id === 'pattern-r1')).toBe(true)
+      expect(nodes.value.some((n) => n.id === 'r1')).toBe(true)
     })
 
     it('已存在的非 schema 节点幂等返回', async () => {
@@ -241,6 +247,67 @@ describe('createV2ImportToCanvas', () => {
     it('未知类型返回 null', async () => {
       const result = await importer.importV2ResourceToCanvas('unknown' as any, 'x1', { x: 0, y: 0 })
       expect(result).toBeNull()
+    })
+  })
+
+  describe('importV2ResourceToCanvas pattern 幂等查重', () => {
+    // 回归：pattern 节点 id 带 `pattern-` 前缀，外层查重须用同一 id，
+    // 否则恒 miss 走不到早退——importPattern 内部会无条件 updateNode 移动节点
+    //（多出撤销快照步且忽略 moveIfExists=false）。
+    let saveStateSpy: ReturnType<typeof vi.fn>
+    let patternImporter: ReturnType<typeof createV2ImportToCanvas>
+
+    beforeEach(() => {
+      saveStateSpy = vi.fn()
+      patternImporter = createV2ImportToCanvas({
+        nodes,
+        edges,
+        selectedNodeId,
+        getEffectiveProjectConfigPath: () => '/project',
+        resolveProjectRelativePath: (dir, rel) => (dir && rel ? `${dir}/${rel}` : rel),
+        reconcileAll: () => {
+          reconcileCalls++
+        },
+        saveState: saveStateSpy,
+      })
+    })
+
+    it('已存在 pattern + moveIfExists=true：走统一早退移动，不压历史快照、不重读配置', async () => {
+      nodes.value = [makeNode('pattern-p1', 'pattern', { patternId: 'p1' })]
+      vi.mocked(updateNode).mockClear()
+
+      const result = await patternImporter.importV2ResourceToCanvas(
+        'pattern',
+        'p1',
+        { x: 99, y: 99 },
+        { moveIfExists: true }
+      )
+
+      expect(result).toBe('pattern-p1')
+      expect(updateNode).toHaveBeenCalledWith('pattern-p1', { position: { x: 99, y: 99 } })
+      expect(saveStateSpy).not.toHaveBeenCalled()
+      expect(getV2FullConfig).not.toHaveBeenCalled()
+      expect(reconcileCalls).toBeGreaterThanOrEqual(1)
+    })
+
+    it('已存在 pattern + moveIfExists=false：不移动节点、不压历史快照', async () => {
+      const node = makeNode('pattern-p1', 'pattern', { patternId: 'p1' })
+      node.position = { x: 5, y: 5 }
+      nodes.value = [node]
+      vi.mocked(updateNode).mockClear()
+
+      const result = await patternImporter.importV2ResourceToCanvas(
+        'pattern',
+        'p1',
+        { x: 99, y: 99 },
+        { moveIfExists: false }
+      )
+
+      expect(result).toBe('pattern-p1')
+      expect(updateNode).not.toHaveBeenCalled()
+      expect(saveStateSpy).not.toHaveBeenCalled()
+      expect(getV2FullConfig).not.toHaveBeenCalled()
+      expect(node.position).toEqual({ x: 5, y: 5 })
     })
   })
 

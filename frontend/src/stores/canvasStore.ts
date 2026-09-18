@@ -106,17 +106,16 @@ export const useCanvasStore = defineStore('canvas', () => {
         }
       }
       if (tab.nodes) {
-        tab.nodes = tab.nodes.filter((node) => !predicate(node))
-      }
-      if (tab.edges) {
-        tab.edges = tab.edges.filter((edge) => {
-          const sourceNode = tab.nodes?.find((n) => n.id === edge.source)
-          const targetNode = tab.nodes?.find((n) => n.id === edge.target)
-          // 节点已被移除的边直接保留；仅当节点仍存在且匹配 predicate 时才移除该边
-          const shouldRemoveSource = sourceNode ? predicate(sourceNode) : false
-          const shouldRemoveTarget = targetNode ? predicate(targetNode) : false
-          return !shouldRemoveSource && !shouldRemoveTarget
-        })
+        // 先收集待删节点 id 集合，边过滤对照该集合。
+        // 顺序不能对调：先 filter 节点再在已删数组里 find 端点会恒 undefined，
+        // 导致悬挂边全被保留（docstring 承诺"移除节点及其关联边"）
+        const removedIds = new Set(tab.nodes.filter(predicate).map((n) => n.id))
+        tab.nodes = tab.nodes.filter((node) => !removedIds.has(node.id))
+        if (tab.edges) {
+          tab.edges = tab.edges.filter(
+            (edge) => !removedIds.has(edge.source) && !removedIds.has(edge.target)
+          )
+        }
       }
     })
   }

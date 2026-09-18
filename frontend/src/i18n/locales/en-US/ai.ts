@@ -37,6 +37,7 @@ const aiChat = {
     'AI service is unavailable. Please check your network connection or try again later.',
   targetNodeNotFound: 'Target node not found. Please ensure the table node is on the canvas.',
   constraintCreated: 'Created standalone constraint for {table}.{column}',
+  alreadyOnCanvas: '{name} is already on canvas',
   constraintDeleted: 'Deleted constraint for {table}.{column}',
   constraintUpdated: 'Updated constraint params for {table}.{column}',
   inlineConstraintCreated: 'Added inline constraint for {table}.{column}',

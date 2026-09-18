@@ -730,9 +730,8 @@ export function useRegexConnection() {
    *
    * 处理流程：
    * 1. 隐藏确认对话框
-   * 2. 调用 establishRegexConnection 建立连接
-   * 3. 调用 performRegexValidation 执行正则校验
-   * 4. 清空 pendingRegexConnection 和 regexEditSampleData
+   * 2. 调用 establishRegexConnection 建立连接（其步骤 6 已执行正则校验，此处不重复触发）
+   * 3. 清空 pendingRegexConnection 和 regexEditSampleData
    *
    * 与 handleRegexEdit 的区别：
    * - handleRegexEdit: 打开正则设计弹窗进行编辑
@@ -771,17 +770,11 @@ export function useRegexConnection() {
     // 步骤 4：建立正则连接
     // =====================================================
     // 调用 establishRegexConnection 完成连接建立
-    // 这会更新节点数据、添加连接边
+    // 这会更新节点数据、添加连接边，并在其步骤 6 执行正则校验
     await establishRegexConnection(schemaNode, regexNode, sourceColumn)
 
     // =====================================================
-    // 步骤 5：执行正则校验
-    // =====================================================
-    // 对正则表达式进行校验，验证其有效性和匹配规则
-    await performRegexValidation(regexNode.id, schemaNode.id, sourceColumn.columnName as string)
-
-    // =====================================================
-    // 步骤 6：清空临时状态
+    // 步骤 5：清空临时状态
     // =====================================================
     // 清空 pendingRegexConnection，表示连接已处理完成
     pendingRegexConnection.value = null

@@ -61,10 +61,11 @@ export function resolveColumnId(node: VueFlowNode, columnNameOrId?: string): str
  * 根据目标节点类型解析目标 handle ID
  *
  * 与 connectionRules.ts 中的规则保持一致：
- * - Regex / Transform / TemplateInstance 使用固定输入 handle
+ * - Regex / Transform 使用固定输入 handle
  * - Schema/JsonSchema/ManualData/TransformOutput 使用 target-left
  * - CompositeConstraint 使用 target-left
  * - 其他约束节点使用 target-input-{nodeId}
+ * - TemplateInstance 无输入 handle 且 connectionRules 无对应规则，落入 default 返回 undefined
  */
 export function resolveTargetHandle(targetNode: VueFlowNode): string | undefined {
   switch (targetNode.type) {
@@ -72,8 +73,6 @@ export function resolveTargetHandle(targetNode: VueFlowNode): string | undefined
       return 'regex-input'
     case 'transform':
       return 'transform-input'
-    case 'templateInstance':
-      return 'template-input'
     case 'schema':
     case 'jsonSchema':
     case 'manualData':

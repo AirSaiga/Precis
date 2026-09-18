@@ -291,7 +291,11 @@ export function createV2ImportToCanvas(params: {
     const moveIfExists = options?.moveIfExists === true
     const recordHistory = options?.recordHistory !== false
 
-    const existing = nodes.value.find((n) => n.id === resourceId)
+    // pattern 节点 id 带 `pattern-` 前缀（见 importPattern），外层查重须用同一 id，
+    // 否则恒 miss 走不到幂等早退，importPattern 内部会无条件 updateNode 移动节点
+    // （多出撤销步且忽略 moveIfExists=false）
+    const existingNodeId = kind === 'pattern' ? `pattern-${resourceId}` : resourceId
+    const existing = nodes.value.find((n) => n.id === existingNodeId)
     if (existing) {
       if (moveIfExists) {
         // 走 vueFlowApi.updateNode 更新位置（Vue Flow 规范，触发内部状态同步）

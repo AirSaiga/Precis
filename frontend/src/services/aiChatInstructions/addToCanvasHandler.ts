@@ -69,10 +69,12 @@ export async function handleAddToCanvasInstruction(
     return
   }
 
-  // 幂等检查：若画布已有同 id 节点，直接跳过（避免重复创建）
+  // 幂等检查：若画布已有同 id 节点，直接跳过（避免重复创建）。
+  // 文案须资源类型中立——此前复用 constraintCreated，schema/regex 跳过时
+  // 会误显示"已为 X. 创建独立约束"
   if (graphStore.nodes.some((n) => n.id === resourceId)) {
     logger.info(`[AI Chat] ADD_TO_CANVAS: 节点 ${resourceId} 已在画布，跳过`)
-    toastSuccess(t('aiChat.constraintCreated', { table: displayName, column: '' }))
+    toastSuccess(t('aiChat.alreadyOnCanvas', { name: displayName }))
     return
   }
 

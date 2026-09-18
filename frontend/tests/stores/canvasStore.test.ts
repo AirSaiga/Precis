@@ -17,6 +17,8 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
+import type { Edge } from '@vue-flow/core'
+import type { CustomNode } from '@/types/graph'
 import { useCanvasStore } from '@/stores/canvasStore'
 
 vi.mock('vue-i18n', () => ({
@@ -168,5 +170,81 @@ describe('canvasStore workspace management', () => {
     store.reorderWorkspaces(reversed)
     expect(store.workspaces[0].id).toBe(id2)
     expect(store.workspaces[1].id).toBe(id1)
+  })
+})
+
+describe('canvasStore removeNodesFromAllWorkspaces', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  function makeNode(id: string): CustomNode {
+    return { id, type: 'schema', position: { x: 0, y: 0 }, data: {} } as CustomNode
+  }
+
+  function makeEdge(id: string, source: string, target: string): Edge {
+    return { id, source, target }
+  }
+
+  it('非活跃工作区：删除匹配节点及其关联边，其余边保留', () => {
+    const store = useCanvasStore()
+    const inactiveId = store.createNewWorkspace()
+    store.createNewWorkspace() // 第二个为当前活跃工作区
+
+    const inactive = store.workspaces.find((w) => w.id === inactiveId)!
+    inactive.nodes = [makeNode('n1'), makeNode('n2')]
+    inactive.edges = [
+      makeEdge('e1', 'n1', 'n2'), // 关联被删节点 → 应删
+      makeEdge('e2', 'n2', 'n3'), // 两端均不被删 → 应保留
+    ]
+
+    const deleteNodes = vi.fn()
+    store.removeNodesFromAllWorkspaces((n) => n.id === 'n1', {
+      nodes: [],
+      edges: [],
+      deleteNodes,
+    })
+
+    expect(inactive.nodes!.map((n) => n.id)).toEqual(['n2'])
+    expect(inactive.edges!.map((e) => e.id)).toEqual(['e2'])
+    // 活跃工作区无匹配节点，不触发 deleteNodes
+    expect(deleteNodes).not.toHaveBeenCalled()
+  })
+
+  it('非活跃工作区：两端都被删除的边一并移除', () => {
+    const store = useCanvasStore()
+    const inactiveId = store.createNewWorkspace()
+    store.createNewWorkspace()
+
+    const inactive = store.workspaces.find((w) => w.id === inactiveId)!
+    inactive.nodes = [makeNode('n1'), makeNode('n2'), makeNode('keep')]
+    inactive.edges = [
+      makeEdge('e1', 'n1', 'n2'), // 两端均删 → 应删
+      makeEdge('e2', 'keep', 'n1'), // 一端被删 → 应删
+      makeEdge('e3', 'keep', 'keep'), // 保留
+    ]
+
+    store.removeNodesFromAllWorkspaces((n) => n.id !== 'keep', {
+      nodes: [],
+      edges: [],
+      deleteNodes: vi.fn(),
+    })
+
+    expect(inactive.nodes!.map((n) => n.id)).toEqual(['keep'])
+    expect(inactive.edges!.map((e) => e.id)).toEqual(['e3'])
+  })
+
+  it('活跃工作区：委托 graphStore.deleteNodes 走 Vue Flow 增量删除', () => {
+    const store = useCanvasStore()
+    store.createNewWorkspace()
+
+    const deleteNodes = vi.fn()
+    store.removeNodesFromAllWorkspaces(() => true, {
+      nodes: [makeNode('a1')],
+      edges: [],
+      deleteNodes,
+    })
+
+    expect(deleteNodes).toHaveBeenCalledWith(['a1'])
   })
 })

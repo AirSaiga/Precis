@@ -44,7 +44,14 @@ export function useAutoOrganize() {
   ])
 
   let debounceTimer: ReturnType<typeof setTimeout> | null = null
+  /** 图结构 watchers（节点/边数量），stopAutoOrganize 时拆除 */
   let watchStopHandle: WatchStopHandle | null = null
+  /**
+   * 设置 → 启动 的 watcher（监听 settingsStore.autoOrganizeOnNodeAdd）。
+   * 独立于 watchStopHandle 生命周期：stopAutoOrganize 只停图结构 watchers，
+   * 保留本 watcher——否则用户在设置面板重新开启自动整理时将无人响应启动。
+   */
+  let settingsWatchStopHandle: WatchStopHandle | null = null
 
   /**
    * 启动自动整理
@@ -64,6 +71,8 @@ export function useAutoOrganize() {
 
     isAutoOrganizeEnabled.value = true
     setupWatchers()
+    // 设置面板开关 → 启动 的 watcher 独立于图 watchers 注册，stop 后不拆除
+    ensureSettingsWatcher()
 
     logger.debug('[useAutoOrganize] 自动整理已启动', {
       debounceMs: autoOrganizeDebounceMs.value,
@@ -137,20 +146,6 @@ export function useAutoOrganize() {
       )
     }
 
-    // 保留对 settingsStore 的监听：当用户在设置面板开启/关闭自动整理时，同步状态
-    unwatchers.push(
-      watch(
-        () => settingsStore.autoOrganizeOnNodeAdd,
-        (enabled) => {
-          if (enabled && !isAutoOrganizeEnabled.value) {
-            startAutoOrganize()
-          } else if (!enabled && isAutoOrganizeEnabled.value) {
-            stopAutoOrganize()
-          }
-        }
-      )
-    )
-
     watchStopHandle = () => {
       unwatchers.forEach((unwatch) => unwatch())
       unwatchers.length = 0
@@ -158,7 +153,28 @@ export function useAutoOrganize() {
   }
 
   /**
-   * 清除监听器
+   * 注册设置面板开关 watcher（幂等，重复调用只注册一次）。
+   *
+   * 该 watcher 的生命周期独立于图结构 watchers：用户在设置面板
+   * 开启/关闭自动整理时同步启停本组合函数，stopAutoOrganize 不应拆除它，
+   * 否则停止后再也无法经设置面板重新启动。
+   */
+  function ensureSettingsWatcher(): void {
+    if (settingsWatchStopHandle) return
+    settingsWatchStopHandle = watch(
+      () => settingsStore.autoOrganizeOnNodeAdd,
+      (enabled) => {
+        if (enabled && !isAutoOrganizeEnabled.value) {
+          startAutoOrganize()
+        } else if (!enabled && isAutoOrganizeEnabled.value) {
+          stopAutoOrganize()
+        }
+      }
+    )
+  }
+
+  /**
+   * 清除监听器（仅图结构 watchers；设置面板 watcher 保留，见 ensureSettingsWatcher）
    */
   function clearWatchers(): void {
     if (watchStopHandle) {

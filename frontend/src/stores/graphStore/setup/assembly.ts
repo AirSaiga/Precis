@@ -334,6 +334,11 @@ export function createGraphStoreAssembly(
     nodes.value = []
     edges.value = []
     selectedNodeId.value = null
+    // 与 projectLifecycle 的 createProject/clearProject/resetCanvas 保持一致：
+    // 多选集合与撤销栈必须成对清空（loadAssetToCanvas 等调用方依赖清空后的干净画布状态）。
+    // 注意：assets 刻意保留——loadAssetToCanvas 先查到资产再 clearCanvas，清 assets 会让资产消失。
+    selectedNodeIds.value = []
+    clearHistory?.()
     sourceIndex.rebuild()
   }
 

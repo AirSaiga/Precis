@@ -68,4 +68,40 @@ describe('createGraphStoreAssembly', () => {
     expect(typeof store.clearProject).toBe('function')
     expect(typeof store.importV2ResourceToCanvas).toBe('function')
   })
+
+  it('clearCanvas 清空多选集合与撤销栈，但保留资产（loadAssetToCanvas 依赖）', () => {
+    const state = createGraphStoreState()
+    const computed = createGraphStoreComputed(state)
+    const store = createGraphStoreAssembly(state, computed, projectStore, resourceTreeStore)
+
+    // 造画布内容 + 选中态 + 撤销历史
+    state.nodes.value = [
+      { id: 'n1', type: 'schema', position: { x: 0, y: 0 }, data: { configName: 'T' } } as never,
+    ]
+    state.edges.value = []
+    store.saveState()
+    state.selectedNodeId.value = 'n1'
+    state.selectedNodeIds.value = ['n1']
+    // 资产须存活：loadAssetToCanvas 先按 id 查到资产再 clearCanvas
+    state.assets.value.push({
+      id: 'a1',
+      configName: 'Asset',
+      tableName: 'T',
+      sheetName: '',
+      columns: [],
+    } as never)
+
+    expect(store.undoStack.value.length).toBeGreaterThan(0)
+
+    store.clearCanvas()
+
+    expect(store.nodes.value).toEqual([])
+    expect(store.edges.value).toEqual([])
+    expect(store.selectedNodeId.value).toBeNull()
+    // 回归：与 createProject/clearProject/resetCanvas 保持一致，成对清空
+    expect(store.selectedNodeIds.value).toEqual([])
+    expect(store.undoStack.value).toEqual([])
+    expect(store.redoStack.value).toEqual([])
+    expect(store.assets.value).toHaveLength(1)
+  })
 })

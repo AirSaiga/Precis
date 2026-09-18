@@ -36,6 +36,7 @@ const aiChat = {
   serviceUnavailable: 'AI 服务不可用，请检查网络连接或稍后重试',
   targetNodeNotFound: '未找到目标节点，请确保该表节点已在画布上',
   constraintCreated: '已为 {table}.{column} 创建独立约束',
+  alreadyOnCanvas: '{name} 已在画布上',
   constraintDeleted: '已删除 {table}.{column} 的约束',
   constraintUpdated: '已更新 {table}.{column} 的约束参数',
   inlineConstraintCreated: '已为 {table}.{column} 添加内联约束',
