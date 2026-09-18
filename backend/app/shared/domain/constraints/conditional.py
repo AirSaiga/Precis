@@ -195,17 +195,22 @@ class ConditionalConstraint(Constraint):
                         return False
                     if compared is None or compared == "":
                         return False
+                    # A4 修复：先对双侧做数值转换再比较。原实现 bool(x > compared) 对两个
+                    # str 产出字典序结果（"500" > "1000" → True 误判通过），except 内的
+                    # float 回退对 str 是死代码。转换失败/NaN/非常规类型按不满足处理
+                    # （fail-closed），与 IF 侧 pd.to_numeric(errors="coerce") 的惯例一致。
                     try:
-                        return bool(x > compared)
-                    except Exception:
-                        try:
-                            return bool(float(x) > float(compared))
-                        except Exception:
-                            logger.debug(
-                                f"greater_than 比较失败: x={x!r}, compared={compared!r}, "
-                                f"table={self.table}, then_column={self.then_column}"
-                            )
+                        x_num = pd.to_numeric(x, errors="coerce")
+                        compared_num = pd.to_numeric(compared, errors="coerce")
+                        if pd.isna(x_num) or pd.isna(compared_num):
                             return False
+                        return bool(x_num > compared_num)
+                    except Exception:
+                        logger.debug(
+                            f"greater_than 比较失败: x={x!r}, compared={compared!r}, "
+                            f"table={self.table}, then_column={self.then_column}"
+                        )
+                        return False
 
                 return _safe_greater_than
             if operator == "in":
@@ -243,17 +248,21 @@ class ConditionalConstraint(Constraint):
                         return False
                     if compared is None or compared == "":
                         return False
+                    # A4 修复：与 greater_than 同理，先双侧数值转换再比较，避免 str
+                    # 字典序比较（9 < "10" → False 误判）；转换失败/NaN/非常规类型按
+                    # 不满足处理（fail-closed，对齐 IF 侧惯例）。
                     try:
-                        return bool(x < compared)
-                    except Exception:
-                        try:
-                            return bool(float(x) < float(compared))
-                        except Exception:
-                            logger.debug(
-                                f"less_than 比较失败: x={x!r}, compared={compared!r}, "
-                                f"table={self.table}, then_column={self.then_column}"
-                            )
+                        x_num = pd.to_numeric(x, errors="coerce")
+                        compared_num = pd.to_numeric(compared, errors="coerce")
+                        if pd.isna(x_num) or pd.isna(compared_num):
                             return False
+                        return bool(x_num < compared_num)
+                    except Exception:
+                        logger.debug(
+                            f"less_than 比较失败: x={x!r}, compared={compared!r}, "
+                            f"table={self.table}, then_column={self.then_column}"
+                        )
+                        return False
 
                 return _safe_less_than
             if operator == "eq":

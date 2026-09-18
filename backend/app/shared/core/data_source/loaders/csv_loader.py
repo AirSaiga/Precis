@@ -48,6 +48,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -56,6 +57,56 @@ from .base import DataLoadError, DataSourceLoader
 from .registry import register_loader
 
 logger = logging.getLogger(__name__)
+
+
+def build_csv_read_kwargs(
+    *,
+    header_row: int | None,
+    encoding: str,
+    delimiter: str,
+    quotechar: str = '"',
+    on_bad_lines: str = "warn",
+    escapechar: str | None = None,
+    skip_rows: int = 0,
+) -> dict[str, Any]:
+    """@methoddesc 构建 pandas read_csv 参数（标准加载与分块加载共用，A2）
+
+    标准 CSVLoader 与分块校验路径（chunked_loader）必须使用同一套参数构造，
+    否则同一文件在两条路径下解析结果不一致。统一行为：
+    - 编码 utf-8 升级为 utf-8-sig 自动去除 BOM（B12），避免首列名变 \\ufeffxxx
+    - quotechar/on_bad_lines 始终透传（与 pandas 默认值显式对齐）
+    - escapechar/skiprows 仅在配置时传入
+
+    注意: CSVOptions 无 nrows 字段，两侧 CSV 均不支持 nrows，由调用方按需追加。
+
+    参数:
+        header_row: 表头行号（None 表示无表头，由调用方决定语义）
+        encoding: 文件编码（"utf-8" 会被升级为 "utf-8-sig"）
+        delimiter: 字段分隔符
+        quotechar: 引号字符
+        on_bad_lines: 坏行处理策略（error/warn/skip）
+        escapechar: 转义字符（可选）
+        skip_rows: 跳过的数据行数（>0 时生效）
+
+    返回:
+        pandas read_csv 关键字参数字典
+    """
+    # B12: utf-8 升级为 utf-8-sig 自动去除 UTF-8 BOM
+    if encoding == "utf-8":
+        encoding = "utf-8-sig"
+
+    read_kwargs: dict[str, Any] = {
+        "header": header_row,
+        "encoding": encoding,
+        "sep": delimiter,
+        "quotechar": quotechar,
+        "on_bad_lines": on_bad_lines,
+    }
+    if escapechar:
+        read_kwargs["escapechar"] = escapechar
+    if skip_rows > 0:
+        read_kwargs["skiprows"] = skip_rows
+    return read_kwargs
 
 
 @register_loader("csv")
@@ -86,24 +137,19 @@ class CSVLoader(DataSourceLoader[CSVSourceSpec]):
 
             # 确定编码
             encoding = self._resolve_encoding()
-            # 使用 utf-8-sig 自动去除 UTF-8 BOM，避免第一列名损坏（B12）
-            if encoding == "utf-8":
-                encoding = "utf-8-sig"
+            # 使用 utf-8-sig 自动去除 UTF-8 BOM，避免第一列名损坏（B12，含在 build_csv_read_kwargs 内）
+            # 构建读取参数（与分块加载路径共用构造逻辑，A2）
+            read_kwargs = build_csv_read_kwargs(
+                header_row=self.spec.header_row if self.spec.header_enabled else None,
+                encoding=encoding,
+                delimiter=self.spec.delimiter,
+                quotechar=self.spec.quotechar,
+                on_bad_lines=self.spec.on_bad_lines,
+                escapechar=self.spec.escapechar,
+                skip_rows=self.spec.skip_rows,
+            )
 
-            # 构建读取参数
-            read_kwargs = {
-                "header": self.spec.header_row if self.spec.header_enabled else None,
-                "encoding": encoding,
-                "sep": self.spec.delimiter,
-                "quotechar": self.spec.quotechar,
-                "on_bad_lines": self.spec.on_bad_lines,
-            }
-
-            # 可选参数
-            if self.spec.escapechar:
-                read_kwargs["escapechar"] = self.spec.escapechar
-            if self.spec.skip_rows > 0:
-                read_kwargs["skiprows"] = self.spec.skip_rows
+            # nrows 仅标准加载器支持（分块路径用 chunksize 流式读取，不叠加行数限制）
             if self.spec.nrows:
                 read_kwargs["nrows"] = self.spec.nrows
 

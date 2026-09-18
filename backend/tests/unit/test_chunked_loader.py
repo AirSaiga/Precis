@@ -115,6 +115,79 @@ class TestChunkedDataLoaderCSV:
             os.unlink(tmp_path)
 
 
+class TestChunkedDataLoaderCSVSourceConfig:
+    """A2 回归: 分块 CSV 加载须与标准 CSVLoader 对齐 source_config 读取参数。"""
+
+    def test_load_csv_chunked_strips_bom_with_utf8_config(self) -> None:
+        """source_config.encoding 恒含 "utf-8" 真值（to_loader_config 产物），
+        分块路径必须升级为 utf-8-sig 剥 BOM，首列名不得变 \\ufeffid。"""
+        # 以 utf-8-sig 写入，文件头带 BOM
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".csv", newline="", encoding="utf-8-sig") as f:
+            f.write("id,name\n1,alice\n")
+            tmp_path = f.name
+
+        try:
+
+            class MockSchema:
+                header_row = 0
+                # 与 SourceSpec.to_loader_config() 产物一致：encoding 恒为真值
+                source_config = {"delimiter": ",", "encoding": "utf-8"}
+
+            loader = ChunkedDataLoader.__new__(ChunkedDataLoader)
+            chunks = loader._load_csv_chunked(tmp_path, MockSchema(), chunk_size=100)  # type: ignore[arg-type]
+
+            assert list(chunks[0].columns) == ["id", "name"]
+            assert not any(c.startswith("\ufeff") for c in chunks[0].columns)
+            assert chunks[0].iloc[0]["id"] == 1
+        finally:
+            os.unlink(tmp_path)
+
+    def test_load_csv_chunked_honors_skip_rows(self) -> None:
+        """skip_rows 说明行不得进入分块数据。"""
+        content = "说明行第一行\n说明行第二行\nid,name\n1,alice\n2,bob\n"
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".csv", newline="", encoding="utf-8") as f:
+            f.write(content)
+            tmp_path = f.name
+
+        try:
+
+            class MockSchema:
+                # pandas header 相对 skiprows 之后的行编号，表头即剩余第 1 行
+                header_row = 0
+                source_config = {"delimiter": ",", "encoding": "utf-8", "skip_rows": 2}
+
+            loader = ChunkedDataLoader.__new__(ChunkedDataLoader)
+            chunks = loader._load_csv_chunked(tmp_path, MockSchema(), chunk_size=100)  # type: ignore[arg-type]
+
+            assert list(chunks[0].columns) == ["id", "name"]
+            assert len(chunks[0]) == 2
+            assert chunks[0]["name"].tolist() == ["alice", "bob"]
+        finally:
+            os.unlink(tmp_path)
+
+    def test_load_csv_chunked_honors_quotechar(self) -> None:
+        """自定义 quotechar 须生效：被包裹字段内的分隔符不得切列。"""
+        content = "id,note\n1,|a,b|\n2,c\n"
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".csv", newline="") as f:
+            f.write(content)
+            tmp_path = f.name
+
+        try:
+
+            class MockSchema:
+                header_row = 0
+                source_config = {"delimiter": ",", "encoding": "utf-8", "quotechar": "|"}
+
+            loader = ChunkedDataLoader.__new__(ChunkedDataLoader)
+            chunks = loader._load_csv_chunked(tmp_path, MockSchema(), chunk_size=100)  # type: ignore[arg-type]
+
+            assert list(chunks[0].columns) == ["id", "note"]
+            assert chunks[0].iloc[0]["note"] == "a,b"
+            assert chunks[0].iloc[1]["note"] == "c"
+        finally:
+            os.unlink(tmp_path)
+
+
 class TestChunkedDataLoaderDataFrameChunked:
     """_load_dataframe_chunked 按文件类型分派测试。"""
 

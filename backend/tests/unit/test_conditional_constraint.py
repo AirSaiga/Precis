@@ -752,3 +752,83 @@ class TestConditionalIfOperatorValidation:
 
         violations = [e for e in result["errors"] if e.get("error_type") == "ConditionalViolation"]
         assert [v["row_index"] for v in violations] == [1]
+
+
+class TestConditionalThenNumericCoercion:
+    """A4 回归: THEN 侧 greater_than/less_than 先对双侧做数值转换再比较。
+
+    YAML 阈值常解析为字符串，原实现 bool(x > compared) 对两个 str 产出字典序
+    结果（"500" > "1000" → True），except 内 float 回退对 str 是死代码。
+    """
+
+    def test_greater_than_string_threshold_not_lexicographic(self) -> None:
+        """阈值 "1000"、数据值 500：字典序 "500" > "1000" 为 True 会假通过，数值比较必须判违规"""
+        constraint = ConditionalConstraint(
+            table="t",
+            if_column="a",
+            if_value="x",
+            then_column="b",
+            then_condition={"operator": "greater_than", "value": "1000"},
+        )
+        datasets = {"t": pd.DataFrame({"a": ["x"], "b": [500]})}
+        result = constraint.validate(datasets)
+
+        assert len(result["errors"]) == 1
+        assert result["errors"][0]["error_type"] == "ConditionalViolation"
+
+    def test_greater_than_string_threshold_pass_when_truly_greater(self) -> None:
+        """阈值 "1000"、数据值 1500 必须判通过"""
+        constraint = ConditionalConstraint(
+            table="t",
+            if_column="a",
+            if_value="x",
+            then_column="b",
+            then_condition={"operator": "greater_than", "value": "1000"},
+        )
+        datasets = {"t": pd.DataFrame({"a": ["x"], "b": [1500]})}
+        result = constraint.validate(datasets)
+
+        assert result["errors"] == []
+
+    def test_less_than_string_threshold_numeric_direction(self) -> None:
+        """9 < "10"：字典序 "9" < "10" 为 False 会误报违规，数值比较必须判通过"""
+        constraint = ConditionalConstraint(
+            table="t",
+            if_column="a",
+            if_value="x",
+            then_column="b",
+            then_condition={"operator": "less_than", "value": "10"},
+        )
+        datasets = {"t": pd.DataFrame({"a": ["x"], "b": [9]})}
+        result = constraint.validate(datasets)
+
+        assert result["errors"] == []
+
+    def test_less_than_with_string_data_value(self) -> None:
+        """数据值也是字符串数字（"9"）时同样按数值方向比较，不得按字典序"""
+        constraint = ConditionalConstraint(
+            table="t",
+            if_column="a",
+            if_value="x",
+            then_column="b",
+            then_condition={"operator": "less_than", "value": "10"},
+        )
+        datasets = {"t": pd.DataFrame({"a": ["x"], "b": ["9"]})}
+        result = constraint.validate(datasets)
+
+        assert result["errors"] == []
+
+    def test_greater_than_ref_column_numeric_coercion(self) -> None:
+        """ref_column 列间比较同样按数值比较（阈值与引用值均为字符串数字）"""
+        constraint = ConditionalConstraint(
+            table="t",
+            if_column="a",
+            if_value="x",
+            then_column="b",
+            then_condition={"operator": "greater_than", "ref_column": "min_required"},
+        )
+        datasets = {"t": pd.DataFrame({"a": ["x", "x"], "b": [500, 1500], "min_required": ["1000", "1000"]})}
+        result = constraint.validate(datasets)
+
+        violations = [e for e in result["errors"] if e.get("error_type") == "ConditionalViolation"]
+        assert [v["row_index"] for v in violations] == [0]

@@ -53,6 +53,31 @@ from .resolver import DataSourceResolver
 logger = logging.getLogger(__name__)
 
 
+def collect_foreign_key_tables(dataset_schema: DataSetSchema, filter_set: set) -> set:
+    """@methoddesc 收集外键关联表（标准/分块两条加载路径共用，A3）
+
+    当指定了 table_filter 时，除了过滤表本身，
+    还需要加载这些表引用的外键目标表，否则外键约束无法校验。
+
+    参数:
+        dataset_schema: 数据集 schema（读取 constraints 列表）
+        filter_set: 用户指定的过滤表集合
+
+    返回:
+        扩展后的表集合（包含外键引用的目标表）
+    """
+    tables_to_load = set(filter_set)
+    for constraint in dataset_schema.constraints:
+        # ForeignKeyConstraints 使用 from_table 而非 table 属性
+        constraint_table = getattr(constraint, "from_table", None)
+        if constraint_table and constraint_table in filter_set:
+            if hasattr(constraint, "to_table") and constraint.to_table:
+                tables_to_load.add(constraint.to_table)
+            if hasattr(constraint, "reference_table") and constraint.reference_table:
+                tables_to_load.add(constraint.reference_table)
+    return tables_to_load
+
+
 class DataLoader:
     """
     @classdesc 数据加载器
@@ -99,28 +124,9 @@ class DataLoader:
         return search_directory
 
     def _collect_foreign_key_tables(self, filter_set: set) -> set:
-        """
-        @methoddesc 收集外键关联表
-
-        当指定了 table_filter 时，除了过滤表本身，
-        还需要加载这些表引用的外键目标表，否则外键约束无法校验。
-
-        参数:
-            filter_set: 用户指定的过滤表集合
-
-        返回:
-            扩展后的表集合（包含外键引用的目标表）
-        """
-        tables_to_load = set(filter_set)
-        for constraint in self.dataset_schema.constraints:
-            # ForeignKeyConstraints 使用 from_table 而非 table 属性
-            constraint_table = getattr(constraint, "from_table", None)
-            if constraint_table and constraint_table in filter_set:
-                if hasattr(constraint, "to_table") and constraint.to_table:
-                    tables_to_load.add(constraint.to_table)
-                if hasattr(constraint, "reference_table") and constraint.reference_table:
-                    tables_to_load.add(constraint.reference_table)
-        return tables_to_load
+        """@methoddesc 收集外键关联表（委托给模块级 collect_foreign_key_tables，
+        分块加载路径共用同一逻辑）。"""
+        return collect_foreign_key_tables(self.dataset_schema, filter_set)
 
     def load_data_sources(
         self,

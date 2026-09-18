@@ -24,6 +24,7 @@
 - CSV 分块加载异常分支
 """
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -323,11 +324,81 @@ class TestLoadChunkedSources:
         t2.name = "orders"
         dataset_schema = MagicMock()
         dataset_schema.tables = {"users": t1, "orders": t2}
+        # A3: 过滤时collect_foreign_key_tables 会遍历 constraints，Mock 需显式置空
+        dataset_schema.constraints = []
 
         loader = self._make_loader(resolver, dataset_schema, {})
         result, _loading_errors = loader.load_chunked_sources(str(data_dir), table_filter="users")
         # No source path found for either, so result is empty
         assert result == {}
+
+    def test_table_filter_loads_foreign_key_target_table(self, tmp_path: Path) -> None:
+        """A3 回归: 按 orders 过滤时分块路径也必须加载 FK 目标表 users，
+        否则 FK 校验误报「表不在提供的数据集中」（与 data_loader 标准路径对齐）。"""
+        from app.shared.domain.constraints import ForeignKeyConstraints
+        from app.shared.domain.dataset_schema import DataSetSchema, TableSchema
+
+        orders_csv = tmp_path / "data" / "orders.csv"
+        users_csv = tmp_path / "data" / "users.csv"
+        orders_csv.parent.mkdir()
+        orders_csv.write_text("order_id,user_id\n1,u1\n2,u2\n", encoding="utf-8")
+        users_csv.write_text("id\nu1\nu2\n", encoding="utf-8")
+
+        resolver = MagicMock()
+        resolver.resolve_first_data_source.return_value = str(orders_csv.parent)
+
+        orders_schema_file = MagicMock()
+        users_schema_file = MagicMock()
+
+        def _resolve(_directory, schema_file):
+            if schema_file is orders_schema_file:
+                return str(orders_csv), None
+            return str(users_csv), None
+
+        resolver.resolve_source_path.side_effect = _resolve
+
+        dataset_schema = DataSetSchema(
+            tables={
+                "orders": TableSchema(
+                    id="orders",
+                    name="orders",
+                    source_config={"delimiter": ",", "encoding": "utf-8"},
+                ),
+                "users": TableSchema(
+                    id="users",
+                    name="users",
+                    source_config={"delimiter": ",", "encoding": "utf-8"},
+                ),
+            },
+            constraints=[
+                ForeignKeyConstraints(from_table="orders", from_column="user_id", to_table="users", to_column="id")
+            ],
+        )
+
+        monitor = MemoryMonitor(chunk_threshold_mb=0.0001, chunk_rows=100)  # 强制走分块路径
+        loader = self._make_loader(
+            resolver,
+            dataset_schema,
+            {"orders": orders_schema_file, "users": users_schema_file},
+            monitor,
+        )
+
+        result, loading_errors = loader.load_chunked_sources(str(orders_csv.parent), table_filter="orders")
+
+        # FK 目标表 users 必须随 orders 一起加载，即使过滤条件只写了 orders
+        assert "orders" in result
+        assert "users" in result, f"FK 目标表未被加载: {list(result.keys())}"
+        assert loading_errors == []
+
+        # 级联加载后 FK 校验不得误报「表不在提供的数据集中」
+        fk = dataset_schema.constraints[0]
+        fk_result = fk.validate(
+            {
+                "orders": pd.concat(result["orders"]),
+                "users": pd.concat(result["users"]),
+            }
+        )
+        assert fk_result["errors"] == [], f"FK 校验误报: {fk_result['errors']}"
 
     def test_chunked_load_failure_fallback(self, tmp_path):
         """分块加载失败应回退到全量加载。"""
@@ -460,6 +531,8 @@ class TestLoadChunkedSources:
         t1.name = "users"
         dataset_schema = MagicMock()
         dataset_schema.tables = {"users": t1}
+        # A3: 过滤时 collect_foreign_key_tables 会遍历 constraints，Mock 需显式置空
+        dataset_schema.constraints = []
 
         loader = self._make_loader(resolver, dataset_schema, {})
 

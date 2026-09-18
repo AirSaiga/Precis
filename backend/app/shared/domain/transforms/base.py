@@ -46,6 +46,18 @@ def stringify_preserve_null(series: pd.Series) -> pd.Series:
     return result.where(series.notna(), None)
 
 
+def _norm_to_str(v: Any) -> str:
+    """条件比较用字符串归一化（A7，与 allowed_values D5 的 _norm_to_str 同语义）。
+
+    含空值的整数列经类型处理后会整列升为 float64（100 → 100.0），裸 astype(str)
+    得 "100.0"，与配置值 100 的 "100" 不命中。对 is_integer() 的 float 回收为
+    整数字符串，使 float64 的 100.0 与配置 100 等价。
+    """
+    if isinstance(v, float) and v.is_integer():
+        return str(int(v))
+    return str(v)
+
+
 def evaluate_condition(df: pd.DataFrame, cond: dict[str, Any]) -> pd.Series:
     """评估单个条件，返回布尔 Series。
 
@@ -79,9 +91,9 @@ def evaluate_condition(df: pd.DataFrame, cond: dict[str, Any]) -> pd.Series:
 
     result: pd.Series
     if op == "eq":
-        result = series.astype(str) == str(value)
+        result = series.map(_norm_to_str) == _norm_to_str(value)
     elif op == "ne":
-        result = series.astype(str) != str(value)
+        result = series.map(_norm_to_str) != _norm_to_str(value)
     elif op in ("gt", "gte", "lt", "lte"):
         numeric_series = pd.to_numeric(series, errors="coerce")
         numeric_value = pd.to_numeric(value, errors="coerce")
@@ -103,12 +115,12 @@ def evaluate_condition(df: pd.DataFrame, cond: dict[str, Any]) -> pd.Series:
         result = series.astype(str).str.endswith(str(value), na=False)
     elif op == "in":
         values = value if isinstance(value, list) else [value]
-        str_values = [str(v) for v in values]
-        result = series.astype(str).isin(str_values)
+        str_values = [_norm_to_str(v) for v in values]
+        result = series.map(_norm_to_str).isin(str_values)
     elif op == "not_in":
         values = value if isinstance(value, list) else [value]
-        str_values = [str(v) for v in values]
-        result = ~series.astype(str).isin(str_values)
+        str_values = [_norm_to_str(v) for v in values]
+        result = ~series.map(_norm_to_str).isin(str_values)
     else:
         return pd.Series([False] * len(df), index=df.index)
 

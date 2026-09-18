@@ -428,6 +428,56 @@ class TestTransformNullPreservation:
 
 
 # ============================================================
+# A7: transform 条件 eq/ne/in/not_in 数值归一化
+# ============================================================
+
+
+class TestEvaluateConditionNumericNormalization:
+    """A7 回归: float64 整数值与 int 配置值必须等价（对齐 allowed_values D5）。
+
+    含空值的整数列经类型处理后会整列升为 float64（100 → 100.0），裸 astype(str)
+    得 "100.0"，与配置值 100 的 "100" 不命中。_norm_to_str 对 is_integer() 的
+    float 回收为整数字符串。
+    """
+
+    def test_eq_float64_integer_value_matches_int_config(self) -> None:
+        from app.shared.domain.transforms.base import evaluate_condition
+
+        df = pd.DataFrame({"x": pd.Series([100.0, 200.0, None], dtype="float64")})
+        result = evaluate_condition(df, {"column": "x", "op": "eq", "value": 100})
+        assert result.tolist() == [True, False, False]
+
+    def test_ne_float64_integer_value(self) -> None:
+        from app.shared.domain.transforms.base import evaluate_condition
+
+        df = pd.DataFrame({"x": pd.Series([100.0, 200.0], dtype="float64")})
+        result = evaluate_condition(df, {"column": "x", "op": "ne", "value": 100})
+        assert result.tolist() == [False, True]
+
+    def test_in_float64_values_match_int_config(self) -> None:
+        from app.shared.domain.transforms.base import evaluate_condition
+
+        df = pd.DataFrame({"x": pd.Series([100.0, 200.0, 300.0], dtype="float64")})
+        result = evaluate_condition(df, {"column": "x", "op": "in", "value": [100, 300]})
+        assert result.tolist() == [True, False, True]
+
+    def test_not_in_float64_values(self) -> None:
+        from app.shared.domain.transforms.base import evaluate_condition
+
+        df = pd.DataFrame({"x": pd.Series([100.0, 200.0], dtype="float64")})
+        result = evaluate_condition(df, {"column": "x", "op": "not_in", "value": [100]})
+        assert result.tolist() == [False, True]
+
+    def test_non_integer_float_not_normalized(self) -> None:
+        """非整数 float 不做归一，1.5 不得命中配置值 1"""
+        from app.shared.domain.transforms.base import evaluate_condition
+
+        df = pd.DataFrame({"x": pd.Series([1.5], dtype="float64")})
+        assert evaluate_condition(df, {"column": "x", "op": "eq", "value": 1}).tolist() == [False]
+        assert evaluate_condition(df, {"column": "x", "op": "eq", "value": 1.5}).tolist() == [True]
+
+
+# ============================================================
 # D17: data_engine JSON 列空值填充
 # ============================================================
 

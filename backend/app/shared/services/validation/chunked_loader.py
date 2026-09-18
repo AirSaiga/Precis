@@ -50,10 +50,12 @@ from typing import Any
 
 import pandas as pd
 
+from app.shared.core.data_source.loaders.csv_loader import build_csv_read_kwargs
 from app.shared.core.data_source.schema_info import DataSourceInfo
 from app.shared.core.project.schema.types import TableSchemaFile
 from app.shared.domain.dataset_schema import DataSetSchema, TableSchema
 
+from .data_loader import collect_foreign_key_tables
 from .memory_monitor import MemoryMonitor
 from .resolver import DataSourceResolver
 
@@ -124,20 +126,29 @@ class ChunkedDataLoader:
             DataFrame 分块列表
         """
         try:
-            # B25 修复：优先读取 source_config.encoding，过去硬编码 utf-8-sig 导致非 UTF-8 文件乱码
-            config_encoding = None
-            if hasattr(schema, "source_config") and schema.source_config:
-                config_encoding = schema.source_config.get("encoding")
-            encoding = config_encoding or "utf-8-sig"
-            read_kwargs: dict[str, Any] = {
-                "header": schema.header_row if schema.header_row is not None else 0,
-                "encoding": encoding,
-                "chunksize": chunk_size,
-            }
+            # A2 修复：与标准 CSVLoader 共用 read_kwargs 构造（含 utf-8→utf-8-sig BOM 升级、
+            # quotechar/on_bad_lines/escapechar/skiprows 透传）。schema.source_config 是
+            # SourceSpec.to_loader_config() 的产物，恒含 encoding 真值（默认 "utf-8"），
+            # 过去 `or "utf-8-sig"` 兜底永不生效 → BOM 不剥、首列变 \ufeffxxx。
+            # 注意：CSVOptions 无 nrows 字段，分块路径不发明 nrows 支持。
+            source_config = getattr(schema, "source_config", None) or {}
 
-            if hasattr(schema, "source_config") and schema.source_config:
-                delimiter = schema.source_config.get("delimiter", ",")
-                read_kwargs["sep"] = delimiter
+            # on_bad_lines 来自自由字典，按标准路径的白名单收窄，非法值兜底 "warn"，
+            # 避免把任意字符串透传给 pandas.read_csv 导致加载失败
+            on_bad_lines = source_config.get("on_bad_lines")
+            if on_bad_lines not in ("error", "warn", "skip"):
+                on_bad_lines = "warn"
+
+            read_kwargs = build_csv_read_kwargs(
+                header_row=schema.header_row if schema.header_row is not None else 0,
+                encoding=source_config.get("encoding") or "utf-8",
+                delimiter=source_config.get("delimiter", ","),
+                quotechar=source_config.get("quotechar", '"'),
+                on_bad_lines=on_bad_lines,
+                escapechar=source_config.get("escapechar"),
+                skip_rows=int(source_config.get("skip_rows", 0) or 0),
+            )
+            read_kwargs["chunksize"] = chunk_size
 
             chunks: list[pd.DataFrame] = []
             for chunk in pd.read_csv(file_path, **read_kwargs):
@@ -321,15 +332,21 @@ class ChunkedDataLoader:
             else:
                 filter_set = set(table_filter)
 
+        # A3 修复: 与 data_loader 标准路径一致，过滤时必须把 FK 目标表并入加载集。
+        # 否则按 A 过滤时 B 不加载，FK 校验因目标表缺失误报「表不在提供的数据集中」。
+        tables_to_load: set | None = None
+        if filter_set:
+            tables_to_load = collect_foreign_key_tables(self.dataset_schema, filter_set)
+
         for table_id, table_schema in self.dataset_schema.tables.items():
             schema_file = self._schema_by_id.get(table_id)
             if not schema_file:
                 continue
 
             # 应用过滤
-            if filter_set:
+            if tables_to_load:
                 table_name = table_schema.name or table_id
-                if table_name not in filter_set and table_id not in filter_set:
+                if table_name not in tables_to_load and table_id not in tables_to_load:
                     continue
 
             table_name = table_schema.name or table_id
