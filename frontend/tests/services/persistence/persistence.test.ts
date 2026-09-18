@@ -353,6 +353,64 @@ describe('Persistence - Embedded Constraint Builder', () => {
     const node = makeConstraintNode('compositeConstraint', { logic: 'all' })
     expect(() => buildEmbeddedConstraintItem(node)).toThrow(CompositeCannotEmbedError)
   })
+
+  it('Conditional 写入 params.then_column_id / if_column_id / skip_if（列 ID 规范）', () => {
+    const node = makeConstraintNode(
+      'conditionalConstraint',
+      {
+        configName: '身份证规则',
+        thenRef: { nodeId: 'schema-1', columnId: 'col-status' },
+        thenConditionConfig: { operator: 'not_null' },
+        ifLogic: 'or',
+        skipIfCondition: true,
+        ifConditions: [
+          {
+            operator: 'eq',
+            value: 'CN',
+            ref: { nodeId: 'schema-1', columnId: 'col-email' },
+            column: 'email',
+          },
+        ],
+      },
+      'c-cond'
+    )
+
+    const item = buildEmbeddedConstraintItem(node)
+    expect(item.type).toBe('Conditional')
+    // THEN 列 ID 写入 params.then_column_id（内嵌 ConstraintItemV2 无 refs 字段，
+    // 后端 embedded_constraints 从 params 提取；base.column 保留兼容旧读取侧）
+    expect(item.column).toBe('col-status')
+    expect(item.params?.then_column_id).toBe('col-status')
+    expect(item.params?.skip_if).toBe(true)
+    expect(item.params?.if_logic).toBe('or')
+    expect(item.params?.then_condition).toEqual({ operator: 'not_null' })
+    expect(item.params?.if_conditions).toEqual([
+      { if_column_id: 'col-email', operator: 'eq', value: 'CN', values: undefined },
+    ])
+  })
+
+  it('ForeignKey 写入 allow_null 到 params（与独立路径键名一致）', () => {
+    const node = makeConstraintNode(
+      'foreignKeyConstraint',
+      {
+        configName: 'FK 订单用户',
+        sourceTable: 'orders',
+        sourceColumn: 'user_id',
+        targetTable: 'users',
+        targetColumn: 'id',
+        allowNull: true,
+      },
+      'c-fk'
+    )
+
+    const item = buildEmbeddedConstraintItem(node)
+    expect(item.type).toBe('ForeignKey')
+    expect(item.from_table).toBe('orders')
+    expect(item.from_column).toBe('user_id')
+    expect(item.to_table).toBe('users')
+    expect(item.to_column).toBe('id')
+    expect(item.params).toEqual({ allow_null: true })
+  })
 })
 
 // ============================================================================

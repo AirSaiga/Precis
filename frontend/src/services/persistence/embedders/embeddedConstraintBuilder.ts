@@ -78,18 +78,26 @@ export function buildEmbeddedConstraintItem(node: CustomNode): ConstraintItemV2 
       base.from_column = d.sourceColumn as string
       base.to_table = d.targetTable as string
       base.to_column = d.targetColumn as string
-      base.params = {}
+      // "允许为空"开关（与独立路径 persistence/builders/constraint/foreignKey.ts 的
+      // params.allow_null 键名一致，roundtrip 不丢失）
+      base.params = d.allowNull === true ? { allow_null: true } : {}
       break
     }
 
     case 'Conditional': {
-      const cd = d as unknown as ConditionalConstraintNodeData
+      const cd = d as Partial<ConditionalConstraintNodeData>
       const thenColumnId = cd.thenRef?.columnId || cd.thenColumn
       if (thenColumnId) base.column = thenColumnId
 
       const params: Record<string, unknown> = {
         then_condition: cd.thenConditionConfig,
       }
+      // THEN 列 ID：内嵌 ConstraintItemV2 无 refs 字段（与旧 schemaBuilder 导出一致），
+      // 写入 params.then_column_id——后端 embedded_constraints 从 params 提取到 refs，
+      // 导入侧 embeddedConstraints.ts 优先读本键（列 ID 规范，不走列名查找）
+      if (thenColumnId) params.then_column_id = thenColumnId
+      // "跳过 IF、对所有行校验 THEN"开关（与独立路径 params.skip_if 键名一致，roundtrip 不丢失）
+      if (cd.skipIfCondition === true) params.skip_if = true
 
       if (cd.ifLogic) params.if_logic = cd.ifLogic
       const ifConditions = cd.ifConditions || []
