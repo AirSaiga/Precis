@@ -45,8 +45,13 @@
 import { ref, computed, toRaw, isProxy, nextTick } from 'vue'
 import { defineStore } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
-import type { Edge } from '@vue-flow/core'
+import type { Edge, Node } from '@vue-flow/core'
 import type { CustomNode } from '@/types/graph'
+import type { CustomNodeData } from '@/types/nodes'
+import type {
+  AllowedValuesConstraintNodeData,
+  CompositeConstraintNodeData,
+} from '@/types/constraints'
 import { useI18n } from 'vue-i18n'
 import { logger } from '@/core/utils/logger'
 import { getV2Workspaces, putV2Workspaces } from '@/api/projectV2Api'
@@ -179,22 +184,51 @@ function encodeSnapshotSets<T>(value: T): T {
  * 列内联约束的 allowedValues 数组契约）。
  *
  * compositeConstraint 的 data.subGraph.nodes 内的 AllowedValues 子节点递归处理。
+ * 断言仅用「子类型 → 联合」单向可赋型的形式（Node<XData> → CustomNode），
+ * 不引入双重断言。
  */
 function decodeSnapshotNodes(nodes: CustomNode[]): CustomNode[] {
   return nodes.map((node) => {
-    const data = (node.data || {}) as Record<string, unknown>
-    let newData = data
-    if (node.type === ALLOWED_VALUES_NODE_TYPE && Array.isArray(data.allowedValues)) {
-      newData = { ...data, allowedValues: new Set(data.allowedValues) }
-    }
-    const subGraph = data.subGraph as { nodes?: CustomNode[] } | undefined
-    if (subGraph && Array.isArray(subGraph.nodes)) {
-      newData = {
-        ...newData,
-        subGraph: { ...subGraph, nodes: decodeSnapshotNodes(subGraph.nodes) },
+    let decoded: CustomNode = node
+
+    // Node<AllowedValuesConstraintNodeData> 是 CustomNode 联合的成员，单向可赋型
+    if (decoded.type === ALLOWED_VALUES_NODE_TYPE) {
+      const avNode = decoded as Node<AllowedValuesConstraintNodeData>
+      const data = avNode.data
+      // 加载侧快照里 allowedValues 实为数组（经 JSON 序列化），还原为 Set。
+      // 重建走 CustomNode 壳（Node<T> 因 style 回调对 T 逆变，Node<AVData> 不可赋回
+      // CustomNode），data 直接以联合类型标注
+      if (data && Array.isArray(data.allowedValues)) {
+        const newData: CustomNodeData = {
+          ...data,
+          allowedValues: new Set<string>(data.allowedValues),
+        }
+        decoded = { ...decoded, data: newData }
       }
     }
-    return newData === data ? node : ({ ...node, data: newData } as CustomNode)
+
+    const compositeNode = decoded as Node<CompositeConstraintNodeData>
+    const compositeData = compositeNode.data
+    if (compositeData?.subGraph && Array.isArray(compositeData.subGraph.nodes)) {
+      // subGraph.nodes 是裸 Node（data: Record<string, unknown>），直接结构化解码
+      const decodedSubNodes = compositeData.subGraph.nodes.map((sub) => {
+        const subData = sub.data || {}
+        if (sub.type === ALLOWED_VALUES_NODE_TYPE && Array.isArray(subData.allowedValues)) {
+          return {
+            ...sub,
+            data: { ...subData, allowedValues: new Set<string>(subData.allowedValues) },
+          }
+        }
+        return sub
+      })
+      const newData: CustomNodeData = {
+        ...compositeData,
+        subGraph: { ...compositeData.subGraph, nodes: decodedSubNodes },
+      }
+      decoded = { ...decoded, data: newData }
+    }
+
+    return decoded
   })
 }
 
