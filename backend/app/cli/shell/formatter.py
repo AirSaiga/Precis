@@ -345,7 +345,7 @@ class Formatter:
             for c in constraint_checks:
                 passed = c.get("passed", True)
                 ctype = (
-                    c.get("constraint_type", "Constraint").replace("Constraint", "").replace("s", "", 1)
+                    c.get("constraint_type", "Constraint").replace("Constraint", "").removesuffix("s")
                     if c.get("constraint_type")
                     else "Constraint"
                 )

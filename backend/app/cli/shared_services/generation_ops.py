@@ -72,12 +72,17 @@ def scan_data_files(patterns: list[str], project_path: str) -> list[str]:
         elif os.path.exists(pattern):
             file_paths.append(pattern)
 
+    # 合并去重（保序）
+    file_paths = list(dict.fromkeys(file_paths))
+
     # 无文件参数时扫描 data/ 目录（保持原 _scan_data_files 行为）
     if not file_paths:
         data_dir = Path(project_path) / "data"
         if data_dir.exists():
             for ext in SUPPORTED_EXTENSIONS:
                 file_paths.extend(str(p) for p in data_dir.glob(f"*{ext}"))
+            # 扫描分支输出排序，保证结果稳定
+            file_paths.sort()
 
     # 过滤支持的文件类型
     return [p for p in file_paths if p.lower().endswith(SUPPORTED_EXTENSIONS)]

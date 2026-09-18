@@ -396,6 +396,29 @@ class TestFieldsSetPurityAndMergeRevival:
             saved = yaml.safe_load((root / "project.precis.yaml").read_text(encoding="utf-8"))
             assert saved["schemas"] == [{"id": "scanned", "path": "schemas/scanned.schema.yaml"}]
 
+    def test_regex_scan_id_matches_file_id(self) -> None:
+        """C4 修复守卫：regex/ 目录扫描出的 id 必须与文件名/文件内真实 id 一致。
+
+        旧实现 filename[:-10] 对 ".regex.yaml"（11 字符）切出带尾点的 "abc."，
+        manifest 落盘后引用 id 与文件内 id 错位。
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "regex").mkdir()
+            (root / "regex" / "r_scanned.regex.yaml").write_text(
+                "id: r_scanned\nname: r_scanned\npattern: ^\\d+$\nmatchMode: full\n",
+                encoding="utf-8",
+            )
+            (root / "project.precis.yaml").write_text(
+                "version: 2\nproject:\n  id: p\n  name: p\nschemas: []\nconstraints: []\nregex_nodes: []\n",
+                encoding="utf-8",
+            )
+            manifest = ProjectManifestV2(version=2, project=ProjectInfoV2(id="p", name="p"))
+            write_v2_full_config(FullConfigV2Request(manifest=manifest), tmpdir)
+
+            saved = yaml.safe_load((root / "project.precis.yaml").read_text(encoding="utf-8"))
+            assert saved["regex_nodes"] == [{"id": "r_scanned", "path": "regex/r_scanned.regex.yaml"}]
+
     def test_explicit_empty_templates_now_clears_disk_value(self):
         """语义统一：payload 显式 templates: [] → 遵从清空意图（旧启发式强制保留）。
 

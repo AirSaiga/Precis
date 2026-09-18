@@ -20,6 +20,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import yaml
 
 from app.shared.services.llm.constraints.inline_batch import (
@@ -251,3 +253,20 @@ class TestProcessInlineBatch:
         remaining = {(c["column"], c["type"]) for c in saved["constraints"]}
         # col_name 的 NotNull 已被删除，col_email 的 NotNull 为新增
         assert remaining == {("col_email", "NotNull")}
+
+    def test_outer_failure_with_duplicate_actions_records_each(self, tmp_path: Path) -> None:
+        """回归：外层异常兜底按 enumerate 索引，同批值相等的 action 不得漏记结果。
+
+        旧实现 actions.index(action) 按值返回首个相等元素，第二个相等 dict 的
+        索引被误判为 0，其失败记录被跳过，结果数少于 action 数。
+        """
+        schemas_dir = tmp_path / "schemas"
+        schemas_dir.mkdir()
+        # 非法 YAML 在 schema 查找阶段即抛错，触发外层 except 兜底
+        (schemas_dir / "broken.schema.yaml").write_text("not: valid: yaml: [", encoding="utf-8")
+        action = _make_action()
+        actions = [action, dict(action)]  # 两个值相等的 dict
+        result = process_inline_batch(actions, str(tmp_path))
+        assert len(result) == 2
+        assert all(r["success"] is False for r in result)
+        assert all("批量处理失败" in r["message"] for r in result)

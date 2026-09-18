@@ -270,8 +270,8 @@ def process_inline_batch(actions: list[dict[str, Any]], workspace_path: str) -> 
     except Exception as e:
         logger.error(f"[批量处理] 批量处理失败: {e}")
         # 为尚未记录结果的操作标记为失败
-        for action in actions:
-            if len(results) < actions.index(action) + 1:
+        for i, action in enumerate(actions):
+            if len(results) < i + 1:
                 results.append(
                     {"action": action, "success": False, "message": f"批量处理失败: {e}", "frontendInstructions": None}
                 )

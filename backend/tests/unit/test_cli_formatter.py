@@ -228,6 +228,26 @@ class TestFormatter:
         result = Formatter.format_validation_summary(details, {})
         assert "users: - 行" in result
 
+    def test_format_validation_summary_ctype_fallback_names(self) -> None:
+        """无 description 时按类型名渲染标签：结尾 s 单数化不得误伤名字中间的 s。"""
+        from app.cli.shell.formatter import Formatter
+
+        details = {
+            "format_checks": [],
+            "constraint_checks": [
+                {"constraint_type": "CharsetConstraint", "table": "users", "passed": True},
+                {"constraint_type": "CompositeConstraint", "table": "users", "passed": True},
+                {"constraint_type": "AllowedValuesConstraint", "table": "users", "passed": True},
+            ],
+        }
+        result = Formatter.format_validation_summary(details, None)
+        assert "Charset: users" in result
+        assert "Composite: users" in result
+        assert "AllowedValue: users" in result
+        # 旧实现 .replace("s", "", 1) 产出的坏名字不得出现
+        assert "Charet" not in result
+        assert "Compoite" not in result
+
     def test_print_table(self, capsys):
         from app.cli.shell.formatter import Formatter
 

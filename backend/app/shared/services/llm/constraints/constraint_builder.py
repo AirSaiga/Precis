@@ -147,7 +147,8 @@ def _build_constraint_params(constraint_type: str, constraint_spec: dict[str, An
         expression = params.get("expression")
         if pattern and not expression:
             safe_pattern = re.escape(pattern)
-            expression = f"re.match(r'{safe_pattern}', str(value)) is not None"
+            # repr 生成自带引号转义的字符串字面量，pattern 含单/双引号均安全
+            expression = f"re.match({safe_pattern!r}, str(value)) is not None"
         if not expression:
             # 空表达式不再兜底为 "True"（恒真约束会静默失效还报成功），
             # 抛出让上层按失败上报且不落盘。三个调用方（update_yaml_config 内联/独立分支、

@@ -17,6 +17,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from app.cli.shared_services.generation_ops import apply_generated_config, scan_data_files
 
 
@@ -42,3 +44,22 @@ def test_scan_data_files_scans_data_dir(tmp_path):
     files = scan_data_files([], str(tmp_path))
     assert any("a.xlsx" in f for f in files)
     assert not any("b.txt" in f for f in files)
+
+
+def test_scan_data_files_dedup_overlapping_patterns(tmp_path: Path) -> None:
+    """docstring 承诺合并去重：重叠 patterns 不得产生重复文件。"""
+    (tmp_path / "a.csv").write_text("x")
+    (tmp_path / "b.csv").write_text("y")
+    files = scan_data_files(["*.csv", "a.csv"], str(tmp_path))
+    assert sorted(files) == sorted([str(tmp_path / "a.csv"), str(tmp_path / "b.csv")])
+
+
+def test_scan_data_files_scan_branch_sorted(tmp_path: Path) -> None:
+    """docstring 承诺 data/ 扫描部分已排序。"""
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    for name in ("b.xlsx", "a.csv", "c.json"):
+        (data_dir / name).write_text("x")
+    files = scan_data_files([], str(tmp_path))
+    assert len(files) == 3
+    assert files == sorted(files)

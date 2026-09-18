@@ -103,6 +103,26 @@ class TestBuildConstraintParams:
         assert "expression" in params
         assert "re.match" in params["expression"]
 
+    def test_scripted_pattern_with_single_quote(self) -> None:
+        """回归：pattern 含单引号（re.escape 不转义 '），生成表达式必须可直接编译执行。"""
+        import re
+
+        from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
+
+        params = _build_constraint_params("REGEX", {"params": {"pattern": "o'clock"}})
+        compile(params["expression"], "<expr>", "exec")
+        assert eval(params["expression"], {"re": re, "value": "o'clock now"}) is True
+
+    def test_scripted_pattern_with_double_quote(self) -> None:
+        """回归：pattern 含双引号，repr 字面量同样安全且语义不变。"""
+        import re
+
+        from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
+
+        params = _build_constraint_params("REGEX", {"params": {"pattern": 'say "hi"'}})
+        compile(params["expression"], "<expr>", "exec")
+        assert eval(params["expression"], {"re": re, "value": 'say "hi" there'}) is True
+
     def test_scripted_with_expression(self):
         from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
 

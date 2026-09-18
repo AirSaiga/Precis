@@ -173,7 +173,7 @@ def _merge_manifest_references(
                 continue
             for filename in os.listdir(d):
                 if filename.endswith(".regex.yaml"):
-                    regex_id = filename[:-10]
+                    regex_id = filename[: -len(".regex.yaml")]
                     if regex_id in seen_regex_ids:
                         continue
                     rel_dir = os.path.basename(d)
