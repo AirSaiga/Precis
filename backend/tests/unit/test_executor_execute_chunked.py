@@ -267,3 +267,42 @@ class TestExecuteChunked:
         assert result["errors"][0]["table"] == "users"
         # source_info attached using table_id field (which is still "t1" and in map)
         assert result["errors"][0]["source_file"] == "data.csv"
+
+
+class TestChunkedGlobalValidationDagErrors:
+    def test_chunked_dag_errors_reported_in_result(self):
+        """回归(A1): 分块路径 Transform/regex DAG 执行失败必须上报——
+        DAG 错误须并入 all_errors，不能被 result["errors"] = all_errors 重绑覆盖丢弃"""
+        executor = _make_minimal_executor()
+        chunked_loader = MagicMock()
+        chunked_loader.load_chunked_sources.return_value = ({"t1": [pd.DataFrame({"a": [1]})]}, [])
+        executor._get_chunked_loader = MagicMock(return_value=chunked_loader)
+
+        dag_errors = [{"error_type": "TransformExecutionError", "message": "transform failed", "table": "t1"}]
+        with (
+            patch(
+                "app.shared.services.validation.executor.validate_full_dataset",
+                return_value=({"t1": pd.DataFrame({"a": [1]})}, [], {}),
+            ),
+            patch(
+                "app.shared.services.validation.executor.execute_dag_if_needed",
+                return_value=({"t1": pd.DataFrame({"a": [1]})}, dag_errors),
+            ),
+            patch(
+                "app.shared.services.validation.executor.validate_constraints",
+                return_value=(
+                    [{"error_type": "ConstraintError", "message": "constraint failed"}],
+                    {"constraint_checks": []},
+                ),
+            ),
+        ):
+            result = executor._execute_chunked(
+                "D:\\data", ValidationOptions(timeout_seconds=300), time.monotonic(), _make_result_dict()
+            )
+
+        dag_reported = [e for e in result["errors"] if e.get("error_type") == "TransformExecutionError"]
+        assert len(dag_reported) == 1
+        # 与标准路径(engine.py)一致:DAG 错误以 stage="loading" 归入预处理阶段
+        assert dag_reported[0]["stage"] == "loading"
+        # DAG 错误与约束错误同时保留(互不覆盖)
+        assert any(e.get("error_type") == "ConstraintError" for e in result["errors"])

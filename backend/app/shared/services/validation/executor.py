@@ -932,8 +932,10 @@ class ValidationExecutor:
         )
         result["parsed_datasets"] = merged_parsed
         # 回归 #6: 分块路径的 DAG 失败同样需上报(与标准路径 engine 行为一致)。
+        # 必须并入 all_errors——下方 result["errors"] = all_errors 整体重绑会覆盖
+        # 直接 append 进 result["errors"] 的内容，DAG 错误须在重绑前进入 all_errors。
         for dag_err in dag_errors:
-            result["errors"].append({"stage": "loading", **dag_err})
+            all_errors.append({"stage": "loading", **dag_err})
 
         # C6: 若分块阶段已因 stop 中断,跳过约束校验(已停在前面的格式错误)。
         if merged_parsed and not chunk_interrupted:
