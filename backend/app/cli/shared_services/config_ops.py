@@ -29,6 +29,7 @@
 
 接口契约（P0b 冻结）:
     def find_config_file(project_path: str, name: str | None) -> str | None
+    def resolve_config_file(project_path: str, name: str | None) -> tuple[str | None, str | None]
     def get_by_dotpath(data: dict, key_path: str) -> tuple[bool, Any]
     def set_by_dotpath(data: dict, key_path: str, value: Any) -> dict
     def parse_config_value(value_str: str) -> tuple[bool, Any, str]
@@ -42,6 +43,7 @@ from __future__ import annotations
 import logging
 import os
 import tempfile
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -95,8 +97,8 @@ class YamlCheckResult:
 def find_config_file(project_path: str, filename: str | None) -> str | None:
     """查找配置文件。
 
-    首先尝试直接拼接路径，如果失败则在项目目录下递归查找。
-    包含路径穿越防护，验证输入路径的合法性。
+    首先尝试直接拼接路径，如果失败则在项目目录下递归查找
+    （先精确相对路径匹配，再按文件名模糊回退）。
 
     Args:
         project_path: 项目根目录路径
@@ -110,56 +112,96 @@ def find_config_file(project_path: str, filename: str | None) -> str | None:
         - 验证 filename 不包含路径分隔符或父目录引用
         - 解析后的文件路径必须在 project_path 范围内
     """
+    path, _match_kind = resolve_config_file(project_path, filename)
+    return path
+
+
+# 路径匹配方式（resolve_config_file 返回值第二元素）
+MATCH_DIRECT = "direct"  # 直接路径命中（project_path/filename 存在）
+MATCH_EXACT = "exact"  # 递归查找中精确相对路径命中（rel_path == filename）
+MATCH_BASENAME = "basename"  # 按文件名模糊回退命中（仅当直接/精确均未命中时）
+
+
+def resolve_config_file(project_path: str, filename: str | None) -> tuple[str | None, str | None]:
+    """查找配置文件，返回 (路径, 匹配方式)。
+
+    与 find_config_file 的定位逻辑一致，额外返回匹配方式以便调用方
+    区分"精确命中"与"文件名模糊回退"——后者命中时必须向用户披露实际
+    写入的解析路径（如 config set 的成功提示）。
+
+    匹配优先级：直接路径 > 精确相对路径（递归）> 文件名模糊回退（递归）。
+    精确匹配整轮优先于模糊回退：输入 "schemas/x.yaml" 而 schemas/ 下不存在
+    该文件时，若 regex/ 下存在同名文件，模糊回退仍命中 regex/x.yaml，
+    但任何目录下的精确相对路径命中都先于模糊回退返回。
+
+    Args:
+        project_path: 项目根目录路径
+        filename: 文件名（可能包含子目录）；为 None 或空时返回 (None, None)
+
+    Returns:
+        (文件的完整路径, 匹配方式)；未找到时返回 (None, None)。
+        匹配方式取值为 MATCH_DIRECT / MATCH_EXACT / MATCH_BASENAME。
+
+    Security:
+        - 验证 project_path 是合法目录
+        - 验证 filename 不包含路径分隔符或父目录引用
+        - 解析后的文件路径必须在 project_path 范围内
+    """
     # 验证 project_path 是合法目录
     if not project_path or not isinstance(project_path, str):
-        return None
+        return None, None
 
     project_path = os.path.realpath(project_path)
     if not os.path.isdir(project_path):
-        return None
+        return None, None
 
     # 验证 filename 不包含危险字符（路径穿越防护）
     if not filename or not isinstance(filename, str):
-        return None
+        return None, None
 
     # 禁止绝对路径和父目录引用
     if os.path.isabs(filename):
-        return None
+        return None, None
     # 父目录引用按路径段检查（子串检查会误伤 "my..data.yaml" 这类合法文件名）
     if any(seg == ".." for seg in Path(filename).parts) or filename.startswith("~"):
-        return None
+        return None, None
 
     # 首先尝试直接路径
     direct_path = os.path.normpath(os.path.join(project_path, filename))
 
     # 确保解析后的路径在项目目录范围内
     if not direct_path.startswith(project_path):
-        return None
+        return None, None
 
     if os.path.isfile(direct_path):
-        return direct_path
+        return direct_path, MATCH_DIRECT
 
-    # 如果直接路径不存在，递归查找
-    for root, _, files in os.walk(project_path):
-        # 跳过隐藏目录
-        if any(part.startswith(".") for part in root.split(os.sep)):
-            continue
-        # 检查文件名是否匹配
-        if os.path.basename(filename) in files:
-            full_path = os.path.join(root, os.path.basename(filename))
-            # 验证找到的完整路径在项目范围内
-            if os.path.realpath(full_path).startswith(project_path):
-                return full_path
-        # 也检查完整路径匹配
+    # 递归查找（跳过隐藏目录）
+    def _walk_visible() -> Iterator[tuple[str, list[str]]]:
+        for root, _, files in os.walk(project_path):
+            if any(part.startswith(".") for part in root.split(os.sep)):
+                continue
+            yield root, files
+
+    # 第一遍：精确相对路径匹配（如 "schemas/x.yaml" 必须命中 schemas/ 下的该文件）
+    for root, files in _walk_visible():
         for f in files:
             rel_path = os.path.relpath(os.path.join(root, f), project_path)
             if paths_equal(rel_path, filename):
                 full_path = os.path.join(root, f)
                 # 验证找到的完整路径在项目范围内
                 if os.path.realpath(full_path).startswith(project_path):
-                    return full_path
+                    return full_path, MATCH_EXACT
 
-    return None
+    # 第二遍：文件名模糊回退（仅当直接路径与精确相对路径均未命中时）
+    for root, files in _walk_visible():
+        if os.path.basename(filename) in files:
+            full_path = os.path.join(root, os.path.basename(filename))
+            # 验证找到的完整路径在项目范围内
+            if os.path.realpath(full_path).startswith(project_path):
+                return full_path, MATCH_BASENAME
+
+    return None, None
 
 
 def get_by_dotpath(data: dict, key_path: str) -> tuple[bool, Any]:
@@ -522,6 +564,9 @@ def check_yaml_syntax(content: str, filename: str) -> YamlCheckResult:
 
 
 __all__ = [
+    "MATCH_BASENAME",
+    "MATCH_DIRECT",
+    "MATCH_EXACT",
     "ConfigFileInfo",
     "YamlCheckResult",
     "check_yaml_syntax",
@@ -530,6 +575,7 @@ __all__ = [
     "list_config_files",
     "load_config_content",
     "parse_config_value",
+    "resolve_config_file",
     "set_by_dotpath",
     "set_config_value_in_file",
 ]

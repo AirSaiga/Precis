@@ -40,11 +40,18 @@ class CLIConfigStorage:
         self._config: AIConfig
         self._load()
 
-    def _load(self) -> None:
-        """从文件加载配置"""
+    def _load(self, strict: bool = False) -> None:
+        """从文件加载配置。
+
+        Args:
+            strict: 严格模式。为 True 时解析失败向上抛异常（供 reload 感知失败）；
+                为 False（默认）时静默回退到空 AIConfig，保持首次启动/损坏配置的容错语义。
+        """
         try:
             self._config = loader.load()
         except Exception:
+            if strict:
+                raise
             self._config = AIConfig()
 
     def _save(self) -> None:
@@ -129,9 +136,17 @@ def get_cli_config() -> CLIConfigStorage:
 
 
 def reload_providers_config() -> bool:
-    """重新加载 Provider 配置"""
+    """重新加载 Provider 配置。
+
+    Returns:
+        重载成功返回 True；配置文件损坏/格式非法导致解析失败时返回 False，
+        调用方据此提示用户检查文件格式（如 provider reload 命令的错误分支）。
+    """
     global _cli_config
     if _cli_config:
         loader.invalidate_cache()
-        _cli_config._load()
+        try:
+            _cli_config._load(strict=True)
+        except Exception:
+            return False
     return True

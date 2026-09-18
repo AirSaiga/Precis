@@ -248,7 +248,7 @@ class ProviderCommand(Command):
         # 上下文窗口（可选，留空=自动探测）
         context_window = None
         try:
-            context_window = self._prompt_context_window()
+            context_window, _ = self._prompt_context_window()
         except (KeyboardInterrupt, EOFError):
             print()
             print(Formatter.info("已取消"))
@@ -286,15 +286,18 @@ class ProviderCommand(Command):
 
     # ── 编辑 Provider ───────────────────────────────────────────────
 
-    def _prompt_context_window(self, current: int | None = None) -> int | None:
+    def _prompt_context_window(self, current: int | None = None) -> tuple[int | None, bool]:
         """交互式输入 context_window。
 
         Args:
             current: 当前已配置的值（编辑场景传入，添加场景为 None）
 
         Returns:
-            用户输入的合法值（int，>= 1024）；
-            用户留空返回 None（表示自动探测/回退到全局默认 200000）。
+            (值, 是否合法输入)：
+            - 留空（直接回车）返回 (None, True)，表示自动探测/回退到全局默认 200000；
+            - 非法输入（非整数或 < 1024）返回 (None, False)，表示"已忽略"，
+              调用方应保留原值（编辑场景）；
+            - 合法整数返回 (value, True)。
             用户中断（Ctrl+C / EOF）抛 KeyboardInterrupt/EOFError 由调用方处理。
         """
         prompt_current = str(current) if current else "自动探测（默认 200000）"
@@ -305,16 +308,16 @@ class ProviderCommand(Command):
             )
         ).strip()
         if not raw:
-            return None
+            return None, True
         try:
             value = int(raw)
         except ValueError:
             print(Formatter.warning("  [!] 非整数，已忽略"))
-            return None
+            return None, False
         if value < 1024:
             print(Formatter.warning("  [!] 必须 >= 1024，已忽略"))
-            return None
-        return value
+            return None, False
+        return value, True
 
     def _edit_provider(self) -> None:
         """编辑已有 Provider。"""
@@ -340,6 +343,10 @@ class ProviderCommand(Command):
             print(Formatter.error("Provider 不存在"))
             return
 
+        # 编辑副本：后续字段修改只作用于副本，仅显式 "done" 才落盘；
+        # ESC/中断丢弃副本，存储内与磁盘上的配置均不被污染
+        provider = provider.model_copy(deep=True)
+
         # 编辑菜单
         while True:
             # 统一使用 AIProvider 的 type 字段
@@ -359,7 +366,11 @@ class ProviderCommand(Command):
             edit_menu.add_item("done", "完成并保存", "")
 
             field = edit_menu.show()
-            if field is None or field == "done":
+            if field is None:
+                # ESC/0 取消：丢弃编辑副本，不写盘
+                print(Formatter.info("已取消"))
+                return
+            if field == "done":
                 break
 
             try:
@@ -372,9 +383,10 @@ class ProviderCommand(Command):
                     if val:
                         provider.model = val
                 elif field == "context_window":
-                    # 留空→None（自动探测）；非法输入忽略；合法整数直接写入
-                    cw = self._prompt_context_window(provider.context_window)
-                    provider.context_window = cw
+                    # 留空→None（自动探测）；非法输入忽略并保留原值；合法整数直接写入
+                    cw, valid = self._prompt_context_window(provider.context_window)
+                    if valid:
+                        provider.context_window = cw
                 elif field == "api_key":
                     key_input = getpass.getpass(
                         Formatter.colorize(
@@ -395,7 +407,8 @@ class ProviderCommand(Command):
                             provider.api_key = None
             except (KeyboardInterrupt, EOFError):
                 print()
-                break
+                print(Formatter.info("已取消"))
+                return
 
         self._config.add_or_update_provider(provider)
         print(Formatter.success(f"\n[*] 已更新: {provider.name}"))

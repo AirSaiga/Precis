@@ -25,6 +25,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -125,3 +126,33 @@ def test_set_errors_preserve_original_file(context: ProjectContext, project_dir:
     assert result.success is False
     # 原文件内容不变（原子写：临时文件失败被清理，原文件未被替换）
     assert (project_dir / "project.precis.yaml").read_text("utf-8") == INITIAL_YAML
+
+
+def test_set_discloses_actual_path_on_basename_fallback(context: ProjectContext, project_dir: Path) -> None:
+    """目录名手误触发文件名模糊回退时：写入同名文件，且成功提示披露实际解析路径（D3）。"""
+    regex_dir = project_dir / "regex"
+    regex_dir.mkdir()
+    (regex_dir / "shared.yaml").write_text("key: old\n", encoding="utf-8")
+
+    # schemas/shared.yaml 不存在，regex/shared.yaml 同名存在 → 模糊回退命中后者
+    result = ConfigSetCommand().execute([os.path.join("schemas", "shared.yaml"), "key", "new"], context)
+    assert result.success is True
+    assert str(regex_dir / "shared.yaml") in result.message
+
+    # 实际写入的是 regex/ 下的文件，而非用户输入的 schemas/ 路径
+    data = yaml.safe_load((regex_dir / "shared.yaml").read_text("utf-8"))
+    assert data["key"] == "new"
+    assert not (project_dir / "schemas").exists()
+
+
+def test_set_exact_relative_path_wins_over_basename(context: ProjectContext, project_dir: Path) -> None:
+    """同名文件并存时精确相对路径优先：写入子目录中正确的那份文件。"""
+    sub_dir = project_dir / "subdir"
+    sub_dir.mkdir()
+    (sub_dir / "project.precis.yaml").write_text("key: sub\n", encoding="utf-8")
+
+    result = ConfigSetCommand().execute([os.path.join("subdir", "project.precis.yaml"), "key", "updated"], context)
+    assert result.success is True
+    # 精确路径优先：改的是 subdir/ 下的文件，根目录同名文件不动
+    assert yaml.safe_load((sub_dir / "project.precis.yaml").read_text("utf-8"))["key"] == "updated"
+    assert yaml.safe_load((project_dir / "project.precis.yaml").read_text("utf-8"))["project"]["name"] == "demo"

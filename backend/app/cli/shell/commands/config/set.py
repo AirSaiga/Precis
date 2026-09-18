@@ -39,7 +39,12 @@
     CommandResult.error("配置文件不存在: project.precis.yaml")
 """
 
-from app.cli.shared_services.config_ops import parse_config_value, set_config_value_in_file
+from app.cli.shared_services.config_ops import (
+    MATCH_BASENAME,
+    parse_config_value,
+    resolve_config_file,
+    set_config_value_in_file,
+)
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 
 
@@ -88,6 +93,9 @@ class ConfigSetCommand(Command):
         # parse_config_value 始终成功返回三元组，行为与原 _parse_value 一致
         value = parse_config_value(value_str)[1]
 
+        # 定位结果（用于文件名模糊回退命中时披露实际写入路径）
+        resolved_path, match_kind = resolve_config_file(project_path, config_file)
+
         # 定位文件并写入（委托 shared_services，CLI/TUI 同源）：
         # - find_config_file 统一路径解析，含 .. / 绝对路径等穿越防护与递归回退
         # - ruamel round-trip 仅替换目标键的值，保留注释与格式
@@ -96,4 +104,8 @@ class ConfigSetCommand(Command):
         if not ok:
             return CommandResult.error(error_message)
 
-        return CommandResult.ok(f"已设置: {key_path} = {value}")
+        message = f"已设置: {key_path} = {value}"
+        if match_kind == MATCH_BASENAME and resolved_path:
+            # 模糊回退命中的是同名文件而非用户输入路径，必须披露实际写入位置
+            message += f"（按文件名回退匹配，实际写入: {resolved_path}）"
+        return CommandResult.ok(message)
