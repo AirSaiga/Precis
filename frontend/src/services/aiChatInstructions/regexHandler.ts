@@ -157,12 +157,18 @@ export async function handleRegexInstruction(instruction: FrontendInstruction): 
 
   if (existing && actionType === 'UPDATE_REGEX') {
     // 刷新 pattern/matchMode/caseSensitive/description（数据来自后端重读的真实结果）
-    graphStore.updateNodeData(existing.id, {
+    // §3.12: 组装 patch 前过滤 undefined——Object.assign 语义下 undefined 会覆盖现有值
+    // （清值），后端 spec 未提的字段（如 matchMode）会把用户原值悄悄重置
+    const patch: Record<string, unknown> = {
       pattern: spec.pattern,
       matchMode: spec.matchMode,
       caseSensitive: spec.caseSensitive,
       description: spec.description,
-    } as Partial<CustomNodeData>)
+    }
+    for (const key of Object.keys(patch)) {
+      if (patch[key] === undefined) delete patch[key]
+    }
+    graphStore.updateNodeData(existing.id, patch as Partial<CustomNodeData>)
     toastSuccess(t('aiChat.regexUpdated', { name: spec.name || regexId }))
     return
   }

@@ -93,6 +93,8 @@ const validation = {
     foreignKeyMissingColumnRefs: '外键约束还没有选好关联的列：请检查两端节点里的列是否都已选择',
     foreignKeySelfReference: '外键约束的起点和终点是同一列——如果这是刻意的自引用，可以忽略这条提醒',
     rangeMinGreaterThanMax: '范围约束的下限（{min}）比上限（{max}）还大，已自动交换',
+    rangeMissingBounds:
+      '范围约束没有配置任何边界（min/max 至少填一个），请补全后再保存。模板参数缺省时不会再自动填 0~100。',
     allowedValuesEmpty: '「允许值」约束还没有配置任何可选值，请至少填写一个',
     scriptedExpressionEmpty: '脚本约束还没有填写校验脚本',
     compositeNoSubConstraints: '组合约束里还没有添加任何子约束，请至少添加一个',

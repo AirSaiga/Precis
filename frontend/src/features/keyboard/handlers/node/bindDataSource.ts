@@ -195,7 +195,9 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
         resolvedLocalPath,
         dirname(resolvedLocalPath)
       )
-      dataSource = workspaceStore.findDataSourceByPath(resolvedLocalPath)
+      // §3.22: 与上方查找共用同一 key 构造口径（预归一），消除两处分叉——
+      // 显示名取自 dataSource，miss 时走 basename 兜底文案
+      dataSource = workspaceStore.findDataSourceByPath(normalizePath(resolvedLocalPath))
 
       const toastApi = (window as { $toast?: ToastApiLike }).$toast
       if (toastApi) {

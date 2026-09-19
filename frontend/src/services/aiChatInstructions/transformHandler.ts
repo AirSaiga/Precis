@@ -111,11 +111,16 @@ export async function handleTransformInstruction(instruction: FrontendInstructio
 
   if (existing && actionType === 'UPDATE_TRANSFORM') {
     // 刷新 params/outputColumns/description（数据来自后端重读的真实结果）
-    graphStore.updateNodeData(existing.id, {
+    // §3.12: 组装 patch 前过滤 undefined（缺省=不修改，防 Object.assign 清值）
+    const patch: Record<string, unknown> = {
       params: spec.params,
       outputColumns: spec.outputColumns,
       description: spec.description,
-    } as Partial<CustomNodeData>)
+    }
+    for (const key of Object.keys(patch)) {
+      if (patch[key] === undefined) delete patch[key]
+    }
+    graphStore.updateNodeData(existing.id, patch as Partial<CustomNodeData>)
     toastSuccess(t('aiChat.transformUpdated', { name: transformId }))
     return
   }

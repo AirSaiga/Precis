@@ -244,6 +244,7 @@ export function createGraphStoreAssembly(
     projectStore,
     resourceTreeStore,
     clearHistory,
+    clearExpansionState: templateExpand.resetAll,
   })
 
   const {
@@ -311,6 +312,7 @@ export function createGraphStoreAssembly(
       saveState,
       pasteOffset,
       reconcileAll: connectionStateSync.reconcileAll,
+      rebuildSchemaSourceIndex: sourceIndex.rebuild,
     })
 
   function setSelectedNode(nodeId: string | null) {

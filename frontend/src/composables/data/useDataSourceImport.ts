@@ -114,8 +114,12 @@ const isDataFileName = (fileName: string): boolean => {
  * 仅对本地真实路径有意义，Web 临时路径返回 undefined。
  */
 const inferFolderPath = (filePath: string): string | undefined => {
-  // Web 临时路径不计算 folderPath
-  if (filePath.includes('precis-web-uploads') || filePath.includes('Temp')) {
+  // Web 临时路径不计算 folderPath（§3.5: 按路径段精确匹配——原子串包含会误中
+  // D:\Template\data.csv 这类正常业务目录名）
+  const segments = filePath.replace(/\\/g, '/').split('/').filter(Boolean)
+  const inTempDir = segments.some((seg) => seg === 'Temp' || seg === 'tmp')
+  const inWebUploads = segments.some((seg) => seg === 'precis-web-uploads')
+  if (inTempDir || inWebUploads) {
     return undefined
   }
   const parentDir = filePath.replace(/[\\/][^\\/]+$/, '')

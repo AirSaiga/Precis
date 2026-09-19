@@ -28,37 +28,7 @@
  * 3. 通用类型验证
  */
 
-import type { DataType } from '@/types/graph'
 import { toRaw } from 'vue'
-
-/**
- * 数据类型：前端 → 后端
- *
- * 将前端 DataType 枚举转换为后端识别的类型字符串。
- *
- * @param dataType - 前端数据类型
- * @returns 后端类型标识（Str / Int / Float / Decimal / Expr）
- */
-export function toBackendType(dataType: DataType): string {
-  switch (dataType) {
-    case 'String':
-      return 'Str'
-    case 'Integer':
-      return 'Int'
-    case 'Float':
-      return 'Float'
-    case 'Decimal':
-      return 'Decimal'
-    case 'Boolean':
-      return 'Str'
-    case 'Date':
-      return 'Str'
-    case 'Expression':
-      return 'Expr'
-    default:
-      return 'Str'
-  }
-}
 
 /**
  * 清理 V2 项目 ID
@@ -251,20 +221,11 @@ export function normalizeSourceKey(
 ): [string, string | null] {
   let p = (path || '').replace(/\\/g, '/').trim().replace(/^\.\//, '')
   p = p.replace(/\/+/g, '/')
-  // 模拟后端 PurePosixPath 的 .. 解析
-  const driveMatch = p.match(/^[a-zA-Z]:\//)
-  const prefix = driveMatch ? driveMatch[0] : ''
-  const rest = prefix ? p.slice(prefix.length) : p
-  const parts = rest.split('/').filter((part) => part !== '.' && part !== '')
-  const resolved: string[] = []
-  for (const part of parts) {
-    if (part === '..') {
-      resolved.pop()
-    } else {
-      resolved.push(part)
-    }
-  }
-  p = prefix + resolved.join('/')
+  // §3.3: 对齐后端 PurePosixPath——只滤 '.' 与空段，不消解 '..'
+  // （后端 str(PurePosixPath(p)) 保留 .. 段；前端原消解逻辑使 ../shared/x 与解析后的 x
+  // 判同而后端判异——同一文件两端 key 不同，查重/索引失效）
+  const parts = p.split('/').filter((part) => part !== '.' && part !== '')
+  p = parts.join('/')
   p = p.replace(/^\.\//, '').toLowerCase()
   let s = (sheet || '').trim().toLowerCase()
   s = s || ''

@@ -101,6 +101,8 @@ const validation = {
       'This foreign key starts and ends at the same column — if the self-reference is intentional, you can ignore this reminder',
     rangeMinGreaterThanMax:
       'The minimum ({min}) of this range is greater than its maximum ({max}); they have been swapped automatically',
+    rangeMissingBounds:
+      'This Range constraint has no bounds at all — fill in at least one of min/max before saving. Missing template params no longer default to 0..100',
     allowedValuesEmpty:
       'This allowed-values constraint has no values configured yet; add at least one',
     scriptedExpressionEmpty: 'This scripted constraint has no validation script yet',

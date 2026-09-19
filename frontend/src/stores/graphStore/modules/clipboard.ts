@@ -41,6 +41,8 @@ export function createClipboardModule(params: {
   saveState: () => void
   pasteOffset?: { x: number; y: number }
   reconcileAll: () => void | Promise<void>
+  /** §3.16: 粘贴/重复后重建 schema 源索引——否则重复数据源检测假阴性直到无关操作触发 rebuild */
+  rebuildSchemaSourceIndex?: () => void
 }) {
   const {
     nodes,
@@ -51,6 +53,7 @@ export function createClipboardModule(params: {
     deleteNodes,
     saveState,
     reconcileAll,
+    rebuildSchemaSourceIndex,
   } = params
   const pasteOffset = params.pasteOffset ?? { x: 20, y: 20 }
 
@@ -241,6 +244,7 @@ export function createClipboardModule(params: {
     }
 
     await reconcileAll()
+    rebuildSchemaSourceIndex?.()
     return newNodeIds
   }
 
@@ -321,6 +325,7 @@ export function createClipboardModule(params: {
     }
 
     await reconcileAll()
+    rebuildSchemaSourceIndex?.()
     return newNode.id
   }
 

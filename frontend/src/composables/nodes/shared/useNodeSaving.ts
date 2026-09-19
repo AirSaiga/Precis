@@ -362,7 +362,13 @@ export function useNodeSaving(options: NodeSavingOptions) {
    * 绑定Pattern到列
    */
   const bindPatternToColumn = (columnId: string, patternData: Record<string, unknown>) => {
-    let updatedColumns = nodeData.columns.map((col) =>
+    // §3.15: 实时读 store 当前节点 data 作写回基底——挂载期捕获的 props.data 快照在
+    // undo/切 Tab 恢复（data 对象身份更换）后是旧引用，整份展开写回会把旧字段灌回去，
+    // 覆盖恢复后的新编辑（静默数据回退）。列数组基底同样取实时值。
+    const currentNode = store.nodes.find((n) => n.id === nodeId)
+    const currentData = (currentNode?.data || {}) as Record<string, unknown>
+    const currentColumns = (currentData.columns || []) as typeof nodeData.columns
+    let updatedColumns = currentColumns.map((col) =>
       col.id === columnId
         ? {
             ...col,
@@ -386,7 +392,7 @@ export function useNodeSaving(options: NodeSavingOptions) {
     // 是更具体的 SchemaColumn[]/JsonSchemaColumn[]，无法无断言满足联合——
     // 用单层断言到 updateNodeData 的参数类型（node 级 patch 仅 hidden/position）
     updateNodeData(nodeId, {
-      ...nodeData,
+      ...currentData,
       columns: updatedColumns,
       updatedAt: new Date().toISOString(),
     } as Partial<CustomNodeData & Pick<CustomNode, 'hidden' | 'position'>>)

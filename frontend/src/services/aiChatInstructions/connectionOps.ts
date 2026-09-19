@@ -95,6 +95,19 @@ export function resolveTargetHandle(targetNode: VueFlowNode): string | undefined
  */
 export function addValidatedAIConnection(input: AINodeConnectionInput): Edge {
   const { sourceNode, sourceColumnId, targetNode, edges } = input
+  // §3.13: 建边前强制 resolveColumnId 同款校验——陈旧/幻觉的列 ID 会拼出不存在的
+  // source handle（边挂空、画布坏边、后续校验/保存才报错）。spec 直传的原始
+  // targetColumnId 未经解析，在此统一拦截（不存在则拒绝该指令并按 AIInstructionError 上报）。
+  // 仅对带列结构的源节点（schema 类）校验——manualData 等无 columns 的源不适用
+  const sourceHasColumns = Array.isArray(
+    (sourceNode.data as Record<string, unknown> | undefined)?.columns
+  )
+  if (sourceHasColumns && sourceColumnId && !resolveColumnId(sourceNode, sourceColumnId)) {
+    throw new AIInstructionError(
+      `[AI Chat] 目标列不存在: ${sourceColumnId}（节点 ${sourceNode.id}）`,
+      'COLUMN_NOT_FOUND'
+    )
+  }
   const sourceHandle = sourceColumnId ? `source-right-${sourceColumnId}` : undefined
   const targetHandle = resolveTargetHandle(targetNode)
 

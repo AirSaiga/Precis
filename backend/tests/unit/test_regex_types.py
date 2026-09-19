@@ -80,7 +80,8 @@ class TestRegexNodeFile:
         node = RegexNodeFile(id="x", name="X", pattern=".*")
         assert node.version == 2
         assert node.enabled is True
-        assert node.case_sensitive is False
+        # §3.9: 默认 True（区分大小写）——与前端保存/导入及运行时三方一致
+        assert node.case_sensitive is True
         assert node.flags == ""
         assert node.parameters == []
         assert node.rules == []

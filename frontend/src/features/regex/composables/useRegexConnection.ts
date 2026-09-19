@@ -266,6 +266,8 @@ export function useRegexConnection() {
     } catch (error) {
       // 捕获并记录处理过程中的错误，防止程序崩溃
       logger.error('处理Schema到Regex连线失败:', error)
+      // §3.24: 取样失败清 store 样例（与成功路径写入对称），避免旧内容误导
+      store.setRegexEditSampleData('')
       showToastMessage(t('canvas.nodeCanvas.connectionFailed'), 'error')
     }
   }
@@ -403,7 +405,9 @@ export function useRegexConnection() {
     // 验证 sourceNodeId 是否存在
     if (!sourceNodeId) {
       logger.warn('Schema 节点没有关联的数据源节点 ID')
+      // §3.24: 失败路径同时清 store（UI 读 store，残留旧样例会被误当本次结果）
       regexEditSampleData.value = ''
+      store.setRegexEditSampleData('')
       return
     }
 
@@ -418,7 +422,9 @@ export function useRegexConnection() {
     // 验证 SourcePreview 节点是否存在
     if (!sourcePreviewNode) {
       logger.warn('未找到数据源预览节点 (sourceNodeId:', sourceNodeId, ')')
+      // §3.24: 失败路径同时清 store（UI 读 store，残留旧样例会被误当本次结果）
       regexEditSampleData.value = ''
+      store.setRegexEditSampleData('')
       return
     }
 
@@ -454,13 +460,17 @@ export function useRegexConnection() {
     if (sourcePreviewNode.type === 'jsonSourcePreview') {
       const rawData = (sourceData.rawData as unknown[]) || []
       if (!Array.isArray(rawData) || rawData.length === 0) {
+        // §3.24: 失败路径同时清 store（UI 读 store，残留旧样例会被误当本次结果）
         regexEditSampleData.value = ''
+        store.setRegexEditSampleData('')
         return
       }
 
       const firstRecord = rawData[0]
       if (!firstRecord || typeof firstRecord !== 'object' || Array.isArray(firstRecord)) {
+        // §3.24: 失败路径同时清 store（UI 读 store，残留旧样例会被误当本次结果）
         regexEditSampleData.value = ''
+        store.setRegexEditSampleData('')
         return
       }
 
@@ -468,7 +478,9 @@ export function useRegexConnection() {
       const found = findJsonSchemaColumnById(columns, sourceColumnId)
       if (!found) {
         logger.warn('[RegexSample] 未在 JSON Schema 中找到目标列:', sourceColumnId)
+        // §3.24: 失败路径同时清 store（UI 读 store，残留旧样例会被误当本次结果）
         regexEditSampleData.value = ''
+        store.setRegexEditSampleData('')
         return
       }
 
@@ -483,7 +495,9 @@ export function useRegexConnection() {
 
       if (sampleValue === undefined || sampleValue === null || sampleValue === '') {
         logger.warn('[RegexSample] JSON 第一行目标字段为空:', found.column.columnName)
+        // §3.24: 失败路径同时清 store（UI 读 store，残留旧样例会被误当本次结果）
         regexEditSampleData.value = ''
+        store.setRegexEditSampleData('')
         return
       }
 
@@ -499,7 +513,9 @@ export function useRegexConnection() {
     const tableData = sourceData.data as unknown[][] | undefined
 
     if (!tableData || tableData.length < 2) {
+      // §3.24: 失败路径同时清 store（UI 读 store，残留旧样例会被误当本次结果）
       regexEditSampleData.value = ''
+      store.setRegexEditSampleData('')
       return
     }
 
@@ -509,7 +525,9 @@ export function useRegexConnection() {
 
     if (!targetColumn) {
       logger.warn('未找到目标列:', sourceColumnId)
+      // §3.24: 失败路径同时清 store（UI 读 store，残留旧样例会被误当本次结果）
       regexEditSampleData.value = ''
+      store.setRegexEditSampleData('')
       return
     }
 
@@ -520,7 +538,9 @@ export function useRegexConnection() {
 
     if (columnIndex === -1) {
       logger.warn('未在数据中找到列:', targetColumn.columnName as string)
+      // §3.24: 失败路径同时清 store（UI 读 store，残留旧样例会被误当本次结果）
       regexEditSampleData.value = ''
+      store.setRegexEditSampleData('')
       return
     }
 
@@ -528,7 +548,9 @@ export function useRegexConnection() {
 
     if (firstRowData === undefined || firstRowData === null || firstRowData === '') {
       logger.warn('第一行数据为空')
+      // §3.24: 失败路径同时清 store（UI 读 store，残留旧样例会被误当本次结果）
       regexEditSampleData.value = ''
+      store.setRegexEditSampleData('')
       return
     }
 

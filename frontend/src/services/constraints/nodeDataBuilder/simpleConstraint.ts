@@ -103,7 +103,9 @@ function buildTypeExtras(
 
     case 'charset':
       return {
-        charsetMode: params.charset_mode || 'custom',
+        // §3.10: 缺省 'ascii'（对齐保存侧 charset.ts）——原 'custom' 缺省空字符集无意义，
+        // 且往返漂移（导入显示 custom，一保存变 ascii）
+        charsetMode: params.charset_mode || 'ascii',
         allowedChars: params.allowed_chars || '',
         disallowedChars: params.disallowed_chars || '',
       }

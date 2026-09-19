@@ -242,7 +242,13 @@ export function findPathMatchIndex(
  */
 export function toPosixPath(input: string): string {
   if (!input) return ''
-  return input.trim().replace(/\\/g, '/').replace(/\/+/g, '/').replace(/\/$/, '')
+  const trimmed = input.trim()
+  // §3.1: UNC 前缀（//server/share）的双斜杠保留语义，不合并为单斜杠——
+  // 跨平台搬运配置时 UNC 路径丢前缀即失效
+  if (trimmed.startsWith('\\\\') || trimmed.startsWith('//')) {
+    return '//' + trimmed.replace(/\\/g, '/').slice(2).replace(/\/+/g, '/').replace(/\/+$/, '')
+  }
+  return trimmed.replace(/\\/g, '/').replace(/\/+/g, '/').replace(/\/$/, '')
 }
 
 /**

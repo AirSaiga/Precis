@@ -66,10 +66,21 @@ register({
           Array.isArray(nodeData.ifConditions) && nodeData.ifConditions.length > 0
             ? nodeData.ifConditions
             : [{ ref: nodeData.ifRef, operator: 'eq', value: nodeData.ifValue }]
+        // §3.11: 按各条件 ref 解析各自 IF 列（允许 IF 列≠THEN 列，与独立分支 :169 同构），
+        // 解析不到回退 THEN 列（inline 同列是历史默认行为，保持兼容）
+        const schemaColumns = (((ctx.schemaNode?.data || {}) as Record<string, unknown>).columns ||
+          []) as Array<{ id?: string; columnName?: string }>
         const normalizedIf = rawIfConditions.map((c) => {
-          const cond = c as { operator?: string; value?: unknown; values?: unknown[] }
+          const cond = c as {
+            ref?: { columnId?: string }
+            operator?: string
+            value?: unknown
+            values?: unknown[]
+          }
+          const ifColumn =
+            schemaColumns.find((x) => x.id === cond.ref?.columnId)?.columnName || ctx.columnName
           return {
-            if_column: ctx.columnName,
+            if_column: ifColumn,
             operator: cond.operator || 'eq',
             value: cond.value,
             values: Array.isArray(cond.values) ? cond.values : undefined,

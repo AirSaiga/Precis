@@ -425,6 +425,23 @@ export class PreValidator {
       if (file.type === 'Range') {
         const min = file.params?.min
         const max = file.params?.max
+        // §1.7: min/max 双空（或 null）阻断保存——模板展开缺参不再伪造 0/100 边界后，
+        // 空 Range 落盘即"无边界放行所有行"的假约束（对齐后端 RangeConstraint 配置错误口径）
+        const minEmpty = min === undefined || min === null || min === ''
+        const maxEmpty = max === undefined || max === null || max === ''
+        if (minEmpty && maxEmpty) {
+          this.addError(
+            locError(
+              {
+                severity: 'BLOCKER',
+                nodeId: constraintId,
+                message: 'Range 约束未配置 min/max 边界（至少需要其一），请补全后再保存',
+                field: 'params.min',
+              },
+              'validation.save.rangeMissingBounds'
+            )
+          )
+        }
         if (min !== undefined && max !== undefined && Number(min) > Number(max)) {
           this.addError(
             locError(

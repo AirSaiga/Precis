@@ -197,6 +197,7 @@ export function createV2ImportToCanvas(params: {
     ensureSchemaToConstraintEdge,
     bufferEdge,
     flushBufferedEdges,
+    clearBufferedEdges,
   } = createV2ImportEdges({ edges })
 
   // 延迟绑定 importConstraint，解决 schema importer ↔ constraint importer 的循环依赖：
@@ -445,6 +446,9 @@ export function createV2ImportToCanvas(params: {
 
       return null
     } catch (error) {
+      // §3.18: 导入失败清空边缓冲——异常时已 buffer 的边引用可能不完整，
+      // 残留到下一次导入会补发幽灵边
+      clearBufferedEdges()
       logger.error('[GraphStore] importV2ResourceToCanvas 失败:', error)
       toastError(
         error instanceof Error ? error.message : t('messages.error.unknownError'),

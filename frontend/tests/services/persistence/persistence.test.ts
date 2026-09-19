@@ -682,6 +682,33 @@ describe('Persistence - Pre-Validator', () => {
     expect(validator.count('BLOCKER')).toBeGreaterThan(0)
   })
 
+  it('§1.7: Range min/max 双空生成 BLOCKER（模板缺参不再伪造 0..100）', () => {
+    const schema = makeSchemaNode()
+    // standalone 形态（无 sourceRef——模板展开缺参的 Range 即此形态，
+    // 带 sourceRef 的约束会按 embedSelector 规则 2 归入内嵌路径）
+    const rangeNode = makeConstraintNode(
+      'rangeConstraint',
+      {
+        configName: '范围',
+        table: 'users',
+        column: 'email',
+        minValue: null,
+        maxValue: null,
+        boundaryMode: 'inclusive',
+      },
+      'rng-1'
+    )
+
+    const plan = buildSavePlan([schema, rangeNode], {
+      projectName: 'Test',
+      projectPath: '/tmp/test',
+    })
+    const validator = new PreValidator(plan, [schema, rangeNode])
+    const errors = validator.validate()
+    expect(validator.hasBlocker()).toBe(true)
+    expect(errors.some((e) => e.message.includes('min/max'))).toBe(true)
+  })
+
   it('standalone 约束引用不存在的 schema 生成 WARNING', () => {
     // 构造一个包含孤立约束引用的 plan：直接写入 constraints Map
     const plan = buildSavePlan([], { projectName: 'Test', projectPath: '/tmp/test' })

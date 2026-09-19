@@ -23,7 +23,6 @@
 
 import { ref, watch } from 'vue'
 import type { EmitFn } from 'vue'
-import { useVueFlow } from '@vue-flow/core'
 import { useGraphStore } from '@/stores/graphStore'
 import type { SchemaNodeData } from '@/types/graph'
 /**
@@ -36,7 +35,6 @@ export function useSchemaInteractions(
   props: { id: string; data: SchemaNodeData },
   emit: EmitFn<{ 'constraint-create': [Record<string, unknown>] }>
 ) {
-  const { findNode } = useVueFlow()
   const store = useGraphStore()
   const updateNodeData = store.updateNodeData
 
@@ -64,39 +62,6 @@ export function useSchemaInteractions(
    * 处理列输出连接事件
    * @param event - 连接事件对象
    */
-  const handleColumnOutputConnect = (event: {
-    handleId: string
-    targetNodeId: string
-    targetHandleId: string
-  }) => {
-    const { handleId, targetNodeId } = event
-    const columnId = handleId.replace('source-right-', '')
-    const targetNode = findNode(targetNodeId)
-
-    if (targetNode && targetNode.type !== 'schema') {
-      const constraintType = constraintNodeTypeMap[targetNode.type]
-      if (constraintType) {
-        const updatedColumns = props.data.columns.map((col) => {
-          if (col.id === columnId) {
-            const currentConstraints = col.constraints || {}
-            return {
-              ...col,
-              constraints: { ...currentConstraints, [constraintType]: true },
-            }
-          }
-          return col
-        })
-        updateNodeData(props.id, {
-          ...props.data,
-          columns: updatedColumns,
-          saveState: 'draft',
-          updatedAt: new Date().toISOString(),
-        })
-        emit('constraint-create', { columnId, constraintType, targetNodeId })
-      }
-    }
-  }
-
   /**
    * 创建表关系（外键约束）
    * @param sourceColumnId - 源列 ID
@@ -167,23 +132,12 @@ export function useSchemaInteractions(
     knownEdgeIds.value = new Set(store.edges.map((e) => e.id))
   }
 
-  const constraintNodeTypeMap: Record<string, string> = {
-    notNullConstraint: 'notNull',
-    uniqueConstraint: 'unique',
-    allowedValuesConstraint: 'allowedValues',
-    foreignKeyConstraint: 'foreignKey',
-    conditionalConstraint: 'conditional',
-    scriptedConstraint: 'scripted',
-  }
-
   return {
     snappingColumnIds,
     editingColumnName,
     triggerColumnSnapAnimation,
-    handleColumnOutputConnect,
     createTableRelation,
     watchConnectionChanges,
     initKnownEdgeIds,
-    constraintNodeTypeMap,
   }
 }

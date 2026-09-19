@@ -396,8 +396,10 @@ function buildConstraintNodeData(
 
     case 'range':
       base.column = effectiveColumnId
-      base.minValue = params.min ?? 0
-      base.maxValue = params.max ?? 100
+      // §1.7: 缺参不再伪造 0/100 边界（伪造值被物化保存后，0..100 宽区间放行所有行，
+      // 用户以为 max=10 在守门）——null 交由保存侧校验拦截（见 range builder 守卫）
+      base.minValue = params.min ?? null
+      base.maxValue = params.max ?? null
       base.boundaryMode = params.boundary_mode || 'inclusive'
       break
 

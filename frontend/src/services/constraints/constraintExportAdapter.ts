@@ -86,9 +86,13 @@ export function buildConstraintExportPayload(params: {
     case 'ForeignKey': {
       const sRef = data.sourceRef as RefLike | undefined
       const tRef = data.targetRef as RefLike | undefined
-      if (sRef?.nodeId && sRef?.columnId && tRef?.nodeId && tRef?.columnId) {
+      // §3.8: 逐项写已知引用（有哪个写哪个），不再"四项不齐备整包丢弃"——
+      // 半配置 FK 导出后连已知部分都没了，重新导入信息净损失
+      if (sRef?.nodeId && sRef?.columnId) {
         refs.from_table_id = normalizeSchemaId(sRef.nodeId)
         refs.from_column_id = sRef.columnId
+      }
+      if (tRef?.nodeId && tRef?.columnId) {
         refs.to_table_id = normalizeSchemaId(tRef.nodeId)
         refs.to_column_id = tRef.columnId
       }
@@ -152,6 +156,10 @@ export function buildConstraintExportPayload(params: {
         if (data.compareOp) outputParams.compare_op = data.compareOp
         if (data.referenceDate) outputParams.reference_date = data.referenceDate
         if (data.referenceColumn) outputParams.reference_column = data.referenceColumn
+        // §3.8: 补区间终点（对齐 persistence/builders/constraint/dateLogic.ts 写侧）——
+        // 原 adapter 不写，range 模式导出即残缺，重新导入后区间终点丢失
+        if (data.referenceDateEnd) outputParams.reference_date_end = data.referenceDateEnd
+        if (data.referenceColumnEnd) outputParams.reference_column_end = data.referenceColumnEnd
         if (data.calculationType) outputParams.calculation_type = data.calculationType
         if (data.targetValue !== undefined) outputParams.target_value = data.targetValue
         if (data.targetColumn) outputParams.target_column = data.targetColumn

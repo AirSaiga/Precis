@@ -42,6 +42,7 @@ import {
   ensureDirPath,
   isAbsolutePath,
   resolveRelativePath,
+  toPosixPath,
 } from '@/core/utils/pathNormalization'
 
 export const useWorkspaceStore = defineStore('workspace', () => {
@@ -150,9 +151,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       throw new Error(i18n.global.t('messages.error.dsPathMustBeAbsolute'))
     }
 
-    // 存储层只保存标准化后的路径
-    const normalizedFileId = normalizePath(resolvedFileId)
-    const normalizedLocalPath = normalizePath(resolvedLocalPath)
+    // §3.1: 存储层保存 POSIX 形式（保留大小写与 .. 段，跨平台搬运配置可解析），
+    // 比较层继续用 normalizePath（大小写不敏感 + 消解）——两类用途分工
+    const normalizedFileId = toPosixPath(resolvedFileId)
+    const normalizedLocalPath = toPosixPath(resolvedLocalPath)
 
     // 使用标准化后的路径进行查找（同时检查 fileId 和 localPath，防止同路径重复导入）
     // 四路交叉比较：新条目的 fileId/localPath 与已有条目的 fileId/localPath 两两匹配。
@@ -175,20 +177,29 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       // 确保现有条目也使用标准化后的绝对路径
       if (!isAbsolutePath(existing.fileId) && projectRoot) {
         const resolved = resolveRelativePath(existing.fileId, projectRoot)
-        if (resolved) existing.fileId = normalizePath(resolved)
+        if (resolved) existing.fileId = toPosixPath(resolved)
       }
       if (!isAbsolutePath(existing.localPath || '') && projectRoot) {
         const resolved = resolveRelativePath(existing.localPath || existing.fileId, projectRoot)
-        if (resolved) existing.localPath = normalizePath(resolved)
+        if (resolved) existing.localPath = toPosixPath(resolved)
       }
       if (normalizedLocalPath) {
         existing.localPath = normalizedLocalPath
       }
       if (folderPath !== undefined) {
-        let fp = normalizePath(folderPath)
+        let fp = toPosixPath(folderPath)
         if (projectRoot && isAbsolutePath(fp)) {
           const normalizedProjectRoot = normalizePath(projectRoot)
-          if (fp.startsWith(normalizedProjectRoot)) {
+          // §3.2: 无边界 startsWith 会把兄弟目录（c:/project2 vs c:/proj）误判为
+          // 项目内子路径错误相对化——必须 === root 或以 root + '/' 开头
+          if (
+            normalizedProjectRoot === normalizePath(fp) ||
+            normalizePath(fp).startsWith(
+              normalizedProjectRoot.endsWith('/')
+                ? normalizedProjectRoot
+                : normalizedProjectRoot + '/'
+            )
+          ) {
             fp = fp.slice(normalizedProjectRoot.length).replace(/^\//, '')
           }
         }
@@ -203,10 +214,17 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
     // 对 folderPath 进行标准化，并尽可能转换为相对项目根目录的路径
     // 这样外部数据树可以按项目内目录结构分组，而不是按绝对路径的盘符分组
-    let normalizedFolderPath = folderPath ? normalizePath(folderPath) : undefined
+    let normalizedFolderPath = folderPath ? toPosixPath(folderPath) : undefined
     if (normalizedFolderPath && projectRoot && isAbsolutePath(normalizedFolderPath)) {
       const normalizedProjectRoot = normalizePath(projectRoot)
-      if (normalizedFolderPath.startsWith(normalizedProjectRoot)) {
+      // §3.2: 边界判断（=== root 或 startsWith(root + '/')），兄弟目录不相对化
+      const normalizedFp = normalizePath(normalizedFolderPath)
+      if (
+        normalizedFp === normalizedProjectRoot ||
+        normalizedFp.startsWith(
+          normalizedProjectRoot.endsWith('/') ? normalizedProjectRoot : normalizedProjectRoot + '/'
+        )
+      ) {
         normalizedFolderPath = normalizedFolderPath
           .slice(normalizedProjectRoot.length)
           .replace(/^\//, '')

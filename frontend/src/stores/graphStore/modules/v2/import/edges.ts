@@ -98,11 +98,18 @@ export function createV2ImportEdges(params: { edges: Ref<Edge[]> }) {
     buffer.length = 0
   }
 
+  /** 清空缓冲（§3.18: 导入中途抛异常时调用——残留边会在下一次导入被补发，
+   * 引用可能已不存在的节点产生幽灵边） */
+  const clearBufferedEdges = () => {
+    buffer.length = 0
+  }
+
   return {
     ensureSchemaToRegexEdge,
     ensureSchemaToRegexExtractEdge,
     ensureSchemaToConstraintEdge,
     bufferEdge,
     flushBufferedEdges,
+    clearBufferedEdges,
   }
 }

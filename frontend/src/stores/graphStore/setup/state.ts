@@ -170,12 +170,23 @@ export function createGraphStoreState() {
 
     // 步骤 2：nextTick 后同步 store 数据（不触发 v-model watcher）
     // 即使 VueFlow 未初始化也要执行同步，保证 store 状态一致
+    // §3.17: 记录入队时的 data 对象身份——同 tick 内若发生 undo/redo/全量替换
+    // （数组替换使 data 身份更换），本 patch 基于的旧数据已失效，
+    // 回放会污染刚恢复的状态（patch→undo 程序序列的静默污染），丢弃。
+    // 入队时节点尚不在 store（新建同 tick 场景）不丢弃——等待出现是正常路径。
+    const dataAtEnqueue = nodes.value.find((n) => n.id === nodeId)?.data
     nextTick(() => {
       const node = nodes.value.find((n) => n.id === nodeId)
       if (!node) {
         if (!vueFlowNotReady) {
           logger.warn(`[updateNodeData] Node ${nodeId} not found in store after VueFlow update`)
         }
+        return
+      }
+      if (hasDataPatch && dataAtEnqueue !== undefined && node.data !== dataAtEnqueue) {
+        logger.debug(
+          `[updateNodeData] Node ${nodeId} 的 data 已在回放前被整体替换（undo/redo/加载），丢弃延迟回放`
+        )
         return
       }
       if (hasDataPatch && node.data) {

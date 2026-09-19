@@ -18,7 +18,6 @@
 import { describe, it, expect } from 'vitest'
 import { reactive, isReactive } from 'vue'
 import {
-  toBackendType,
   sanitizeV2Id,
   getFileName,
   formatFileSize,
@@ -30,36 +29,6 @@ import {
 } from '@/utils/typeHelpers'
 // fromBackendType 单一定义在 schemaBuilder(typeHelpers 的副本已移除)
 import { fromBackendType } from '@/services/builders/schemaBuilder'
-
-describe('toBackendType', () => {
-  it('String → Str', () => {
-    expect(toBackendType('String')).toBe('Str')
-  })
-
-  it('Integer → Int', () => {
-    expect(toBackendType('Integer')).toBe('Int')
-  })
-
-  it('Float → Float', () => {
-    expect(toBackendType('Float')).toBe('Float')
-  })
-
-  it('Boolean → Str (降级)', () => {
-    expect(toBackendType('Boolean')).toBe('Str')
-  })
-
-  it('Date → Str (降级)', () => {
-    expect(toBackendType('Date')).toBe('Str')
-  })
-
-  it('Expression → Expr', () => {
-    expect(toBackendType('Expression')).toBe('Expr')
-  })
-
-  it('未知类型降级为 Str', () => {
-    expect(toBackendType('UnknownType' as any)).toBe('Str')
-  })
-})
 
 describe('fromBackendType', () => {
   it('Str → String', () => {
@@ -234,14 +203,14 @@ describe('normalizeSourceKey', () => {
     expect(sheet).toBe('mysheet')
   })
 
-  it('解析 .. 路径段与后端 PurePosixPath 一致', () => {
+  it('§3.3: 不消解 .. 段（对齐后端 PurePosixPath 保留语义）', () => {
     const [path] = normalizeSourceKey('data/../users.csv', null)
-    expect(path).toBe('users.csv')
+    expect(path).toBe('data/../users.csv')
   })
 
   it('保留 Windows 驱动器前缀', () => {
-    const [path] = normalizeSourceKey('D:\\\\Data\\\\..\\\\users.csv', null)
-    expect(path).toBe('d:/users.csv')
+    const [path] = normalizeSourceKey('D:\\\\Data\\\\users.csv', null)
+    expect(path).toBe('d:/data/users.csv')
   })
 })
 

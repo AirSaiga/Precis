@@ -507,7 +507,6 @@ limitations under the License.
   const {
     snappingColumnIds,
     editingColumnName,
-    handleColumnOutputConnect,
     createTableRelation,
     watchConnectionChanges,
     initKnownEdgeIds,
@@ -821,7 +820,6 @@ limitations under the License.
     bindPatternToColumn,
     handlePatternDrop,
     handlePatternDragOver,
-    handleColumnOutputConnect,
     createTableRelation,
     editingColumn,
     editingColumnName,

@@ -335,7 +335,10 @@ class RegexNodeFile(BaseModel):
     # - extract: 提取模式（提取匹配的部分）
     match_mode: Literal["full", "partial", "extract"] = Field("full", description="匹配模式")
     # 是否区分大小写
-    case_sensitive: bool = Field(False, description="是否区分大小写")
+    # §3.9: 默认 True（区分大小写）——与前端保存侧（regexBuilder !== false）和运行时
+    # 语义（未设置=敏感）三方一致；原 False 使手写 YAML 不设该字段时界面显示"不敏感"
+    # 而实际校验"敏感"（语义翻转）
+    case_sensitive: bool = Field(True, description="是否区分大小写")
     # 正则 flags 字符串
     # 支持：i (ignorecase), m (multiline), s (dotall) 等
     flags: str = Field("", description="正则 flags 字符串")

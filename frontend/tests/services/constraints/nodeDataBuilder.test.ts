@@ -150,6 +150,32 @@ describe('nodeDataBuilder - simpleConstraint', () => {
     })
   })
 
+  describe('§3.9/§3.10 缺省统一', () => {
+    it('regex 导入无 case_sensitive 字段缺省为 true（区分大小写）', () => {
+      const result = buildNodeData(
+        'regex',
+        makeInput({ nodeType: 'regex', params: { pattern: 'a' } })
+      )
+      expect(result.nodeData.caseSensitive).toBe(true)
+    })
+
+    it('regex 导入 case_sensitive=false 显式透传', () => {
+      const result = buildNodeData(
+        'regex',
+        makeInput({ nodeType: 'regex', params: { pattern: 'a', case_sensitive: false } })
+      )
+      expect(result.nodeData.caseSensitive).toBe(false)
+    })
+
+    it('charset 导入无 charset_mode 字段缺省为 ascii（对齐保存侧）', () => {
+      const result = buildNodeData(
+        'charset',
+        makeInput({ nodeType: 'charsetConstraint', params: {} })
+      )
+      expect(result.nodeData.charsetMode).toBe('ascii')
+    })
+  })
+
   describe('unique', () => {
     it('生成基础字段', () => {
       const result = buildNodeData('unique', makeInput())
@@ -223,7 +249,8 @@ describe('nodeDataBuilder - simpleConstraint', () => {
 
     it('无参数时使用默认值', () => {
       const result = buildNodeData('charset', makeInput())
-      expect(result.nodeData.charsetMode).toBe('custom')
+      // §3.10: 缺省统一 ascii（原 custom 空字符集无意义且往返漂移）
+      expect(result.nodeData.charsetMode).toBe('ascii')
       expect(result.nodeData.allowedChars).toBe('')
       expect(result.nodeData.disallowedChars).toBe('')
     })
@@ -416,7 +443,8 @@ describe('nodeDataBuilder - regex', () => {
     const result = buildNodeData('regex' as any, makeInput())
     expect(result.nodeData.pattern).toBe('')
     expect(result.nodeData.matchMode).toBe('full')
-    expect(result.nodeData.caseSensitive).toBe(false)
+    // §3.9: 缺省 true（区分大小写）——三方一致（保存/导入/后端模型）
+    expect(result.nodeData.caseSensitive).toBe(true)
     expect(result.nodeData.enabled).toBe(true)
   })
 })

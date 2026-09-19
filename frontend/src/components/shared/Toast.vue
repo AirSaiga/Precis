@@ -104,11 +104,14 @@ limitations under the License.
   }
 
   function addToast(options: ToastOptions): string {
+    // §3.21: 过滤显式 undefined duration——对象展开会把 undefined 覆盖默认值，
+    // 使 `duration: undefined` 的调用产生永久驻留的 toast（只能手动关）
+    const { duration: rawDuration, ...rest } = options
     const toast: Toast = {
       id: generateId(),
-      duration: 5000,
+      duration: rawDuration === undefined ? 5000 : rawDuration,
       persistent: false,
-      ...options,
+      ...rest,
     }
 
     toasts.value.push(toast)

@@ -89,11 +89,14 @@ export function selectFilesInBrowser(options: FileInputOptions = {}): Promise<Fi
     document.body.appendChild(input)
     input.click()
 
-    // 兜底超时，防止任何异常情况下 Promise 永远 pending
+    // 兜底超时，防止任何异常情况下 Promise 永远 pending。
+    // §3.23: 60s 过短——用户在大目录慢慢挑文件时超时以"空结果"收场，
+    // 之后点确定选中的文件被静默忽略；放宽到 5 分钟（change/cancel 事件
+    // 本身可靠，兜底只为极端挂死场景）
     window.setTimeout(() => {
       if (!resolved) {
         finish([])
       }
-    }, 60000)
+    }, 300000)
   })
 }

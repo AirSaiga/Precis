@@ -35,7 +35,8 @@ function buildRegex(input: BuildInput): BuildResult {
     parameters: (params?.parameters as unknown[]) || [],
     matchMode: (params?.match_mode as string) || 'full',
     enabled: params?.enabled !== false,
-    caseSensitive: !!params?.case_sensitive,
+    // §3.9: 缺省 true（区分大小写）——对齐保存侧 !== false 与后端模型默认，三方一致
+    caseSensitive: params?.case_sensitive !== false,
     flags: (params?.flags as string) || '',
     validationRules: {},
     rules: (params?.rules as unknown[]) || [],
@@ -70,7 +71,8 @@ function buildRegexExtract(input: BuildInput): BuildResult {
     pattern: (params?.pattern as string) || '',
     description: (params?.description as string) || '',
     flags: (params?.flags as string) || '',
-    caseSensitive: !!params?.case_sensitive,
+    // §3.9: 缺省 true（区分大小写）——对齐保存侧 !== false 与后端模型默认，三方一致
+    caseSensitive: params?.case_sensitive !== false,
     enabled: params?.enabled !== false,
     captureGroups:
       (params?.capture_groups as Array<{ name: string; group_index: number }>)?.map((g) => ({

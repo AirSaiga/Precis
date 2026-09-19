@@ -494,3 +494,37 @@ describe('constraintExportAdapter - normalizeSchemaId', () => {
     expect(result.refs.table_id).toBe('schema-1')
   })
 })
+
+describe('constraintExportAdapter - §3.8 字段补齐', () => {
+  it('DateLogic range 模式导出含区间终点', () => {
+    const result = buildConstraintExportPayload({
+      nodes: makeNodes(),
+      constraintNodeId: 'dl-1',
+      v2Type: 'DateLogic',
+      data: {
+        logicMode: 'compare',
+        compareOp: 'range',
+        referenceDate: '2024-01-01',
+        referenceDateEnd: '2024-12-31',
+      },
+      schemaIdByNodeId: schemaIdMap,
+    })
+    expect(result.params.reference_date_end).toBe('2024-12-31')
+  })
+
+  it('FK 仅 sourceRef 齐备时导出仍含 from 引用（不再全有或全无）', () => {
+    const result = buildConstraintExportPayload({
+      nodes: makeNodes(),
+      constraintNodeId: 'fk-1',
+      v2Type: 'ForeignKey',
+      data: {
+        sourceRef: { nodeId: 'schema-1', columnId: 'col-email' },
+        targetRef: undefined,
+      },
+      schemaIdByNodeId: schemaIdMap,
+    })
+    expect(result.refs.from_table_id).toBe('sc_users')
+    expect(result.refs.from_column_id).toBe('col-email')
+    expect(result.refs.to_table_id).toBeUndefined()
+  })
+})
