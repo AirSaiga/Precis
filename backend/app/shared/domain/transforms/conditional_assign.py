@@ -69,11 +69,13 @@ class ConditionalAssignRunner(TransformRunner):
         logic = str(raw_logic).lower()
         if logic not in ("and", "or"):
             raise ValueError(f"未知的 logic '{raw_logic}'，支持的值为: and, or")
-        then_value = params.get("then_value", "")
-        else_value = params.get("else_value")
-
+        # §1.18: then_value 缺省报配置错误——原实现缺省 "" 把命中行静默写空串。
+        # 显式空串 then_value: '' 是合法赋值（写空串），只拒绝 None。
         if not output_columns:
             raise ValueError("ConditionalAssign 需要至少一个 output_columns")
+        then_value = params.get("then_value")
+        if then_value is None:
+            raise ValueError("ConditionalAssign 缺少必填参数 then_value")
 
         output_col = output_columns[0]
 
@@ -104,7 +106,9 @@ class ConditionalAssignRunner(TransformRunner):
         else:
             df[output_col] = None
         df.loc[combined, output_col] = then_value
-        if else_value is not None:
-            df.loc[~combined, output_col] = else_value
+        # §1.18: 用键存在性区分"显式 null（置空）"与"未提供（保留原值）"——
+        # params.get 对两者都返回 None，原实现 else 分支永不执行，想置空做不到
+        if "else_value" in params:
+            df.loc[~combined, output_col] = params["else_value"]
 
         return df

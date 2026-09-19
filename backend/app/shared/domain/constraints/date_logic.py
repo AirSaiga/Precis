@@ -252,11 +252,16 @@ class DateLogicConstraint(Constraint):
         # 将目标列转换为 pandas 日期时间类型，无法转换的变为 NaT（Not a Time）
         target_series = pd.to_datetime(df[self.column], errors="coerce")
 
+        # §1.13: 目标列"非空但解析失败"的行报"日期无效"，不再被 mask_valid 静默跳过——
+        # 脏值（"2024-13-45"/"not_a_date"）此前完全不参与该约束的任何检查。真空值豁免。
+        self._invalid_date_rows(df, target_series, self.column, errors)
+
         # 模式分发：比较/计算两大分支的实现见 _validate_compare / _validate_calculation
+        # （extend 而非重新赋值——上面 §1.13 的无效日期条目不能被分支返回值覆盖）
         if self.logic_mode == "compare":
-            errors = self._validate_compare(df, target_series)
+            errors.extend(self._validate_compare(df, target_series))
         elif self.logic_mode == "calculation":
-            errors = self._validate_calculation(df, target_series)
+            errors.extend(self._validate_calculation(df, target_series))
         else:
             # 回归: 未识别的 logic_mode 必须报配置错误。原实现 compare/calculation
             # 都不匹配时静默零错误通过（fail-open），拼错的模式名让约束形同虚设。
@@ -274,6 +279,30 @@ class DateLogicConstraint(Constraint):
             )
 
         return {"errors": errors, "info": self.get_constraint_info()}
+
+    def _invalid_date_rows(
+        self,
+        df: pd.DataFrame,
+        parsed_series: pd.Series,
+        source_column: str | None,
+        errors: list[dict[str, Any]],
+    ) -> None:
+        """§1.13: 列引用侧"非空但解析失败"的行报"日期无效"（与目标列同口径，防止只修一侧）。"""
+        if not source_column or source_column not in df.columns:
+            return
+        raw = df[source_column]
+        invalid_mask = parsed_series.isna() & raw.notna() & (raw.astype(str).str.strip() != "")
+        for idx in df.index[invalid_mask]:
+            errors.append(
+                {
+                    "error_type": "DateLogicError",
+                    "table": self.table,
+                    "row_index": int(idx),
+                    "column": source_column,
+                    "value": str(raw[idx]),
+                    "message": f"日期无效: 值 '{raw[idx]}' 无法解析为日期。",
+                }
+            )
 
     def _validate_compare(self, df: pd.DataFrame, target_series: pd.Series) -> list[dict[str, Any]]:
         """
@@ -295,6 +324,9 @@ class DateLogicConstraint(Constraint):
         if start_errors:
             errors.extend(start_errors)
             return errors
+        # §1.13: 参考列（列引用型）非空但解析失败的行报"参考日期无效"
+        if isinstance(start_values, pd.Series):
+            self._invalid_date_rows(df, start_values, self.reference_column, errors)
 
         # range 模式需要单独解析终点边界
         if cmp_op == "range":
@@ -317,6 +349,9 @@ class DateLogicConstraint(Constraint):
             if end_errors:
                 errors.extend(end_errors)
                 return errors
+            # §1.13: range 终点参考列同样上报无效日期
+            if isinstance(end_values, pd.Series):
+                self._invalid_date_rows(df, end_values, self.reference_column_end, errors)
             if end_values is None:
                 errors.append(
                     {
@@ -502,7 +537,22 @@ class DateLogicConstraint(Constraint):
             if self.target_value is not None:
                 try:
                     target_age = float(self.target_value)
-                    op = self.compare_op or "gte"
+                    # §1.12: compare_op 归一大小写 + 未知值报配置错误（原 else 回退 gte 语义，
+                    # ">" 这类写法静默按另一个语义执行）
+                    op = str(self.compare_op or "gte").lower()
+                    if op not in ("gt", "lt", "lte", "eq", "gte"):
+                        errors.append(
+                            {
+                                "error_type": "ConstraintConfigError",
+                                "table": self.table,
+                                "column": self.column,
+                                "message": (
+                                    f"日期计算模式配置错误: 不支持的比较操作符 '{self.compare_op}'，"
+                                    "支持的操作符为 gt/gte/lt/lte/eq。"
+                                ),
+                            }
+                        )
+                        return errors
                     if op == "gt":
                         mask_fail_local = ages <= target_age
                     elif op == "lt":
@@ -569,6 +619,8 @@ class DateLogicConstraint(Constraint):
             if self.target_column:
                 # 将参考列也转为日期类型
                 ref_series = pd.to_datetime(df[self.target_column], errors="coerce")
+                # §1.13: 参考列非空但解析失败的行报"日期无效"（与目标列同口径）
+                self._invalid_date_rows(df, ref_series, self.target_column, errors)
                 # 双方都必须有效
                 mask_valid &= ref_series.notna()
 
@@ -579,8 +631,21 @@ class DateLogicConstraint(Constraint):
                 if self.target_value is not None:
                     try:
                         expected_diff = int(self.target_value)
-                        # 与 age 分支保持一致的比较语义
-                        op = self.compare_op or "eq"
+                        # §1.12: compare_op 归一大小写 + 未知值报配置错误（原 else 回退 eq 语义）
+                        op = str(self.compare_op or "eq").lower()
+                        if op not in ("gt", "lt", "lte", "eq", "gte"):
+                            errors.append(
+                                {
+                                    "error_type": "ConstraintConfigError",
+                                    "table": self.table,
+                                    "column": self.column,
+                                    "message": (
+                                        f"日期计算模式配置错误: 不支持的比较操作符 '{self.compare_op}'，"
+                                        "支持的操作符为 gt/gte/lt/lte/eq。"
+                                    ),
+                                }
+                            )
+                            return errors
                         if op == "gt":
                             mask_fail_local = diff_days <= expected_diff
                         elif op == "lt":
@@ -589,10 +654,7 @@ class DateLogicConstraint(Constraint):
                             mask_fail_local = diff_days < expected_diff
                         elif op == "lte":
                             mask_fail_local = diff_days > expected_diff
-                        elif op == "eq":
-                            mask_fail_local = diff_days != expected_diff
                         else:
-                            # 未知 op 回退到 eq 语义（与 age 分支一致）
                             mask_fail_local = diff_days != expected_diff
                         op_desc = {
                             "gt": "大于",

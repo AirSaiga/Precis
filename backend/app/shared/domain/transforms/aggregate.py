@@ -96,7 +96,11 @@ class AggregateRunner(TransformRunner):
                 parsed = [str(col).strip() for col in group_by_str if str(col).strip()]
             else:
                 parsed = [col.strip() for col in str(group_by_str).split(",") if col.strip()]
-            parsed = [col for col in parsed if col in df.columns]
+            # §1.14: 拼错列名报配置错误——原实现静默剔除后走整表聚合，
+            # "每组一行"变"全表一行"，下游约束在错误粒度上继续跑
+            missing = [col for col in parsed if col not in df.columns]
+            if missing:
+                raise ValueError(f"group_by 列不存在: {missing}（表列: {list(df.columns)}）")
             if parsed:
                 group_by = parsed
 
@@ -111,7 +115,10 @@ class AggregateRunner(TransformRunner):
             if col not in df.columns:
                 raise ValueError(f"聚合列不存在: {col}")
 
-            pandas_func = _FUNC_MAP.get(func, "count")
+            # §1.14: 未知 func 报配置错误——原实现静默按 count 聚合，求和结果变计数
+            if func not in _FUNC_MAP:
+                raise ValueError(f"未知的聚合函数 '{func}'，支持: {sorted(_FUNC_MAP)}")
+            pandas_func = _FUNC_MAP[func]
 
             # 确定输出列名：优先使用 output_columns，否则自动生成
             if output_columns and i < len(output_columns):

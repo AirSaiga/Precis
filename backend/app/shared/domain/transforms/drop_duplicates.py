@@ -77,8 +77,11 @@ class DropDuplicatesRunner(TransformRunner):
                 parsed = [str(col).strip() for col in subset_raw if str(col).strip()]
             else:
                 parsed = [col.strip() for col in str(subset_raw).split(",") if col.strip()]
-            # 只保留实际存在于 DataFrame 中的列
-            parsed = [col for col in parsed if col in df.columns]
+            # §1.16: 拼错列名报配置错误——原实现静默剔除后走全列去重，
+            # 去重结果比预期多、下游统计偏大且无提示。空 subset（未配置）保持全列去重。
+            missing = [col for col in parsed if col not in df.columns]
+            if missing:
+                raise ValueError(f"subset 列不存在: {missing}（表列: {list(df.columns)}）")
             if parsed:
                 subset = parsed
 

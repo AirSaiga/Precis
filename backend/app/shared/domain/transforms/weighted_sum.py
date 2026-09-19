@@ -81,10 +81,15 @@ class WeightedSumRunner(TransformRunner):
             else:
                 digits = list(str(value))
 
+            # §1.24: 位数不齐报错——原实现超位静默截断（身份证校验位算错）、
+            # 不足位无校验，校验和数字对不上但无提示。典型场景位数恒定，不齐即配置/数据错误。
+            if len(digits) > len(weights):
+                raise ValueError(f"输入位数({len(digits)})超过权重位数({len(weights)}): '{value}'")
+            if len(digits) < len(weights):
+                raise ValueError(f"输入位数({len(digits)})不足权重位数({len(weights)}): '{value}'")
+
             total = 0
             for i, d in enumerate(digits):
-                if i >= len(weights):
-                    break
                 try:
                     total += int(d) * weights[i]
                 except (ValueError, TypeError):

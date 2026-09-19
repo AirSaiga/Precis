@@ -32,12 +32,26 @@ from app.shared.domain.transforms.weighted_sum import WeightedSumRunner
 
 class TestCastTypeRunner:
     def test_cast_to_int(self):
+        """§1.15: 纯整数值列合法转入 Int64（整数浮点 1.0 也合法）"""
         runner = CastTypeRunner()
-        df = pd.DataFrame({"value": ["1", "2", "abc"]})
+        df = pd.DataFrame({"value": ["1", "2"]})
         result = runner.execute(df, "value", {"target_type": "int"}, ["int_col"])
         assert result["int_col"][0] == 1
         assert result["int_col"][1] == 2
-        assert pd.isna(result["int_col"][2])
+
+    def test_cast_to_int_non_numeric_raises(self):
+        """§1.15: 非数值值转 int 报错——原实现静默保留 float，下游按整数假设全错"""
+        runner = CastTypeRunner()
+        df = pd.DataFrame({"value": ["1", "2", "abc"]})
+        with pytest.raises(ValueError, match="无法将值 'abc'（第 2 行）转换为 int"):
+            runner.execute(df, "value", {"target_type": "int"}, ["int_col"])
+
+    def test_cast_to_int_fraction_raises(self):
+        """§1.15: 小数值（1.5）转 int 报错，不取截断语义"""
+        runner = CastTypeRunner()
+        df = pd.DataFrame({"value": [1, 1.5]})
+        with pytest.raises(ValueError, match="无法将值 '1.5'（第 1 行）转换为 int"):
+            runner.execute(df, "value", {"target_type": "int"}, ["int_col"])
 
     def test_cast_to_float(self):
         runner = CastTypeRunner()
@@ -257,10 +271,11 @@ class TestWeightedSumRunner:
         assert result["sum"][0] == 1 * 7 + 1 * 9 + 0 * 10
 
     def test_weights_shorter_than_digits(self):
+        """§1.24: 输入位数超过权重位数报错——原实现静默截断按前 N 位求和，校验位算错"""
         runner = WeightedSumRunner()
         df = pd.DataFrame({"digits": ["1234"]})
-        result = runner.execute(df, "digits", {"weights": [1, 2]}, ["sum"])
-        assert result["sum"][0] == 1 * 1 + 2 * 2
+        with pytest.raises(ValueError, match=r"输入位数\(4\)超过权重位数\(2\)"):
+            runner.execute(df, "digits", {"weights": [1, 2]}, ["sum"])
 
     def test_non_numeric_digit_skipped(self):
         runner = WeightedSumRunner()

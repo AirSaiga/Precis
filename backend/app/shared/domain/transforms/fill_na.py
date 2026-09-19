@@ -78,12 +78,15 @@ class FillNARunner(TransformRunner):
             series = series.ffill()
         elif strategy == "bfill":
             series = series.bfill()
-        elif strategy == "mean":
+        elif strategy in ("mean", "median"):
+            # §1.6: 只填真正的空值，非空非数值值保留原样——原实现整列 coerce 后 fillna，
+            # "abc" 这类非空脏值被顺带清洗成均值（用户没要求清洗，原始信息无声丢失）。
+            # 均值只对"能转数值的非空值"计算；填充后输出列为 object（混合类型）是预期。
             numeric_series = pd.to_numeric(series, errors="coerce")
-            series = numeric_series.fillna(numeric_series.mean())
-        elif strategy == "median":
-            numeric_series = pd.to_numeric(series, errors="coerce")
-            series = numeric_series.fillna(numeric_series.median())
+            stat = numeric_series.mean() if strategy == "mean" else numeric_series.median()
+            filled = series.copy()
+            filled[series.isna()] = stat
+            series = filled
         else:
             raise ValueError(f"不支持的 FillNA 策略: {strategy}")
 

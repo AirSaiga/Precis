@@ -214,10 +214,11 @@ class TestDropDuplicatesRunner:
         assert len(result) == 2
 
     def test_subset_with_nonexistent_columns(self):
+        """§1.16: 拼错列名报配置错误（原实现静默剔除后按全列去重，去重结果偏大无提示）"""
         runner = DropDuplicatesRunner()
         df = pd.DataFrame({"a": [1, 1, 2]})
-        result = runner.execute(df, "a", {"subset": "a,missing"}, [])
-        assert len(result) == 2
+        with pytest.raises(ValueError, match=r"subset 列不存在: \['missing'\]"):
+            runner.execute(df, "a", {"subset": "a,missing"}, [])
 
 
 class TestAggregateRunner:

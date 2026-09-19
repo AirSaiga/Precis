@@ -270,7 +270,9 @@ class ConditionalConstraint(Constraint):
 
                 def _safe_eq(x: Any, row: dict[str, Any] | None = None) -> bool:
                     compared = _get_compared_value(x, row) if ref_column else expected
-                    if pd.isna(x) and compared is None:
+                    # §1.23: 双侧皆 NaN/None 视为满足（SQL NULL=NULL 是 UNKNOWN 不判违规）——
+                    # 原实现 compared 为 NaN(float) 时落到 x == compared → False → 误报
+                    if pd.isna(x) and (compared is None or (isinstance(compared, float) and pd.isna(compared))):
                         return True
                     return bool(x == compared)
 
@@ -280,7 +282,8 @@ class ConditionalConstraint(Constraint):
 
                 def _safe_neq(x: Any, row: dict[str, Any] | None = None) -> bool:
                     compared = _get_compared_value(x, row) if ref_column else expected
-                    if pd.isna(x) and compared is None:
+                    # §1.23: 与 _safe_eq 对称——双侧皆 NaN/None 时"不等于"不成立（不违规）
+                    if pd.isna(x) and (compared is None or (isinstance(compared, float) and pd.isna(compared))):
                         return False
                     return bool(x != compared)
 
@@ -417,25 +420,32 @@ class ConditionalConstraint(Constraint):
                 return s.isin(values)
             if op == "greater_than":
                 # 大于: 先转为数值再比较
+                # §1.5: 阈值缺省不再静默按 0.0，转换失败不再静默全 False——都报配置错误
+                if value is None:
+                    raise ValueError("'greater_than' 条件缺少阈值 value")
                 try:
-                    threshold = float(value) if value is not None else 0.0
-                    return pd.to_numeric(s, errors="coerce") > threshold
-                except Exception:
-                    logger.debug(f"greater_than 条件阈值转换失败: value={value!r}, table={self.table}, column={col}")
-                    return pd.Series([False] * len(df), index=df.index)
+                    threshold = float(value)
+                except Exception as e:
+                    raise ValueError(f"'greater_than' 条件阈值 '{value}' 无法转换为数值") from e
+                return pd.to_numeric(s, errors="coerce") > threshold
             if op == "neq":
                 # 不等于: 空值不触发(对标 SQL 语义 NULL != X 为 UNKNOWN,与 Unique 的
                 # NULL 豁免口径一致;原 `s != value` 会把 NaN != X 判为 True 导致空值行误报)
                 return s.ne(value) & s.notna()
             if op == "less_than":
                 # 小于: 先转为数值再比较
+                # §1.5: 阈值缺省不再静默按 0.0，转换失败不再静默全 False——都报配置错误
+                if value is None:
+                    raise ValueError("'less_than' 条件缺少阈值 value")
                 try:
-                    threshold = float(value) if value is not None else 0.0
-                    return pd.to_numeric(s, errors="coerce") < threshold
-                except Exception:
-                    logger.debug(f"less_than 条件阈值转换失败: value={value!r}, table={self.table}, column={col}")
-                    return pd.Series([False] * len(df), index=df.index)
-            # 默认: 等于
+                    threshold = float(value)
+                except Exception as e:
+                    raise ValueError(f"'less_than' 条件阈值 '{value}' 无法转换为数值") from e
+                return pd.to_numeric(s, errors="coerce") < threshold
+            # 默认: 等于（op == "eq"）
+            # §1.2: eq 条件 value 留空 → 配置错误（原实现整列和 None 比较恒 False，零触发静默失效）
+            if value is None:
+                raise ValueError("'eq' 条件缺少 value（if_value 留空），请检查约束配置")
             return s == value
 
         # ============================================================================
@@ -499,6 +509,21 @@ class ConditionalConstraint(Constraint):
                         "table": self.table,
                         "column": self.if_column,
                         "message": f"条件约束失败: 列 '{self.if_column}' 不在表 '{self.table}' 中。",
+                    }
+                )
+                return {"errors": errors, "info": self.get_constraint_info()}
+            # §1.2: if_value 留空（None）视为配置错误——原实现拿整列和 None 比较恒 False，
+            # 零触发行让约束形同虚设且无提示。想"无条件触发"的正确写法是不配 if_column。
+            if self.if_value is None:
+                errors.append(
+                    {
+                        "error_type": "ConstraintConfigError",
+                        "table": self.table,
+                        "column": self.if_column,
+                        "message": (
+                            "条件约束失败: if_value 未配置（留空），简单条件模式必须指定触发值 if_value；"
+                            "如需对所有行触发 THEN 检查，请移除 if_column 配置。"
+                        ),
                     }
                 )
                 return {"errors": errors, "info": self.get_constraint_info()}

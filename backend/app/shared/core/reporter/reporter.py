@@ -160,8 +160,13 @@ class ReportService:
         # 全局配置，可被所有报告者共享
         global_config = {"log_dir": os.path.join(self.base_dir, "logs")}
 
-        # 遍历配置文件中定义的 reporters
-        for reporter_name, reporter_config in config.get("reporters", {}).items():
+        # 遍历配置文件中定义的 reporters（§1.29: reporters 键为 null 时 `or {}` 兜底，
+        # 单条目为 null 时跳过并警告——报告是"坏了就跳过"的可选件，不拖崩校验流程）
+        reporters = config.get("reporters") or {}
+        for reporter_name, reporter_config in reporters.items():
+            if reporter_config is None:
+                logger.warning("报告者 '%s' 配置为空，跳过。", reporter_name)
+                continue
             # 检查报告者是否启用
             if not reporter_config.get("enabled", False):
                 logger.info("报告者 '%s' 未启用，跳过。", reporter_name)

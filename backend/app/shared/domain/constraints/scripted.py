@@ -224,7 +224,9 @@ class ScriptedConstraint(Constraint):
             # 注册基础函数
             evaluator.functions.update(base_functions)
             # 注册正则匹配函数 re_match(pattern, string)
-            evaluator.functions["re_match"] = lambda p, s: re.match(p, s) is not None
+            # §1.9: 对齐 regex 约束 fullmatch 严格语义——原 re.match 是前缀匹配且 $ 容忍尾随换行，
+            # 同一模式在两套"匹配"下判定相反
+            evaluator.functions["re_match"] = lambda p, s: re.fullmatch(p, s) is not None
 
             try:
                 # 执行表达式

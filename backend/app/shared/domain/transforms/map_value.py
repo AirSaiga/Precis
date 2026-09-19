@@ -74,6 +74,12 @@ class MapValueRunner(TransformRunner):
 
         mapping_arr = list(mapping)
         numeric_idx = pd.to_numeric(df[input_column], errors="coerce")
+        # §1.24: 非整数索引报错——原实现 int(1.9) 向下截断当 1 查表，
+        # 用户预期"非整数索引无效"却拿到 mapping[1] 的值，错得毫无迹象
+        non_integer_mask = numeric_idx.notna() & (numeric_idx != numeric_idx.round())
+        if non_integer_mask.any():
+            first_idx = numeric_idx.index[non_integer_mask][0]
+            raise ValueError(f"map_value 索引 '{df[input_column][first_idx]}'（第 {first_idx} 行）不是整数，无法查表")
         in_range = numeric_idx.notna() & (numeric_idx >= 0) & (numeric_idx < len(mapping_arr))
         idx_int = numeric_idx.where(in_range)
         mapped = idx_int.apply(

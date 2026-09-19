@@ -82,7 +82,6 @@
 from __future__ import annotations
 
 # 1. 标准库导入
-import re
 from typing import Any
 
 # 2. 第三方库导入
@@ -90,6 +89,10 @@ import pandas as pd
 
 # 3. 项目内部导入
 from app.shared.domain.constraints.base import Constraint
+from app.shared.domain.constraints.key_normalization import (
+    integral_number_to_str,
+    strip_trailing_decimal_zeros,
+)
 
 
 class ForeignKeyConstraints(Constraint):
@@ -161,16 +164,14 @@ class ForeignKeyConstraints(Constraint):
             if value is None or (isinstance(value, float) and pd.isna(value)) or pd.isna(value):
                 return None
 
-            # 字符串: 去除前后空格，处理 "123.0" 形式
+            # 字符串: 去除前后空格，十进制形式去尾随零（与 float/Decimal 侧对称）
             if isinstance(value, str):
                 s = value.strip()
                 if s == "":
                     return None
-                # 将 "123.0"、"123.00" 等规范化为 "123"；回归 D4: 同时支持负号,
-                # 使 "-123.0" → "-123"(原正则 ^\d+\.0+$ 不匹配负号 → 与 float -123.0→"-123" 不等)。
-                if re.match(r"^-?\d+\.0+$", s):
-                    return s.split(".", 1)[0]
-                return s
+                # 回归 D4: 支持负号；§1.10: "123.10"→"123.1" 与 float 侧 str(123.10)="123.1" 同构，
+                # 消除父 float 123.10 vs 子 str "123.10" 的双侧不对称误报
+                return strip_trailing_decimal_zeros(s)
 
             # 布尔值转为字符串 "True" 或 "False"
             if isinstance(value, bool):
@@ -182,21 +183,21 @@ class ForeignKeyConstraints(Constraint):
 
             # 浮点数: 如果是整数形式（如 123.0），去掉 .0 后转字符串
             if isinstance(value, float):
-                if value.is_integer():
-                    return str(int(value))
-                return str(value)
+                integral = integral_number_to_str(value)
+                if integral is not None:
+                    return integral
+                return strip_trailing_decimal_zeros(str(value))
 
             # 回归 D4: Decimal 是项目一等类型(decimal data_type),应与 float 一致归一。
-            # Decimal("123.0") 经 str() → "123.0",而 float 123.0 → "123",两者不等会误报。
-            # Decimal 整数值去掉 .0,与 float 对齐。
+            # §1.10: 非整 Decimal("123.10") 也走去尾随零，与字符串/float 侧对称。
             try:
                 from decimal import Decimal
 
                 if isinstance(value, Decimal):
-                    # 整数值的 Decimal(如 Decimal("123.0")) 规整为整数串
-                    if value == value.to_integral_value():
-                        return str(int(value))
-                    return str(value).strip()
+                    integral = integral_number_to_str(value)
+                    if integral is not None:
+                        return integral
+                    return strip_trailing_decimal_zeros(str(value).strip())
             except (TypeError, ValueError):
                 pass
 

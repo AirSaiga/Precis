@@ -71,12 +71,17 @@ class CastTypeRunner(TransformRunner):
         series = df[input_column].copy()
 
         if target_type in ("int", "integer"):
-            series = pd.to_numeric(series, errors="coerce")
-            # 转为可空整数类型，避免 NaN 导致 float 强转
-            try:
-                series = series.astype("Int64")
-            except (TypeError, ValueError):
-                pass
+            # §1.15: fail-fast——原实现 try/except 吞掉 "cannot safely cast" 后静默保留 float，
+            # 用户以为已转整数，下游按整数假设配约束全错。不取截断语义（1.9→1 不允许）。
+            numeric = pd.to_numeric(series, errors="coerce")
+            # 非空但不可转数值（"abc"），或可转但非整数（1.5）→ 报错并带首个代表值
+            bad_mask = series.notna() & (numeric.isna() | (numeric != numeric.round()))
+            bad_indices = series.index[bad_mask]
+            if len(bad_indices) > 0:
+                first = bad_indices[0]
+                raise ValueError(f"无法将值 '{series[first]}'（第 {first} 行）转换为 int：存在非整数或非数值的值")
+            # 转为可空整数类型，避免 NaN 导致 float 强转（整数浮点如 1.0 合法转入）
+            series = numeric.astype("Int64")
         elif target_type == "float":
             series = pd.to_numeric(series, errors="coerce")
         elif target_type == "bool":

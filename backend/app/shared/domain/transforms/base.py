@@ -95,8 +95,14 @@ def evaluate_condition(df: pd.DataFrame, cond: dict[str, Any]) -> pd.Series:
     elif op == "ne":
         result = series.map(_norm_to_str) != _norm_to_str(value)
     elif op in ("gt", "gte", "lt", "lte"):
+        # §1.5: 比较类阈值不可转数值/缺省 → 配置错误（原实现 NaN 参与比较恒 False，
+        # filter 结果为空表、条件赋值零命中，用户对着空输出排查不到是阈值写错）
+        if value is None:
+            raise ValueError(f"条件阈值未配置（op={op}），无法比较")
         numeric_series = pd.to_numeric(series, errors="coerce")
         numeric_value = pd.to_numeric(value, errors="coerce")
+        if pd.isna(numeric_value):
+            raise ValueError(f"条件阈值 '{value}' 无法转换为数值")
         if op == "gt":
             result = numeric_series > numeric_value
         elif op == "gte":

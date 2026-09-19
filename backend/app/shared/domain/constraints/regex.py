@@ -137,6 +137,20 @@ class RegexConstraint(Constraint):
             )
             return {"errors": errors, "info": self.get_constraint_info()}
 
+        # §1.8: match_mode 归一大小写不敏感（"Full" 合法），未知值报配置错误——
+        # 原实现非 "full" 一律 search，"fullmatch"/"partial" 这类拼错被静默降级为子串匹配
+        mode = (self.match_mode or "full").lower()
+        if mode not in ("full", "search"):
+            errors.append(
+                {
+                    "error_type": "ConstraintConfigError",
+                    "table": self.table,
+                    "column": self.column,
+                    "message": f"正则约束配置错误: 未知的 match_mode '{self.match_mode}'，支持的值为: full, search。",
+                }
+            )
+            return {"errors": errors, "info": self.get_constraint_info()}
+
         try:
             # 解析正则表达式标志（整词匹配，防 "multiline" 的 'm/i/s' 字符集误开无关 flag）
             re_flags = parse_regex_flags(self.flags)
@@ -152,7 +166,7 @@ class RegexConstraint(Constraint):
                 cell_value_str = str(cell_value)
 
                 try:
-                    if self.match_mode == "full":
+                    if mode == "full":
                         match_result = regex.fullmatch(cell_value_str)
                     else:
                         match_result = regex.search(cell_value_str)

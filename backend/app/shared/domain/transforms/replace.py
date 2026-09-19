@@ -61,9 +61,14 @@ class ReplaceRunner(TransformRunner):
         返回:
             转换后的 DataFrame
         """
-        old = params.get("old", "")
+        old = params.get("old")
         new = params.get("new", "")
         count = params.get("count", -1)
+
+        # §1.17: old 缺省/显式空串报配置错误——原实现 "" 兜底触发 str.replace("", "X")
+        # 的逐字符插入，输出列变 "XaXbXcX" 垃圾数据。new 缺省 "" 是合法删除语义，保持。
+        if old is None or old == "":
+            raise ValueError("Replace 转换缺少必填参数 old（被替换内容不能为空）")
 
         if input_column not in df.columns:
             raise ValueError(f"输入列不存在: {input_column}")

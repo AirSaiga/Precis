@@ -413,7 +413,10 @@ class DecimalType(DataType):
             if not decimal_value.is_finite():
                 return False, f"'{value}' 不是有限的数值（NaN 或 Infinity 不被接受）"
             if self.precision:
-                _sign, digits, _exponent = decimal_value.as_tuple()
+                # §1.20: 按数值语义计数精度——先 normalize 去尾随零与指数形态再数位数，
+                # 同值 "150"/"1.5E+2"/"150.00" 判定一致（原实现按存储表示计数，同值不同精度）
+                normalized = decimal_value.normalize()
+                _sign, digits, _exponent = normalized.as_tuple()
                 total_digits = len(digits)
                 if total_digits > self.precision:
                     return False, f"'{value}' 超出精度限制（最大 {self.precision} 位）"
@@ -597,6 +600,13 @@ class DateType(DataType):
             datetime.strptime(str(value), "%Y-%m-%d")
             return True, None
         except ValueError:
+            pass
+        # §1.21: 严格纯日期失败后兜底通用解析（带时间的 datetime 常见于 Excel 导入），
+        # 按日期部分视为合法 date——原实现整列误报 TypeValidationError
+        try:
+            pd.to_datetime(str(value), errors="raise")
+            return True, None
+        except (ValueError, TypeError, OverflowError):
             return False, f"'{value}' 不是有效的日期格式 (YYYY-MM-DD)。"
 
     def parse(self, value: Any) -> date:
@@ -637,9 +647,14 @@ class DateType(DataType):
         else:
             notnull_violations = pd.Series(False, index=series.index)
 
-        # 用 pd.to_datetime 批量解析
+        # 用 pd.to_datetime 批量解析（§1.21 两段式：严格纯日期优先，
+        # 失败的行再逐元素通用解析取日期部分——Excel 常见的带时间 datetime 不再整列误报。
+        # 不能整列 lenient 重解析：混合格式列会被 pandas 按首行格式统一推断，带时间的行仍 NaT）
         non_na = ~is_na & ~notnull_violations
         parsed_dt = pd.to_datetime(series.astype(str), format="%Y-%m-%d", errors="coerce")
+        need_lenient = parsed_dt.isna() & non_na
+        for idx in series.index[need_lenient]:
+            parsed_dt[idx] = pd.to_datetime(series[idx], errors="coerce")
 
         # 标记类型验证失败的行
         type_error_mask = non_na & parsed_dt.isna()

@@ -64,6 +64,7 @@
 from __future__ import annotations
 
 # 1. 标准库导入
+from decimal import Decimal
 from typing import Any
 
 # 2. 第三方库导入
@@ -71,6 +72,7 @@ import pandas as pd
 
 # 3. 项目内部导入
 from app.shared.domain.constraints.base import Constraint
+from app.shared.domain.constraints.key_normalization import integral_number_to_str
 
 
 class AllowedValuesConstraint(Constraint):
@@ -165,9 +167,13 @@ class AllowedValuesConstraint(Constraint):
         # 修复: 含空值的整数列经 IntegerType.process_column 的 where(~failed, None) 后整列升为
         # float64(1 → 1.0),astype(str) 得 "1.0" 与枚举 {"1","2"} 不匹配 → 合法值全列误报。
         # 对 is_integer() 的 float 回收为整数字符串后再比较(与 scalars._to_int_str 同语义)。
+        # §1.11: Decimal 整数值(Decimal("1.0"))同样规整为整数字符串(对齐 FK 侧归一),
+        # 消除 decimal 列配 [1,2,3] 枚举时 "1.0" vs "1" 的整列误报。
         def _norm_to_str(v: Any) -> str:
-            if isinstance(v, float) and v.is_integer():
-                return str(int(v))
+            if isinstance(v, (float, Decimal)):
+                integral = integral_number_to_str(v)
+                if integral is not None:
+                    return integral
             return str(v)
 
         col_series = df[self.column]

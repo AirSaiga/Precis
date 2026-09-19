@@ -270,6 +270,10 @@ class CharsetConstraint(Constraint):
             return True
         if "\u3400" <= char <= "\u4dbf":
             return True
+        # §1.22: CJK 兼容表意文字区（Big5/GB 遗留编码转换产物常见），
+        # 原判定缺失导致该区汉字被整列报"包含非中文字符"
+        if "\uf900" <= char <= "\ufaff":
+            return True
         if "\U00020000" <= char <= "\U0002a6df":
             return True
         if "\U0002a700" <= char <= "\U0002b73f":

@@ -66,7 +66,9 @@ def extract_columns_from_values(
     error_count = 0
 
     for value in values:
-        value_str = "" if value is None else str(value)
+        # §1.32: NaN 按空串处理（对齐 extractors.py 的 fillna("") 口径）——
+        # 原实现 str(nan)="nan" 参与 match/search，缺失行被计入匹配统计
+        value_str = "" if (value is None or pd.isna(value)) else str(value)
         if match_mode == "full":
             match = compiled.match(value_str)
         else:
