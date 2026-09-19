@@ -134,9 +134,26 @@ def main() -> int:
 
     url = f"http://localhost:{actual_port}"
 
-    if not args.no_browser:
-        print(f"  → Opening browser at {url}")
-        webbrowser.open(url)
+    # §4.9: 浏览器在服务就绪后才打开——原实现先开浏览器再起 uvicorn，首开大概率
+    # "连接被拒绝"。后台线程轮询端口就绪后 open（uvicorn.run 阻塞主线程）。
+    def _open_browser_when_ready() -> None:
+        import socket
+        import time as _time
+
+        for _ in range(150):  # 最长等 75s
+            try:
+                with socket.create_connection(("127.0.0.1", actual_port), timeout=0.5):
+                    if not args.no_browser:
+                        print(f"\n  → Opening browser at {url}")
+                        webbrowser.open(url)
+                    return
+            except OSError:
+                _time.sleep(0.5)
+
+    import threading
+
+    browser_thread = threading.Thread(target=_open_browser_when_ready, daemon=True)
+    browser_thread.start()
 
     print("\n  Server starting... (Ctrl+C to stop)")
     print(f"  {url}")

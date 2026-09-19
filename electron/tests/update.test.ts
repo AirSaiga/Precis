@@ -215,7 +215,9 @@ describe('update:install 安装前清理', () => {
 
     expect(result.success).toBe(true)
     expect(stopSync).toHaveBeenCalled()
-    expect(quitAndInstall).toHaveBeenCalled()
+    // 4.21: quitAndInstall 经 setTimeout(0) 包裹（Windows 焦点/安装问题惯例），
+    // 且恰好证明它在 handler 返回之后才调用
+    await vi.waitFor(() => expect(quitAndInstall).toHaveBeenCalled())
     // 铁律顺序：先终止 Python 进程树（释放 resources 文件占用），后启动安装器
     expect(stopSync.mock.invocationCallOrder[0]).toBeLessThan(quitAndInstall.mock.invocationCallOrder[0])
   })

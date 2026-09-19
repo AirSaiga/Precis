@@ -65,7 +65,17 @@ def load_history() -> list[dict]:
         with open(HISTORY_FILE, encoding="utf-8") as f:
             data = json.load(f)
             if isinstance(data, list):
-                return data
+                # 4.8: 条目级健壮性——磁盘问题/手改造成的非 dict 条目（如纯字符串）
+                # 会让 open 命令在 item.get 处 AttributeError 崩溃（一个项目都打不开），
+                # 跳过并累计警告
+                valid = [h for h in data if isinstance(h, dict) and h.get("path")]
+                if len(valid) != len(data):
+                    logger.warning(
+                        "忽略 %d 条损坏的历史记录（非对象或缺 path 字段）: %s",
+                        len(data) - len(valid),
+                        HISTORY_FILE,
+                    )
+                return valid
             return []
     except json.JSONDecodeError:
         # JSON 格式损坏，返回空列表

@@ -93,7 +93,13 @@ class AIDeleteCommand(Command):
         if not args:
             return self._interactive_delete(providers)
 
-        provider_id = args[0].lower()
+        # 4.4: 大小写不敏感匹配——原实现把参数强转小写后查存储原名（含大写的
+        # provider 恒查不到），交互菜单走原值正常，参数路径自相矛盾
+        raw_id = args[0]
+        provider_id = next(
+            (p.id for p in providers if p.id.lower() == raw_id.lower()),
+            raw_id,
+        )
         return self._do_delete(provider_id, providers)
 
     def _interactive_delete(self, providers: list) -> CommandResult:

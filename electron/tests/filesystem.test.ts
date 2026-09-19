@@ -112,3 +112,47 @@ describe('ensure-dir 根目录校验', () => {
     expect(fs.existsSync(inside)).toBe(true)
   })
 })
+
+
+describe('§4.1 check-file-exists 白名单', () => {
+  it('userData 内路径可探测', async () => {
+    const target = path.join(mocks.userData, 'probe.txt')
+    fs.writeFileSync(target, 'x', 'utf-8')
+    await expect(mocks.handlers['check-file-exists'](undefined, target)).resolves.toBe(true)
+  })
+
+  it('白名单外路径返回 false（任意路径存在性探测封堵）', async () => {
+    // 系统临时目录（真实存在）但在 AllowedRoots 之外
+    await expect(mocks.handlers['check-file-exists'](undefined, os.tmpdir())).resolves.toBe(false)
+  })
+
+  it('用户主目录返回 false（用户名探测封堵）', async () => {
+    await expect(mocks.handlers['check-file-exists'](undefined, os.homedir())).resolves.toBe(false)
+  })
+})
+
+describe('§4.20 save-text-file 反向白名单', () => {
+  it('Preferences（Electron 自身状态文件）被拒', async () => {
+    const ok = (await mocks.handlers['save-text-file'](
+      undefined,
+      'Preferences',
+      '{"evil": true}',
+    )) as boolean
+    expect(ok).toBe(false)
+    expect(fs.existsSync(path.join(mocks.userData, 'Preferences'))).toBe(false)
+  })
+
+  it('Local State 同样被拒', async () => {
+    const ok = (await mocks.handlers['save-text-file'](undefined, 'Local State', '{}')) as boolean
+    expect(ok).toBe(false)
+  })
+
+  it('update-config.json 仍被拒（黑名单冗余层）', async () => {
+    const ok = (await mocks.handlers['save-text-file'](
+      undefined,
+      'update-config.json',
+      '{}',
+    )) as boolean
+    expect(ok).toBe(false)
+  })
+})

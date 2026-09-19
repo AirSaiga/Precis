@@ -207,6 +207,12 @@ def resolve_ambiguities(actions: list[dict[str, Any]], project_path: str) -> boo
             selected = matches[0]
             spec["targetNodeId"] = selected["id"]
             spec["tableName"] = selected["name"]
+        else:
+            # 4.5: 0 匹配跳过并提示——原实现静默继续（拼错的表名让约束作用于
+            # 空表集后"静默成功"），与 VALIDATE 分支的 _skip 行为对齐
+            print(f"{Formatter.warning('[!]')} 未找到表 '{identifier}'，已跳过该约束操作")
+            action["_skip"] = True
+            continue
 
     # 统计并提示被跳过的动作
     skipped_actions = [a for a in actions if a.get("_skip")]

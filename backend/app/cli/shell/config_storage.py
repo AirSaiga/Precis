@@ -38,25 +38,55 @@ class CLIConfigStorage:
 
     def __init__(self) -> None:
         self._config: AIConfig
-        self._load()
+        self._loaded_mtime: float | None = None
+        # §4.2: 启动即 strict——providers YAML 损坏时 fail-fast（明确报错+退出），
+        # 不再静默回退空配置（此前 add/save 会把空配置覆盖写盘，原配置彻底销毁）
+        self._load(strict=True)
 
     def _load(self, strict: bool = False) -> None:
         """从文件加载配置。
 
         Args:
-            strict: 严格模式。为 True 时解析失败向上抛异常（供 reload 感知失败）；
-                为 False（默认）时静默回退到空 AIConfig，保持首次启动/损坏配置的容错语义。
+            strict: 严格模式。为 True 时解析失败抛携带修复指引的 RuntimeError；
+                为 False（默认）时静默回退到空 AIConfig（运行时 reload 容错语义）。
         """
         try:
             self._config = loader.load()
-        except Exception:
+            try:
+                self._loaded_mtime = loader.config_path.stat().st_mtime
+            except OSError:
+                self._loaded_mtime = None
+        except Exception as e:
             if strict:
-                raise
+                # §4.2: 携带文件路径与修复指引的明确错误（调用方以非 0 退出呈现）
+                config_path = getattr(loader, "config_path", None)
+                raise RuntimeError(
+                    f"AI Provider 配置文件损坏，已阻止启动以防空配置覆盖写盘：\n"
+                    f"  文件: {config_path}\n"
+                    f"  错误: {e}\n"
+                    f"  修复: 手工修正 YAML 语法后重试；或备份后删除该文件重新 setup"
+                ) from e
             self._config = AIConfig()
 
     def _save(self) -> None:
-        """保存配置到文件"""
+        """保存配置到文件。
+
+        §4.10: 写前 mtime 校验（读-改-写丢更新防护）——本实例加载后文件被其他进程
+        （TUI/Electron/另一 CLI 会话）修改过则拒绝写入并提示，避免后写覆盖先写。
+        """
+        try:
+            current_mtime = loader.config_path.stat().st_mtime
+            if self._loaded_mtime is not None and current_mtime != self._loaded_mtime:
+                raise RuntimeError(
+                    "配置已被其他进程修改（CLI/TUI/Electron 并发编辑），请重新进入本会话加载最新配置后再修改"
+                )
+        except OSError:
+            pass  # 文件尚不存在（首次写入）等场景直接尝试保存
         loader.save(self._config)
+        try:
+            self._loaded_mtime = loader.config_path.stat().st_mtime
+        except OSError:
+            self._loaded_mtime = None
 
     def get_provider(self, provider_id: str) -> AIProvider | None:
         """获取指定 Provider"""

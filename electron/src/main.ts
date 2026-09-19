@@ -46,7 +46,8 @@ import { updateManager } from './update';
 import { getBackendPath, getFrontendPath } from './utils/paths';
 import { logger, getLogFilePath, flushLogs } from './logger';
 import { t } from './i18n';
-import { waitForApiReady, readBackendPortFile } from './startup-probe';
+import {
+  isBackendPortFileStale, waitForApiReady, readBackendPortFile } from './startup-probe';
 import { registerAllIpc } from './ipc';
 import { ensureFeedbackDir, getPendingCrashPath } from './ipc/feedback';
 import { appState } from './app-state';
@@ -94,9 +95,13 @@ if (!gotSingleInstanceLock) {
 } else {
   app.on('second-instance', () => {
     const win = appState.mainWindow;
-    if (win) {
+    // 4.22: macOS 无窗口期（win 已关闭销毁）时双击 Dock/第二实例应重建主窗口，
+    // 而非无动作（用户视角"点图标没反应"）
+    if (win && !win.isDestroyed()) {
       if (win.isMinimized()) win.restore();
       win.focus();
+    } else if (appState.backendReady) {
+      createWindow({ frontendPath: FRONTEND_PATH, frontendDevPort: FRONTEND_DEV_PORT });
     }
   });
 }
@@ -210,23 +215,36 @@ app.whenReady().then(async () => {
     appState.backendReady = true;
     logger.info('[Main] 后端 API 已就绪，端口:', appState.currentPythonServerPort);
   } else {
-    // 开发环境:后端由外部手动启动,先读端口文件发现端口,再轮询 API 就绪
-    const externalPort = await readBackendPortFile(BACKEND_PATH, 60000);
-    if (externalPort !== null) {
-      logger.info('[Main] 开发环境,从端口文件发现后端端口:', externalPort);
-      appState.currentPythonServerPort = externalPort;
-      const apiReady = await waitForApiReady(externalPort, 30000);
-      if (apiReady) {
-        appState.backendReady = true;
-        appState.isPythonServerReady = true;
-        logger.info('[Main] 开发环境后端 API 已就绪');
+    // 开发环境:后端由外部手动启动,先读端口文件发现端口,再轮询 API 就绪。
+    // 4.15: 采信前校验陈旧——上次异常退出留下的端口文件（mtime 超过会话周期）
+    // 会让 30s 健康检查全打在死端口上;陈旧则忽略,等外部后端重写文件。
+    // 4.18: 整体 try/catch——探测链任何异常都不应打穿启动（按"未发现端口"处理）。
+    try {
+      const externalPort = isBackendPortFileStale(BACKEND_PATH)
+        ? null
+        : await readBackendPortFile(BACKEND_PATH, 60000);
+      if (externalPort === null && isBackendPortFileStale(BACKEND_PATH)) {
+        logger.warn('[Main] 开发环境端口文件陈旧（上次异常退出残留），忽略并等待重写');
+      }
+      if (externalPort !== null) {
+        logger.info('[Main] 开发环境,从端口文件发现后端端口:', externalPort);
+        appState.currentPythonServerPort = externalPort;
+        const apiReady = await waitForApiReady(externalPort, 30000);
+        if (apiReady) {
+          appState.backendReady = true;
+          appState.isPythonServerReady = true;
+          logger.info('[Main] 开发环境后端 API 已就绪');
+        } else {
+          logger.warn('[Main] 开发环境后端 API 未就绪，继续显示主窗口');
+          appState.backendReady = true;
+        }
       } else {
-        logger.warn('[Main] 开发环境后端 API 未就绪，继续显示主窗口');
+        // 端口文件始终未出现:后端可能尚未启动,宽容地继续显示主窗口
+        logger.warn('[Main] 开发环境未发现后端端口文件，继续显示主窗口');
         appState.backendReady = true;
       }
-    } else {
-      // 端口文件始终未出现:后端可能尚未启动,宽容地继续显示主窗口
-      logger.warn('[Main] 开发环境未发现后端端口文件，继续显示主窗口');
+    } catch (probeError) {
+      logger.error('[Main] 开发环境后端探测异常，继续显示主窗口:', probeError);
       appState.backendReady = true;
     }
   }
@@ -247,7 +265,11 @@ app.whenReady().then(async () => {
 
   // [macOS 特定] 点击 Dock 图标时恢复窗口
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
+    // 4.22: 按主窗口本身判空（appState.mainWindow 为 null 或已销毁即重建）——
+    // 原条件 getAllWindows().length === 0 在 splash 尚未销毁时恒为 1，主窗口
+    // 不会被重建（误判）
+    const win = appState.mainWindow;
+    if (!win || win.isDestroyed()) {
       createWindow({ frontendPath: FRONTEND_PATH, frontendDevPort: FRONTEND_DEV_PORT });
     }
   });

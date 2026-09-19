@@ -188,13 +188,29 @@ impl ApiClient {
         Ok(body.provider)
     }
 
+    /// URL 路径段 percent 编码（§4.13）——provider id 含空格/# 等字符时直接拼接
+    /// 会产生 404/路径歧义；当前后端 id 无特殊字符，属防御性编码
+    fn encode_path_segment(seg: &str) -> String {
+        let mut out = String::with_capacity(seg.len());
+        for b in seg.bytes() {
+            match b {
+                b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                    out.push(b as char)
+                }
+                _ => out.push_str(&format!("%{:02X}", b)),
+            }
+        }
+        out
+    }
+
     /// 设为活跃
     pub async fn activate_provider(&self, id: &str) -> Result<()> {
         let resp = self
             .http
             .post(format!(
                 "{}/api/latest/ai/providers/{}/activate",
-                self.base_url, id
+                self.base_url,
+                Self::encode_path_segment(id)
             ))
             .send()
             .await?;
@@ -208,7 +224,11 @@ impl ApiClient {
     pub async fn test_provider(&self, id: &str) -> Result<super::types::TestProviderResponse> {
         let resp = self
             .http
-            .post(format!("{}/api/latest/ai/providers/{}/test", self.base_url, id))
+            .post(format!(
+                "{}/api/latest/ai/providers/{}/test",
+                self.base_url,
+                Self::encode_path_segment(id)
+            ))
             .send()
             .await?;
         let text = resp.text().await?;

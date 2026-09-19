@@ -94,9 +94,25 @@ export function tryReadBackendPort(backendDir: string): number | null {
     if (!fs.existsSync(filePath)) return null;
     const raw = fs.readFileSync(filePath, 'utf-8').trim();
     const port = parseInt(raw, 10);
-    return Number.isNaN(port) || port <= 0 ? null : port;
+    // 4.18: 范围校验（1-65535）——99999/非数字此前透传，new URL/HTTP 请求同步抛错
+    // 打穿启动链且无明确报错；非法视为"无端口文件"走重拉路径
+    return Number.isNaN(port) || port < 1 || port > 65535 ? null : port;
   } catch {
     return null;
+  }
+}
+
+/**
+ * 4.15: 采信端口文件前校验新鲜度——上次异常退出留下的陈旧文件（mtime 过旧）
+ * 会让健康检查全打在死端口上。超过会话周期（24h）视为陈旧，返回 true 表示不可采信。
+ */
+export function isBackendPortFileStale(backendDir: string, maxAgeMs: number = 24 * 60 * 60 * 1000): boolean {
+  try {
+    const filePath = path.join(backendDir, BACKEND_PORT_FILE);
+    const stat = fs.statSync(filePath);
+    return Date.now() - stat.mtimeMs > maxAgeMs;
+  } catch {
+    return false; // 文件不存在等场景交由 tryReadBackendPort 的 null 语义处理
   }
 }
 
@@ -160,27 +176,46 @@ export async function waitForApiReady(
   const startTime = Date.now();
   const http = await import('http');
 
+  // 4.23: 就绪判据从"任意 <500 状态码"收紧为 Precis 版本端点的 JSON 结构特征
+  // （{version: string}）——旧端口被无关服务占用且返回 200 时不再假阳性"就绪"，
+  // 前端不会连到错误服务。轮询退出时统一 clearTimeout，成功响应销毁连接防句柄残留。
   return new Promise((resolve) => {
+    let nextTimer: NodeJS.Timeout | null = null;
+    const finish = (ok: boolean) => {
+      if (nextTimer) clearTimeout(nextTimer);
+      resolve(ok);
+    };
     const check = () => {
-      const req = http.get(`http://127.0.0.1:${port}/docs`, (res) => {
-        // 只要收到响应（无论状态码），说明 API 已就绪
-        if (res.statusCode && res.statusCode < 500) {
-          resolve(true);
-        } else {
-          // 继续等待
-          if (Date.now() - startTime > timeout) {
-            resolve(false);
-          } else {
-            setTimeout(check, interval);
+      const req = http.get(`http://127.0.0.1:${port}/api/latest/version`, (res) => {
+        let body = '';
+        res.on('data', (chunk: Buffer) => {
+          body += chunk.toString('utf-8');
+          if (body.length > 4096) req.destroy(); // 防异常超大响应
+        });
+        res.on('end', () => {
+          res.destroy();
+          let isPrecis = false;
+          try {
+            const parsed = JSON.parse(body) as { version?: unknown };
+            isPrecis = typeof parsed.version === 'string' && parsed.version.length > 0;
+          } catch {
+            isPrecis = false;
           }
-        }
+          if (isPrecis) {
+            finish(true);
+          } else if (Date.now() - startTime > timeout) {
+            finish(false);
+          } else {
+            nextTimer = setTimeout(check, interval);
+          }
+        });
       });
 
       req.on('error', () => {
         if (Date.now() - startTime > timeout) {
-          resolve(false);
+          finish(false);
         } else {
-          setTimeout(check, interval);
+          nextTimer = setTimeout(check, interval);
         }
       });
 

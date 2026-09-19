@@ -167,6 +167,15 @@ const OPEN_FILE_ALLOWED_EXTENSIONS = new Set([
 const SAVE_TEXT_FILE_PROTECTED_NAMES = new Set(['update-config.json']);
 
 /**
+ * 4.20: save-text-file 反向白名单——仅允许已知业务文件名。
+ * 当前渲染层零调用点（preload 暴露但无业务消费），白名单为空即默认全拒：
+ * userData 根下的 Preferences、Local State 等 Electron 自身状态文件不再
+ * 可被渲染层覆写（原黑名单仅拦 update-config.json 一个）。
+ * 新增业务文件时在集合中登记（受保护的 update-config.json 永不入此名单）。
+ */
+const SAVE_TEXT_FILE_ALLOWED_NAMES = new Set<string>([]);
+
+/**
  * write-file 禁止覆写的 userData 受保护文件（相对 userData 根的 POSIX 风格路径，
  * 小写）。save-text-file 的闸门按"相对文件名"设防，覆盖不了走绝对路径的 write-file
  * 入口——后者此前可直接覆写这两份主进程专属配置，绕过 update:save-config 的
@@ -270,6 +279,12 @@ export function registerFilesystemIpc(): void {
   ipcMain.handle('check-file-exists', async (_event, filePath: string) => {
     try {
       if (!filePath || typeof filePath !== 'string') {
+        return false;
+      }
+      // 4.1: 纳入 AllowedRoots 白名单（同 read-file 模式）——此前任意路径存在性
+      // 探测是信息泄露面（如探测用户主目录推断系统用户名）
+      if (!isPathAllowed(path.resolve(filePath), getAllowedRoots())) {
+        logger.error('[Electron] check-file-exists: 路径不在白名单内:', filePath);
         return false;
       }
       return await new Promise<boolean>((resolve) => {
@@ -387,6 +402,12 @@ export function registerFilesystemIpc(): void {
 
       if (isProtectedUserDataFileName(fileName)) {
         logger.error('[Electron] save-text-file: 拒绝写入受保护文件:', fileName);
+        return false;
+      }
+
+      // 4.20: 反向白名单（不在名单内直接拒绝），黑名单保留作纵深防御冗余
+      if (!SAVE_TEXT_FILE_ALLOWED_NAMES.has(normalizeWindowsFileName(fileName).toLowerCase())) {
+        logger.error('[Electron] save-text-file: 文件名不在业务白名单内:', fileName);
         return false;
       }
 

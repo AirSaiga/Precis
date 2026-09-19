@@ -81,11 +81,25 @@ def test_reload_returns_false_on_unsupported_version(isolated_storage: CLIConfig
     assert reload_providers_config() is False
 
 
-def test_load_default_mode_still_tolerates_corrupt_config(isolated_storage: CLIConfigStorage) -> None:
-    """非严格 _load 语义不变：损坏配置静默回退空 AIConfig，不抛异常。"""
+def test_init_fails_fast_on_corrupt_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """§4.2: 启动（__init__）即 strict——损坏配置抛带修复指引的 RuntimeError，
+    不再静默回退空配置（防止后续 add/save 把空配置覆盖写盘销毁原配置）。"""
+    # 隔离：指向临时配置文件（写坏它不能污染其他测试的共享 loader 状态）
+    config_file = tmp_path / "ai_providers.yaml"
+    config_file.write_text("::: not yaml at all", encoding="utf-8")
+    monkeypatch.setattr(loader, "config_path", config_file)
+    loader.invalidate_cache()
+    monkeypatch.setattr(config_storage, "_cli_config", None)
+
+    with pytest.raises(RuntimeError, match="配置文件损坏"):
+        CLIConfigStorage()
+
+
+def test_load_non_strict_still_tolerates_corrupt_config(isolated_storage: CLIConfigStorage) -> None:
+    """非严格 _load（运行时 reload 容错）语义不变：损坏配置静默回退空 AIConfig。"""
     config_path = Path(loader.config_path)
     config_path.write_text("::: not yaml at all", encoding="utf-8")
     loader.invalidate_cache()
 
-    storage = CLIConfigStorage()
-    assert storage.list_providers() == []
+    isolated_storage._load(strict=False)
+    assert isolated_storage.list_providers() == []

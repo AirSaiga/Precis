@@ -319,7 +319,9 @@ class UpdateManager {
       // before-quit 钩子会兜底再清理一次（stopPythonServerSync 幂等，null 引用直接返回）。
       stopPythonServerSync(appState.pythonProcess);
 
-      autoUpdater.quitAndInstall();
+      // 4.21: setTimeout(0) 包裹——IPC handler 内同步调用 quitAndInstall 是
+      // Windows 社区已知焦点/安装问题惯例（handler 需先返回让渲染层完成收尾）
+      setTimeout(() => autoUpdater.quitAndInstall(), 0);
       return { success: true };
     });
   }

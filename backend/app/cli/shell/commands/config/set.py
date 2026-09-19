@@ -63,7 +63,7 @@ class ConfigSetCommand(Command):
 
     @property
     def usage(self) -> str:
-        return "config set <config_file> <key_path> <value>"
+        return "config set [--string] <config_file> <key_path> <value>"
 
     def execute(self, args: list[str], context: ProjectContext) -> CommandResult:
         """执行设置配置项命令。
@@ -79,19 +79,27 @@ class ConfigSetCommand(Command):
         if project_path is None:
             return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目")
 
-        if len(args) < 3:
+        # §4.3: --string 旗标——身份型字段（编号 007/版本 1.10）跳过类型推断按原字面量写入
+        raw_args = args
+        as_string = False
+        if raw_args and raw_args[0] == "--string":
+            as_string = True
+            raw_args = raw_args[1:]
+
+        if len(raw_args) < 3:
             return CommandResult.error(
-                "用法: config set <config_file> <key_path> <value>\n"
-                '示例: config set project.precis.yaml project.name "My Project"'
+                "用法: config set [--string] <config_file> <key_path> <value>\n"
+                '示例: config set project.precis.yaml project.name "My Project"\n'
+                "      config set --string users.schema.yaml col.code 007  # 保留前导零"
             )
 
-        config_file = args[0]
-        key_path = args[1]
-        value_str = args[2]
+        config_file = raw_args[0]
+        key_path = raw_args[1]
+        value_str = raw_args[2]
 
         # 解析值（委托 shared_services 纯逻辑，CLI/TUI 同源）
         # parse_config_value 始终成功返回三元组，行为与原 _parse_value 一致
-        value = parse_config_value(value_str)[1]
+        value = value_str if as_string else parse_config_value(value_str)[1]
 
         # 定位结果（用于文件名模糊回退命中时披露实际写入路径）
         resolved_path, match_kind = resolve_config_file(project_path, config_file)

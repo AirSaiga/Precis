@@ -207,6 +207,24 @@ def _collect_all_config_files(project_path: str) -> dict[str, str]:
             except Exception:
                 logger.error("读取 constraint 文件失败", exc_info=True)
 
+    # 4.25: 收集范围对齐 V2 目录结构——regex/、transforms/ 目录变更不在原范围，
+    # AI 建正则/转换后的变更摘要永不显示（用户看不到 AI 到底改了什么）
+    regex_dir = project / "regex"
+    if regex_dir.exists():
+        for rf in regex_dir.glob("*.regex.yaml"):
+            try:
+                files_content[str(rf)] = rf.read_text(encoding="utf-8")
+            except Exception:
+                logger.error("读取 regex 文件失败", exc_info=True)
+
+    transforms_dir = project / "transforms"
+    if transforms_dir.exists():
+        for tf in transforms_dir.glob("*.transform.yaml"):
+            try:
+                files_content[str(tf)] = tf.read_text(encoding="utf-8")
+            except Exception:
+                logger.error("读取 transform 文件失败", exc_info=True)
+
     # 收集项目根目录下的核心配置文件
     for config_file in ["project.precis.yaml", "patterns.precis.yaml"]:
         config_path = project / config_file
@@ -217,3 +235,37 @@ def _collect_all_config_files(project_path: str) -> dict[str, str]:
                 logger.error("读取配置文件失败", exc_info=True)
 
     return files_content
+
+
+def _collect_declared_new_files(result: object, project_path: str) -> list[str]:
+    """4.25: 从 AI 执行结果/动作声明中提取本次新建的配置文件路径。
+
+    扫描约束/正则/转换动作声明的 ID，按 V2 目录约定推导文件路径（文件此时
+    可能尚未写盘——调用方仅用于登记缓存键，路径不存在即为"新建"）。
+    """
+    project = Path(project_path)
+    candidates: list[str] = []
+    actions: list[dict] = []
+    # 兼容 ChatAgentResult 形状（.actions）与裸 dict（{"actions": [...]}）
+    if isinstance(result, dict):
+        actions = result.get("actions", []) or []
+    else:
+        actions = getattr(result, "actions", None) or []
+
+    for action in actions:
+        if not isinstance(action, dict):
+            continue
+        action_type = str(action.get("actionType", ""))
+        spec = action.get("constraintSpec") or action.get("regexSpec") or action.get("transformSpec") or {}
+        if not isinstance(spec, dict):
+            continue
+        raw_id = spec.get("constraintId") or spec.get("regexId") or spec.get("transformId") or spec.get("id")
+        if not raw_id or not isinstance(raw_id, str):
+            continue
+        if action_type.startswith("ADD_CONSTRAINT"):
+            candidates.append(str(project / "constraints" / f"{raw_id}.constraint.yaml"))
+        elif action_type.startswith("ADD_REGEX"):
+            candidates.append(str(project / "regex" / f"{raw_id}.regex.yaml"))
+        elif action_type.startswith("ADD_TRANSFORM"):
+            candidates.append(str(project / "transforms" / f"{raw_id}.transform.yaml"))
+    return candidates

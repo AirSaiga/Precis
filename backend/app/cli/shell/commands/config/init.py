@@ -95,7 +95,15 @@ class ConfigInitCommand(Command):
 
         # 使用指定的文件名或默认文件名
         filename = args[1] if len(args) > 1 else default_filename
+        # 4.7: 路径穿越防护——对齐 config set 的防护语义（禁止绝对路径/../~
+        # 前缀），否则 config init ../../x.yaml 可写项目外
+        from pathlib import Path as _Path
+
+        if os.path.isabs(filename) or any(seg == ".." for seg in _Path(filename).parts) or filename.startswith("~"):
+            return CommandResult.error(f"非法的文件名（不允许绝对路径或 .. 引用）: {filename}")
         filepath = os.path.join(project_path, filename)
+        if not os.path.abspath(filepath).startswith(os.path.abspath(project_path) + os.sep):
+            return CommandResult.error(f"文件路径超出项目目录: {filename}")
 
         # 检查文件是否已存在
         if os.path.exists(filepath):

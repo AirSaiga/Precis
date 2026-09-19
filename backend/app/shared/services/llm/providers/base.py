@@ -235,6 +235,32 @@ def get_context_window_for_provider(config: AIProvider, model: str | None = None
     return DEFAULT_FALLBACK_CONTEXT_WINDOW
 
 
+# 4.24: 预算公式的最小可支撑窗口与保留余量
+MIN_CONTEXT_WINDOW = 4096
+_BUDGET_MARGIN_TOKENS = 512
+
+
+def compute_token_budgets(context_window: int) -> tuple[int, int]:
+    """4.24: 按上下文窗口计算 (输入预算, 输出预算)，保证预算和 + 余量 <= 窗口。
+
+    原公式 max(cw - 8000, 4096) 在小窗下必超限：cw=8192 时输入 4096 + 输出 8000
+    = 12096 > 8192，每次请求必超窗报错，小窗模型完全不可用。现在：
+    - 输出预算 = min(8000, max(512, cw // 4))
+    - 输入预算 = cw - 输出预算 - 512 余量（下限 512）
+    - cw < 4096 视为无法支撑对话，抛 ValueError（调用方明确报错）
+
+    返回:
+        (input_budget, output_budget)
+    """
+    if context_window < MIN_CONTEXT_WINDOW:
+        raise ValueError(
+            f"上下文窗口过小（{context_window} tokens），至少需要 {MIN_CONTEXT_WINDOW} tokens 才能支撑对话"
+        )
+    output_budget = min(8000, max(512, context_window // 4))
+    input_budget = max(512, context_window - output_budget - _BUDGET_MARGIN_TOKENS)
+    return input_budget, output_budget
+
+
 def resolve_context_window(config: AIProvider, model: str | None = None) -> int:
     """
     @methoddesc 统一的上下文窗口解析入口（同步）

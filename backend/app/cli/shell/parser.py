@@ -126,34 +126,58 @@ class CommandParser:
         return command, args
 
     def _split_args(self, line: str) -> list[str]:
-        """分割命令行参数。
+        """分割命令行参数（4.6 重写：引号状态机）。
 
-        支持引号包围的参数。
+        - 全角空格（U+3000）先归一为半角再分词
+        - 撇号（'）与双引号（"）同作引号配对处理，支持反斜杠转义引号
+        - 输入结束引号未闭合时显式报错（原实现静默合并剩余输入，掩盖真实根因）
 
         Args:
             line: 输入行
 
         Returns:
             参数列表
+
+        Raises:
+            ValueError: 引号未闭合
         """
+        # 全角空格归一（中文输入法常见，归一后按普通分隔符处理）
+        normalized = line.replace("　", " ")
+
         tokens: list[str] = []
         current: list[str] = []
         in_quote = False
-        quote_char = None
+        quote_char: str | None = None
 
-        for char in line:
-            if char in ('"', "'") and not in_quote:
-                in_quote = True
-                quote_char = char
-            elif char == quote_char and in_quote:
-                in_quote = False
-                quote_char = None
-            elif char == " " and not in_quote:
-                if current:
-                    tokens.append("".join(current))
-                    current = []
+        i = 0
+        while i < len(normalized):
+            char = normalized[i]
+
+            if in_quote:
+                if char == "\\" and i + 1 < len(normalized) and normalized[i + 1] in ('"', "'"):
+                    # 转义引号：保留引号本身
+                    current.append(normalized[i + 1])
+                    i += 2
+                    continue
+                if char == quote_char:
+                    in_quote = False
+                    quote_char = None
+                else:
+                    current.append(char)
             else:
-                current.append(char)
+                if char in ('"', "'"):
+                    in_quote = True
+                    quote_char = char
+                elif char == " ":
+                    if current:
+                        tokens.append("".join(current))
+                        current = []
+                else:
+                    current.append(char)
+            i += 1
+
+        if in_quote and quote_char:
+            raise ValueError(f"引号未闭合: 缺少配对的 {quote_char}")
 
         if current:
             tokens.append("".join(current))

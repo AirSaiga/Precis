@@ -140,7 +140,8 @@ describe('render-process-gone 崩溃处理（附表14：崩溃重启前 flushLog
     expect(mocks.stopPythonServerSync).toHaveBeenCalledWith(appState.pythonProcess)
     expect(mocks.flushLogs).toHaveBeenCalledTimes(1)
     expect(mocks.relaunch).toHaveBeenCalledTimes(1)
-    expect(mocks.exit).toHaveBeenCalledWith(0)
+    // 4.17: exit 经 300ms 延时（让旧进程释放单实例锁），等待其触发
+    await vi.waitFor(() => expect(mocks.exit).toHaveBeenCalledWith(0))
     // 与 main.ts 正常退出链一致：先清进程、flush 日志落盘，最后才退出
     const order = [
       mocks.stopPythonServerSync.mock.invocationCallOrder[0],

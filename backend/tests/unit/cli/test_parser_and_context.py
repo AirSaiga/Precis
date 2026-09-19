@@ -101,11 +101,13 @@ class TestCommandParser:
         command, args = parser.parse("cmd   arg1    arg2")
         assert args == ["arg1", "arg2"]
 
-    def test_unmatched_quote_treats_rest_as_literal(self):
-        """未闭合引号时，剩余内容作为字面量。"""
+    def test_unmatched_quote_raises(self):
+        """§4.6: 未闭合引号显式报错（原静默合并剩余输入掩盖真实根因）。"""
+        import pytest
+
         parser = self._make_parser_with_cmd()
-        command, args = parser.parse('cmd "unclosed quote')
-        assert args == ["unclosed quote"]
+        with pytest.raises(ValueError, match="引号未闭合"):
+            parser.parse('cmd "unclosed quote')
 
     def test_command_lookup_by_name(self):
         """按名称查找已注册命令。"""

@@ -82,7 +82,21 @@ impl BackendHandle {
 
         // 端口文件路径：后端写到这里
         let port_file = backend_dir.join(".backend-port");
-        // 启动前先清理残留（旧端口文件会误导发现逻辑）
+        // 4.11: 自拉前探测端口文件归属——文件存在且端口上的服务健康，说明有别的
+        // 实例（Electron/dev 后端）在跑，直接复用；无响应才清理残留自拉。
+        // 原实现无条件删文件，别的实例的端口发现文件被破坏。
+        if let Ok(content) = std::fs::read_to_string(&port_file) {
+            if let Ok(existing_port) = content.trim().parse::<u16>() {
+                if existing_port > 0 && try_health(existing_port) {
+                    println!("[backend] 复用已有后端实例，端口 {}", existing_port);
+                    return Ok(BackendHandle {
+                        child: None,
+                        port: existing_port,
+                        owned: false,
+                    });
+                }
+            }
+        }
         let _ = std::fs::remove_file(&port_file);
 
         println!(
@@ -118,12 +132,12 @@ impl BackendHandle {
             cmd.creation_flags(0x08000000);
         }
 
-        let child = cmd
+        let mut child = cmd
             .spawn()
             .with_context(|| format!("无法启动后端进程: {}", python_exe.display()))?;
 
-        // 轮询端口文件
-        let port = wait_for_port_file(&port_file)
+        // 轮询端口文件（4.12: 子进程秒崩时立即失败，不再干等 30s 超时）
+        let port = wait_for_port_file_with_child(&port_file, &mut child)
             .with_context(|| format!("后端启动超时，未生成端口文件: {}", port_file.display()))?;
 
         // 健康检查（最长再等 15s）
@@ -284,6 +298,33 @@ fn wait_for_port_file(port_file: &Path) -> Result<u16> {
                     return Ok(port);
                 }
             }
+        }
+        if start.elapsed() > PORT_POLL_TIMEOUT {
+            bail!("等待端口文件超时");
+        }
+        std::thread::sleep(PORT_POLL_INTERVAL);
+    }
+}
+
+/// 4.12: wait_for_port_file 的子进程存活感知版——Python 因环境/依赖问题秒崩时，
+/// 轮询循环内 try_wait 检查子进程已退出即立即失败（带退出码），不再干等 30s 超时。
+fn wait_for_port_file_with_child(port_file: &Path, child: &mut Child) -> Result<u16> {
+    let start = Instant::now();
+    loop {
+        if let Ok(content) = std::fs::read_to_string(port_file) {
+            let trimmed = content.trim();
+            if let Ok(port) = trimmed.parse::<u16>() {
+                if port > 0 {
+                    return Ok(port);
+                }
+            }
+        }
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                bail!("后端进程启动即退出（{}）——请检查 Python 环境与依赖", status);
+            }
+            Ok(None) => {}
+            Err(e) => bail!("检查后端进程状态失败: {}", e),
         }
         if start.elapsed() > PORT_POLL_TIMEOUT {
             bail!("等待端口文件超时");

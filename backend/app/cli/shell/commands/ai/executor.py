@@ -27,12 +27,13 @@ import logging
 from app.cli.shell.commands.base import CommandResult, ProjectContext
 from app.cli.shell.formatter import Formatter
 from app.shared.services.ai.chat_orchestrator import AIChatOrchestrator, ChatOptions
-from app.shared.services.llm.providers.base import resolve_context_window
+from app.shared.services.llm.providers.base import compute_token_budgets, resolve_context_window
 
 from .display import _display_execution_results, _display_tool_trail
 from .executor_utils import (
     SpinnerController,
     _collect_all_config_files,
+    _collect_declared_new_files,
     _get_provider_display,
     _get_provider_with_key,
 )
@@ -118,9 +119,11 @@ def execute_ai_chat(
             if spinner:
                 spinner.resume()
 
-    # 根据模型上下文窗口计算历史预算（用户输入 > 自动探测 > 全局回退）
+    # 根据模型上下文窗口计算历史预算（用户输入 > 自动探测 > 全局回退）。
+    # 4.24: 预算经 compute_token_budgets 按窗裁剪——原 max(cw-8000, 4096) 在
+    # cw<12k 时输入+输出预算之和超过窗口，每次请求必超窗
     context_window = resolve_context_window(provider_config)
-    max_history_tokens = max(context_window - RESERVED_OUTPUT_TOKENS, 4096)
+    max_history_tokens, _output_budget = compute_token_budgets(context_window)
 
     # 配置对话选项
     options = ChatOptions(
@@ -139,7 +142,9 @@ def execute_ai_chat(
     try:
         import asyncio
 
-        # 收集原始文件内容（仅在交互模式下，用于 diff 对比）
+        # 收集原始文件内容（仅在交互模式下，用于 diff 对比）。
+        # 4.25: AI 本次新建的文件纳入执行前缓存（登记为空内容）——执行后它们
+        # 存在而缓存里没有，diff 生成器会跳过，新建文件的变更在摘要里永不显示
         original_files_cache = {}
         if interactive and project_path:
             original_files_cache = _collect_all_config_files(project_path)
@@ -182,8 +187,12 @@ def execute_ai_chat(
         if interactive and agent_mode and result.tool_steps:
             _display_tool_trail(result.tool_steps)
 
-        # 在交互模式下显示执行结果和 diff
+        # 在交互模式下显示执行结果和 diff。
+        # 4.25: AI 本次新建的文件先登记进缓存（空内容）——执行后它们存在而缓存
+        # 没有，diff 生成器会跳过，新建文件的变更在摘要里永不显示
         if interactive and actions and project_path is not None:
+            for declared in _collect_declared_new_files(result, project_path):
+                original_files_cache.setdefault(declared, "")
             _display_execution_results(result, project_path, original_files_cache)
 
         return CommandResult.ok(

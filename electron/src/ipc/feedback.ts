@@ -127,14 +127,25 @@ export function registerFeedbackIpc(): void {
   });
 
   ipcMain.handle('feedback:export', async (_event, report: unknown) => {
-    ensureFeedbackDir();
-    const r = report as Record<string, unknown>;
-    const ts = (r.timestamp as string) ?? new Date().toISOString();
-    const filename = `precis-feedback-${formatTimestampForFile(ts)}.txt`;
-    const filepath = path.join(getFeedbackDir(), filename);
-    fs.writeFileSync(filepath, formatFeedbackText(report), 'utf-8');
-    // 在文件管理器中高亮该文件,方便用户定位并发送
-    shell.showItemInFolder(filepath);
+    // 4.19: 对齐 persist 版 try/catch + 错误回传——参数 null/写盘失败此前是
+    // silent rejection（无任何提示，用户以为导出成功）
+    try {
+      if (!report || typeof report !== 'object') {
+        return { success: false, error: 'invalid report' };
+      }
+      ensureFeedbackDir();
+      const r = report as Record<string, unknown>;
+      const ts = (r.timestamp as string) ?? new Date().toISOString();
+      const filename = `precis-feedback-${formatTimestampForFile(ts)}.txt`;
+      const filepath = path.join(getFeedbackDir(), filename);
+      fs.writeFileSync(filepath, formatFeedbackText(report), 'utf-8');
+      // 在文件管理器中高亮该文件,方便用户定位并发送
+      shell.showItemInFolder(filepath);
+      return { success: true, path: filepath };
+    } catch (err) {
+      logger.error('[Main] 导出反馈文件失败:', err);
+      return { success: false, error: String(err) };
+    }
   });
 
   ipcMain.handle('feedback:read-pending', async () => {

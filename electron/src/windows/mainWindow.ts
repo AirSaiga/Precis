@@ -121,7 +121,11 @@ export function createWindow(config: WindowConfig): void {
     // 开发环境: 连接到 Vite 开发服务器
     logger.debug('[Main] 开发模式: 连接到 Vite 开发服务器');
     logger.debug('[Main] 开发服务器地址:', `http://localhost:${frontendDevPort}`);
-    appState.mainWindow.loadURL(`http://localhost:${frontendDevPort}`);
+    // 4.16: dev loadURL 失败必须捕获（Vite 未启动/端口漂移）——裸 Promise 拒绝
+    // 只进控制台，用户视角"应用点了没反应"
+    appState.mainWindow.loadURL(`http://localhost:${frontendDevPort}`).catch((loadError) => {
+      logger.error('[Main] 加载开发服务器失败（Vite 未启动或端口漂移）:', loadError);
+    });
 
     // 自动打开开发者工具，便于调试
     appState.mainWindow.webContents.openDevTools();
@@ -141,6 +145,19 @@ export function createWindow(config: WindowConfig): void {
     appState.mainWindowReady = true;
     tryShowMainWindow();
   });
+
+  // 4.16: ready-to-show 看门狗——半成品 dist（index.html 在而 JS bundle 缺失）等
+  // 异常场景下该事件永不来，splash 死等无兜底。超时后强制标记就绪并显示主窗口，
+  // 用户至少能看到窗口与控制台可见错误，而非"点了没反应"。
+  const readyWatchdog = setTimeout(() => {
+    if (!appState.mainWindowReady) {
+      logger.error('[Main] ready-to-show 超时（20s），强制显示主窗口——可能为半成品 dist 或加载失败');
+      appState.mainWindowReady = true;
+      tryShowMainWindow();
+    }
+  }, 20000);
+  appState.mainWindow.once('ready-to-show', () => clearTimeout(readyWatchdog));
+  appState.mainWindow.once('closed', () => clearTimeout(readyWatchdog));
 
   // 窗口关闭时清理引用
   // 防止内存泄漏
@@ -205,7 +222,10 @@ export function createWindow(config: WindowConfig): void {
       // 退出链是 stopPythonServerSync + flushLogs 成对），此处补齐（附表14）。
       flushLogs();
       app.relaunch();
-      app.exit(0);
+      // 4.17: exit 前延时 300ms——relaunch 的新实例启动时旧进程的单实例锁可能
+      // 尚未释放，拿不到锁直接退出（用户视角"点了重启应用就消失了"）。
+      // 事件循环再跑 300ms 让本进程完成清理与锁释放。
+      setTimeout(() => app.exit(0), 300);
     } else {
       app.quit();
     }

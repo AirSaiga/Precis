@@ -878,7 +878,16 @@ async fn handle_key(
                 return;
             }
             let msg = app.chat_input.trim().to_string();
-            if !msg.is_empty() && app.api.project_path().is_some() {
+            if msg.is_empty() {
+                return;
+            }
+            // 4.14: 未打开项目时 Enter 给明确提示（对齐校验页的口径）——
+            // 原实现静默无反馈，用户以为键盘坏了
+            if app.api.project_path().is_none() {
+                app.message = pick("请先打开项目", "Open a project first").to_string();
+                return;
+            }
+            {
                 // 先构造 history 再 push 本条用户消息：后端按 [system]+history+[user]
                 // 组装请求，history 若已含本条会导致该消息重复发送两份。
                 // push 之后消息留在 chat_messages 中，后续轮次的 history 仍会带上它。

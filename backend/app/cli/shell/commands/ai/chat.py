@@ -54,7 +54,7 @@ from app.shared.services.ai.utils import (
     truncate_history_by_tokens,
 )
 from app.shared.services.llm.chat.chat_system_prompt import build_system_prompt
-from app.shared.services.llm.providers.base import resolve_context_window
+from app.shared.services.llm.providers.base import compute_token_budgets, resolve_context_window
 
 
 class AIChatCommand(Command):
@@ -118,9 +118,11 @@ class AIChatCommand(Command):
         config = context.project_config or {}
         project_name = config.get("project", {}).get("name", "project")
 
-        # 根据 Provider 配置和模型名获取上下文窗口（用户输入 > 自动探测 > 全局回退）
+        # 根据 Provider 配置和模型名获取上下文窗口（用户输入 > 自动探测 > 全局回退）。
+        # 4.24: max_tokens 是输出预算，经 compute_token_budgets 按窗裁剪——原公式
+        # 把输入侧公式当输出上限，小窗模型（cw<12k）每次请求必超窗
         self._context_window = resolve_context_window(provider)
-        self._max_context_tokens = max(self._context_window - self.RESERVED_OUTPUT_TOKENS, 4096)
+        _input_budget, self._max_context_tokens = compute_token_budgets(self._context_window)
 
         # 打印会话头信息
         print(Formatter.header("\nAI 助手交互模式"))

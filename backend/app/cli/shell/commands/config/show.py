@@ -39,7 +39,7 @@ import os
 
 import yaml
 
-from app.cli.shared_services.config_ops import find_config_file, load_config_content
+from app.cli.shared_services.config_ops import find_config_file
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.formatter import Formatter
 
@@ -85,29 +85,43 @@ class ConfigShowCommand(Command):
             rel_path = os.path.relpath(config_path, project_path)
             return self._show_single_file(config_path, rel_path)
 
-        # 否则显示所有配置文件
-        config_files = [
-            "project.precis.yaml",
-            "constraints.yaml",
-            "patterns.yaml",
-            "regex.yaml",
-        ]
+        # 否则显示所有配置文件。
+        # §4.26: 无参 show 按 V2 目录结构遍历（schemas/constraints/regex/transforms/
+        # templates 分目录 + 根目录两文件）——原硬编码 V1 根目录文件清单，对 V2
+        # 项目几乎只显示 manifest 一个文件，其余配置全看不到（不做 V1 兼容层）
+        from pathlib import Path as _Path
 
         output_lines = [Formatter.header("\n项目配置文件:")]
 
-        for config_file in config_files:
-            config_path = os.path.join(project_path, config_file)
-            if os.path.isfile(config_path):
-                output_lines.append(f"\n{Formatter.info('--- ' + config_file + ' ---')}")
-                # 读单个配置文件内容（委托 shared_services 纯逻辑，CLI/TUI 同源）
-                content = load_config_content(project_path, config_file)
-                if isinstance(content, dict):
-                    output_lines.append(yaml.dump(content, allow_unicode=True, default_flow_style=False))
-                elif isinstance(content, list):
-                    output_lines.append(yaml.dump(content, allow_unicode=True, default_flow_style=False))
-                else:
-                    # 字符串：空文件或读取失败描述
-                    output_lines.append(content)
+        def _show_file(rel_path: str, abs_path: str) -> None:
+            output_lines.append(f"\n{Formatter.info('--- ' + rel_path + ' ---')}")
+            try:
+                output_lines.append(_Path(abs_path).read_text(encoding="utf-8"))
+            except Exception as e:
+                output_lines.append(f"(读取失败: {e})")
+
+        # 分目录收集（保持稳定的目录顺序）
+        for subdir, pattern in (
+            ("schemas", "*.schema.yaml"),
+            ("constraints", "*.constraint.yaml"),
+            ("regex", "*.regex.yaml"),
+            ("transforms", "*.transform.yaml"),
+            ("templates", "*.template.yaml"),
+        ):
+            dir_path = _Path(project_path) / subdir
+            if not dir_path.is_dir():
+                continue
+            for fp in sorted(dir_path.glob(pattern)):
+                _show_file(f"{subdir}/{fp.name}", str(fp))
+
+        # 根目录核心文件
+        for root_file in ("project.precis.yaml", "patterns.precis.yaml"):
+            root_path = os.path.join(project_path, root_file)
+            if os.path.isfile(root_path):
+                _show_file(root_file, root_path)
+
+        if len(output_lines) == 1:
+            return CommandResult.ok("项目中没有找到任何配置文件。")
 
         return CommandResult.ok("\n".join(output_lines))
 
