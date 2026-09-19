@@ -21,7 +21,8 @@
  *
  * 三个场景（聊天/配置生成/迁移）共用。封装：
  * - POST fetch + 流式读取 ReadableStream，按 SSE 格式解析帧
- * - 自动重连（指数退避 1s/2s/5s，最多 3 次）+ Last-Event-ID 续传
+ * - 自动重连（指数退避 1s/2s/5s，最多 3 次）——注意：服务端不支持跨连接续传（§2.8），
+ *   重连后请求会作为新会话处理；Last-Event-ID 头仍会携带（本连接内 journal 回放游标）
  * - 事件去重（按 id）
  * - 取消（POST /ai/jobs/{id}/cancel）
  *

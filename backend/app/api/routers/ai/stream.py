@@ -25,7 +25,8 @@
 设计要点:
 - 每个流式请求: 创建 job_id → 启动 orchestrator 后台 task → 返回 SSE StreamingResponse
 - 取消信号: 内存中 _cancel_events 字典(job_id → asyncio.Event)
-- 续传: 通过 Last-Event-ID header,支持断线重连
+- Last-Event-ID: 仅作为本连接内 journal 回放的起始游标（§2.8）；不支持跨连接断线续传——
+  每次请求都新建 job_id 与 journal,重连等价于重新发起会话(真续传需 job 持久化+按 job_id 重连端点,属未来 feature)
 - 资源清理: orchestrator 结束后注销 cancel_event,防止内存泄漏
 """
 
@@ -100,12 +101,12 @@ async def chat_stream(
     1. 加载 Provider 配置并实例化
     2. 创建 job_id、EventJournal、cancel_event、event_queue
     3. 启动后台 orchestrator task(并发执行 run_chat)
-    4. 返回 SSE StreamingResponse,从 journal 续传 + 实时推送队列
+    4. 返回 SSE StreamingResponse,从 journal 回放(本连接内) + 实时推送队列
 
     参数:
         request: AiChatRequest(复用现有聊天请求模型)
         x_project_config_path: 项目配置路径 header
-        last_event_id: 续传用的 Last-Event-ID header(断线重连)
+        last_event_id: 本连接内 journal 回放的起始事件号(非断线续传,见 §2.8 声明)
 
     返回:
         StreamingResponse(media_type=text/event-stream)
@@ -176,7 +177,7 @@ async def chat_stream(
     _background_tasks.add(task)
     task.add_done_callback(_background_tasks.discard)
 
-    # 返回 SSE 流: 先回放 journal(续传), 再实时推送队列
+    # 返回 SSE 流: 先回放 journal(本连接内,自 last_event_id 起), 再实时推送队列
     async def _sse_generator() -> AsyncIterator[str]:
         try:
             async for frame in sse_event_stream(
