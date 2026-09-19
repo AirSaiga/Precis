@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-09-19
+
 ### 2026-09
 - 失效项目 400/404 契约统一与结构化错误码（第二轮逻辑治理 §2.1，行为变更）：后端"目录存在但 manifest 缺失"的出口从 400 统一为 **404**（`get_project_config_path` 依赖与 manifest/schema/constraint/regex/settings/validation 各端点的二次检查共 11 处），消除与 `GET /manifest` 对同一情形不同状态码的矛盾；detail 携带结构化错误码 `{"code": "PROJECT_NOT_FOUND", "message": ..., "path": <项目根目录>}`。前端 httpClient 自愈链改双轨判读——`detail.code === 'PROJECT_NOT_FOUND'`（新轨）优先、字符串前缀"提供的项目配置路径不存在"（目录不存在出口保留字符串 detail + 旧后端兼容）回退；清理逻辑抽取为 `handleProjectPathInvalid` 独立函数。此前 manifest 缺失（文件被误删/磁盘损坏）时自愈链永不触发，应用带着死路径持续失败，用户只能手动清 localStorage。错误消息展示层（getApiErrorMessage）同步支持 dict detail 取 message。
 
