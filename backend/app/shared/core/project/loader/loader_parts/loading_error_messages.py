@@ -199,6 +199,33 @@ def template_expansion_error(instance_id: str, raw_exception: BaseException, fil
     }
 
 
+def template_node_expansion_error(instance_id: str, node_id: str, message: str, file_path: str = "") -> dict:
+    """模板内单个节点展开失败（其余节点正常展开，仅该节点产物缺失）。
+
+    Args:
+        instance_id: 模板实例 ID
+        node_id: 展开失败的模板节点本地 ID
+        message: 节点级展开失败的原始异常信息
+        file_path: 模板实例所在配置文件路径（通常是 project.precis.yaml），供 involved 实体展示
+
+    Returns:
+        LoadingError 友好字段 dict
+    """
+    ref_id = f"{instance_id}/{node_id}"
+    return {
+        "severity": "warning",
+        "title": "模板部分内容未能展开",
+        "description": f"模板（编号 {instance_id}）中的某个节点（编号 {node_id}）在展开成具体规则时出错了，该节点的约束/转换没有生成，其余节点已正常展开。",
+        "fix_hint": "请检查该节点的参数配置与引用的列/表是否存在，修正后重新加载项目；缺失的规则在此之前不会参与校验。",
+        "message": f"模板实例 '{instance_id}' 的节点 '{node_id}' 展开失败: {message}",
+        "context": {"involved": [_file_involved("template", ref_id, file_path)]},
+        "title_key": "inspection.issues.load.templateNodeExpansion.title",
+        "description_key": "inspection.issues.load.templateNodeExpansion.description",
+        "fix_hint_key": "inspection.issues.load.templateNodeExpansion.fixHint",
+        "message_params": {"instanceId": instance_id, "nodeId": node_id},
+    }
+
+
 def _looks_like_yaml_error(exc: BaseException, text: str) -> bool:
     """判断异常是否为 YAML 语法错误（而非字段校验错误）。"""
     # yaml.YAMLError 及其子类

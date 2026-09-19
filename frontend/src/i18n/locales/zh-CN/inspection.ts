@@ -252,6 +252,13 @@ const inspection = {
           '画布上的模板（{instanceId}）展开成具体规则时出错了，可能是参数没填全，或模板定义有问题。',
         fixHint: '请检查模板参数是否完整、引用的列/表是否存在，必要时删掉重新创建。',
       },
+      templateNodeExpansion: {
+        title: '模板部分内容未能展开',
+        description:
+          '模板（{instanceId}）中的某个节点（{nodeId}）展开成具体规则时出错了，该节点的约束/转换没有生成，其余节点已正常展开。',
+        fixHint:
+          '请检查该节点的参数配置与引用的列/表是否存在，修正后重新加载项目；缺失的规则在此之前不会参与校验。',
+      },
     },
     /** 多个 schema 文件使用了同一个表 ID（约束按 id 引用表，不是表名重复） */
     schemaIdDuplicate: {

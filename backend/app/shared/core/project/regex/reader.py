@@ -48,6 +48,7 @@ from typing import TYPE_CHECKING, cast
 from pydantic import ValidationError
 
 from app.shared.core.io.yaml import read_yaml
+from app.shared.domain.regex_flags import parse_regex_flags
 
 from .types import RegexNodeFile
 
@@ -56,34 +57,14 @@ if TYPE_CHECKING:
 
     from .types import RegexNodeFile
 
-# flags 单字符缩写到 re 标志位的映射
-_FLAG_SHORT_MAP = {"i": re.IGNORECASE, "m": re.MULTILINE, "s": re.DOTALL}
-# flags 长格式名称到 re 标志位的映射
-_FLAG_LONG_MAP = {"ignorecase": re.IGNORECASE, "multiline": re.MULTILINE, "dotall": re.DOTALL}
-
 
 def _parse_regex_flags(flag_str: str) -> int:
-    """把 flags 配置字符串解析为 re 模块标志位。
+    """把 flags 配置字符串解析为 re 模块标志位（薄委托 domain 单一事实源）。
 
-    按 逗号/空白 切分后整词匹配（大小写不敏感），支持三种格式：
-    - 短格式："i" -> IGNORECASE
-    - 组合短格式："im" -> IGNORECASE | MULTILINE（逐字符展开）
-    - 长格式："ignorecase" -> IGNORECASE
-
-    不得用子串匹配：`"i" in "multiline"` 为真会导致长格式误开 IGNORECASE、
-    大写 "I" 被忽略；未知 token 整体忽略，不逐字符猜测。
+    语义细节见 app.shared.domain.regex_flags.parse_regex_flags：
+    逗号/空白切分整词匹配，不得子串包含（`"i" in "multiline"` 为真会误开 IGNORECASE）。
     """
-    flags = 0
-    tokens = [tok for tok in re.split(r"[,\s]+", str(flag_str).strip()) if tok]
-    for tok in tokens:
-        lowered = tok.lower()
-        if lowered in _FLAG_LONG_MAP:
-            flags |= _FLAG_LONG_MAP[lowered]
-        elif all(ch in _FLAG_SHORT_MAP for ch in lowered):
-            # 组合短格式（如 "im"）逐字符展开；全部字符都是合法缩写才生效
-            for ch in lowered:
-                flags |= _FLAG_SHORT_MAP[ch]
-    return flags
+    return parse_regex_flags(flag_str)
 
 
 def load_regex_node(regex_path: str | Path) -> RegexNodeFile:

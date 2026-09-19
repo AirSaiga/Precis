@@ -45,6 +45,9 @@ function buildSimpleConstraint(kind: ConstraintKind, input: BuildInput): BuildRe
     table: tableName,
     column: columnRef?.columnName || '',
     sourceRef: columnRef || undefined,
+    // enabled 透传（导入侧）：磁盘 enabled:false 必须保留，缺省视为 true——
+    // 与 regex builder 同写法；漏传会导致禁用约束重开项目后"复活"
+    enabled: params?.enabled !== false,
     validationStatus: 'idle',
     validationErrors: [],
     saveState: saveState || DEFAULT_SAVE_STATE[mode],
@@ -126,7 +129,7 @@ function buildTypeExtras(
         includedNodeIds: subConstraints
           .map((s) => (s as { id?: string }).id)
           .filter((id): id is string => !!id),
-        enabled: true,
+        enabled: params.enabled !== false,
       }
 
     // notNull, unique 无额外字段

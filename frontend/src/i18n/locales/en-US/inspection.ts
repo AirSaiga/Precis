@@ -262,6 +262,13 @@ const inspection = {
         fixHint:
           'Check the template params and referenced columns/tables, or delete and recreate it.',
       },
+      templateNodeExpansion: {
+        title: 'Part of a template could not be expanded',
+        description:
+          'One node ({nodeId}) of template ({instanceId}) failed to expand into rules, so that node’s constraint/transform was not generated. The other nodes expanded normally.',
+        fixHint:
+          'Check that node’s params and referenced columns/tables, then reload the project. Until fixed, the missing rule does not participate in validation.',
+      },
     },
     /** Multiple schema files reuse the same table ID (constraints reference tables by ID) */
     schemaIdDuplicate: {

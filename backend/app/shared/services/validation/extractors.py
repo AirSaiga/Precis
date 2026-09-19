@@ -79,6 +79,8 @@ def _extract_derived_columns(
     """
     import re
 
+    from app.shared.domain.regex_flags import parse_regex_flags
+
     for table_id, parsed_df in parsed_datasets.items():
         logger.debug(f"Processing extracted columns for table: {table_id}")
         if table_id not in schema.tables:
@@ -188,14 +190,10 @@ def _extract_derived_columns(
                 )
                 continue
 
-            # 编译正则表达式
-            flags = 0
-            if "i" in regex_flags.lower() or not case_sensitive:
+            # 编译正则表达式（flags 整词匹配解析，防 "multiline" 子串误开 IGNORECASE）
+            flags = parse_regex_flags(regex_flags)
+            if not case_sensitive:
                 flags |= re.IGNORECASE
-            if "m" in regex_flags.lower():
-                flags |= re.MULTILINE
-            if "s" in regex_flags.lower():
-                flags |= re.DOTALL
 
             # 执行提取
             try:

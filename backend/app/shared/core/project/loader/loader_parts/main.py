@@ -246,12 +246,30 @@ def load_project(
             )
             continue
         try:
+            # 节点级错误收集：单节点展开失败不中断其余节点，但必须上报 loading error
+            # （否则该节点约束静默缺失，校验报告给出"全部通过"假阳性）
+            node_errors: list[dict[str, str]] = []
             t_list, c_list, r_list, m_list = expand_template(
                 tmpl,
                 instance.id,
                 params=instance.params,
                 input_from_node=instance.input_from_node,
+                errors=node_errors,
             )
+            for node_err in node_errors:
+                loading_errors.append(
+                    LoadingError(
+                        error_type="TemplateNodeExpansionError",
+                        file_path=str(manifest_file),
+                        ref_id=f"{instance.id}/{node_err.get('node_id', '?')}",
+                        **loading_error_messages.template_node_expansion_error(
+                            instance.id,
+                            node_err.get("node_id", "?"),
+                            node_err.get("message", ""),
+                            str(manifest_file),
+                        ),
+                    )
+                )
 
             # B05 修复：模板展开后 ID 冲突时记录警告（而非静默覆盖），
             # 但保留覆盖行为以兼容历史项目（部分项目依赖模板实例间 ID 复用）。

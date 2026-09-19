@@ -97,6 +97,59 @@ describe('nodeDataBuilder - simpleConstraint', () => {
     })
   })
 
+  describe('enabled 透传（§3.6）', () => {
+    it('导入 params.enabled=false 时节点 data.enabled 为 false', () => {
+      const result = buildNodeData('notNull', makeInput({ params: { enabled: false } }))
+      expect(result.nodeData.enabled).toBe(false)
+    })
+
+    it('导入无 enabled 字段时缺省为 true（regex 导入路径同语义）', () => {
+      const result = buildNodeData('notNull', makeInput({ params: {} }))
+      expect(result.nodeData.enabled).toBe(true)
+    })
+
+    it('connect 模式（未传 params）同样缺省为 true', () => {
+      const result = buildNodeData('notNull', makeInput({ mode: 'connect' }))
+      expect(result.nodeData.enabled).toBe(true)
+    })
+
+    it('composite 导入 params.enabled=false 透传', () => {
+      const result = buildNodeData(
+        'composite',
+        makeInput({ params: { enabled: false, sub_constraints: [] } })
+      )
+      expect(result.nodeData.enabled).toBe(false)
+    })
+
+    it('Conditional 导入 params.enabled=false 透传', () => {
+      const result = buildNodeData(
+        'conditional',
+        makeInput({
+          nodeType: 'conditionalConstraint',
+          params: { enabled: false },
+          ifConditions: [],
+          thenConditionConfig: { operator: 'not_null' },
+        })
+      )
+      expect(result.nodeData.enabled).toBe(false)
+    })
+
+    it('ForeignKey 导入 params.enabled=false 透传', () => {
+      const result = buildNodeData(
+        'foreignKey',
+        makeInput({
+          nodeType: 'foreignKeyConstraint',
+          params: { enabled: false },
+          fkRefs: {
+            source: { nodeId: 'schema-1', columnId: 'col-1', columnName: 'email' },
+            target: { nodeId: 'schema-2', columnId: 'col-2', columnName: 'id' },
+          },
+        })
+      )
+      expect(result.nodeData.enabled).toBe(false)
+    })
+  })
+
   describe('unique', () => {
     it('生成基础字段', () => {
       const result = buildNodeData('unique', makeInput())

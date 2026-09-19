@@ -116,6 +116,7 @@ def expand_template(
     instance_id: str,
     params: dict[str, Any] | None = None,
     input_from_node: str | None = None,
+    errors: list[dict[str, str]] | None = None,
 ) -> tuple[list[TransformFile], list[ConstraintFile], list[RegexNodeFile], list[ManualDataFile]]:
     """@methoddesc 展开模板实例为标准配置文件
 
@@ -124,6 +125,9 @@ def expand_template(
         instance_id: 实例 ID（全局唯一）
         params: 实例参数绑定值（覆盖模板默认值），默认 None
         input_from_node: 实例级上游节点 ID（通常指向 Schema），默认 None
+        errors: 可选，节点级展开错误收集列表——单节点展开失败不中断其余节点，
+            失败信息以 {"node_id", "kind", "message"} 追加到此列表供调用方上报
+            （不传时失败节点仅记日志，保持旧行为）
 
     返回:
         (transforms, constraints, regex_nodes, manual_data_files) 四元组
@@ -224,6 +228,10 @@ def expand_template(
 
         except Exception as e:
             logger.warning(f"模板 '{template.id}' 的节点 '{node.id}' 展开失败: {e}")
+            # 节点级失败上报出口：失败节点被跳过但不再不可见——调用方
+            # （loader）据此生成 loading error，UI/CLI 均可见该约束缺失
+            if errors is not None:
+                errors.append({"node_id": node.id, "kind": node.kind, "message": str(e)})
             continue
 
     logger.debug(

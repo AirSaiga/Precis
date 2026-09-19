@@ -80,7 +80,15 @@ class SortRowsRunner(TransformRunner):
             if col not in df.columns:
                 raise ValueError(f"排序列不存在: {col}")
             columns.append(col)
-            ascending.append(rule.get("order", "asc") == "asc")
+            # order 归一大小写不敏感（"ASC"/"Desc" 均合法），未知值 fail-fast——不再静默按降序
+            raw_order = rule.get("order", "asc")
+            order = str(raw_order).lower()
+            if order == "asc":
+                ascending.append(True)
+            elif order == "desc":
+                ascending.append(False)
+            else:
+                raise ValueError(f"未知的排序方向 '{raw_order}'，支持的值为: asc, desc")
 
         result = df.sort_values(by=columns, ascending=ascending).reset_index(drop=True)
         return result

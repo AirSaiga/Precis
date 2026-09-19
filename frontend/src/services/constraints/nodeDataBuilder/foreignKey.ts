@@ -60,6 +60,8 @@ function buildForeignKey(input: BuildInput): BuildResult {
     },
     // "允许为空" 开关（运行时空值过滤使用，roundtrip 保存于 params.allow_null）
     allowNull: input.params?.allow_null === true,
+    // enabled 透传（导入侧）：磁盘 enabled:false 必须保留，缺省视为 true
+    enabled: input.params?.enabled !== false,
     saveState: saveState || (mode === 'connect' ? 'draft' : 'saved'),
   }
 

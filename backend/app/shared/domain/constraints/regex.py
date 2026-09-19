@@ -64,6 +64,7 @@ from typing import Any
 import pandas as pd
 
 from app.shared.domain.constraints.base import Constraint
+from app.shared.domain.regex_flags import parse_regex_flags
 
 
 class RegexConstraint(Constraint):
@@ -137,15 +138,8 @@ class RegexConstraint(Constraint):
             return {"errors": errors, "info": self.get_constraint_info()}
 
         try:
-            # 解析正则表达式标志
-            re_flags = 0
-            flags_set = set(self.flags.lower())
-            if "i" in flags_set:
-                re_flags |= re.IGNORECASE
-            if "m" in flags_set:
-                re_flags |= re.MULTILINE
-            if "s" in flags_set:
-                re_flags |= re.DOTALL
+            # 解析正则表达式标志（整词匹配，防 "multiline" 的 'm/i/s' 字符集误开无关 flag）
+            re_flags = parse_regex_flags(self.flags)
             if not self.case_sensitive:
                 re_flags |= re.IGNORECASE
 

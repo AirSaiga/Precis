@@ -64,7 +64,11 @@ class ConditionalAssignRunner(TransformRunner):
             转换后的 DataFrame
         """
         conditions = params.get("conditions", [])
-        logic = params.get("logic", "and")
+        # logic 归一大小写不敏感（"OR"/"And" 均合法），未知值 fail-fast——不再静默按 AND 组合
+        raw_logic = params.get("logic", "and")
+        logic = str(raw_logic).lower()
+        if logic not in ("and", "or"):
+            raise ValueError(f"未知的 logic '{raw_logic}'，支持的值为: and, or")
         then_value = params.get("then_value", "")
         else_value = params.get("else_value")
 

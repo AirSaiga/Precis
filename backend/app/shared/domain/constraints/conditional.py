@@ -443,6 +443,18 @@ class ConditionalConstraint(Constraint):
         # ============================================================================
         if self.if_conditions:
             # 复合条件模式: 使用多个条件组合筛选
+            # if_logic 归一大小写不敏感（"OR"/"And" 均合法），未知值 fail-fast 报配置错误，
+            # 不再静默按 AND 组合缩小触发行集——与未知 if 操作符的守卫同一语义
+            logic = (self.if_logic or "and").lower()
+            if logic not in ("and", "or"):
+                errors.append(
+                    {
+                        "error_type": "ConstraintConfigError",
+                        "table": self.table,
+                        "message": f"条件约束失败: 未知的 if_logic '{self.if_logic}'，支持的值为: and, or。",
+                    }
+                )
+                return {"errors": errors, "info": self.get_constraint_info()}
             try:
                 masks = [_apply_if_condition(c) for c in self.if_conditions]
             except KeyError as e:
@@ -466,8 +478,8 @@ class ConditionalConstraint(Constraint):
                 )
                 return {"errors": errors, "info": self.get_constraint_info()}
 
-            # 根据逻辑运算符组合多个条件的布尔掩码
-            if self.if_logic == "or":
+            # 根据逻辑运算符组合多个条件的布尔掩码（使用已归一化的 logic）
+            if logic == "or":
                 # OR 逻辑: 任一条件满足即触发
                 mask = masks[0].copy()
                 for m in masks[1:]:

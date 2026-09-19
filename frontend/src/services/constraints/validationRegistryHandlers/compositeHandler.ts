@@ -167,10 +167,9 @@ register({
     }
   },
   resetOnDisconnect: (nodeData) => {
-    const reset = defaultReset(nodeData)
-    return {
-      ...reset,
-      includedNodeIds: [],
-    }
+    // 断连/防御性重置只清校验状态——includedNodeIds 是用户勾选的聚合成员配置，
+    // 与其余 9 种约束的 reset 语义保持一致，不得随校验状态一起清空
+    // （Schema 未连数据源时每次全表校验都会触发本 reset，清空会周期性销毁用户勾选）
+    return defaultReset(nodeData)
   },
 })

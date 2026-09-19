@@ -80,6 +80,9 @@ class TemplateExpandResponse(BaseModel):
     constraints: list[dict[str, Any]]
     regex_nodes: list[dict[str, Any]]
     manual_data: list[dict[str, Any]]
+    # 展开失败的节点清单（node_id/kind/message）——单节点失败不阻断预览，
+    # 其余节点正常返回，失败信息在此可见（默认空，向后兼容）
+    node_errors: list[dict[str, str]] = []
 
 
 # ============================================================================
@@ -301,11 +304,13 @@ def preview_template_expand(
 
     logger.debug(f"模板展开请求: template_id={template_id}, instance_id={request.instance_id}")
     try:
+        node_errors: list[dict[str, str]] = []
         transforms, constraints, regex_nodes, manual_data_files = expand_template(
             tmpl,
             request.instance_id,
             params=request.params,
             input_from_node=request.input_from_node,
+            errors=node_errors,
         )
     except ValueError as e:
         logger.warning(f"模板展开 ValueError: {e}")
@@ -316,4 +321,5 @@ def preview_template_expand(
         constraints=[c.model_dump(exclude_none=True) for c in constraints],
         regex_nodes=[r.model_dump(exclude_none=True) for r in regex_nodes],
         manual_data=[md.model_dump(exclude_none=True) for md in manual_data_files],
+        node_errors=node_errors,
     )

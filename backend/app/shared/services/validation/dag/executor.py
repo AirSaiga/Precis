@@ -35,6 +35,7 @@ import pandas as pd
 
 from app.shared.core.project.regex.types import RegexNodeFile
 from app.shared.core.project.transform.types import TransformFile
+from app.shared.domain.regex_flags import parse_regex_flags
 from app.shared.domain.transforms import create_runner
 
 from .builder import ExecutionDAG
@@ -173,14 +174,7 @@ def execute_transform_dag(
 
             try:
                 # 透传 rfile.flags / case_sensitive（过去完全忽略，导致大小写等配置在 DAG 提取时失效）
-                re_flags = 0
-                flag_str = str(getattr(rfile, "flags", "") or "")
-                if "i" in flag_str or "ignorecase" in flag_str.lower():
-                    re_flags |= re.IGNORECASE
-                if "m" in flag_str or "multiline" in flag_str.lower():
-                    re_flags |= re.MULTILINE
-                if "s" in flag_str or "dotall" in flag_str.lower():
-                    re_flags |= re.DOTALL
+                re_flags = parse_regex_flags(getattr(rfile, "flags", "") or "")
                 if getattr(rfile, "case_sensitive", True) is False:
                     re_flags |= re.IGNORECASE
 

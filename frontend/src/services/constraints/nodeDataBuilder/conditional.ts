@@ -65,6 +65,8 @@ function buildConditional(input: BuildInput): BuildResult {
     thenRef: thenRef || undefined,
     // "跳过 IF、对所有行校验 THEN" 开关（UI/运行时使用，roundtrip 保存于 params.skip_if）
     skipIfCondition: input.params?.skip_if === true,
+    // enabled 透传（导入侧）：磁盘 enabled:false 必须保留，缺省视为 true
+    enabled: input.params?.enabled !== false,
     validationStatus: 'idle',
     validationErrors: [],
     saveState: saveState || (mode === 'connect' ? 'draft' : 'saved'),

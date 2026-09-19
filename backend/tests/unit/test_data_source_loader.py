@@ -157,7 +157,9 @@ class TestLoadGroupedSources:
         mock_loader.load_multi_sheet.return_value = {"users": pd.DataFrame({"col": [1]})}
         mock_excel_loader_cls.return_value = mock_loader
 
-        info = DataSourceInfo(schema_id="users", name="users", header_row=0, source_config={"engine": "xlrd"})
+        info = DataSourceInfo(
+            schema_id="users", name="users", sheet_name="Sheet1", header_row=0, source_config={"engine": "xlrd"}
+        )
         datasets, errors = load_grouped_sources({"data.xls": [info]})
 
         assert len(errors) == 0

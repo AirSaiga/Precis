@@ -64,6 +64,7 @@ def _load_excel_with_new_loader(
     schemas: list[DataSourceInfo],
     *,
     file_to_sheet_names: dict[str, str] | None = None,
+    errors: list[dict[str, Any]] | None = None,
     **kwargs: Any,
 ) -> dict[str, pd.DataFrame]:
     """
@@ -95,17 +96,27 @@ def _load_excel_with_new_loader(
     spec = ExcelSourceSpec.model_construct(path=filepath, engine=engine)
     loader = ExcelLoader(spec)
     default_sheet = (file_to_sheet_names or {}).get(filepath)
-    sheet_configs = {
-        s.schema_id: {
-            "sheet_name": s.sheet_name or default_sheet,
-            "header_row": s.header_row,
-            "dtype_inference": s.source_config.get("dtype_inference", True),
-            "skip_rows": s.source_config.get("skip_rows", 0),
-            "nrows": s.source_config.get("nrows"),
-        }
-        for s in schemas
-        if s.sheet_name or default_sheet
-    }
+    sheet_configs = {}
+    # 未配 sheet 且无回退映射的 schema 逐个上报 loading error（不再静默丢表——
+    # 无约束的表消失后校验报告给出"全部通过"假阳性），与同函数族"文件不存在"
+    # 的错误条目结构一致（error_type/message/source_path）
+    for s in schemas:
+        if s.sheet_name or default_sheet:
+            sheet_configs[s.schema_id] = {
+                "sheet_name": s.sheet_name or default_sheet,
+                "header_row": s.header_row,
+                "dtype_inference": s.source_config.get("dtype_inference", True),
+                "skip_rows": s.source_config.get("skip_rows", 0),
+                "nrows": s.source_config.get("nrows"),
+            }
+        elif errors is not None:
+            errors.append(
+                {
+                    "error_type": "SheetNotConfigured",
+                    "message": (f"Schema '{s.schema_id}' 未指定 sheet 且文件 '{filepath}' 无默认 sheet 回退，表被跳过"),
+                    "source_path": filepath,
+                }
+            )
     if not sheet_configs:
         return {}
     return loader.load_multi_sheet(sheet_configs)
@@ -117,23 +128,25 @@ def _load_csv_with_new_loader(
     *,
     default_encoding: str = "utf-8",
     csv_delimiter: str = ",",
+    errors: list[dict[str, Any]] | None = None,
     **kwargs: Any,
 ) -> dict[str, pd.DataFrame]:
     """
     @methoddesc 使用新版 CSVLoader 加载 CSV 文件。
 
-    CSV 文件通常只对应一个 schema，因此只处理 schemas 列表中的第一个 schema。
-    如果多个 schema 引用同一个 CSV 文件，会发出警告并跳过。
+    CSV 文件通常只对应一个 schema。如果多个 schema 引用同一个 CSV 文件，
+    只处理 schemas 列表中的第一个 schema，其余 schema 记入 errors 上报。
 
     Args:
         filepath: CSV 文件的完整路径
         schemas: 引用该文件的 schema 列表（期望长度为 1）
         default_encoding: CSV 文件默认编码
         csv_delimiter: CSV 字段分隔符
+        errors: 可选，加载期错误收集列表（多 schema 引用时逐个追加丢失条目）
 
     Returns:
         字典，键为 schema_id，值为对应的 DataFrame
-        如果 schemas 数量不为 1，返回空字典
+        如果 schemas 为空，返回空字典
 
     示例:
         >>> schemas = [DataSourceInfo(schema_id="orders", header_row=0)]
@@ -141,8 +154,23 @@ def _load_csv_with_new_loader(
         >>> # result: {"orders": DataFrame}
     """
     if len(schemas) != 1:
+        # 多 schema 引用同一 CSV 不被支持：仅处理第一个（历史行为保留），但把
+        # 其余 schema 的丢失上报 loading error（不再只有 logger.warning 不可见）
         logger.warning(f"CSV 文件 '{os.path.basename(filepath)}' 被多个 Schema 引用，这不被支持。跳过。")
-        return {}
+        if errors is not None:
+            for s in schemas[1:]:
+                errors.append(
+                    {
+                        "error_type": "DuplicateCsvReference",
+                        "message": (
+                            f"CSV 文件 '{filepath}' 被多个 Schema 引用（不支持），"
+                            f"仅加载第一个 Schema '{schemas[0].schema_id}'，Schema '{s.schema_id}' 的表被跳过"
+                        ),
+                        "source_path": filepath,
+                    }
+                )
+        if not schemas:
+            return {}
 
     info = schemas[0]
     # 回归修复: schema 的 source_config 中的 CSV 读取参数（分隔符/编码/跳行等）过去被丢弃，
@@ -294,6 +322,7 @@ def load_grouped_sources(
                 default_encoding=default_encoding,
                 csv_delimiter=csv_delimiter,
                 file_to_sheet_names=file_to_sheet_names,
+                errors=errors,
             )
             datasets.update(file_datasets)
 
