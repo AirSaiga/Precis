@@ -601,6 +601,9 @@ class TestConditionalConstraintEdgeCases:
         assert len(result["errors"]) == 1
 
     def test_safe_greater_than_exception(self):
+        # 语义更新（THEN 序比较操作数域拍板）：值不可数值化的行按"无法判定"跳过，
+        # 不再报 ConditionalViolation（脏数据由列类型约束负责报告）——原断言 1 错
+        # 编码的是 a14ef85c 的 fail-closed 行为。
         datasets = {"t": pd.DataFrame({"a": ["x"], "b": ["not_a_number"]})}
         constraint = ConditionalConstraint(
             table="t",
@@ -610,7 +613,7 @@ class TestConditionalConstraintEdgeCases:
             then_condition={"operator": "greater_than", "value": 0},
         )
         result = constraint.validate(datasets)
-        assert len(result["errors"]) == 1
+        assert result["errors"] == []
 
     def test_safe_in_nan(self):
         datasets = {"t": pd.DataFrame({"a": ["x"], "b": [np.nan]})}
@@ -832,3 +835,110 @@ class TestConditionalThenNumericCoercion:
 
         violations = [e for e in result["errors"] if e.get("error_type") == "ConditionalViolation"]
         assert [v["row_index"] for v in violations] == [0]
+
+
+class TestThenOrderingNumericOnly:
+    """THEN 序比较（greater_than/less_than）操作数域=仅数值（验证会话新发现修复）
+
+    背景：a14ef85c 修字典序误判时改为双侧 to_numeric + NaN→False（判违规），
+    引入两处回归——① 日期字符串场景旧字典序碰巧正确、修复后全行误报；
+    ② 阈值非法（如 'abc'）不报配置错误而逐行误报。修复口径（用户拍板）：
+    固定阈值构建期校验仅数值（日期引导 DateLogic）；行级不可数值化返回
+    None 跳过该行（脏数据由列类型约束负责报告），与 IF 侧对称。
+    """
+
+    def _make(self, then_condition):
+        return ConditionalConstraint(
+            table="t",
+            if_column="region",
+            if_value="A",
+            then_column="amount",
+            then_condition=then_condition,
+        )
+
+    def test_threshold_non_numeric_raises_config_error(self):
+        """阈值 'abc' → ConstraintConfigError，而非逐行 ConditionalViolation"""
+        constraint = self._make({"operator": "greater_than", "value": "abc"})
+        result = constraint.validate({"t": pd.DataFrame({"region": ["A", "A"], "amount": [100, 200]})})
+
+        assert len(result["errors"]) == 1
+        assert result["errors"][0]["error_type"] == "ConstraintConfigError"
+        assert "数值" in result["errors"][0]["message"]
+
+    def test_threshold_date_string_raises_with_datelogic_hint(self):
+        """阈值 '2024-01-01' → 配置错误且消息含 DateLogic 引导（原全行误报）"""
+        constraint = ConditionalConstraint(
+            table="t",
+            if_column="region",
+            if_value="A",
+            then_column="deadline",
+            then_condition={"operator": "greater_than", "value": "2024-01-01"},
+        )
+        result = constraint.validate(
+            {"t": pd.DataFrame({"region": ["A", "A"], "deadline": ["2024-06-01", "2023-06-01"]})}
+        )
+
+        assert len(result["errors"]) == 1
+        assert result["errors"][0]["error_type"] == "ConstraintConfigError"
+        assert "DateLogic" in result["errors"][0]["message"]
+
+    def test_threshold_numeric_string_compat(self):
+        """字符串数值阈值（"1000"）保持兼容：按数值比较，仅 500 违规"""
+        constraint = self._make({"operator": "greater_than", "value": "1000"})
+        result = constraint.validate({"t": pd.DataFrame({"region": ["A", "A"], "amount": ["500", "2000"]})})
+
+        violations = [e for e in result["errors"] if e["error_type"] == "ConditionalViolation"]
+        assert [v["row_index"] for v in violations] == [0]
+
+    def test_dirty_value_row_skipped(self):
+        """数值阈值 + 数据混入日期脏值 → 脏行跳过不报（原误报）"""
+        constraint = self._make({"operator": "greater_than", "value": 1000})
+        result = constraint.validate(
+            {"t": pd.DataFrame({"region": ["A", "A", "A"], "amount": ["2024-06-01", "500", "2000"]})}
+        )
+
+        violations = [e for e in result["errors"] if e["error_type"] == "ConditionalViolation"]
+        assert [v["row_index"] for v in violations] == [1]
+
+    def test_less_than_threshold_non_numeric_raises(self):
+        """less_than 同构：阈值非法报配置错误"""
+        constraint = self._make({"operator": "less_than", "value": "一千元"})
+        result = constraint.validate({"t": pd.DataFrame({"region": ["A"], "amount": [100]})})
+
+        assert len(result["errors"]) == 1
+        assert result["errors"][0]["error_type"] == "ConstraintConfigError"
+
+    def test_less_than_dirty_value_row_skipped(self):
+        """less_than 同构：脏值行跳过，正常行照常判定"""
+        constraint = self._make({"operator": "less_than", "value": 100})
+        result = constraint.validate(
+            {"t": pd.DataFrame({"region": ["A", "A", "A"], "amount": ["2024-06-01", "50", "150"]})}
+        )
+
+        violations = [e for e in result["errors"] if e["error_type"] == "ConditionalViolation"]
+        assert [v["row_index"] for v in violations] == [2]
+
+    def test_ref_column_dirty_reference_row_skipped(self):
+        """ref_column 列间比较：参照列脏值行跳过，参照正常的行照常判定"""
+        constraint = ConditionalConstraint(
+            table="t",
+            if_column="region",
+            if_value="A",
+            then_column="amount",
+            then_condition={"operator": "greater_than", "ref_column": "min_required"},
+        )
+        result = constraint.validate(
+            {
+                "t": pd.DataFrame(
+                    {
+                        "region": ["A", "A", "A"],
+                        "amount": [500, 500, 1500],
+                        "min_required": ["2024-01-01", "1000", "1000"],
+                    }
+                )
+            }
+        )
+
+        violations = [e for e in result["errors"] if e["error_type"] == "ConditionalViolation"]
+        # 行0：参照脏值跳过；行1：500<1000 违规；行2：1500>1000 通过
+        assert [v["row_index"] for v in violations] == [1]

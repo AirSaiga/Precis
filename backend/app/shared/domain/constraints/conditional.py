@@ -155,7 +155,7 @@ class ConditionalConstraint(Constraint):
         # 生成条件的可读描述字符串
         self._condition_str = self._condition_to_string()
 
-    def _parse_condition(self) -> Callable[[Any, dict[str, Any] | None], bool]:
+    def _parse_condition(self) -> Callable[[Any, dict[str, Any] | None], bool | None]:
         """
         @methoddesc 解析 then_condition，生成验证函数
 
@@ -189,28 +189,33 @@ class ConditionalConstraint(Constraint):
             if operator == "greater_than":
                 threshold = then_config.get("value")
 
-                def _safe_greater_than(x: Any, row: dict[str, Any] | None = None) -> bool:
+                # THEN 序比较操作数域=仅数值。固定阈值的构建期校验在 validate() 内
+                # 以 ConstraintConfigError 条目呈现（见 validate 前置检查），构造器
+                # 不抛异常；此处仅做行级三态跳过。日期比较引导 DateLogic——旧实现的
+                # 字符串字典序仅对 ISO 格式碰巧正确（'6/1/2024' vs '10/1/2024' 文本
+                # 序即错），不属承诺行为。
+
+                def _safe_greater_than(x: Any, row: dict[str, Any] | None = None) -> bool | None:
                     compared = _get_compared_value(x, row) if ref_column else threshold
                     if pd.isna(x) or x == "":
                         return False
                     if compared is None or compared == "":
                         return False
-                    # A4 修复：先对双侧做数值转换再比较。原实现 bool(x > compared) 对两个
-                    # str 产出字典序结果（"500" > "1000" → True 误判通过），except 内的
-                    # float 回退对 str 是死代码。转换失败/NaN/非常规类型按不满足处理
-                    # （fail-closed），与 IF 侧 pd.to_numeric(errors="coerce") 的惯例一致。
+                    # a14ef85c 修复字典序误判；NaN 改返回 None（无法判定→跳过该行）而非
+                    # False（判违规）：日期字符串等不可数值化的值不该被报"不满足条件"，
+                    # 脏数据由列类型约束负责报告。与 IF 侧 NaN 不触发的 UNKNOWN 语义对称。
                     try:
                         x_num = pd.to_numeric(x, errors="coerce")
                         compared_num = pd.to_numeric(compared, errors="coerce")
                         if pd.isna(x_num) or pd.isna(compared_num):
-                            return False
+                            return None
                         return bool(x_num > compared_num)
                     except Exception:
                         logger.debug(
                             f"greater_than 比较失败: x={x!r}, compared={compared!r}, "
                             f"table={self.table}, then_column={self.then_column}"
                         )
-                        return False
+                        return None
 
                 return _safe_greater_than
             if operator == "in":
@@ -242,27 +247,29 @@ class ConditionalConstraint(Constraint):
             if operator == "less_than":
                 threshold = then_config.get("value")
 
-                def _safe_less_than(x: Any, row: dict[str, Any] | None = None) -> bool:
+                # 同 greater_than：阈值校验在 validate() 前置检查，此处仅行级三态
+
+                def _safe_less_than(x: Any, row: dict[str, Any] | None = None) -> bool | None:
                     compared = _get_compared_value(x, row) if ref_column else threshold
                     if pd.isna(x) or x == "":
                         return False
                     if compared is None or compared == "":
                         return False
                     # A4 修复：与 greater_than 同理，先双侧数值转换再比较，避免 str
-                    # 字典序比较（9 < "10" → False 误判）；转换失败/NaN/非常规类型按
-                    # 不满足处理（fail-closed，对齐 IF 侧惯例）。
+                    # 字典序比较（9 < "10" → False 误判）；不可数值化改返回 None
+                    # （无法判定→跳过该行）而非 False（判违规），脏数据由列类型约束报告。
                     try:
                         x_num = pd.to_numeric(x, errors="coerce")
                         compared_num = pd.to_numeric(compared, errors="coerce")
                         if pd.isna(x_num) or pd.isna(compared_num):
-                            return False
+                            return None
                         return bool(x_num < compared_num)
                     except Exception:
                         logger.debug(
                             f"less_than 比较失败: x={x!r}, compared={compared!r}, "
                             f"table={self.table}, then_column={self.then_column}"
                         )
-                        return False
+                        return None
 
                 return _safe_less_than
             if operator == "eq":
@@ -381,6 +388,33 @@ class ConditionalConstraint(Constraint):
                     }
                 )
                 return {"errors": errors, "info": self.get_constraint_info()}
+
+        # THEN 序比较（greater_than/less_than）固定阈值前置校验：操作数域=仅数值
+        # （用户拍板）。阈值不可转数值（如 'abc'、日期字符串）报配置错误并引导
+        # DateLogic，而非逐行误报 ConditionalViolation；字符串数值（"1000"）兼容。
+        # ref_column 列间比较的参照值来自行数据，无法前置校验，由行级三态跳过兜底。
+        if isinstance(self.then_condition_config, dict):
+            _then_op = self.then_condition_config.get("operator")
+            if _then_op in ("greater_than", "less_than") and not self.then_condition_config.get("ref_column"):
+                _then_threshold = self.then_condition_config.get("value")
+                if _then_threshold is not None and _then_threshold != "":
+                    try:
+                        _threshold_num = pd.to_numeric(_then_threshold)
+                    except (ValueError, TypeError):
+                        _threshold_num = None
+                    if _threshold_num is None or pd.isna(_threshold_num):
+                        errors.append(
+                            {
+                                "error_type": "ConstraintConfigError",
+                                "table": self.table,
+                                "column": self.then_column,
+                                "message": (
+                                    f"条件约束失败: '{_then_op}' 的 THEN 阈值必须为数值，"
+                                    f"实际: {_then_threshold!r}；日期比较请使用 DateLogic 约束。"
+                                ),
+                            }
+                        )
+                        return {"errors": errors, "info": self.get_constraint_info()}
 
         def _apply_if_condition(cond: dict) -> pd.Series:
             """
@@ -565,6 +599,11 @@ class ConditionalConstraint(Constraint):
                 check_result = self._condition_func(value_to_check, row)
             else:
                 check_result = self._condition_func(value_to_check, None)
+            # 序比较（greater_than/less_than）的行级三态：值或参照不可数值化时
+            # predicate 返回 None——无法判定不等于违反，跳过该行（脏数据由列
+            # 类型约束负责报告），不再误报 ConditionalViolation。
+            if check_result is None:
+                continue
             if not check_result:
                 # 构建触发条件的信息，用于错误消息
                 if_value_payload: dict[str, Any] = {}

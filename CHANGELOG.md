@@ -6,6 +6,11 @@
 
 ## [Unreleased]
 
+### 2026-09
+- 条件约束 THEN 侧序比较（greater_than/less_than）操作数域收紧为仅数值，两处回归修复（独立验证会话新发现，行为变更）：① 固定阈值不可转数值（如 `abc`、`2024-01-01`）从"逐行误报 ConditionalViolation"改为报一条 ConstraintConfigError 并引导"日期比较请使用 DateLogic 约束"；字符串数值阈值（`"1000"`）保持兼容。② 数据值或 ref_column 参照值不可数值化的行从"误报违规"改为跳过不判（无法判定≠违反，脏数据由列类型约束负责报告），与 IF 侧 NaN 不触发的 SQL UNKNOWN 语义对称。背景：上一轮 a14ef85c 修字典序误判时把不可数值化按"不满足"处理，导致日期字符串场景（旧字典序对 ISO 格式碰巧正确）修复后整表误报、非法阈值报错方向误导排障；且 B2 批次已将 IF 侧阈值校验 fail-fast，THEN 侧为同口径漏网。
+
+  Conditional's THEN-side ordering comparisons (greater_than/less_than) are tightened to numbers-only, fixing two regressions (new finding from the independent verification session; behavior change): ① a fixed threshold that cannot be parsed as a number (e.g. "abc" or "2024-01-01") now reports a single ConstraintConfigError guiding "use the DateLogic constraint for date comparisons" instead of flagging every row as a ConditionalViolation; numeric-string thresholds ("1000") stay compatible. ② rows whose value (or ref_column reference) cannot be parsed as a number are now skipped as undecidable rather than flagged — undecidable ≠ violated, and dirty data is the type constraint's job to report — mirroring the IF side's SQL-UNKNOWN semantics for NaN. Background: the earlier dictionary-ordering fix (a14ef85c) treated non-numeric operands as "not satisfied", which made ISO-date comparisons (previously correct only by luck of lexicographic order) flag entire tables and turned bad thresholds into misleading row errors; the B2 batch had already made IF-side thresholds fail fast, leaving THEN as the same-policy gap.
+
 ## [0.1.2] - 2026-09-19
 
 ### 2026-09
