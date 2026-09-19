@@ -140,10 +140,19 @@ def _validate_project_root(raw_path: str | None) -> str:
     # 步骤3：验证是合法 Precis 项目根（含 manifest）
     manifest = os.path.join(normalized_path, "project.precis.yaml")
     if not os.path.isfile(manifest):
+        # §2.1: manifest 缺失属"资源不存在"语义，统一 404（原 400 与 GET /manifest
+        # 端点对同一情形不同状态码，且前端 404 自愈链永不触发）。detail 携带结构化
+        # 错误码，前端按 detail.code 识别（不再匹配中文措辞前缀）。
         raise HTTPException(
-            status_code=400,
-            detail="项目路径下未找到 project.precis.yaml（非合法 Precis 项目根）。"
-            "若要初始化新项目，请使用 POST /api/latest/projects/create。",
+            status_code=404,
+            detail={
+                "code": "PROJECT_NOT_FOUND",
+                "message": (
+                    "项目路径下未找到 project.precis.yaml（非合法 Precis 项目根）。"
+                    "若要初始化新项目，请使用 POST /api/latest/projects/create。"
+                ),
+                "path": normalized_path,
+            },
         )
 
     return normalized_path

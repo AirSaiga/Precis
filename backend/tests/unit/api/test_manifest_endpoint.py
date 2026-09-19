@@ -37,11 +37,15 @@ def _write_manifest(root: Path, content: str) -> str:
 
 
 def test_missing_manifest_returns_404(tmp_path):
-    """清单文件不存在 → 404（原有行为不变）。"""
+    """清单文件不存在 → 404 + 结构化错误码（§2.1：与 dependencies 出口统一）。"""
     tmp_path.mkdir(parents=True, exist_ok=True)
     with pytest.raises(HTTPException) as exc_info:
         get_v2_manifest(str(tmp_path))
     assert exc_info.value.status_code == 404
+    detail = exc_info.value.detail
+    assert isinstance(detail, dict)
+    assert detail["code"] == "PROJECT_NOT_FOUND"
+    assert detail["path"] == str(tmp_path)  # 项目根目录（前端与 activeProjectPath 同口径）
 
 
 def test_empty_manifest_returns_422_with_detail(tmp_path):

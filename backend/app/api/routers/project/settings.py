@@ -85,7 +85,15 @@ def _save_manifest_field(
     if not os.path.isfile(manifest_path):
         raise HTTPException(
             status_code=404,
-            detail=f"项目配置文件（project.precis.yaml）不存在，请确认项目是否已被移动或删除（配置目录: {manifest_path}）",
+            detail={
+                # §2.1: 结构化错误码统一（与 dependencies.py 的 manifest 缺失出口同构），
+                # 前端按 detail.code 识别项目失效并触发自愈
+                "code": "PROJECT_NOT_FOUND",
+                "message": f"项目配置文件（project.precis.yaml）不存在，请确认项目是否已被移动或删除（配置目录: {manifest_path}）",
+                "path": str(
+                    config_path
+                ),  # §2.1: 项目根目录（前端与 activeProjectPath 同口径比对，勿传 manifest 文件路径）
+            },
         )
     try:
         raw = read_yaml(Path(manifest_path))
@@ -133,7 +141,15 @@ def get_v2_project_settings(config_path: str = Depends(get_project_config_path))
     if not os.path.isfile(manifest_path):
         raise HTTPException(
             status_code=404,
-            detail=f"项目配置文件（project.precis.yaml）不存在，请确认项目是否已被移动或删除（配置目录: {manifest_path}）",
+            detail={
+                # §2.1: 结构化错误码统一（与 dependencies.py 的 manifest 缺失出口同构），
+                # 前端按 detail.code 识别项目失效并触发自愈
+                "code": "PROJECT_NOT_FOUND",
+                "message": f"项目配置文件（project.precis.yaml）不存在，请确认项目是否已被移动或删除（配置目录: {manifest_path}）",
+                "path": str(
+                    config_path
+                ),  # §2.1: 项目根目录（前端与 activeProjectPath 同口径比对，勿传 manifest 文件路径）
+            },
         )
     try:
         raw = read_yaml(Path(manifest_path))

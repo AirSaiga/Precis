@@ -58,6 +58,11 @@ export function extractApiErrorText(e: unknown): string | null {
 
   const detail = data.detail
   if (typeof detail === 'string' && detail.trim()) return detail
+  // §2.1: 结构化 detail（{code, message, path} 形态，如 PROJECT_NOT_FOUND）——取 message 展示
+  if (detail && typeof detail === 'object' && !Array.isArray(detail)) {
+    const message = (detail as Record<string, unknown>).message
+    if (typeof message === 'string' && message.trim()) return message
+  }
   if (Array.isArray(detail)) {
     const parts = detail
       .map((d) =>

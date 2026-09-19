@@ -50,8 +50,64 @@ export { isAxiosError }
  * 后端"项目配置路径不存在"404 的 detail 前缀（唯一抛出点：backend/app/api/dependencies.py）。
  * 表示持久化的项目路径已失效（项目被移动/删除）。后端还有约 50 处其他语义的 404
  * （如 Job not found），因此必须按 detail 前缀精确匹配，不能把所有 404 都视为项目丢失。
+ *
+ * §2.1 双轨判读的旧轨：结构化错误码（detail.code === PROJECT_NOT_FOUND_CODE）上线后，
+ * 后端"manifest 缺失"类出口已改为 dict detail；字符串前缀分支继续覆盖"目录不存在"
+ * 出口（该出口保留字符串 detail）与旧版后端的兼容。
  */
 const PROJECT_PATH_MISSING_DETAIL = '提供的项目配置路径不存在'
+
+/**
+ * §2.1: 项目失效错误的结构化错误码（后端 dependencies.py 与各 project router 的
+ * manifest 缺失出口统一携带）。前端按 code 识别，不再依赖中文措辞前缀。
+ */
+const PROJECT_NOT_FOUND_CODE = 'PROJECT_NOT_FOUND'
+
+/** §2.1 结构化 detail 的形状 */
+interface ProjectNotFoundDetail {
+  code?: unknown
+  message?: unknown
+  path?: unknown
+}
+
+/**
+ * 从 404 响应中识别"项目失效"并提取失效路径（§2.1 双轨）。
+ *
+ * 优先 detail.code 结构化判读（新版后端），回退字符串前缀匹配（目录不存在出口
+ * 与旧版后端）。非项目失效的 404 返回 null。
+ */
+function extractProjectInvalidPath(detail: unknown): string | null {
+  if (detail && typeof detail === 'object' && !Array.isArray(detail)) {
+    const structured = detail as ProjectNotFoundDetail
+    if (structured.code === PROJECT_NOT_FOUND_CODE) {
+      return typeof structured.path === 'string' && structured.path
+        ? structured.path
+        : typeof structured.message === 'string'
+          ? structured.message
+          : ''
+    }
+    return null
+  }
+  if (typeof detail === 'string' && detail.startsWith(PROJECT_PATH_MISSING_DETAIL)) {
+    return detail.slice(PROJECT_PATH_MISSING_DETAIL.length).replace(/^:\s*/, '').trim()
+  }
+  return null
+}
+
+/**
+ * §2.1: 项目路径失效的清理动作（独立函数便于单测）。
+ *
+ * 守卫：仅当失败路径与 localStorage 当前激活项目一致时才清理——并发在飞的
+ * 旧路径 404、或调用方显式请求其他路径的 404，都不能误杀仍有效的激活项目。
+ */
+export function handleProjectPathInvalid(failedPath: string): void {
+  const activePath = readActiveProjectPath()
+  if (activePath && normalizePath(activePath) === normalizePath(failedPath)) {
+    localStorage.removeItem('activeProjectPaths')
+    logger.warn('[API] 项目路径已失效（后端返回项目不存在），已清除本地项目路径')
+    eventBus.emit('project-path-invalid')
+  }
+}
 
 /**
  * 当前使用的 API 基础地址
@@ -255,28 +311,20 @@ apiClient.interceptors.response.use(
       return Promise.reject(error)
     }
 
-    // 项目路径失效检测：请求命中的项目路径在后端磁盘上不存在（项目被移动/删除）。
-    // 清除 localStorage 残留路径并广播 project-path-invalid，由 App 层清理运行时状态、
-    // 回到项目选择页；否则应用会带着死路径对后续所有项目级请求持续 404 且无法自愈。
+    // 项目路径失效检测：请求命中的项目路径在后端磁盘上不存在（项目被移动/删除，
+    // 或 manifest 缺失）。清除 localStorage 残留路径并广播 project-path-invalid，
+    // 由 App 层清理运行时状态、回到项目选择页；否则应用会带着死路径对后续所有
+    // 项目级请求持续 404 且无法自愈。
     // 守卫：仅当失败路径与 localStorage 当前激活项目一致时才清理——并发在飞的
     // 旧路径 404、或调用方显式请求其他路径的 404，都不能误杀仍有效的激活项目。
-    // 后端回显格式：`${PROJECT_PATH_MISSING_DETAIL}: <abspath>`（Windows 反斜杠），
-    // 与 localStorage 路径经 normalizePath（斜杠/大小写归一）后比较。
-    const detail = (error.response?.data as { detail?: unknown } | undefined)?.detail
-    if (
-      error.response?.status === 404 &&
-      typeof detail === 'string' &&
-      detail.startsWith(PROJECT_PATH_MISSING_DETAIL)
-    ) {
-      const failedPath = detail
-        .slice(PROJECT_PATH_MISSING_DETAIL.length)
-        .replace(/^:\s*/, '')
-        .trim()
-      const activePath = readActiveProjectPath()
-      if (activePath && normalizePath(activePath) === normalizePath(failedPath)) {
-        localStorage.removeItem('activeProjectPaths')
-        logger.warn('[API] 项目路径已失效（后端返回路径不存在），已清除本地项目路径')
-        eventBus.emit('project-path-invalid')
+    // §2.1: 双轨判读——结构化 detail.code（新后端，含 manifest 缺失场景）优先，
+    // 字符串前缀（目录不存在出口/旧后端）回退；路径与 localStorage 经 normalizePath
+    // （斜杠/大小写归一）后比较。
+    if (error.response?.status === 404) {
+      const detail = (error.response.data as { detail?: unknown } | undefined)?.detail
+      const failedPath = extractProjectInvalidPath(detail)
+      if (failedPath) {
+        handleProjectPathInvalid(failedPath)
       }
     }
 

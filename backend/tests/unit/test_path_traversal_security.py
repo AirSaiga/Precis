@@ -192,13 +192,14 @@ class TestFilesOpsRootWhitelist:
         return root
 
     def test_root_without_manifest_rejected(self, client, tmp_path):
-        """root 指向任意目录（无 manifest）→ 400，不得作为白名单根"""
+        """root 指向任意目录（无 manifest）→ 拒绝（§2.1 起依赖层 404），不得作为白名单根"""
         root = tmp_path / "not-a-project"
         root.mkdir()
         secret = tmp_path / "secret.txt"
         secret.write_text("sensitive", encoding="utf-8")
         response = client.post("/api/latest/files/read", json={"path": str(secret), "root": str(root)})
-        assert response.status_code == 400
+        assert response.status_code == 404
+        assert response.json()["detail"]["code"] == "PROJECT_NOT_FOUND"
 
     def test_read_without_root_returns_422(self, client, tmp_path):
         f = tmp_path / "readable.txt"

@@ -62,12 +62,27 @@ class TestGetProjectConfigPath:
         assert "必须是一个绝对路径" in exc_info.value.detail
 
     @pytest.mark.asyncio
-    async def test_missing_manifest_raises_400(self, tmp_path):
-        """B-sec3: 目录存在但无 manifest → 400（非合法项目根）"""
+    async def test_missing_manifest_raises_404_structured(self, tmp_path):
+        """§2.1: 目录存在但无 manifest → 404 + 结构化错误码（原 400 与 GET /manifest
+        端点对同一情形不同状态码，且前端 404 自愈链永不触发）"""
         with pytest.raises(HTTPException) as exc_info:
             await get_project_config_path(str(tmp_path))
-        assert exc_info.value.status_code == 400
-        assert "project.precis.yaml" in exc_info.value.detail
+        assert exc_info.value.status_code == 404
+        detail = exc_info.value.detail
+        assert isinstance(detail, dict)
+        assert detail["code"] == "PROJECT_NOT_FOUND"
+        assert "project.precis.yaml" in detail["message"]
+        assert os.path.normpath(detail["path"]) == os.path.normpath(str(tmp_path))
+
+    @pytest.mark.asyncio
+    async def test_nonexistent_path_keeps_string_detail(self):
+        """§2.1 对照：目录不存在出口保留字符串 detail（前端字符串前缀分支兼容旧轨）"""
+        nonexistent_abs = os.path.abspath("/nonexistent/path/12345")
+        with pytest.raises(HTTPException) as exc_info:
+            await get_project_config_path(nonexistent_abs)
+        assert exc_info.value.status_code == 404
+        assert isinstance(exc_info.value.detail, str)
+        assert exc_info.value.detail.startswith("提供的项目配置路径不存在")
 
     @pytest.mark.asyncio
     async def test_path_traversal_dotdot_rejected(self, tmp_path):
@@ -78,7 +93,11 @@ class TestGetProjectConfigPath:
         (base / "config").mkdir()
         with pytest.raises(HTTPException) as exc_info:
             await get_project_config_path(str(base / "config" / ".." / "config"))
-        assert exc_info.value.status_code == 400
+        # 2.1: normpath 消解后该路径指向有效目录（无 manifest），落入
+        # manifest 缺失分支 → 404 结构化（原该分支为 400）
+        assert exc_info.value.status_code == 404
+        assert isinstance(exc_info.value.detail, dict)
+        assert exc_info.value.detail["code"] == "PROJECT_NOT_FOUND"
 
     @pytest.mark.asyncio
     async def test_empty_path_raises_400(self):

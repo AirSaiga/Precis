@@ -58,11 +58,12 @@ class TestValidateProjectPath:
         assert exc.value.status_code == 404
 
     def test_dir_without_manifest_rejected(self, tmp_path):
-        """存在但无 project.precis.yaml 的目录被拒（非合法项目根）。"""
+        """存在但无 project.precis.yaml 的目录被拒——2.1 起 404 + 结构化 code。"""
         with pytest.raises(HTTPException) as exc:
             validate_project_path(str(tmp_path))
-        assert exc.value.status_code == 400
-        assert "project.precis.yaml" in exc.value.detail
+        assert exc.value.status_code == 404
+        assert exc.value.detail["code"] == "PROJECT_NOT_FOUND"
+        assert "project.precis.yaml" in exc.value.detail["message"]
 
 
 # =============================================================================

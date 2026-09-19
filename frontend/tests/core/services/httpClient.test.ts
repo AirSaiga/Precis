@@ -347,3 +347,123 @@ describe('httpClient 基础 URL 管理', () => {
     await expect(mockGetStatus()).rejects.toThrow('IPC failed')
   })
 })
+
+describe('httpClient 响应拦截器 - §2.1 结构化错误码双轨判读', () => {
+  let originalAdapter: unknown
+
+  function stubFailure(status: number, detail: unknown) {
+    apiClient.defaults.adapter = (config) => {
+      const response = {
+        status,
+        statusText: 'Error',
+        data: { detail },
+        headers: {},
+        config,
+      }
+      return Promise.reject(
+        new AxiosError(
+          `Request failed with status code ${status}`,
+          AxiosError.ERR_BAD_REQUEST,
+          config,
+          {},
+          response as never
+        )
+      )
+    }
+  }
+
+  beforeEach(() => {
+    localStorage.clear()
+    originalAdapter = apiClient.defaults.adapter
+  })
+
+  afterEach(() => {
+    apiClient.defaults.adapter = originalAdapter as typeof apiClient.defaults.adapter
+    vi.restoreAllMocks()
+  })
+
+  it('404 + detail.code=PROJECT_NOT_FOUND（manifest 缺失）触发清理与广播', async () => {
+    localStorage.setItem(
+      'activeProjectPaths',
+      JSON.stringify({ configPath: 'D:/gone/proj', dataPath: 'D:/gone/proj/data' })
+    )
+    // §2.1 新后端形态：结构化 dict detail，path 为项目根目录
+    stubFailure(404, {
+      code: 'PROJECT_NOT_FOUND',
+      message: '项目路径下未找到 project.precis.yaml（非合法 Precis 项目根）。',
+      path: 'D:\\gone\\proj',
+    })
+    const fired: string[] = []
+    const handler = () => fired.push('fired')
+    eventBus.on('project-path-invalid', handler)
+
+    try {
+      await expect(apiClient.get('/project/manifest')).rejects.toBeInstanceOf(AxiosError)
+    } finally {
+      eventBus.off('project-path-invalid', handler)
+    }
+
+    expect(localStorage.getItem('activeProjectPaths')).toBeNull()
+    expect(fired).toHaveLength(1)
+  })
+
+  it('结构化 detail 但 code 不是 PROJECT_NOT_FOUND 不触发清理', async () => {
+    localStorage.setItem(
+      'activeProjectPaths',
+      JSON.stringify({ configPath: '/alive/proj', dataPath: '/alive/proj/data' })
+    )
+    stubFailure(404, { code: 'JOB_NOT_FOUND', message: 'Job not found', path: '/x' })
+    const fired: string[] = []
+    const handler = () => fired.push('fired')
+    eventBus.on('project-path-invalid', handler)
+
+    try {
+      await expect(apiClient.get('/ai/jobs/1')).rejects.toBeInstanceOf(AxiosError)
+    } finally {
+      eventBus.off('project-path-invalid', handler)
+    }
+
+    expect(localStorage.getItem('activeProjectPaths')).not.toBeNull()
+    expect(fired).toHaveLength(0)
+  })
+
+  it('字符串 detail 前缀（旧轨：目录不存在出口/旧后端）仍触发清理', async () => {
+    localStorage.setItem(
+      'activeProjectPaths',
+      JSON.stringify({ configPath: 'D:/old/proj', dataPath: 'D:/old/proj/data' })
+    )
+    stubFailure(404, '提供的项目配置路径不存在: D:\\old\\proj')
+    const fired: string[] = []
+    const handler = () => fired.push('fired')
+    eventBus.on('project-path-invalid', handler)
+
+    try {
+      await expect(apiClient.get('/project/config/full')).rejects.toBeInstanceOf(AxiosError)
+    } finally {
+      eventBus.off('project-path-invalid', handler)
+    }
+
+    expect(localStorage.getItem('activeProjectPaths')).toBeNull()
+    expect(fired).toHaveLength(1)
+  })
+
+  it('400 + 结构化 code 不触发清理（仅 404 参与）', async () => {
+    localStorage.setItem(
+      'activeProjectPaths',
+      JSON.stringify({ configPath: '/alive/proj', dataPath: '/alive/proj/data' })
+    )
+    stubFailure(400, { code: 'PROJECT_NOT_FOUND', message: 'x', path: '/alive/proj' })
+    const fired: string[] = []
+    const handler = () => fired.push('fired')
+    eventBus.on('project-path-invalid', handler)
+
+    try {
+      await expect(apiClient.get('/project/manifest')).rejects.toBeInstanceOf(AxiosError)
+    } finally {
+      eventBus.off('project-path-invalid', handler)
+    }
+
+    expect(localStorage.getItem('activeProjectPaths')).not.toBeNull()
+    expect(fired).toHaveLength(0)
+  })
+})

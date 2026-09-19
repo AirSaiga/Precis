@@ -87,10 +87,11 @@ class TestGetSettings:
         assert resp.json()["allow_eval"] is False
 
     def test_get_settings_404_missing_manifest(self, client, tmp_path):
-        # B-sec3: 路径存在但无 manifest，依赖层先拦截返 400（非合法项目根），
-        # 而非业务层返 404。语义升级：路径校验优先于业务逻辑。
+        # 2.1: 路径存在但无 manifest → 依赖层拦截返 404 + 结构化 code（原 400，
+        # 与 GET /manifest 同情形不同状态码的矛盾已消除）
         resp = client.get("/api/latest/project/config/settings", headers=_headers(tmp_path))
-        assert resp.status_code == 400
+        assert resp.status_code == 404
+        assert resp.json()["detail"]["code"] == "PROJECT_NOT_FOUND"
 
 
 class TestPutSettings:
@@ -151,4 +152,5 @@ class TestPutSettings:
             json={"validation": {}, "file_processing": {}, "script_security": {}},
             headers=_headers(tmp_path),
         )
-        assert resp.status_code == 400
+        assert resp.status_code == 404
+        assert resp.json()["detail"]["code"] == "PROJECT_NOT_FOUND"
