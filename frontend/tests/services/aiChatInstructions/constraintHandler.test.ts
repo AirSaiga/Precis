@@ -181,3 +181,115 @@ describe('handleConstraintInstruction 建边失败路径', () => {
     expect(mocks.toastSuccess).not.toHaveBeenCalled()
   })
 })
+
+describe('handleConstraintInstruction UPDATE/DELETE 匹配收窄（§2.2）', () => {
+  function makeRangeNode(id: string, configName: string): VueFlowNode {
+    return {
+      id,
+      type: 'rangeConstraint',
+      position: { x: 0, y: 0 },
+      data: {
+        configName,
+        constraintName: configName,
+        table: 'Users',
+        column: 'age',
+        minValue: 0,
+        maxValue: 100,
+        validationStatus: 'idle',
+        validationErrors: [],
+      },
+    } as VueFlowNode
+  }
+
+  function makeUpdateInstruction(constraintId?: string): FrontendInstruction {
+    return {
+      actionType: 'UPDATE_CONSTRAINT_NODE',
+      constraintSpec: {
+        type: 'Range',
+        targetNodeId: 'schema-1',
+        tableName: 'Users',
+        targetColumn: 'age',
+        constraintId,
+        isInline: false,
+        params: { min: 10, max: 60 },
+      },
+    } as unknown as FrontendInstruction
+  }
+
+  function makeDeleteInstruction(constraintId?: string): FrontendInstruction {
+    return {
+      actionType: 'DELETE_CONSTRAINT_NODE',
+      constraintSpec: {
+        type: 'Range',
+        targetNodeId: 'schema-1',
+        tableName: 'Users',
+        targetColumn: 'age',
+        constraintId,
+        isInline: false,
+      },
+    } as unknown as FrontendInstruction
+  }
+
+  beforeEach(() => {
+    mocks.graphStore.nodes = [
+      makeSchemaNode('schema-1', [{ id: 'col-1', columnName: 'age' }]),
+      makeRangeNode('range-a', 'range_users_age_1'),
+      makeRangeNode('range-b', 'range_users_age_2'),
+    ]
+    mocks.graphStore.edges = []
+    mocks.graphStore.reconcileAll.mockReset()
+    mocks.graphStore.updateNodeData.mockReset()
+    mocks.removeNodes.mockReset()
+    mocks.toastError.mockReset()
+    mocks.toastSuccess.mockReset()
+  })
+
+  it('UPDATE 带 constraintId 只改目标节点', async () => {
+    await handleConstraintInstruction(makeUpdateInstruction('range_users_age_2'))
+
+    expect(mocks.graphStore.updateNodeData).toHaveBeenCalledTimes(1)
+    expect(mocks.graphStore.updateNodeData).toHaveBeenCalledWith('range-b', expect.anything())
+  })
+
+  it('DELETE 带 constraintId 只删一个节点', async () => {
+    await handleConstraintInstruction(makeDeleteInstruction('range_users_age_1'))
+
+    expect(mocks.removeNodes).toHaveBeenCalledTimes(1)
+    expect(mocks.removeNodes).toHaveBeenCalledWith(['range-a'])
+  })
+
+  it('UPDATE 不带 constraintId 且多匹配：提示不动作（不再静默全改）', async () => {
+    await handleConstraintInstruction(makeUpdateInstruction(undefined))
+
+    expect(mocks.toastError).toHaveBeenCalledWith('aiChat.constraintAmbiguous')
+    expect(mocks.t).toHaveBeenCalledWith('aiChat.constraintAmbiguous', {
+      table: 'Users',
+      column: 'age',
+      count: 2,
+    })
+    expect(mocks.graphStore.updateNodeData).not.toHaveBeenCalled()
+  })
+
+  it('DELETE 不带 constraintId 且多匹配：提示不动作', async () => {
+    await handleConstraintInstruction(makeDeleteInstruction(undefined))
+
+    expect(mocks.toastError).toHaveBeenCalledWith('aiChat.constraintAmbiguous')
+    expect(mocks.t).toHaveBeenCalledWith('aiChat.constraintAmbiguous', {
+      table: 'Users',
+      column: 'age',
+      count: 2,
+    })
+    expect(mocks.removeNodes).not.toHaveBeenCalled()
+  })
+
+  it('UPDATE 唯一三元组命中（无 constraintId）照常更新（向后兼容）', async () => {
+    mocks.graphStore.nodes = [
+      makeSchemaNode('schema-1', [{ id: 'col-1', columnName: 'age' }]),
+      makeRangeNode('range-a', 'range_users_age_1'),
+    ]
+    await handleConstraintInstruction(makeUpdateInstruction(undefined))
+
+    expect(mocks.graphStore.updateNodeData).toHaveBeenCalledTimes(1)
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('aiChat.constraintUpdated')
+  })
+})

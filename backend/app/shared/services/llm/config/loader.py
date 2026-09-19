@@ -69,6 +69,8 @@ class ConfigLoader:
                          未提供时固定使用 ~/.precis/ai_providers.yaml。
         """
         self._config_path = config_path
+        # §2.12: env 注入 api_key 的 provider id 集合（save 时剔除不落盘）
+        self._env_sourced_providers: set[str] = set()
 
     @property
     def config_path(self) -> Path:
@@ -173,7 +175,12 @@ class ConfigLoader:
         return config
 
     def _load_api_keys_from_env(self, config: AIConfig) -> None:
-        """从环境变量读取 API Key（优先级高于配置文件）。"""
+        """从环境变量读取 API Key（优先级高于配置文件）。
+
+        §2.12: 注入的同时记录 env 来源的 provider id——save() 据此把 env 来源的
+        api_key 从落盘数据剔除，保持"env 覆盖是临时语义"；用户显式改 key 的路径
+        调 mark_api_key_manual() 后正常落盘。
+        """
         for provider in config.providers:
             env_key = f"{provider.id.upper().replace('-', '_')}_API_KEY"
             api_key = os.getenv(env_key)
@@ -185,6 +192,11 @@ class ConfigLoader:
 
             if api_key:
                 provider.api_key = api_key
+                self._env_sourced_providers.add(provider.id)
+
+    def mark_api_key_manual(self, provider_id: str) -> None:
+        """把 provider 的 api_key 标记为手工设置（save 时正常落盘，不再按 env 来源剔除）。"""
+        self._env_sourced_providers.discard(provider_id)
 
     def save(self, config: AIConfig) -> None:
         """
@@ -193,12 +205,20 @@ class ConfigLoader:
         始终写入 ~/.precis/ai_providers.yaml。
         使用原子写入（临时文件 + os.replace）：此文件含 API Key 等敏感配置，
         裸 open("w") 在写入中途崩溃/断电会产生半截文件，导致用户配置丢失。
+
+        §2.12: env 注入的 api_key 不落盘（否则 env 覆盖被一次性写死进配置文件，
+        用户此后换 env 变量不再生效还以为 env 是活的）。
         """
         user_path = self.config_path
         user_path.parent.mkdir(parents=True, exist_ok=True)
 
         data = config.model_dump(exclude_none=True)
         data = self._encrypt_api_keys(data)
+
+        if self._env_sourced_providers:
+            for provider_data in data.get("providers", []):
+                if provider_data.get("id") in self._env_sourced_providers:
+                    provider_data.pop("api_key", None)
 
         write_yaml_atomic(user_path, data)
 

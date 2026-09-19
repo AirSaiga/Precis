@@ -362,6 +362,13 @@ def update_yaml_config(action: dict[str, Any], workspace_path: str) -> tuple[boo
         constraint_file_path = Path(workspace_path) / "constraints" / f"{constraint_id}.constraint.yaml"
 
         try:
+            # §2.4: ADD 存在性检查——原实现直写覆盖，同列第二个同类型约束静默顶掉第一个。
+            # 已存在时引导走 UPDATE；删除语义（DELETE 分支在前）不受影响。
+            if action_type == "ADD_CONSTRAINT_NODE" and constraint_file_path.exists():
+                error_msg = f"约束已存在（id={constraint_id}），如需修改请用 UPDATE，如需新建请先删除现有约束。"
+                logger.warning(f"[updateYamlConfig] {error_msg}")
+                return False, error_msg
+
             # 构建约束配置
             constraint_config = ConstraintFile(
                 version=2,

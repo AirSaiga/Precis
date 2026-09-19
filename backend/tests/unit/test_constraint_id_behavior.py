@@ -33,9 +33,10 @@ class TestConstraintId:
         result = _generate_constraint_id("NotNull", "users", "邮箱")
         assert result == "notnull_users_email"
 
-    def test_long_table_name_truncated(self):
+    def test_long_table_name_full(self):
+        """§2.4: 长表名不再截断到 10 字符（截断使 customers_eu_2024/us_2024 同列同类型同 ID 静默覆盖）"""
         result = _generate_constraint_id("NotNull", "very_long_table_name", "col")
-        assert result == "notnull_very_long__col"
+        assert result == "notnull_very_long_table_name_col"
 
     def test_special_chars_sanitized(self):
         result = _generate_constraint_id("Range", "t1", "col-with.dots")
@@ -54,8 +55,12 @@ class TestChineseToAbbr:
         assert _chinese_to_abbr("用户") == "user"
         assert _chinese_to_abbr("订单") == "order"
 
-    def test_partial_match(self):
-        assert _chinese_to_abbr("用户信息") == "user"
+    def test_no_substring_match(self):
+        """§2.4: 子串匹配删除——"用户信息"不走"用户"→user 的误映射（避免不同表同缩写碰撞），
+        落入首字母全名展开路径"""
+        result = _chinese_to_abbr("用户信息")
+        assert result != "user"
+        assert isinstance(result, str) and result
 
     def test_unknown_chinese_returns_pinyin(self):
         result = _chinese_to_abbr("供商")

@@ -216,12 +216,12 @@ constraintSpec.params 按类型填充对应字段：
 
 - `tableName` / `targetColumn`：可使用表名/列名（中文或英文），系统会自动解析为对应 ID。
 - 如不确定 ID，留空 `targetNodeId` / `targetColumnId`，系统从 `tableName` / `targetColumn` 解析。
-- `isInline`：默认 true（内联约束，存入表配置）。仅当用户明确要求"独立约束/单独文件"时设 false。
+- `isInline`：默认 false（创建独立约束文件）。仅当用户明确要求"内联约束/存入表配置"时设 true。
 
 ## 使用策略
 
-- **默认创建内联约束** (`isInline: true`)：内联约束直接存储在表配置中，轻量且易于管理
-- **只有当用户明确要求"创建独立约束"、"独立节点"或"单独文件"时**，才设置 `isInline: false`
+- **默认创建独立约束文件** (`isInline: false`)：独立文件是独立可引用的配置实体，画布节点与文件一一对应
+- **只有当用户明确要求"内联约束"、"存在表配置里"时**，才设置 `isInline: true`
 - 如果用户说"删除 XXX 约束"，请使用 DELETE_CONSTRAINT_NODE，且 `isInline` 必须与该约束的实际存储形态一致（内联约束 → true，独立约束 → false）
 - 必须确保 `tableName` 和 `targetColumn` 准确无误
 

@@ -37,6 +37,7 @@ import yaml
 
 from app.shared.core.project.manifest.reader import load_manifest
 from app.shared.core.project.manifest.writer import ensure_schema_ref, save_manifest
+from app.shared.core.project.schema_ref_check import find_schema_references, format_reference_report
 from app.shared.services.llm.yaml_io import FileLock, atomic_write_yaml
 
 logger = logging.getLogger(__name__)
@@ -221,7 +222,9 @@ def _update_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
                     return {"success": False, "message": "source.path 不允许绝对路径或目录穿越"}
                 schema_data["source"] = source
 
-            atomic_write_yaml(schema_file, schema_data)
+            # §2.10: UPDATE 显式整体替换语义——preserve_format 默认 True 的递归合并
+            # "只增不删"，被删掉的列/字段会残留在文件里
+            atomic_write_yaml(schema_file, schema_data, preserve_format=False)
 
     except Exception as e:
         return {"success": False, "message": f"更新 Schema 失败: {e}"}
@@ -244,6 +247,20 @@ def _delete_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
     schema_file = _find_schema_file(workspace_path, schema_id)
     if not schema_file:
         return {"success": False, "message": f"Schema 文件不存在: {schema_id}"}
+
+    # §2.6: 删除前引用检查——与 REST DELETE /schemas/{id} 的 409 守卫同一套逻辑
+    # （公共函数 find_schema_references 单一事实源）。AI 不能成为绕开引用守卫的后门：
+    # 有引用时约束全部悬空，之后校验报"表不存在"而画布节点还在。
+    refs = find_schema_references(workspace_path, schema_id)
+    ref_report = format_reference_report(refs)
+    if ref_report:
+        return {
+            "success": False,
+            "message": (
+                f"Schema '{schema_id}' 仍被 {ref_report} 引用，请先删除这些引用再删除表"
+                "（可先逐一删除引用它的约束/正则/转换）"
+            ),
+        }
 
     try:
         schema_file.unlink()

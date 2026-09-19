@@ -93,14 +93,38 @@ export function getSchemaNodeSourceInfo(
   }
 
   if (!sourcePreviewNode && !schemaSourceNodeId) {
-    // 无 sourceNodeId：尝试通过入边查找（旧连接方式）
-    const incomingEdge = edges.find(
-      (edge) =>
-        edge.target === schemaNodeId &&
-        (edge.targetHandle === undefined || edge.targetHandle === 'target-left')
-    )
+    // 无 sourceNodeId：通过入边查找（旧连接方式）。
+    // §2.3: 一个 Schema 允许多数据源（manualData + sourcePreview 并连是合法场景），
+    // 取边按源类型优先级 sourcePreview > jsonSourcePreview > manualData，同优先级取
+    // 数组尾部（最近创建）——原实现取第一条入边，校验用哪个源纯粹取决于建边先后，
+    // 先连 manualData 时甚至因源类型不匹配而整表跳过校验
+    const sourceTypePriority: Record<string, number> = {
+      sourcePreview: 3,
+      jsonSourcePreview: 2,
+      manualData: 1,
+    }
+    const candidates = edges
+      .filter(
+        (edge) =>
+          edge.target === schemaNodeId &&
+          (edge.targetHandle === undefined || edge.targetHandle === 'target-left')
+      )
+      .map((edge) => nodes.find((n) => n.id === edge.source))
+      .filter((n): n is Node => !!n && !!sourceTypePriority[n.type ?? ''])
 
-    if (!incomingEdge) {
+    let incomingSource: Node | undefined
+    for (const candidate of candidates) {
+      // 同优先级保留后者（数组靠后=最近创建）
+      if (
+        !incomingSource ||
+        (sourceTypePriority[candidate.type ?? ''] ?? 0) >=
+          (sourceTypePriority[incomingSource.type ?? ''] ?? 0)
+      ) {
+        incomingSource = candidate
+      }
+    }
+
+    if (!incomingSource) {
       // 既无 sourceNodeId 也无入边：可能是 V2 导入的内联数据源，直接使用 Schema 缓存路径
       const hasInlineCachedPath = !!(schemaLocalPath || schemaSourceFilePath)
       if (hasInlineCachedPath) {
@@ -117,11 +141,7 @@ export function getSchemaNodeSourceInfo(
       return null
     }
 
-    sourcePreviewNode = nodes.find(
-      (n) =>
-        n.id === incomingEdge.source &&
-        (n.type === 'sourcePreview' || n.type === 'jsonSourcePreview')
-    )
+    sourcePreviewNode = incomingSource
   }
 
   // 有 sourceNodeId 但对应节点不可达（被删除/边已断开）：视为未连接

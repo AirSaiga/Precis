@@ -741,15 +741,14 @@ def test_system_prompt_is_inline_default_consistent():
     from app.shared.services.llm.chat.chat_system_prompt import SYSTEM_PROMPT_JSON_FORMAT
 
     for prompt in (CHAT_AGENT_SYSTEM_PROMPT, SYSTEM_PROMPT_JSON_FORMAT):
-        # 不再出现"默认false"的自相矛盾表述
-        assert "默认false" not in prompt
-        # 统一为"默认 true"
-        assert "默认 true" in prompt
+        # §2.11: 双侧统一为"默认 false"（对齐消费方 get("isInline", False) 口径）
+        assert "默认 true" not in prompt
+        assert "默认 false" in prompt
         # DELETE 指引：isInline 必须与约束的实际存储形态一致
         assert "实际存储形态" in prompt
 
-    # JSON 格式提示词的示例字段显式标注默认 true
-    assert "（默认 true）" in SYSTEM_PROMPT_JSON_FORMAT
+    # JSON 格式提示词的示例字段显式标注默认 false（§2.11）
+    assert "（默认 false" in SYSTEM_PROMPT_JSON_FORMAT
 
 
 @pytest.mark.asyncio

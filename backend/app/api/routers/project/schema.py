@@ -55,6 +55,7 @@ from pydantic import BaseModel
 from app.api.dependencies import get_project_config_path
 from app.shared.core.io.yaml import read_yaml, write_yaml_atomic
 from app.shared.core.project.manifest.types import ProjectManifestV2
+from app.shared.core.project.schema_ref_check import find_schema_references
 from app.shared.core.utils.path_utils import make_relative
 
 from .base import (
@@ -391,58 +392,25 @@ def delete_v2_schema(table_id: str, config_path: str = Depends(get_project_confi
         raise HTTPException(status_code=400, detail="非法的 Schema 文件路径")
 
     with project_lock(config_path):
-        for c_ref in manifest.constraints:
-            try:
-                c_path = _resolve_project_path(config_path, c_ref.path)
-                if os.path.isfile(c_path):
-                    c_data = read_yaml(Path(c_path))
-                    refs_data = c_data.get("refs", {})
-                    if (
-                        refs_data.get("table_id") == table_id
-                        or refs_data.get("from_table_id") == table_id
-                        or refs_data.get("to_table_id") == table_id
-                    ):
-                        raise HTTPException(
-                            status_code=409,
-                            detail=f"Schema '{table_id}' 仍被 constraint '{c_ref.id}' 引用，请先删除引用",
-                        )
-            except HTTPException:
-                raise
-            except Exception:
-                continue
+        # §2.6: 引用检查抽公共函数（与 AI DELETE_SCHEMA 共用单一事实源）；
+        # 消息格式与原三段检查逐段一致
+        refs = find_schema_references(config_path, table_id)
+        if refs["constraints"]:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Schema '{table_id}' 仍被 constraint {', '.join(refs['constraints'])} 引用，请先删除引用",
+            )
+        if refs["regex"]:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Schema '{table_id}' 仍被 regex {', '.join(refs['regex'])} 引用，请先删除引用",
+            )
+        if refs["transforms"]:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Schema '{table_id}' 仍被 transform {', '.join(refs['transforms'])} 引用，请先删除引用",
+            )
 
-        # 检查 regex 引用
-        for r_ref in manifest.regex_nodes or []:
-            try:
-                r_path = _resolve_project_path(config_path, r_ref.path)
-                if os.path.isfile(r_path):
-                    r_data = read_yaml(Path(r_path))
-                    source_ref = r_data.get("source_ref", {})
-                    if source_ref.get("table_id") == table_id:
-                        raise HTTPException(
-                            status_code=409,
-                            detail=f"Schema '{table_id}' 仍被 regex '{r_ref.id}' 引用，请先删除引用",
-                        )
-            except HTTPException:
-                raise
-            except Exception:
-                continue
-
-        # 检查 transform 引用
-        for t_ref in manifest.transforms or []:
-            try:
-                t_path = _resolve_project_path(config_path, t_ref.path)
-                if os.path.isfile(t_path):
-                    t_data = read_yaml(Path(t_path))
-                    if t_data.get("input_from_node") == table_id:
-                        raise HTTPException(
-                            status_code=409,
-                            detail=f"Schema '{table_id}' 仍被 transform '{t_ref.id}' 引用，请先删除引用",
-                        )
-            except HTTPException:
-                raise
-            except Exception:
-                continue
         try:
             if os.path.isfile(abs_schema_path):
                 os.remove(abs_schema_path)

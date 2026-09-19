@@ -40,6 +40,8 @@ const aiChat = {
   alreadyOnCanvas: '{name} is already on canvas',
   constraintDeleted: 'Deleted constraint for {table}.{column}',
   constraintUpdated: 'Updated constraint params for {table}.{column}',
+  constraintAmbiguous:
+    '{count} constraints of the same type exist on {table}.{column}; cannot tell which one to modify. Provide a constraintId in the instruction.',
   inlineConstraintCreated: 'Added inline constraint for {table}.{column}',
   inlineConstraintDeleted: 'Deleted inline constraint for {column}',
   inlineConstraintUnsupported:

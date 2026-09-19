@@ -39,6 +39,8 @@ const aiChat = {
   alreadyOnCanvas: '{name} 已在画布上',
   constraintDeleted: '已删除 {table}.{column} 的约束',
   constraintUpdated: '已更新 {table}.{column} 的约束参数',
+  constraintAmbiguous:
+    '{table}.{column} 有 {count} 个同类型约束，无法确定要操作哪一个，请在指令中提供 constraintId',
   inlineConstraintCreated: '已为 {table}.{column} 添加内联约束',
   inlineConstraintDeleted: '已删除 {column} 的内联约束',
   inlineConstraintUnsupported: '约束类型 {type} 不支持内联存储，请改用独立约束节点',

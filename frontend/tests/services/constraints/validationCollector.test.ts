@@ -203,4 +203,64 @@ describe('validationCollector - getSchemaNodeSourceInfo', () => {
       expect(result!.sourceFilePath).toBe('/data/users.csv')
     })
   })
+
+  describe('多数据源取边优先级（§2.3）', () => {
+    function makeMultiSourceNodes() {
+      return [
+        {
+          id: 'schema-m',
+          type: 'schema',
+          data: { tableName: 'mixed' },
+        },
+        {
+          id: 'manual-1',
+          type: 'manualData',
+          data: { columns: [], rows: [] },
+        },
+        {
+          id: 'preview-m',
+          type: 'sourcePreview',
+          data: {
+            localPath: '/data/file-source.csv',
+            sourceName: 'file-source.csv',
+            headerRow: 0,
+            sourceMode: 'localfile',
+          },
+        },
+      ] as any[]
+    }
+
+    it('manualData 先连 + sourcePreview 后连 → 取 sourcePreview（不再取决于建边顺序）', () => {
+      const nodes = makeMultiSourceNodes()
+      const edges = [
+        { source: 'manual-1', target: 'schema-m', targetHandle: 'target-left' },
+        { source: 'preview-m', target: 'schema-m', targetHandle: 'target-left' },
+      ] as any[]
+      const result = getSchemaNodeSourceInfo('schema-m', nodes, edges)
+      expect(result).toBeTruthy()
+      expect(result!.sourceNodeId).toBe('preview-m')
+      expect(result!.sourceFilePath).toBe('/data/file-source.csv')
+    })
+
+    it('sourcePreview 先连 + manualData 后连 → 仍取 sourcePreview', () => {
+      const nodes = makeMultiSourceNodes()
+      const edges = [
+        { source: 'preview-m', target: 'schema-m', targetHandle: 'target-left' },
+        { source: 'manual-1', target: 'schema-m', targetHandle: 'target-left' },
+      ] as any[]
+      const result = getSchemaNodeSourceInfo('schema-m', nodes, edges)
+      expect(result).toBeTruthy()
+      expect(result!.sourceNodeId).toBe('preview-m')
+    })
+
+    it('仅 manualData → 取 manualData（不再因第一条边类型不匹配而整表跳过）', () => {
+      const nodes = makeMultiSourceNodes()
+      const edges = [
+        { source: 'manual-1', target: 'schema-m', targetHandle: 'target-left' },
+      ] as any[]
+      const result = getSchemaNodeSourceInfo('schema-m', nodes, edges)
+      expect(result).toBeTruthy()
+      expect(result!.sourceNodeId).toBe('manual-1')
+    })
+  })
 })

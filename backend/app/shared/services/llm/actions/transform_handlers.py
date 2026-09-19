@@ -173,7 +173,9 @@ def _update_transform(spec: dict[str, Any], workspace_path: str) -> dict[str, An
             if "outputColumns" in spec:
                 data["output_columns"] = spec["outputColumns"]
 
-            atomic_write_yaml(transform_file, data)
+            # §2.10: UPDATE 显式整体替换语义——preserve_format 默认 True 的递归合并
+            # "只增不删"，旧输出列 C 会残留在文件里（用户想把输出改成 A、B 结果是 A/B/C）
+            atomic_write_yaml(transform_file, data, preserve_format=False)
 
     except Exception as e:
         return {"success": False, "message": f"更新 Transform 失败: {e}"}
@@ -239,10 +241,12 @@ def _generate_transform_id(transform_type: str) -> str:
 
 
 def _short_hash() -> str:
-    """生成短随机哈希"""
-    import random
+    """生成短随机哈希（§2.5: uuid4 前 8 位十六进制——原 random.randint(100,999)
+    仅 900 个桶，批量建 transform 时生日悖论约 35 个即碰撞过半，碰撞报"文件已存在"
+    会诱导 LLM 走错误的 ADD_TO_CANVAS/放弃路径）"""
+    import uuid
 
-    return f"{random.randint(100, 999)}"
+    return uuid.uuid4().hex[:8]
 
 
 def _ensure_manifest_transform_ref(workspace_path: str, transform_id: str) -> None:

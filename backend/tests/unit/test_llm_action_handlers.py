@@ -915,8 +915,10 @@ class TestProcessSchemaAction:
             yaml.safe_dump(
                 {
                     "version": 2,
-                    "project": {"id": "p1"},
+                    "project": {"id": "p1", "name": "p1"},
                     "schemas": [{"id": "to_delete", "path": "schemas/to_delete.schema.yaml"}],
+                    "constraints": [],
+                    "regex_nodes": [],
                 },
                 f,
             )
@@ -976,7 +978,16 @@ class TestProcessRegexAction:
         import yaml
 
         with open(manifest_path, "w") as f:
-            yaml.safe_dump({"version": 2, "project": {"id": "p1"}, "regex_nodes": []}, f)
+            yaml.safe_dump(
+                {
+                    "version": 2,
+                    "project": {"id": "p1", "name": "p1"},
+                    "schemas": [],
+                    "constraints": [],
+                    "regex_nodes": [],
+                },
+                f,
+            )
 
         result = process_regex_action(
             {
@@ -1017,7 +1028,16 @@ class TestProcessRegexAction:
         import yaml
 
         with open(manifest_path, "w") as f:
-            yaml.safe_dump({"version": 2, "project": {"id": "p1"}, "regex_nodes": []}, f)
+            yaml.safe_dump(
+                {
+                    "version": 2,
+                    "project": {"id": "p1", "name": "p1"},
+                    "schemas": [],
+                    "constraints": [],
+                    "regex_nodes": [],
+                },
+                f,
+            )
 
         result = process_regex_action(
             {

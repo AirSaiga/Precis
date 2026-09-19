@@ -217,7 +217,9 @@ def get_project_overview(project_path: str) -> dict[str, Any]:
                             "id": ic.get("id", ""),
                             "type": constraint_type,
                             "description": f"{table_name}.{col_name} - {constraint_type} 约束 (内联)",
-                            "enabled": True,
+                            # §2.13: 读取磁盘真实 enabled（无字段默认 true，与运行时语义一致）——
+                            # 原硬编码 True 使 AI 对已禁用约束误判"在生效"
+                            "enabled": ic.get("enabled", True),
                             "table_id": table_id,
                             "table_name": table_name,
                             "column_id": col_id,

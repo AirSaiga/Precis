@@ -453,6 +453,9 @@ async def update_provider(provider_id: str, req: UpdateProviderRequest) -> Provi
 
     updated_provider = existing.model_copy(update=update_data)
     config.providers[idx] = updated_provider
+    # §2.12: 显式改 api_key 视为手工值——正常落盘，不再按 env 来源剔除
+    if "api_key" in update_data:
+        loader.mark_api_key_manual(provider_id)
     loader.save(config)
 
     return _provider_to_response(updated_provider, {})

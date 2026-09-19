@@ -64,7 +64,10 @@ class ConstraintSpec(BaseModel):
     targetColumn: str | None = Field(default=None, description="目标列名")
     targetColumnId: str | None = Field(default=None, description="目标列 ID")
     constraintId: str | None = Field(default=None, description="约束 ID")
-    isInline: bool = Field(default=True, description="是否内联约束")
+    # §2.11: 默认对齐消费方口径（get("isInline", False)）——原默认 True 与
+    # update_yaml_config/frontend_instructions 的 get 默认 False 漂移，谁改任一侧即炸。
+    # 消费方均读原始 dict，本默认值当前不参与运行时判定（行为锁定测试见 B4 回归）。
+    isInline: bool = Field(default=False, description="是否内联约束（默认 false=独立约束文件）")
     params: dict[str, Any] | None = Field(default=None, description="约束参数")
 
     # 注意：约束类型白名单、表信息存在性、参数完整性均不在 Pydantic 层校验——这些由

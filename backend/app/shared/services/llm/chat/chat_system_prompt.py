@@ -169,7 +169,7 @@ SYSTEM_PROMPT_JSON_FORMAT = """
                 "tableName": "目标表格的名称（必填，系统据此解析目标表）",
                 "targetColumn": "目标列的名称（必填）",
                 "targetColumnId": "目标列的ID（可选；如不确定可留空，系统会从 targetColumn 解析）",
-                "isInline": true 或 false（默认 true）,
+                "isInline": true 或 false（默认 false，不写则创建独立约束文件）,
                 "params": {
                     "min": 0,
                     "max": 100,
@@ -244,14 +244,14 @@ SYSTEM_PROMPT_JSON_FORMAT = """
 - ADD_TO_CANVAS: 把项目配置里已存在的资源（schema/regex/constraint/transform）显示到画布上（不写盘）。
 
 ## 使用策略
-- **默认创建内联约束** (`isInline: true`)：内联约束直接存储在表配置中，轻量且易于管理
-- **只有当用户明确要求"创建独立约束"、"独立节点"或"单独文件"时**，才设置 `isInline: false`
+- **默认创建独立约束文件** (`isInline: false`)：独立文件是可独立引用的配置实体（§2.11 口径，与消费方一致）
+- **只有当用户明确要求"内联约束"、"存在表配置里"时**，才设置 `isInline: true`
 - 如果用户说"删除 XXX 约束"，请使用 DELETE_CONSTRAINT_NODE，且 `isInline` 必须与该约束的实际存储形态一致（内联约束 → true，独立约束 → false）
 - 必须确保 `tableName` 和 `targetColumn` 准确无误
 
 ## 内联约束 vs 独立约束
-- **内联约束** (`isInline: true`): 默认选项，直接嵌入 schema 配置，适合简单规则
-- **独立约束** (`isInline: false`): 生成单独的 .constraint.yaml 文件，适合复杂规则或需要复用的约束
+- **独立约束** (`isInline: false`): 默认选项，生成单独的 .constraint.yaml 文件，适合复杂规则或需要复用的约束
+- **内联约束** (`isInline: true`): 直接嵌入 schema 配置，适合简单规则，需用户明确要求
 
 ### 示例 4：JSON 数据源配置建议
 当用户问"如何配置 JSON 数据源"或"帮我配置这个 JSON 文件的 schema"时：

@@ -35,6 +35,7 @@ from app.shared.services.llm.actions.registry import (
     SPEC_FIELD_FOR,
     TRANSFORM_SUB_TYPES,
 )
+from app.shared.services.llm.suggestion_utils import normalize_constraint_type
 from app.shared.services.llm.yaml_io import ActionParseError
 
 logger = logging.getLogger(__name__)
@@ -273,7 +274,12 @@ class ActionParser:
         # 约束操作额外校验 type 字段在白名单内
         if spec_field == "constraintSpec":
             spec = action.get("constraintSpec", {})
-            if spec.get("type") not in ActionParser.VALID_CONSTRAINT_TYPES:
+            # §2.9: 校验前过 normalize_constraint_type 归一（与写盘路径同一函数，
+            # 52662373 引入）——legacy 路径对大小写/别名零容忍会把小写 not_null 的
+            # 整条响应判非法。归一后写回正名，后续 handler 零改动拿到 PascalCase。
+            normalized = normalize_constraint_type(str(spec.get("type") or ""))
+            spec["type"] = normalized
+            if normalized not in ActionParser.VALID_CONSTRAINT_TYPES:
                 return False
         return True
 

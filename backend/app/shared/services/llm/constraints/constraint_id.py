@@ -49,8 +49,10 @@ def _generate_constraint_id(constraint_type: str, table_name: str, column_name: 
     if re.match(r"^[\u4e00-\u9fff]+$", table_name):
         table_abbr = _chinese_to_abbr(table_name)
     else:
+        # §2.4: 不再截断到 10 字符——customers_eu_2024 与 customers_us_2024 截断后
+        # 同前缀，同列同类型算出同一 ID，第二个约束静默覆盖第一个
         safe_table = re.sub(r"[^a-zA-Z0-9_]", "_", table_name).strip("_")
-        table_abbr = safe_table[:10] if len(safe_table) > 10 else safe_table
+        table_abbr = safe_table
 
     if table_abbr:
         return f"{type_prefix}_{table_abbr}_{safe_column}"
@@ -119,9 +121,8 @@ def _chinese_to_abbr(text: str) -> str:
     if text in mappings:
         return mappings[text]
 
-    for cn, en in mappings.items():
-        if cn in text:
-            return en
+    # §2.4: 子串匹配删除——"订单" in "订单明细" 会把不同表缩写成同一 ID 前缀，
+    # 命中错误映射还引入碰撞面。不在内建表中的词走下方首字母路径
 
     if re.match(r"^[\u4e00-\u9fff]+$", text):
         pinyin_map = {
@@ -166,6 +167,8 @@ def _chinese_to_abbr(text: str) -> str:
             "数": "s",
             "量": "l",
         }
-        return "".join([pinyin_map.get(c, c) for c in text[:5]])
+        # §2.4: 不限前 5 字——长中文名的前 5 字相同仍会碰撞，全名逐字转换
+        return "".join([pinyin_map.get(c, c) for c in text])
     else:
-        return "".join([c[0] for c in text.split("_") if c])[:5]
+        # §2.4: 同理不限前 5 段，全名首字母展开
+        return "".join([c[0] for c in text.split("_") if c])

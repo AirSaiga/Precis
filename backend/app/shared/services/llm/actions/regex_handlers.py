@@ -147,8 +147,13 @@ def _add_regex(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
     except Exception as e:
         return {"success": False, "message": f"写入 Regex 文件失败: {e}"}
 
-    # 更新 manifest
-    _ensure_manifest_regex_ref(workspace_path, regex_id)
+    # 更新 manifest —— §2.7: 登记失败时回滚删除已写文件（对齐 Schema 路径），
+    # 否则磁盘留下孤儿 .regex.yaml：重启后不被加载、不报错、画布节点还在
+    try:
+        _ensure_manifest_regex_ref(workspace_path, regex_id)
+    except Exception as e:
+        Path(regex_file).unlink(missing_ok=True)
+        return {"success": False, "message": f"更新 manifest 引用失败（已回滚 Regex 文件）: {e}"}
 
     logger.info(f"[RegexHandler] 创建 Regex: {regex_id}")
     return {"success": True, "message": regex_id}
@@ -188,7 +193,8 @@ def _update_regex(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
                 data["source_ref"] = {"table_id": spec["targetNodeId"], "column_id": spec["targetColumn"]}
                 data["source_column_name"] = spec["targetColumn"]
 
-            atomic_write_yaml(regex_file, data)
+            # §2.10: UPDATE 显式整体替换语义（与 UPDATE_TRANSFORM/UPDATE_SCHEMA 同族对齐）
+            atomic_write_yaml(regex_file, data, preserve_format=False)
 
     except Exception as e:
         return {"success": False, "message": f"更新 Regex 失败: {e}"}
@@ -251,17 +257,17 @@ def _find_regex_file(workspace_path: str, regex_id: str) -> Path | None:
 
 
 def _ensure_manifest_regex_ref(workspace_path: str, regex_id: str) -> None:
-    """确保 manifest 中包含指定 Regex 引用"""
+    """确保 manifest 中包含指定 Regex 引用。
+
+    §2.7: 异常向上传播（不再吞掉只留 warning）——调用方据此回滚已写的 Regex 文件。
+    """
     manifest_path = Path(workspace_path) / "project.precis.yaml"
     if not manifest_path.exists():
         return
 
-    try:
-        manifest = load_manifest(manifest_path)
-        ensure_regex_ref(manifest, regex_id)
-        save_manifest(manifest, manifest_path)
-    except Exception as e:
-        logger.warning(f"[RegexHandler] 更新 manifest 引用失败: {e}")
+    manifest = load_manifest(manifest_path)
+    ensure_regex_ref(manifest, regex_id)
+    save_manifest(manifest, manifest_path)
 
 
 def _remove_manifest_regex_ref(workspace_path: str, regex_id: str) -> None:

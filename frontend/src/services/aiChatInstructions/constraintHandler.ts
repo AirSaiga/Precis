@@ -81,20 +81,52 @@ export async function handleConstraintInstruction(instruction: FrontendInstructi
     return
   }
 
+  const nodeType = `${constraintKind}Constraint`
+
+  // §2.2: UPDATE/DELETE 匹配收窄——同列双同类型约束时三元组过滤会一起改/一起删。
+  // constraintId 经指令透传写入节点 configName（52662373 契约），优先按它精确命中。
+  const dataOf = (n: VueFlowNode) => n.data as Record<string, unknown>
+  const findByConstraintId = (): VueFlowNode | null => {
+    if (!constraintId) return null
+    return (
+      graphStore.nodes.find(
+        (n) =>
+          n.type === nodeType &&
+          (dataOf(n).configName === constraintId || dataOf(n).constraintName === constraintId)
+      ) ?? null
+    )
+  }
+  const findByTriple = (): VueFlowNode[] =>
+    graphStore.nodes.filter(
+      (n) =>
+        n.type === nodeType && dataOf(n).table === tableName && dataOf(n).column === targetColumn
+    )
+
   // DELETE 分支：约束文件已由后端删除，此处镜像到画布
   if (instruction.actionType === 'DELETE_CONSTRAINT_NODE') {
     if (isInline) {
       // 内联删除：从目标列移除该约束（handleInlineConstraint 的逆操作）
       removeInlineConstraint(targetNode, constraintKind, targetColumn)
     } else {
-      // 独立删除：按 (约束节点类型, table, column) 三元组定位节点
-      // 独立约束节点 id 是前端 uuidv4()，与后端 constraintId 无关，故不能按 id 删
-      const nodeType = `${constraintKind}Constraint`
-      const toRemove = graphStore.nodes.filter((n) => {
-        if (n.type !== nodeType) return false
-        const d = n.data as Record<string, unknown>
-        return d.table === tableName && d.column === targetColumn
-      })
+      // 独立删除：constraintId 精确命中优先；回退三元组（多匹配时提示不动作，§2.2）
+      const exact = findByConstraintId()
+      let toRemove: VueFlowNode[]
+      if (exact) {
+        toRemove = [exact]
+      } else {
+        const triple = findByTriple()
+        if (triple.length > 1) {
+          toastError(
+            t('aiChat.constraintAmbiguous', {
+              table: tableName,
+              column: targetColumn,
+              count: triple.length,
+            })
+          )
+          return
+        }
+        toRemove = triple
+      }
       if (toRemove.length > 0) {
         guardCanvasOp(() => vueFlowApi.removeNodes(toRemove.map((n) => n.id)))
         await nextTick()
@@ -113,16 +145,27 @@ export async function handleConstraintInstruction(instruction: FrontendInstructi
     return
   }
 
-  const nodeType = `${constraintKind}Constraint`
-
-  // UPDATE 分支（独立约束）：按 (类型, table, column) 定位已有节点并刷新 data，
-  // 而不是再建一个副本（旧实现的漂移：同一约束在画布上出现两个节点）
+  // UPDATE 分支（独立约束）：constraintId 精确命中优先，回退三元组定位已有节点并刷新
+  // data，而不是再建一个副本（旧实现的漂移：同一约束在画布上出现两个节点）
   if (instruction.actionType === 'UPDATE_CONSTRAINT_NODE') {
-    const matched = graphStore.nodes.filter((n) => {
-      if (n.type !== nodeType) return false
-      const d = n.data as Record<string, unknown>
-      return d.table === tableName && d.column === targetColumn
-    })
+    const exact = findByConstraintId()
+    let matched: VueFlowNode[]
+    if (exact) {
+      matched = [exact]
+    } else {
+      matched = findByTriple()
+      if (matched.length > 1) {
+        // §2.2: 多候选不再静默全改——提示用户提供 constraintId
+        toastError(
+          t('aiChat.constraintAmbiguous', {
+            table: tableName,
+            column: targetColumn,
+            count: matched.length,
+          })
+        )
+        return
+      }
+    }
     if (matched.length > 0) {
       const patches = {
         ...buildConstraintParamsData(constraintKind, params ?? {}),
