@@ -86,6 +86,96 @@ def get_excel_sheet_names(file_path: str) -> list[str]:
         excel_file.close()
 
 
+def apply_merged_ranges_fill(
+    df: pd.DataFrame,
+    merged_ranges: Any,
+    *,
+    header_row: int = 0,
+    skip_rows: int = 0,
+    global_row_offset: int = 0,
+) -> tuple[pd.DataFrame, int, int]:
+    """对合并单元格区域做列向前向填充（B7 核心，标准路径与分块路径单一事实源）。
+
+    参数:
+        df: 待填充的 DataFrame（标准路径=整表；分块路径=单块，此时传 global_row_offset）
+        merged_ranges: openpyxl merged_cells.ranges 对象（标准路径），或
+            (min_row, min_col, max_row, max_col, values) 五元组列表（分块路径——values 为
+            区域首行各列的值，供跨块悬挂区域直接赋值，合并单元格区域内所有格本就同值）
+        header_row: 表头行号（0-based，不含 skip_rows）
+        skip_rows: 表头前跳过的行数（openpyxl→df 行号换算基准；分块路径读取不带 skip_rows，保持 0）
+        global_row_offset: 本 df 首行对应的全局数据行号（0-based；标准路径整表为 0）
+
+    返回:
+        (填充后的 df 副本, 填充的区域数, 无法填充的悬挂区域数)
+    """
+    df_filled = df.copy()
+    df_start_global = global_row_offset
+    filled_count = 0
+    skipped_cross = 0
+    for merged in merged_ranges:
+        if isinstance(merged, tuple):
+            min_row, min_col, max_row, max_col, values = (
+                merged[0],
+                merged[1],
+                merged[2],
+                merged[3],
+                merged[4] if len(merged) > 4 else None,
+            )
+        else:
+            min_row, min_col, max_row, max_col = (
+                merged.min_row,
+                merged.min_col,
+                merged.max_row,
+                merged.max_col,
+            )
+            values = None
+        # openpyxl 是 1-based；pandas 读取时先跳过 skip_rows 行再把第 header_row
+        # 行作为表头，因此全局数据行 0 对应 Excel 第 (skip_rows + header_row + 2) 行。
+        start_global = min_row - header_row - skip_rows - 2
+        end_global = max_row - header_row - skip_rows - 2
+        start_df_col = min_col - 1
+        end_df_col = max_col - 1
+
+        if start_df_col < 0:
+            continue
+        # 区域在本 df 范围之前（分块场景：整个区域属于更早的块）
+        if end_global < df_start_global:
+            continue
+        # 区域首行不在本 df 内（跨块悬挂）：携带首行值时直接赋值（区域内所有格同值），
+        # 否则跳过并计数（标准路径整表调用不会走到这里）
+        if start_global < df_start_global:
+            if end_global >= df_start_global:
+                if values is not None:
+                    seg_end = min(end_global - df_start_global, len(df_filled) - 1)
+                    actual_end_col = min(end_df_col, len(df_filled.columns) - 1)
+                    if seg_end >= 0 and actual_end_col >= start_df_col:
+                        for k, col_idx in enumerate(range(start_df_col, actual_end_col + 1)):
+                            if k < len(values) and values[k] is not None:
+                                df_filled.iloc[0 : seg_end + 1, col_idx] = values[k]
+                        filled_count += 1
+                else:
+                    skipped_cross += 1
+            continue
+        # 区域首行在本 df 内：换算为 df 内行号
+        start_df_row = start_global - df_start_global
+        if start_df_row >= len(df_filled):
+            continue
+
+        # 限定区域边界（防止越界；分块场景区域尾部超出本块属正常——下一块经悬挂赋值续填）
+        actual_end_row = min(end_global - df_start_global, len(df_filled) - 1)
+        actual_end_col = min(end_df_col, len(df_filled.columns) - 1)
+        if actual_end_row < start_df_row or actual_end_col < start_df_col:
+            continue
+
+        # 按列向量化前向填充：区域内 NaN 被区域起点方向的最近非空值填充，
+        # 已有非空值不动。ffill 从区域起点开始，不跨越区域边界。
+        for col_idx in range(start_df_col, actual_end_col + 1):
+            region = df_filled.iloc[start_df_row : actual_end_row + 1, col_idx]
+            df_filled.iloc[start_df_row : actual_end_row + 1, col_idx] = region.ffill()
+        filled_count += 1
+    return df_filled, filled_count, skipped_cross
+
+
 @register_loader("excel")
 class ExcelLoader(DataSourceLoader[ExcelSourceSpec]):
     """
@@ -299,6 +389,7 @@ class ExcelLoader(DataSourceLoader[ExcelSourceSpec]):
         """@methoddesc 对合并单元格进行前向填充，避免 NotNull/Unique 误报（B7）。
 
         使用 openpyxl 检测合并单元格区域，然后仅对区域内的 NaN 进行填充。
+        填充核心在模块级 apply_merged_ranges_fill（§1.27 起与分块路径共用）。
 
         参数:
             df: 已加载的 DataFrame
@@ -325,40 +416,12 @@ class ExcelLoader(DataSourceLoader[ExcelSourceSpec]):
                     else:
                         sheet_name = wb.sheetnames[0]
                 ws = wb[sheet_name]
-
-                df_filled = df.copy()
-                for merged in ws.merged_cells.ranges:
-                    min_row, min_col, max_row, max_col = (
-                        merged.min_row,
-                        merged.min_col,
-                        merged.max_row,
-                        merged.max_col,
-                    )
-                    # openpyxl 是 1-based；pandas 读取时先跳过 skip_rows 行再把第 header_row
-                    # 行作为表头，因此 df 行 0 对应 Excel 第 (skip_rows + header_row + 2) 行。
-                    # 过去漏算 skip_rows，配置了跳行时填充区域整体下移、错位填充。
-                    start_df_row = min_row - header_row - skip_rows - 2
-                    end_df_row = max_row - header_row - skip_rows - 2
-                    start_df_col = min_col - 1
-                    end_df_col = max_col - 1
-
-                    if start_df_row < 0 or start_df_col < 0:
-                        continue
-                    if start_df_row >= len(df_filled):
-                        continue
-
-                    # 限定区域边界（防止越界）
-                    actual_end_row = min(end_df_row, len(df_filled) - 1)
-                    actual_end_col = min(end_df_col, len(df_filled.columns) - 1)
-                    if actual_end_row < start_df_row or actual_end_col < start_df_col:
-                        continue
-
-                    # 按列向量化前向填充（替代原三重逐格回溯循环）
-                    # 语义等价：区域内 NaN 被区域起点方向的最近非空值填充，
-                    # 已有非空值不动。ffill 从区域起点开始，不跨越区域边界。
-                    for col_idx in range(start_df_col, actual_end_col + 1):
-                        region = df_filled.iloc[start_df_row : actual_end_row + 1, col_idx]
-                        df_filled.iloc[start_df_row : actual_end_row + 1, col_idx] = region.ffill()
+                df_filled, _filled, _skipped = apply_merged_ranges_fill(
+                    df,
+                    ws.merged_cells.ranges,
+                    header_row=header_row,
+                    skip_rows=skip_rows,
+                )
                 return df_filled
             finally:
                 wb.close()

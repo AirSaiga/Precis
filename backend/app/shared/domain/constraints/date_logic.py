@@ -624,13 +624,17 @@ class DateLogicConstraint(Constraint):
                 # 双方都必须有效
                 mask_valid &= ref_series.notna()
 
-                # 计算天数差的绝对值
-                diff_days = (target_series[mask_valid] - ref_series[mask_valid]).abs().dt.days
+                # 计算天数差（§1.19: 24h 完整天数 float，去掉 .abs() 保留符号——
+                # 原实现 .dt.days 截断时间成分（3d1h 算 3 天）且绝对值让 -3 满足 eq 3 双向放行）
+                diff_days = (target_series[mask_valid] - ref_series[mask_valid]).dt.total_seconds() / 86400
 
                 # 与目标值比较（接入 compare_op，过去硬编码 != 导致只能严格等于）
                 if self.target_value is not None:
                     try:
-                        expected_diff = int(self.target_value)
+                        expected_diff = float(self.target_value)
+                        # §1.19: 小数目标值报配置错误（按拍板原文，天数差按完整天语义只接受整数）
+                        if expected_diff != int(expected_diff):
+                            raise ValueError(f"天数差目标值 '{self.target_value}' 必须为非负整数天数")
                         # §1.12: compare_op 归一大小写 + 未知值报配置错误（原 else 回退 eq 语义）
                         op = str(self.compare_op or "eq").lower()
                         if op not in ("gt", "lt", "lte", "eq", "gte"):
@@ -684,7 +688,7 @@ class DateLogicConstraint(Constraint):
                                 "error_type": "ConstraintConfigError",
                                 "table": self.table,
                                 "column": self.column,
-                                "message": f"target_value 转换失败: '{self.target_value}' 无法转换为整数 - {str(e)}",
+                                "message": f"target_value 转换失败: '{self.target_value}' 无法用作天数差目标值 - {str(e)}",
                             }
                         )
                 else:

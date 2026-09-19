@@ -160,7 +160,8 @@ class RegexConstraint(Constraint):
             regex = re.compile(self.pattern, re_flags)
 
             for row_index, cell_value in df[self.column].items():
-                if pd.isna(cell_value) or cell_value is None:
+                # §1.4: 空串口径统一为"缺失值豁免"——全空白串不参与正则判定（与 NotNull 同口径）
+                if pd.isna(cell_value) or cell_value is None or str(cell_value).strip() == "":
                     continue
 
                 cell_value_str = str(cell_value)

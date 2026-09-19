@@ -177,7 +177,9 @@ class AllowedValuesConstraint(Constraint):
             return str(v)
 
         col_series = df[self.column]
-        non_null_mask = col_series.notna()
+        # §1.4: 空串口径统一为"缺失值豁免"（推广 NotNull/Unique 现状）——全空白串不参与
+        # 枚举判定，"空串是否合法值"只由 NotNull 负责。数值列 astype(str) 不产生空串，无副作用。
+        non_null_mask = col_series.notna() & ~(col_series.astype(str).str.strip() == "")
         # 仅对非空值做字符串化比较(NaN 已被 non_null_mask 排除,不参与 isin 判定)
         str_col = col_series.map(_norm_to_str)
         str_allowed = {_norm_to_str(v) for v in self.allowed_values}

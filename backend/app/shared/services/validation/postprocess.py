@@ -53,17 +53,28 @@ def build_table_source_map(schema_by_id: dict[str, TableSchemaFile]) -> dict[str
     return result
 
 
-def attach_source_info(item: dict[str, Any], table_source_map: dict[str, dict[str, str | None]]) -> None:
+def attach_source_info(
+    item: dict[str, Any],
+    table_source_map: dict[str, dict[str, str | None]],
+    name_to_id: dict[str, str] | None = None,
+) -> None:
     """将数据源信息附加到错误/通过项字典中。
 
     根据 item 中的 table 或 table_id 查找对应的数据源配置，
     并将 source_file 和 source_sheet 写入 item。
 
+    §1.30: postprocess_result 先 map_table_id（把 table 换成显示名）再 attach——
+    约束错误条目只有 table 键（无 table_id），被换成显示名后直查恒 miss。
+    这里按 name_to_id 反查回退，约束错误与格式错误同样获得 source_file 定位。
+
     参数:
         item: 包含 table/table_id 的字典（会被就地修改）
         table_source_map: 表 ID → 数据源信息的映射
+        name_to_id: 显示名 → 表 ID 的反查映射（可选）
     """
     table_id = item.get("table_id") or item.get("table")
+    if table_id not in table_source_map and name_to_id and table_id in name_to_id:
+        table_id = name_to_id[table_id]
     if table_id and table_id in table_source_map:
         item["source_file"] = table_source_map[table_id]["source_file"]
         item["source_sheet"] = table_source_map[table_id]["source_sheet"]
@@ -120,18 +131,21 @@ def postprocess_result(
     """
     id_to_name = build_id_to_name_map(dataset_schema)
     table_source_map = build_table_source_map(schema_by_id)
+    # 显示名 → 表 ID 反查（§1.30: map_table_id 先行把约束错误的 table 换成显示名，
+    # attach 需要反查才能命中；同名的多表取后者，展示层容错）
+    name_to_id = {name: tid for tid, name in id_to_name.items()}
 
     for error in result["errors"]:
         map_table_id(error, id_to_name)
-        attach_source_info(error, table_source_map)
+        attach_source_info(error, table_source_map, name_to_id)
     for error in result["loading_errors"]:
         map_table_id(error, id_to_name)
-        attach_source_info(error, table_source_map)
+        attach_source_info(error, table_source_map, name_to_id)
     if "format_checks" in result["validation_details"]:
         for item in result["validation_details"]["format_checks"]:
             map_table_id(item, id_to_name)
-            attach_source_info(item, table_source_map)
+            attach_source_info(item, table_source_map, name_to_id)
     if "constraint_checks" in result["validation_details"]:
         for item in result["validation_details"]["constraint_checks"]:
             map_table_id(item, id_to_name)
-            attach_source_info(item, table_source_map)
+            attach_source_info(item, table_source_map, name_to_id)

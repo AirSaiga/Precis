@@ -279,6 +279,10 @@ class RangeConstraint(Constraint):
             def _in_range(v: Any) -> bool:
                 if v is None or (isinstance(v, float) and pd.isna(v)):
                     return True  # 空值不视为违规(下方 dropna 也会处理)
+                # §1.4: 空串口径统一为"缺失值豁免"——空白串不参与 Decimal 判定，
+                # 否则 Decimal("") 抛 InvalidOperation 被误判"超出范围"（误导排查方向）
+                if isinstance(v, str) and v.strip() == "":
+                    return True
                 try:
                     dv = v if isinstance(v, Decimal) else Decimal(str(v))
                 except (InvalidOperation, ValueError):

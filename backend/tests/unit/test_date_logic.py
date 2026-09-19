@@ -286,7 +286,8 @@ class TestDateLogicConstraint:
     def test_days_diff_default_eq(self):
         """B08 回归：days_diff 默认 compare_op=gt？不，默认在 age 是 gt，days_diff 回退 eq。
         显式传 eq 时：差值等于目标值通过，不等则失败。"""
-        df = pd.DataFrame({"start": ["2020-01-01", "2020-01-01"], "end": ["2020-01-10", "2020-01-05"]})
+        # §1.19: 天数差有符号（target - ref），正差场景 end 早于 start
+        df = pd.DataFrame({"start": ["2020-01-10", "2020-01-05"], "end": ["2020-01-01", "2020-01-01"]})
         c = DateLogicConstraint(
             table="users",
             column="start",
@@ -303,7 +304,8 @@ class TestDateLogicConstraint:
 
     def test_days_diff_gt(self):
         """B08 回归：compare_op=gt 时，差值需大于目标值；小于等于则失败。"""
-        df = pd.DataFrame({"start": ["2020-01-01", "2020-01-01"], "end": ["2020-01-10", "2020-01-05"]})
+        # §1.19: 天数差有符号（target - ref），正差场景 end 早于 start
+        df = pd.DataFrame({"start": ["2020-01-10", "2020-01-05"], "end": ["2020-01-01", "2020-01-01"]})
         c = DateLogicConstraint(
             table="users",
             column="start",
@@ -321,7 +323,8 @@ class TestDateLogicConstraint:
 
     def test_days_diff_lte(self):
         """B08 回归：compare_op=lte 时，差值需小于等于目标值；大于则失败。"""
-        df = pd.DataFrame({"start": ["2020-01-01", "2020-01-01"], "end": ["2020-01-10", "2020-01-03"]})
+        # §1.19: 天数差有符号（target - ref），正差场景 end 早于 start
+        df = pd.DataFrame({"start": ["2020-01-10", "2020-01-03"], "end": ["2020-01-01", "2020-01-01"]})
         c = DateLogicConstraint(
             table="users",
             column="start",
@@ -378,8 +381,8 @@ class TestDateLogicConstraint:
         业务场景:对账"下单与付款相差恰好 N 天"。原 domain 默认 gt → diff==target 被判违规,
         正常 30 天的记录全报错。改为 eq 后 diff==target 应通过。
         """
-        # 2020-01-01 到 2020-01-10 差 9 天,target=9 → 应通过(eq)
-        df = pd.DataFrame({"start": ["2020-01-01"], "end": ["2020-01-10"]})
+        # 2020-01-10 到 2020-01-01 差 9 天(§1.19 有符号正差),target=9 → 应通过(eq)
+        df = pd.DataFrame({"start": ["2020-01-10"], "end": ["2020-01-01"]})
         c = DateLogicConstraint(
             table="users",
             column="start",
@@ -660,8 +663,9 @@ class TestDateLogicValidatorEdgeCases:
 
     def test_days_diff_mismatch(self):
         v = DateLogicValidator()
-        df = pd.DataFrame({"d": ["2020-01-01"], "target": ["2020-01-10"]})
-        # 2020-01-01 到 2020-01-10 差 9 天,期望 9 天应该通过
+        # §1.19: 天数差有符号（target - ref），正差场景参考列早于目标列
+        df = pd.DataFrame({"d": ["2020-01-10"], "target": ["2020-01-01"]})
+        # 差 9 天,期望 9 天应该通过
         result = v.validate(
             df, "d", logic_mode="calculation", calculation_type="days_diff", target_value=9, target_column="target"
         )

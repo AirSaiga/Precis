@@ -217,7 +217,8 @@ class TestDaysDiffMissingTargetColumn:
             target_column="d2",
             compare_op="gte",
         )
-        df = pd.DataFrame({"d1": ["2024-01-01"], "d2": ["2024-02-01"]})
+        # §1.19: 天数差有符号（d1 - d2），gte 5 需正差 ≥5 → d1 晚于 d2
+        df = pd.DataFrame({"d1": ["2024-02-01"], "d2": ["2024-01-01"]})
         result = c.validate({"t": df})
         assert result["errors"] == []
 

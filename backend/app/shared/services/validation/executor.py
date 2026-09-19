@@ -771,11 +771,16 @@ class ValidationExecutor:
         }
         # C6: 跟踪是否因 stop 在分块阶段中断(中断后跳过全局约束校验)
         chunk_interrupted = False
+        # §1.31: 超时只上报一次并终止整个分块循环（超时后剩余表本就不会再跑，
+        # 每表追加一条 Timeout 是对同一事件的重复描述）
+        timeout_hit = False
 
         # 累计已处理行数（跨表累加，用于进度事件）
         rows_done_so_far = 0
 
         for table_id, chunks in chunked_datasets.items():
+            if timeout_hit:
+                break
             all_parsed_datasets[table_id] = []
 
             for chunk_idx, chunk_df in enumerate(chunks):
@@ -794,15 +799,31 @@ class ValidationExecutor:
 
                 # 超时检查
                 if deadline is not None and time.monotonic() > deadline:
-                    logger.warning(f"分块校验超时: 表 {table_id} 分块 {chunk_idx + 1}/{len(chunks)}")
-                    all_errors.append(
-                        {
-                            "error_type": "Timeout",
-                            "stage": "constraint",
-                            "check_type": "Timeout",
-                            "message": f"分块校验超时，表 {table_id} 剩余分块未执行",
-                            "table": table_id,
-                        }
+                    if not timeout_hit:
+                        logger.warning(f"分块校验超时: 表 {table_id} 分块 {chunk_idx + 1}/{len(chunks)}")
+                        all_errors.append(
+                            {
+                                "error_type": "Timeout",
+                                "stage": "constraint",
+                                "check_type": "Timeout",
+                                "message": "分块校验超时，剩余分块未执行",
+                                "table": table_id,
+                            }
+                        )
+                        timeout_hit = True
+                    # §1.31: 中断块行数计入进度——started 进度已发出，补计保持单调，
+                    # 并补发一条中断点进度事件（前端进度条跳到中断点，不回跳）
+                    rows_done_so_far += len(chunk_df)
+                    self._emit_progress(
+                        progress_callback,
+                        started,
+                        stage="validating",
+                        table=table_id,
+                        chunk_index=chunk_idx + 1,
+                        chunk_total=total_chunks,
+                        rows_done=rows_done_so_far,
+                        rows_total=total_rows,
+                        errors_so_far=len(all_errors),
                     )
                     break
 
@@ -857,6 +878,20 @@ class ValidationExecutor:
                             }
                         )
                         chunk_interrupted = True
+                        # §1.31: 中断块行数计入进度（该块已完整处理，只是不再继续后续块），
+                        # 并补发中断点进度事件
+                        rows_done_so_far += len(chunk_df)
+                        self._emit_progress(
+                            progress_callback,
+                            started,
+                            stage="validating",
+                            table=table_id,
+                            chunk_index=chunk_idx + 1,
+                            chunk_total=total_chunks,
+                            rows_done=rows_done_so_far,
+                            rows_total=total_rows,
+                            errors_so_far=len(all_errors),
+                        )
                         break
 
                 except Exception as e:

@@ -51,6 +51,7 @@ from typing import Any
 import pandas as pd
 
 from app.shared.core.data_source.loaders.csv_loader import build_csv_read_kwargs
+from app.shared.core.data_source.loaders.excel_loader import apply_merged_ranges_fill
 from app.shared.core.data_source.schema_info import DataSourceInfo
 from app.shared.core.project.schema.types import TableSchemaFile
 from app.shared.domain.dataset_schema import DataSetSchema, TableSchema
@@ -196,11 +197,18 @@ class ChunkedDataLoader:
                 logger.warning(f"Excel 文件无列: {file_path}, sheet={sheet_name}")
                 return []
 
+            # §1.27: 分块路径补 B7 同构的合并单元格前向填充（一次 openpyxl 读取 merged ranges，
+            # 每块读出后按"区域首行在本块内"填充；跨块悬挂区域跳过并累计告警）。
+            # 与标准路径（excel_loader._apply_merged_cell_fill）共用 apply_merged_ranges_fill
+            # 单一事实源，防止两条路径语义再漂移。读取失败降级为不填充（照 B27 惯例留诊断日志）。
+            merged_ranges = self._read_excel_merged_ranges(file_path, sheet_name)
+
             chunks: list[pd.DataFrame] = []
             current_skip = header_row + 1  # 跳过表头行
             # 回归 #8: 累计已读数据行数(不含表头),用于给每块设置全局连续的 0-based 数据行号,
             # 使约束校验的 row_index 反映行在原文件的真实数据位置(与 CSV 分块的全局连续 index 对齐)。
             data_row_offset = 0
+            skipped_cross_total = 0
 
             while True:
                 read_kwargs: dict[str, Any] = {
@@ -219,6 +227,16 @@ class ChunkedDataLoader:
                 if len(chunk.columns) == len(columns):
                     chunk.columns = columns
 
+                if merged_ranges is not None:
+                    chunk, _filled, skipped_cross = apply_merged_ranges_fill(
+                        chunk,
+                        merged_ranges,
+                        header_row=header_row,
+                        skip_rows=0,
+                        global_row_offset=data_row_offset,
+                    )
+                    skipped_cross_total += skipped_cross
+
                 # 回归 #8: 把块内 index 重置为全局连续的数据行号(从 data_row_offset 开始),
                 # 而非 pd.read_excel 默认的每块从 0 重启的 RangeIndex。否则第 2 块起 row_index
                 # 与原文件位置错位,财务/审计场景无法据报告行号定位错误。
@@ -232,12 +250,50 @@ class ChunkedDataLoader:
                 if len(chunk) < chunk_size:
                     break
 
+            if skipped_cross_total > 0:
+                logger.warning(
+                    "分块 Excel 合并单元格填充：%d 个合并区域跨越分块边界，其跨块部分未填充"
+                    "（区域首行所在块已填充该块内部分），可能产生少量 NotNull 误报，file=%s",
+                    skipped_cross_total,
+                    file_path,
+                )
+
             logger.info(f"Excel 分块加载完成: {os.path.basename(file_path)}, {len(chunks)} 个分块")
             return chunks
 
         except Exception as e:
             logger.error(f"Excel 分块加载失败: {file_path}, 错误: {e}")
             raise
+
+    @staticmethod
+    def _read_excel_merged_ranges(file_path: str, sheet_name: str) -> Any:
+        """一次性读取 sheet 的合并单元格区域及其首行值（§1.27），供分块填充复用。
+
+        返回 (min_row, min_col, max_row, max_col, values) 五元组列表——values 为区域
+        首行各列的值，使跨块悬挂区域能直接赋值续填（合并单元格区域内所有格本就同值）。
+        任何失败降级返回 None（调用方跳过填充，与 B27 降级语义一致——填充是尽力而为的增强）。
+        """
+        try:
+            from openpyxl import load_workbook
+
+            wb = load_workbook(file_path, data_only=True)
+            try:
+                if sheet_name not in wb.sheetnames:
+                    logger.warning(f"合并区域读取：sheet '{sheet_name}' 不存在，跳过填充: {file_path}")
+                    return None
+                ws = wb[sheet_name]
+                result = []
+                for merged in ws.merged_cells.ranges:
+                    values = [
+                        ws.cell(row=merged.min_row, column=c).value for c in range(merged.min_col, merged.max_col + 1)
+                    ]
+                    result.append((merged.min_row, merged.min_col, merged.max_row, merged.max_col, values))
+                return result
+            finally:
+                wb.close()
+        except Exception as e:
+            logger.warning(f"分块 Excel 合并单元格区域读取失败，跳过填充（可能导致 NotNull 误报）: {file_path}: {e}")
+            return None
 
     def _load_dataframe_chunked(
         self,
