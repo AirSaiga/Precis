@@ -27,7 +27,7 @@
  * spawn mock 对 taskkill 命令自动发 close 放行（非 win32 平台由 try/catch + 2s 宽限兜底）。
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest'
 import { EventEmitter } from 'events'
 
 const mocks = vi.hoisted(() => {
@@ -119,6 +119,17 @@ function taskkillCalls(): Array<{ cmd: string; args: string[] }> {
 }
 
 describe('startPythonServer 启动失败清理（附表12：不误杀并发二次 start 的新进程）', () => {
+  // 本组用例断言 taskkill 调用（win32 分支的确定性路径——Unix 分支无 taskkill、
+  // 且带 2s 宽限期）。附表12 的清理语义（闭包 proc + 全局指针校验）两平台同构，
+  // 故在非 Windows 环境（CI Linux runner）也固定 mock 为 win32 验证同一逻辑。
+  const realPlatform = process.platform
+  beforeAll(() => {
+    Object.defineProperty(process, 'platform', { value: 'win32', configurable: true })
+  })
+  afterAll(() => {
+    Object.defineProperty(process, 'platform', { value: realPlatform, configurable: true })
+  })
+
   it('A 清理时 B 已启动：只杀 A 的闭包进程，appState.pythonProcess 仍指向 B', async () => {
     const { startPythonServer, appState } = await freshModule()
 

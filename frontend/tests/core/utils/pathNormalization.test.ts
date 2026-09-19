@@ -47,14 +47,25 @@ describe('toPosixPath（§3.1 存储层专用）', () => {
 })
 
 describe('normalizePath（比较层）与 toPosixPath 分工', () => {
-  it('同一文件不同大小写写法经 normalizePath 判同 key', () => {
-    expect(normalizePath('D:/Data/File.csv')).toBe(normalizePath('d:\\data\\FILE.CSV'))
+  // B33: Windows（大小写不敏感 FS）转小写、Linux/macOS 保留原大小写——测试按平台感知断言
+  const isWin = typeof navigator !== 'undefined' && /Win/i.test(navigator.userAgent)
+
+  it('同一文件不同分隔符写法经 normalizePath 判同 key（平台无关）', () => {
+    expect(normalizePath('D:/Data/File.csv')).toBe(normalizePath('D:\\Data\\File.csv'))
   })
 
-  it('存储值经 toPosixPath 保留大小写后仍可经 normalizePath 比较', () => {
+  it('跨大小写判同仅在 Windows 生效（B33：Linux/macOS 大小写敏感为正确行为）', () => {
+    if (isWin) {
+      expect(normalizePath('D:/Data/File.csv')).toBe(normalizePath('d:\\data\\FILE.CSV'))
+    } else {
+      expect(normalizePath('D:/Data/File.csv')).not.toBe(normalizePath('d:\\data\\FILE.CSV'))
+    }
+  })
+
+  it('存储值经 toPosixPath 保留大小写后，同源输入仍可经 normalizePath 比较（平台无关）', () => {
     const stored = toPosixPath('D:\\Data\\File.csv')
-    const incoming = 'd:/data/file.csv'
-    expect(normalizePath(stored)).toBe(normalizePath(incoming))
+    expect(stored).toBe('D:/Data/File.csv')
+    expect(normalizePath(stored)).toBe(normalizePath('D:/Data/File.csv'))
   })
 })
 
