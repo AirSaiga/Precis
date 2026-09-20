@@ -33,6 +33,7 @@ import sys
 from typing import Any
 
 from rich.console import Console
+from rich.markup import escape as markup_escape
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TaskID, TextColumn
 from rich.table import Table
@@ -190,19 +191,21 @@ class Formatter:
 
     @staticmethod
     def print_error(message: str) -> None:
-        _stderr_console.print(f"[bold red]错误:[/bold red] {message}")
+        # 动态消息必须 markup 转义：消息里的方括号（如安装指引
+        # precis-cli[ai]、允许值集合 ['a','b']）否则会被 rich 当样式标签吞掉
+        _stderr_console.print(f"[bold red]错误:[/bold red] {markup_escape(message)}")
 
     @staticmethod
     def print_warning(message: str) -> None:
-        _console.print(f"[yellow]警告:[/yellow] {message}")
+        _console.print(f"[yellow]警告:[/yellow] {markup_escape(message)}")
 
     @staticmethod
     def print_success(message: str) -> None:
-        _console.print(f"[green]{message}[/green]")
+        _console.print(f"[green]{markup_escape(message)}[/green]")
 
     @staticmethod
     def print_info(message: str) -> None:
-        _console.print(f"[cyan]{message}[/cyan]")
+        _console.print(f"[cyan]{markup_escape(message)}[/cyan]")
 
     @staticmethod
     def print_table(headers: list[str], rows: list[list[Any]]) -> None:

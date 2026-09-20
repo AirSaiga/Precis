@@ -87,7 +87,7 @@ class AISwitchCommand(Command):
         providers = self._cli_config.list_providers()
 
         if not providers:
-            return CommandResult.error("没有已配置的 Provider\n请先使用 'setup' 命令进行配置")
+            return CommandResult.error("没有已配置的 Provider\n请先使用 'provider add' 命令进行配置")
 
         if not args:
             # 无参数时进入交互式选择（支持方向键）

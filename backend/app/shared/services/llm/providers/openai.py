@@ -89,7 +89,7 @@ class OpenAIProvider(BaseProvider):
     def __init__(self, config: AIProvider) -> None:
         super().__init__(config)
         if AsyncOpenAI is None:
-            raise ImportError("openai 未安装，请运行 pip install openai")
+            raise ImportError('openai 未安装，请运行 pip install "precis-cli[ai]"')
         self.client = AsyncOpenAI(
             base_url=config.base_url,
             api_key=config.api_key or "",

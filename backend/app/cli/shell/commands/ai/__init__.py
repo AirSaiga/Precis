@@ -23,7 +23,8 @@
 - 支持直接通过自然语言执行 AI 指令
 
 架构设计:
-- AICommand 作为聚合命令，管理 chat、status、switch、delete、setup 等子命令
+- AICommand 作为聚合命令，管理 chat、status、switch、delete、provider 等子命令
+- 裸装（无 [ai] extra）时入口门控：help 标注缺依赖，execute 直接给安装指引
 - 无参数时显示交互式菜单（支持方向键导航）
 - 第一个参数如果不是子命令，则将其视为直接询问的消息
 - 使用 execute_ai_chat 统一执行 AI 对话
@@ -51,6 +52,31 @@ from app.cli.shell.commands.provider import ProviderCommand
 from app.cli.shell.config_storage import get_cli_config
 from app.cli.shell.formatter import Formatter
 from app.cli.shell.interactive_menu import InteractiveMenu
+
+# [ai] 扩展依赖探测结果缓存（失败导入不会被 import 机制负缓存，help 每次渲染
+# 都会读 description，缓存避免重复文件系统扫描；测试可经 monkeypatch 覆盖）
+_AI_DEPS_AVAILABLE: bool | None = None
+
+
+def ai_dependencies_available() -> bool:
+    """探测 AI 功能的可选依赖是否已安装（裸装 precis-cli 不含 [ai] extra）。
+
+    openai 是核心门控导入（OpenAI 兼容 provider 全系走它）；aiohttp/psutil
+    随同一 extra 安装，openai 可导入即视为 extra 已装。
+    """
+    global _AI_DEPS_AVAILABLE  # noqa: PLW0603
+    if _AI_DEPS_AVAILABLE is None:
+        try:
+            import openai  # noqa: F401
+        except ImportError:
+            _AI_DEPS_AVAILABLE = False
+        else:
+            _AI_DEPS_AVAILABLE = True
+    return _AI_DEPS_AVAILABLE
+
+
+# 依赖缺失时 ai 入口的统一提示（help 标注与 execute 门控共用同一安装指引）
+_AI_INSTALL_HINT = 'pip install "precis-cli[ai]"（源码安装用 pip install -e ".[ai]"）'
 
 
 class AICommand(Command):
@@ -82,6 +108,10 @@ class AICommand(Command):
 
     @property
     def description(self) -> str:
+        # help 列表动态标注：裸装（无 [ai] extra）不伪装成可用功能，
+        # 让用户在进菜单之前就知道差什么、怎么补
+        if not ai_dependencies_available():
+            return f"AI 助手 - 未安装依赖（{_AI_INSTALL_HINT}）"
         return "AI 助手 - 使用自然语言修改项目配置"
 
     @property
@@ -139,6 +169,14 @@ class AICommand(Command):
         Returns:
             子命令执行结果或 AI 对话结果
         """
+        if not ai_dependencies_available():
+            # 门控在菜单/子命令分发之前：缺依赖时不进交互菜单（菜单里每个
+            # 选项最终都会失败），直接给安装指引；provider 预配置不受影响
+            # （顶层 provider 命令不依赖 LLM 库）
+            return CommandResult.error(
+                f"AI 功能需要可选依赖，当前未安装。安装命令: {_AI_INSTALL_HINT}\n"
+                "如仅需预配置 AI Provider，可先运行 'provider add'（无需依赖）。"
+            )
         if not args:
             # 无参数时显示交互式菜单
             return self._show_interactive_menu(context)

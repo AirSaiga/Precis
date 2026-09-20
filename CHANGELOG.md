@@ -6,6 +6,11 @@
 
 ## [Unreleased]
 
+### 2026-09
+- 裸装（无 [ai] extra）的 ai 入口门控 + 三处错误指引修正 + rich markup 吞方括号通用修复：① 用户反馈裸装后 help 仍列出 ai 入口且可进入——易误解为功能可用。现 help 列表对 ai 条目动态标注"未安装依赖（pip install "precis-cli[ai]"）"，`ai` 命令（含全部子命令与交互菜单）在依赖缺失时直接返回安装指引（不再进入一个每个选项最终都会失败的菜单）；依赖齐全时行为不变。② 修正三处指向不存在命令 'setup' 的错误消息（ai/chat、ai/executor、ai/switch）→ 'provider add'。③ 连带发现并修复 rich 渲染吞方括号的通用缺陷：Formatter.print_error/warning/success/info 与 help 命令表格对动态消息/描述未做 markup 转义，任何含方括号的错误文案（如允许值集合 ['a','b']、安装指引 precis-cli[ai]）经这些通道打印都会被 rich 当样式标签吃掉——统一在渲染点 escape。
+
+  Bare-install (no [ai] extra) ai entry gating + three misdirecting error hints + a general rich-markup bracket-swallowing fix: ① user report — bare installs still list the ai entry in help and let you in, which reads as "feature available". The help listing now annotates the ai entry with the missing-dependency note carrying the install hint, and the `ai` command (all subcommands and the interactive menu) returns the install hint immediately when deps are missing instead of entering a menu whose every option eventually fails; behavior is unchanged when deps are present. ② Three error messages pointing at the nonexistent 'setup' command (ai/chat, ai/executor, ai/switch) now point at 'provider add'. ③ Drive-by general fix: Formatter.print_error/warning/success/info and the help command table didn't escape dynamic messages/descriptions, so any bracket-bearing error text (allowed-value lists, the precis-cli[ai] install hint) was swallowed as a rich style tag — now escaped uniformly at the render sites.
+
 ## [0.1.4] - 2026-09-21
 
 ### 2026-09

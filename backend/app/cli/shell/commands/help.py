@@ -36,6 +36,7 @@
 """
 
 from rich.console import Console
+from rich.markup import escape as markup_escape
 from rich.table import Table
 
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
@@ -82,11 +83,14 @@ class HelpCommand(Command):
         for cmd in commands:
             # 聚合命令（如 config/project/ai）在描述后追加子命令提示，
             # 让用户无需先输入命令即可发现 inspect 等子命令的存在。
+            # description 是动态文案，须 markup 转义——Table 单元格会解析
+            # markup，方括号（如安装指引 precis-cli[ai]）不转义会被当标签吞掉；
+            # [dim] 包裹是我们自己的有意标记，不参与转义
             subs = cmd.list_subcommands()
             if subs:
-                desc = f"{cmd.description}  [dim](子命令: {', '.join(subs)})[/dim]"
+                desc = f"{markup_escape(cmd.description)}  [dim](子命令: {', '.join(subs)})[/dim]"
             else:
-                desc = cmd.description
+                desc = markup_escape(cmd.description)
             table.add_row(cmd.name, desc)
 
         _console.print(table)

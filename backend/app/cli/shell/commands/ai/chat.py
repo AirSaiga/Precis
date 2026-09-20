@@ -100,7 +100,7 @@ class AIChatCommand(Command):
         # 检查 AI 配置（使用 CLI 配置）
         provider = self._cli_config.get_active_provider()
         if not provider:
-            return CommandResult.error("没有可用的 LLM Provider 配置\n请先运行 'setup' 命令配置 API Key")
+            return CommandResult.error("没有可用的 LLM Provider 配置\n请先运行 'provider add' 命令配置 API Key")
 
         # 解析命令行参数（--stream/--no-stream 已随 execute_ai_chat 的死参数一并移除）
         agent_mode = True  # 默认启用 Agent 深度模式

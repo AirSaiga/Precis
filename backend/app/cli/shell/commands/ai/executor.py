@@ -80,7 +80,7 @@ def execute_ai_chat(
     # 获取用于显示的 Provider 配置（脱敏，用于日志或展示）
     provider_config_display = _get_provider_display()
     if not provider_config_display:
-        return CommandResult.error("没有可用的 LLM Provider 配置，请先运行 'setup' 命令配置 AI Provider")
+        return CommandResult.error("没有可用的 LLM Provider 配置，请先运行 'provider add' 命令配置 AI Provider")
 
     # 获取包含完整 API Key 的 Provider 配置（用于实际调用 API）
     provider_config = _get_provider_with_key()
