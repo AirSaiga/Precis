@@ -24,6 +24,25 @@ body:
     validations:
       required: true
 
+  - type: dropdown
+    id: severity
+    attributes:
+      label: 影响类型 / Impact Type
+      description: |
+        帮助我们分流处理优先级 / Help us triage priority.
+        前三类对应"立即修"红线（见 AGENTS.md 缺陷处理分级）：崩溃、数据误判、契约破坏。
+        The first three options map to our fix-immediately red lines (see the defect triage section in AGENTS.md): crash, wrong verdict, and contract break.
+      options:
+        - 崩溃 / Crash（traceback、进程异常退出 / traceback, abnormal exit）
+        - 数据误判 / Wrong verdict（误报或漏报 / false positive or false negative）
+        - 契约破坏 / Contract break（JSON 结构、退出码、YAML 格式、API 状态码 / JSON shape, exit code, YAML format, API status code）
+        - 性能问题 / Performance
+        - 文案或 UI 瑕疵 / Wording or UI polish
+        - 罕见平台或边缘场景 / Rare platform or edge case
+        - 其他 / Other
+    validations:
+      required: true
+
   - type: textarea
     id: steps
     attributes:
