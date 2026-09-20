@@ -75,5 +75,9 @@ def test_mcp_tool_functions_in_process(tmp_path, monkeypatch):
     assert payload["schema_version"] == 1
     assert isinstance(payload["errors"], list) and payload["errors"]
 
+    # 越界路径必须用跨平台绝对路径：tmp_path 必在白名单根（进程 CWD=仓库根）之外。
+    # 写死 Windows 盘符（Z:/…）在 Linux 上不是绝对路径，会被当相对路径锚到根下、
+    # 报"清单文件不存在"而非越界拒绝（CI run 35506401538 实证）
+    outside_manifest = tmp_path / "outside" / "project.precis.yaml"
     with pytest.raises(ValueError, match="越界"):
-        tool_validate_data(manifest="Z:/definitely/outside/project.precis.yaml")
+        tool_validate_data(manifest=str(outside_manifest))
