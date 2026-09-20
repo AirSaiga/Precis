@@ -60,7 +60,9 @@ class TransformFile(BaseModel):
     - 单列输出（行数不变）: MathExpr, DateFormat, Lookup, Strip, UpperCase, LowerCase,
       Replace, FillNA, CastType, Concat, Substring, ConditionalAssign,
       Digits, WeightedSum, Modulo, MapValue
-    - 行数改变（暂无后端运行器）: FilterRows, DropDuplicates, Aggregate, SortRows
+    - 行数改变: FilterRows, DropDuplicates, Aggregate, SortRows
+      （运行器已在 transforms/registry.py 注册；行位重排对约束错误 row_index
+      语义的影响见 docs/contracts/validate-json-v1.md）
 
     输入接口:
     - input_from_node: 上游节点 ID（优先）

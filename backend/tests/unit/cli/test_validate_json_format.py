@@ -53,6 +53,7 @@ _ERROR_ENTRY_FIELDS = {
     "row_index",
     "cell_value",
     "error_message",
+    "suggestion",
 }
 _SUMMARY_FIELDS = {"constraints_total", "constraints_passed", "constraints_failed"}
 

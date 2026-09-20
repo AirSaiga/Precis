@@ -86,7 +86,9 @@ def build_json_payload(result: dict) -> dict:
 
     tables: list[dict[str, Any]] = []
     for check in format_checks:
-        dataset = raw_datasets.get(check.get("table"))
+        # postprocess 已把 table 换成显示名并保留原 ID 到 table_id；
+        # raw_datasets 以表 ID 为键，优先按 ID 查（显示名与 ID 不同时也能命中行数）
+        dataset = raw_datasets.get(check.get("table_id") or check.get("table"))
         rows: int | None = None
         if isinstance(dataset, dict):
             # 分块模式下 raw_datasets 值为 {"chunk_count": ..., "row_count": ...}
@@ -113,6 +115,8 @@ def build_json_payload(result: dict) -> dict:
                 "row_index": error.get("row_index"),
                 "cell_value": json_safe_value(cell_value),
                 "error_message": error_message,
+                # 可选修复建议（AllowedValues 相近值 / 日期布局提示等），生成器未给则为 null
+                "suggestion": error.get("suggestion"),
             }
         )
 

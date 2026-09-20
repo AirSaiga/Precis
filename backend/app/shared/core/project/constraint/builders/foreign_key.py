@@ -20,7 +20,7 @@
 
 from __future__ import annotations
 
-from .base import BuilderInput, BuilderResult
+from .base import BuilderInput, BuilderResult, table_display_name
 from .registry import register_builder
 
 
@@ -40,9 +40,10 @@ def build_foreign_key(inp: BuilderInput) -> BuilderResult:
     to_col_name = inp.column_name_by_table_id.get(to_table_id, {}).get(str(to_col_id))
 
     if from_col_name is None:
-        return {}, f"引用的列 '{from_col_id}' 不存在于表 '{from_table_id}' 中"
+        # 报错用表显示名（from 侧经 factory 存在性检查；to 侧可能悬空，兜底 ID）
+        return {}, f"引用的列 '{from_col_id}' 不存在于表 '{table_display_name(inp, from_table_id)}' 中"
     if to_col_name is None:
-        return {}, f"引用的列 '{to_col_id}' 不存在于表 '{to_table_id}' 中"
+        return {}, f"引用的列 '{to_col_id}' 不存在于表 '{table_display_name(inp, to_table_id)}' 中"
 
     return {
         "from_table": from_table_id,

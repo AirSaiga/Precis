@@ -22,10 +22,19 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from app.shared.core.project.schema.types import TableSchemaFile
 from app.shared.domain.dataset_schema import DataSetSchema
+
+# UUID 形态（任意版本）：8-4-4-4-12 十六进制。表 ID 均为该形态，而真实
+# 表名/列名/文件名不可能撞上该格式，用正则做文本内 ID→名称替换零误伤。
+_UUID_TOKEN_RE = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+
+# 条目中可能内嵌表 ID 的文本字段（message 为域约束/格式错误主文本，
+# description 为 constraint_checks 描述，suggestion 为加载错误修复建议）
+_ID_TEXT_FIELDS = ("message", "error_message", "description", "suggestion")
 
 
 def build_table_source_map(schema_by_id: dict[str, TableSchemaFile]) -> dict[str, dict[str, str | None]]:
@@ -113,7 +122,51 @@ def map_table_id(item: dict[str, Any], id_to_name: dict[str, str]) -> None:
     """
     for key in ("table", "from_table", "to_table"):
         if key in item and item[key] in id_to_name:
+            # 重写为显示名前保留原 ID 到 {key}_id（不覆盖已有键）：下游按 ID
+            # 定位的消费方（json_payload 的 tables 行数查 raw_datasets、
+            # attach_source_info 直查）不因显示名化而失联
+            id_key = f"{key}_id"
+            if id_key not in item:
+                item[id_key] = item[key]
             item[key] = id_to_name[item[key]]
+
+
+def rewrite_id_tokens(text: Any, id_to_name: dict[str, str]) -> Any:
+    """将文本中 UUID 形态的表 ID 替换为显示名称（查不到映射时原样保留）。
+
+    域约束构造时注入的 from_table/to_table 等字段是数据集查表键（表 ID），
+    错误消息/描述里直接插值导致用户看到 UUID 而非表名。map_table_id 只
+    重写条目顶层字段，不碰文本，这里补齐文本侧。悬空引用（表已不存在，
+    无名称可映射）保留原 ID——那是用户在配置里定位它的唯一线索。
+
+    参数:
+        text: 任意取值（非字符串原样返回）
+        id_to_name: 表 ID 到显示名称的映射
+
+    返回:
+        重写后的文本（或原值）
+    """
+    if not isinstance(text, str) or not id_to_name:
+        return text
+
+    def _replace(match: re.Match[str]) -> str:
+        token = match.group(0)
+        # 映射键为存储原值（通常小写）；正则大小写不敏感，双口径查一次
+        return id_to_name.get(token, id_to_name.get(token.lower(), token))
+
+    return _UUID_TOKEN_RE.sub(_replace, text)
+
+
+def humanize_item_texts(item: dict[str, Any], id_to_name: dict[str, str]) -> None:
+    """就地重写条目文本字段中 UUID 形态的表 ID 为显示名称。
+
+    参数:
+        item: 错误/检查条目字典（会被就地修改）
+        id_to_name: 表 ID 到显示名称的映射
+    """
+    for key in _ID_TEXT_FIELDS:
+        if key in item:
+            item[key] = rewrite_id_tokens(item[key], id_to_name)
 
 
 def postprocess_result(
@@ -137,15 +190,19 @@ def postprocess_result(
 
     for error in result["errors"]:
         map_table_id(error, id_to_name)
+        humanize_item_texts(error, id_to_name)
         attach_source_info(error, table_source_map, name_to_id)
     for error in result["loading_errors"]:
         map_table_id(error, id_to_name)
+        humanize_item_texts(error, id_to_name)
         attach_source_info(error, table_source_map, name_to_id)
     if "format_checks" in result["validation_details"]:
         for item in result["validation_details"]["format_checks"]:
             map_table_id(item, id_to_name)
+            humanize_item_texts(item, id_to_name)
             attach_source_info(item, table_source_map, name_to_id)
     if "constraint_checks" in result["validation_details"]:
         for item in result["validation_details"]["constraint_checks"]:
             map_table_id(item, id_to_name)
+            humanize_item_texts(item, id_to_name)
             attach_source_info(item, table_source_map, name_to_id)

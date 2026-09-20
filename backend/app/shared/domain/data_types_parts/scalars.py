@@ -67,6 +67,36 @@ import pandas as pd
 # 3. 项目内部导入
 from app.shared.domain.data_types_parts.base import DataType
 
+# 日期错误建议探测：Y-M-D 三段式（分隔符 -/. 皆可）的取值范围正则
+_YMD_RE = re.compile(r"(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})")
+
+
+def date_range_hint(value: Any) -> str | None:
+    """对 Y-M-D 形态但取值非法的日期给出定位建议（哪一段超范围）。
+
+    §1.21 宽松解析下斜线/点分等布局会被当作合法日期接受（不报错），
+    真正报错的是"形似日期但月/日取值非法"的值——对这类值指出
+    超范围字段比笼统的"不是有效日期"更可操作。非该形态返回 None。
+    """
+    import calendar
+    from datetime import date as _date
+
+    text = str(value).strip()
+    m = _YMD_RE.fullmatch(text)
+    if not m:
+        return None
+    year, month, day = int(m[1]), int(m[2]), int(m[3])
+    if not 1 <= month <= 12:
+        return f"月份取值 {month} 超出 1-12，请核对数据。"
+    if not 1 <= day <= 31:
+        return f"日取值 {day} 超出 1-31，请核对数据。"
+    try:
+        _date(year, month, day)
+    except ValueError:
+        last_day = calendar.monthrange(year, month)[1]
+        return f"{year} 年 {month} 月只有 {last_day} 天，请核对数据。"
+    return None
+
 
 class IntegerType(DataType):
     """
@@ -664,15 +694,18 @@ class DateType(DataType):
         type_error_mask = non_na & parsed_dt.isna()
         for index in series.index[type_error_mask]:
             val = series[index]
-            errors.append(
-                {
-                    "row_index": index,
-                    "column": col_name,
-                    "value": val,
-                    "error_type": "TypeValidationError",
-                    "error_message": f"'{val}' 不是有效的日期格式 (YYYY-MM-DD)。",
-                }
-            )
+            type_error: dict[str, Any] = {
+                "row_index": index,
+                "column": col_name,
+                "value": val,
+                "error_type": "TypeValidationError",
+                "error_message": f"'{val}' 不是有效的日期格式 (YYYY-MM-DD)。",
+            }
+            # suggestion（可选）：形似 Y-M-D 但取值非法时指出超范围字段
+            range_hint = date_range_hint(val)
+            if range_hint:
+                type_error["suggestion"] = range_hint
+            errors.append(type_error)
 
         # 转换为 date 对象，保留原索引
         result_values: list[Any] = []

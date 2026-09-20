@@ -58,9 +58,10 @@ JSON 文档结构。消费方（Kimi Code 插件、CI、其他 agent harness）�
 | `column` | `str \| null` | 列名；跨表/表级错误可能为 `null` |
 | `constraint_type` | `str \| null` | 约束类名（如 `NotNullConstraint`）；格式校验错误为 `FormatValidation`；超时/中断类为对应类型 |
 | `constraint_file` | `str \| null` | **相对 manifest 目录**的来源文件路径：独立约束为其 `*.constraint.yaml` 路径，schema 内嵌约束为宿主 `*.schema.yaml` 路径；格式校验/超时/模板展开产物等无来源错误为 `null` |
-| `row_index` | `int \| null` | 0 起的数据行索引（不含表头）；无行概念的错误为 `null` |
+| `row_index` | `int \| null` | 0 起的数据行索引（不含表头）；无行概念的错误为 `null`。两类基准：格式校验错误（`FormatValidation`）恒为**原文件行位**；约束错误为**约束求值时行位**——Transform DAG 在格式校验之后、约束校验之前执行，行数改变类转换（FilterRows/SortRows/DropDuplicates/Aggregate）会重排行位，此时约束错误的 `row_index` 与原文件行位不对应（无行变换时两类基准一致）。行位到原文件的回溯映射（index lineage）为已知 backlog，未实现 |
 | `cell_value` | `any (JSON) \| null` | 违规单元格原始值；numpy 标量归一为 Python 原生类型，NaN/Inf 转字符串 |
-| `error_message` | `str \| null` | 人类可读错误消息（中文） |
+| `error_message` | `str \| null` | 人类可读错误消息（中文）；消息中的表标识为显示名（表 ID 已在后处理替换），悬空引用（表已不存在）保留 ID 供定位 |
+| `suggestion` | `str \| null` | 可选修复建议：值与允许值词法相近时提示"是否应为 X"（AllowedValues，difflib 语义相近不冒进）、形似 Y-M-D 但月/日取值非法时指出超范围字段；生成器无法给出建议时为 `null`（v1 增补字段，只增） |
 
 ### `loading_warnings[i]`
 

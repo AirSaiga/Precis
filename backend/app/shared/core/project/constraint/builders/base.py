@@ -68,6 +68,12 @@ BuilderResult = tuple[dict[str, Any], str | None]
 BuilderFn = Callable[[BuilderInput], BuilderResult]
 
 
+def table_display_name(inp: BuilderInput, table_id: str) -> str:
+    """构建期错误消息用的表显示名（schema 缺失或未命名时兜底原 ID）。"""
+    schema = inp.schema_files.get(table_id)
+    return (schema.name if schema is not None else None) or table_id
+
+
 def resolve_single_column(
     inp: BuilderInput,
     table_key: str = "table_id",
@@ -87,6 +93,8 @@ def resolve_single_column(
 
     col_name = inp.column_name_by_table_id.get(table_id, {}).get(col_id)
     if col_name is None:
-        return {}, f"引用的列 '{col_id}' 不存在于表 '{table_id}' 中"
+        # 表此时必然存在（factory 已做过存在性检查），用显示名报错便于定位；
+        # 兜底保留 ID 防御上游裸调用路径
+        return {}, f"引用的列 '{col_id}' 不存在于表 '{table_display_name(inp, table_id)}' 中"
 
     return {"table": table_id, "column": col_name}, None

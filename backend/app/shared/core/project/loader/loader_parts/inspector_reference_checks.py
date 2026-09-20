@@ -85,7 +85,9 @@ def _check_table_missing(
     """
     schema = schema_files.get(table_id)
     schema_disp = schema_display(schema, fallback_id=table_id)
-    msg = f"约束 '{constraint_id}' 引用的表 '{table_id}' 不存在"
+    # 消息用约束显示名（用户在画布/文件里看到的标识）而非裸 ID；
+    # 被引用表已缺失无名称可映射，保留 ID 是定位配置的唯一线索
+    msg = f"约束 '{constraint_display or constraint_id}' 引用的表 '{table_id}' 不存在"
     warnings.append(msg)
     loading_errors.append(
         LoadingError(
@@ -98,7 +100,7 @@ def _check_table_missing(
             file_path=file_path,
             ref_id=constraint_id,
             message=msg,
-            suggestion=f"请检查约束关联的表是否正确，可用的表: {[s['id'] for s in available_schemas]}",
+            suggestion=f"请检查约束关联的表是否正确，可用的表: {[s.get('name') or s['id'] for s in available_schemas]}",
             actions=actions_for_node_ref(constraint_id),
             context={
                 "available_schemas": available_schemas,

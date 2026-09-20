@@ -64,6 +64,7 @@
 from __future__ import annotations
 
 # 1. 标准库导入
+import difflib
 from decimal import Decimal
 from typing import Any
 
@@ -191,15 +192,20 @@ class AllowedValuesConstraint(Constraint):
             index = row_tuple[0]
             value = row_tuple[1]
             row_index = int(index) if index is not None else 0
-            errors.append(
-                {
-                    "error_type": "AllowedValuesViolation",
-                    "table": self.table,
-                    "row_index": row_index,
-                    "column": self.column,
-                    "value": value,
-                    "message": f"允许值约束冲突: 值 '{value}' 不在允许的集合 {self.allowed_values} 中。",
-                }
-            )
+            error: dict[str, Any] = {
+                "error_type": "AllowedValuesViolation",
+                "table": self.table,
+                "row_index": row_index,
+                "column": self.column,
+                "value": value,
+                "message": f"允许值约束冲突: 值 '{value}' 不在允许的集合 {self.allowed_values} 中。",
+            }
+            # suggestion（可选）：值与某允许值高度相近时给"是否应为"提示，
+            # 支撑"修数据还是调规则"的判断；无明显相近项不给（宁缺毋滥）
+            close = difflib.get_close_matches(_norm_to_str(value), sorted(str_allowed), n=1, cutoff=0.6)
+            if close:
+                orig = next((v for v in self.allowed_values if _norm_to_str(v) == close[0]), close[0])
+                error["suggestion"] = f"值 '{value}' 与允许值 '{orig}' 相近，是否应为它？"
+            errors.append(error)
 
         return {"errors": errors, "info": self.get_constraint_info()}

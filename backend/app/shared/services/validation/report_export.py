@@ -38,6 +38,11 @@ _REPORT_COLUMNS = ("表", "列", "行号", "值", "约束类型", "约束文件"
 
 def _error_row(entry: dict[str, Any]) -> list[str]:
     """把契约错误条目转为报告行（None 统一展示为空串）。"""
+    message = entry.get("error_message") or ""
+    suggestion = entry.get("suggestion")
+    if suggestion:
+        # 修复建议拼进消息单元格，避免两种导出格式各加一列
+        message = f"{message}（建议：{suggestion}）"
     return [
         entry.get("table") or "",
         entry.get("column") or "",
@@ -45,7 +50,7 @@ def _error_row(entry: dict[str, Any]) -> list[str]:
         "" if entry.get("cell_value") is None else str(entry["cell_value"]),
         entry.get("constraint_type") or "",
         entry.get("constraint_file") or "",
-        entry.get("error_message") or "",
+        message,
     ]
 
 
