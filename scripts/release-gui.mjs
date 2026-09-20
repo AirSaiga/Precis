@@ -10,7 +10,7 @@
  *
  * 路由:
  *   GET  /                    控制台页面
- *   GET  /api/state           聚合状态（六处 manifest 版本 / 最新 tag / 构建产物 / GitHub Release）
+ *   GET  /api/state           聚合状态（全部 manifest 版本 / 最新 tag / 构建产物 / GitHub Release）
  *   GET  /api/events          SSE 日志与任务状态流（含历史回放）
  *   POST /api/run             执行动作（build / release-dry / release / drill-lite / drill-full /
  *                             verify-release / check-manifests）——同一时刻只允许一个任务

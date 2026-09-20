@@ -38,6 +38,18 @@ function findRepoRoot(): string {
 
 const ROOT = findRepoRoot()
 const PORT = 3311
+
+/**
+ * 版本载体数量从单一事实源 release.mjs 文本解析（不 import——Playwright 把 spec
+ * 转 CJS，require .mjs 抛 "exports is not defined"；写死数字则会随清单增项 CI 红，
+ * 插件双 manifest 纳入同步时写死 6 的断言即由此翻车）
+ */
+function manifestCount(): number {
+  const text = fs.readFileSync(path.join(ROOT, 'scripts', 'release.mjs'), 'utf-8')
+  const start = text.indexOf('export const MANIFESTS')
+  const block = text.slice(start, text.indexOf('];', start))
+  return (block.match(/\{ file:/g) || []).length
+}
 const BASE = `http://127.0.0.1:${PORT}`
 
 let serverProc: ReturnType<typeof spawn> | null = null
@@ -168,9 +180,9 @@ test.describe('真实服务 · 加载与导航', () => {
     }
   })
 
-  test('/api/state 返回六处 manifest 与真实根版本一致', async ({ request }) => {
+  test('/api/state 返回全部 manifest 与真实根版本一致', async ({ request }) => {
     const state = await (await request.get('/api/state')).json()
-    expect(state.versions).toHaveLength(6)
+    expect(state.versions).toHaveLength(manifestCount())
     expect(state.rootVersion).toBe(state.versions[0].version)
     expect(state.branch).toBe('main')
   })
