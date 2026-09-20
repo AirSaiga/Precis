@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-09-21
+
 ### 2026-09
 - CLI 新增 `precis-cli` 等价别名命令：分发名 precis-cli 与主命令 `precis` 不同名，新用户凭"包名即命令"直觉敲 `precis-cli` 此前会 command not found。现 `[project.scripts]` 同时注册两者（同一入口函数），文档、插件 skill、MCP 契约统一以 `precis` 为准命令；命名惯例同 httpie→http（分发名求 PyPI 唯一，命令名求短），`precis-start`/`precis-mcp` 不变。
 
