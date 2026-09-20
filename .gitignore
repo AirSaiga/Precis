@@ -199,6 +199,9 @@ $RECYCLE.BIN/
 !/qa_test/golden/**/*.csv
 # demo 验收基准数据（MCP 集成测试与手动演练硬依赖）
 !/demo/*.csv
+# demo 手动演练的可再生输出（validate --report 等产物）——不入库且避免挡发布脚本的干净树检查
+/demo/result*
+/demo/report.html
 
 # Excel 文件
 *.xlsx
