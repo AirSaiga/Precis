@@ -8,7 +8,10 @@ build-backend = "setuptools.build_meta"
 name = "precis-cli"
 version = "0.1.4"
 description = "Precis - 可配置数据校验工具 CLI（校验 CSV/Excel/JSON 数据质量）"
-readme = "README.md"
+# PyPI 页面描述使用面向用户的专用 README（安装 + 快速上手）；
+# backend/README.md 保持开发者向（架构与开发命令），两者分开维护
+readme = "PYPI_README.md"
+keywords = ["data-quality", "data-validation", "csv", "excel", "json", "yaml", "cli", "mcp"]
 license = {text = "Apache-2.0"}
 requires-python = ">=3.12,<3.14"
 authors = [
