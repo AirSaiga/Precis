@@ -94,7 +94,11 @@ dev = [
 ]
 
 [project.scripts]
+# 主命令 `precis`（文档/插件/MCP 全链路统一教它）；`precis-cli` 为等价别名，
+# 消除"包名即命令"的直觉坑（pip install precis-cli 后凭直觉敲 precis-cli 也通），
+# 生态惯例同 httpie→http：分发名求唯一，命令名求短
 precis = "app.cli.shell.main:main"
+precis-cli = "app.cli.shell.main:main"
 precis-start = "app.cli.start:main"
 precis-mcp = "app.mcp_server:main"
 

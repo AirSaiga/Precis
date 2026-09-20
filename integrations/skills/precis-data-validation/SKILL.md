@@ -15,6 +15,7 @@ Precis 是一个数据校验引擎：你为数据文件写一份 V2 YAML 配置�
 按优先级探测 CLI（找到一个可用即进入第 1 步）：
 
 1. `precis --version` —— 用户已 pip 安装
+   （`precis-cli` 是等价别名命令；探测与后续执行统一用 `precis` 为准）
 2. `uvx --from precis-cli precis --version` —— 用户装有 [uv](https://docs.astral.sh/uv/)，
    免安装运行（首次会下载依赖，需等待）。此后所有 `precis ...` 命令都加
    `uvx --from precis-cli` 前缀执行

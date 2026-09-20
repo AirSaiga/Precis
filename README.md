@@ -89,7 +89,7 @@ brew install python@3.12    # 装好后用 python3.12 调用
 克隆仓库后，根据使用场景二选一。
 
 > 只想在命令行/agent 里做数据校验、不需要 GUI？直接
-> `pip install precis-cli`（PyPI）获得 `precis` 命令（源码安装：`pip install -e ./backend`），
+> `pip install precis-cli`（PyPI）获得 `precis` 命令（`precis-cli` 为等价别名，两者均可执行；源码安装：`pip install -e ./backend`），
 > 也可以在任何 agent harness（Kimi Code / Claude Code / MCP 客户端等）中接入：
 > [`integrations/`](integrations/README.md)。
 
