@@ -30,6 +30,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -155,10 +156,12 @@ def run_smoke(server_cwd: Path, manifest_rel: str | None = None) -> dict[str, An
         }
         assert expected <= type_names, f"约束类型缺失: {expected - type_names}"
 
-        # 6. 路径越界拒绝（manifest 指向白名单外——用系统目录拼一个不存在的越界路径）
-        escaped = client.tool_result_payload(
-            5, "validate_data", {"manifest": "Z:/definitely/outside/project.precis.yaml"}
-        )
+        # 6. 路径越界拒绝（manifest 指向白名单外）
+        # 越界路径须跨平台：写死 Windows 盘符（Z:/…）在 Linux 非绝对路径、被锚到
+        # 根下报"清单不存在"而非"越界"（CI run 35507767842 实证）；系统临时目录
+        # 必在 server_cwd（白名单根）之外
+        outside = Path(tempfile.gettempdir()) / "precis_mcp_outside" / "project.precis.yaml"
+        escaped = client.tool_result_payload(5, "validate_data", {"manifest": str(outside)})
         assert "error" in escaped and "越界" in escaped["error"], escaped
 
         return {
