@@ -44,7 +44,7 @@ from app.shared.core.config import ConfigPaths
 from app.shared.core.io.yaml import write_yaml_atomic
 
 from .crypto import decrypt_api_key, encrypt_api_key, is_encrypted
-from .models import AIConfig, AIProvider
+from .models import AIConfig
 
 
 class ConfigLoader:
@@ -230,28 +230,15 @@ class ConfigLoader:
         self._cached_mtime = None
 
     def _create_default(self) -> AIConfig:
-        """创建默认配置模板（DeepSeek + Ollama Local）。"""
-        return AIConfig(
-            providers=[
-                AIProvider(
-                    id="deepseek",
-                    name="DeepSeek",
-                    type="openai",
-                    base_url="https://api.deepseek.com",
-                    api_key="${DEEPSEEK_API_KEY}",
-                    model="deepseek-v4-pro",
-                ),
-                AIProvider(
-                    id="ollama-local",
-                    name="Ollama Local",
-                    type="ollama",
-                    base_url="http://localhost:11434",
-                    api_key=None,
-                    model="llama3.2",
-                ),
-            ],
-            defaults={"chat": "deepseek"},
-        )
+        """创建空配置模板（不预置任何 Provider）。
+
+        配置文件只反映用户真实配置过的内容——首次运行预置 DeepSeek 等
+        占位条目会让新机器显示"当前 Provider: DeepSeek"却无钥匙可用，
+        误导为内置/已配置（用户实测踩坑）。厂商发现经 provider add 的
+        预设菜单完成（presets.py 单一事实源）；首个 Provider 添加时
+        自动激活（providers 路由自动写 defaults.chat）。
+        """
+        return AIConfig(providers=[], defaults={})
 
 
 # 全局实例

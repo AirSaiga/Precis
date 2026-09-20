@@ -36,7 +36,10 @@ class TestConfigLoader:
         loader = ConfigLoader(config_path=config_file)
         config = loader.load()
         assert config is not None
-        assert len(config.providers) >= 1
+        # 首次运行为空模板：不预置任何 Provider（厂商发现走 provider add
+        # 预设菜单，配置文件只反映用户真实配置过的内容）
+        assert config.providers == []
+        assert config.defaults.get("chat") is None
         assert config_file.exists()
 
     def test_cache_hit_returns_same_object(self, tmp_path):

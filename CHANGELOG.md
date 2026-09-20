@@ -6,6 +6,11 @@
 
 ## [Unreleased]
 
+### 2026-09
+- **行为变更（AI 配置）**：首次运行生成的 `~/.precis/ai_providers.yaml` 改为**空模板**（`providers: []`、`defaults: {}`）——此前预置 DeepSeek + Ollama 占位条目并把 `defaults.chat` 指向 deepseek，新机器未配置任何东西就显示"当前 Provider: DeepSeek"，误导为内置/已配置（用户实测踩坑：占位无钥匙不可用、且旧默认值 deepseek-chat 与预设清单不同代显得来历不明）。厂商发现本就属于 `provider add` 预设菜单（presets.py 单一事实源）的职责，配置文件只反映用户真实配置过的内容；首个 Provider 添加时自动激活（自动写 defaults.chat），删除唯一 Provider 时自动清除——空态链路（API get_active_provider 返 None、stream 端点 400 提示、CLI 菜单显示"未配置"）均已验证兼容。存量已生成的配置文件不受影响（永不覆写）。
+
+  **Behavior change (AI config)**: a first-run `~/.precis/ai_providers.yaml` is now an **empty template** (`providers: []`, `defaults: {}`) — it used to seed DeepSeek + Ollama placeholder entries with `defaults.chat: deepseek`, so fresh machines showed "当前 Provider: DeepSeek" before the user configured anything, reading as built-in/configured (real-world confusion: keyless placeholders are unusable, and stale default values like deepseek-chat look alien next to the preset list). Vendor discovery already belongs to the `provider add` preset menu (presets.py single source of truth); the config file now reflects only what the user actually configured. The first provider added auto-activates (defaults.chat written automatically) and removing the last one clears it — empty-state paths (API get_active_provider → None, stream endpoint 400 hint, CLI menu "未配置") verified compatible. Existing generated files are untouched (never overwritten).
+
 ## [0.1.5] - 2026-09-21
 
 ### 2026-09
