@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 # 分发名 precis-cli：PyPI 上 "precis" 已被 2014 年的第三方包占用；
 # 命令名保持 `precis`（见 [project.scripts]），仅分发名带 -cli 后缀
 name = "precis-cli"
-version = "0.1.2"
+version = "0.1.3"
 description = "Precis - 可配置数据校验工具 CLI（校验 CSV/Excel/JSON 数据质量）"
 readme = "README.md"
 license = {text = "Apache-2.0"}

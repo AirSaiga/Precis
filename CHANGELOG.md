@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-09-20
+
 ### 2026-09
 - 全端统一版本号落地（发布链路）：① Kimi Code 插件双 manifest（`integrations/kimi.plugin.json` + 仓库根垫片 `.kimi-plugin/plugin.json`）纳入 `release.mjs` 同步清单（新增 `json` kind 直接读写 version 字段，`check`/`sync`/`releaseCommitFiles` 全覆盖）——插件版本跟应用走，marketplace 更新记录与应用发布对齐；两文件版本一次性对齐 0.1.2（此前 0.1.0 漂移）。② CD 新增 `pypi` job：tag 推送专属（PyPI 版本不可重传，`workflow_dispatch` 演练不触发）发布 `precis-cli` wheel+sdist；**冒烟先于发布**——干净 venv 安装 wheel，验证 `precis --version` 与 tag 版本一致、demo 项目 8 违规基线与退出码 1，全过才上传（PyPI 上传永久生效，坏包不可撤回）；发布方式为 trusted publishing（OIDC，job 级 `id-token: write`），前置一次性配置见 AGENTS.md。③ wheel 已本地实构建并冒烟通过（8 违规基线 + FK 消息表名化随包生效）。
 
