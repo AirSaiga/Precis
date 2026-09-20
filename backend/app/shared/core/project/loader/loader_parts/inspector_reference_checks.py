@@ -85,9 +85,10 @@ def _check_table_missing(
     """
     schema = schema_files.get(table_id)
     schema_disp = schema_display(schema, fallback_id=table_id)
-    # 消息用约束显示名（用户在画布/文件里看到的标识）而非裸 ID；
-    # 被引用表已缺失无名称可映射，保留 ID 是定位配置的唯一线索
-    msg = f"约束 '{constraint_display or constraint_id}' 引用的表 '{table_id}' 不存在"
+    # 消息双留：友好显示名（人读）+ 约束 ID（定位配置文件的唯一线索，
+    # E2E/前端按 message 含 constraint_id 断言与解析）；
+    # 被引用表已缺失无名称可映射，保留 ID 同理
+    msg = f"约束 '{constraint_display}（ID: {constraint_id}）' 引用的表 '{table_id}' 不存在"
     warnings.append(msg)
     loading_errors.append(
         LoadingError(
