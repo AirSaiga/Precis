@@ -4,15 +4,18 @@
  *
  * 子命令:
  *   release <version|patch|minor|major> [--prerelease <suffix>] [--dry-run] [--no-push]
- *       一键发布：校验 → 同步六处版本 → CHANGELOG 切版 → commit → annotated tag → push（触发 CD）
+ *       一键发布：校验 → 同步全部版本 → CHANGELOG 切版 → commit → annotated tag → push（触发 CD）
  *   sync <version>
- *       仅同步版本到六处 manifest，不做 git 操作（CD workflow_dispatch 路径使用）
+ *       仅同步版本到全部 manifest，不做 git 操作（CD workflow_dispatch 路径使用）
  *   check <version>
- *       校验六处 manifest 版本与期望值一致，不一致退出码非 0（CD 版本守卫 job 使用）
+ *       校验全部 manifest 版本与期望值一致，不一致退出码非 0（CD 版本守卫 job 使用）
  *
  * 版本单一事实源（SSOT）: 根 package.json 的 version。
  * 同步副本: electron/package.json、frontend/package.json（经 npm version 连带各自 lock）+
- *           backend/pyproject.toml、tui-rust/Cargo.toml、tui-rust/Cargo.lock（precis-tui 包块）。
+ *           backend/pyproject.toml、tui-rust/Cargo.toml、tui-rust/Cargo.lock（precis-tui 包块）+
+ *           Kimi Code 插件双 manifest（integrations/kimi.plugin.json 与仓库根垫片
+ *           .kimi-plugin/plugin.json，全端统一版本号的组成部分——插件版本跟应用走，
+ *           marketplace 更新记录才与应用发布对齐；两文件由 plugin_golden_test 守卫一致）。
  *           npm 三处连带更新的 package-lock.json 也随发布提交入库（releaseCommitFiles），
  *           漏提交会残留脏工作树，把下一次发布挡在干净树检查上（v0.1.1 实证）。
  */
@@ -25,7 +28,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const ROOT = path.resolve(path.dirname(SCRIPT_PATH), '..');
 
-/** 六处版本载体（npm 三处经 npm version 同步 lock，TOML 由本脚本正则替换） */
+/** 版本载体清单（npm 三处经 npm version 同步 lock，TOML 正则替换，插件 JSON 直接读写） */
 export const MANIFESTS = [
   { file: 'package.json', kind: 'npm' },
   { file: 'frontend/package.json', kind: 'npm' },
@@ -33,10 +36,12 @@ export const MANIFESTS = [
   { file: 'backend/pyproject.toml', kind: 'pyproject' },
   { file: 'tui-rust/Cargo.toml', kind: 'cargo' },
   { file: 'tui-rust/Cargo.lock', kind: 'cargo-lock' },
+  { file: 'integrations/kimi.plugin.json', kind: 'json' },
+  { file: '.kimi-plugin/plugin.json', kind: 'json' },
 ];
 
 /**
- * 发布提交应包含的文件：六处 manifest + 三份 package-lock.json + CHANGELOG。
+ * 发布提交应包含的文件：全部 manifest（含插件双 JSON）+ 三份 package-lock.json + CHANGELOG。
  * npm version 更新 package.json 时会连带写各目录 lockfile 的版本字段；
  * 若不一并提交，发布后工作树残留未提交改动，下一次发布被干净树检查阻塞。
  */
@@ -122,6 +127,17 @@ function withSuffix(base, suffix) {
 }
 
 /**
+ * 插件 JSON manifest 的版本写入（纯函数）：改顶层 version 字段，
+ * 2 空格缩进 + 尾换行（与 integrations/kimi.plugin.json 既有格式一致），
+ * 其余字段原样保留（键序保持 JSON.parse 的插入序，即文件原序）。
+ */
+export function writeJsonVersion(content, version) {
+  const data = JSON.parse(content);
+  data.version = version;
+  return `${JSON.stringify(data, null, 2)}\n`;
+}
+
+/**
  * CHANGELOG 切版：把 [Unreleased] 下第一个 "### YYYY-MM" 月份分节起的内容落为
  * 新版本分节，顶部保留 [Unreleased] 及其说明性子节。
  *
@@ -201,6 +217,8 @@ export function readManifestVersion(manifest) {
   switch (manifest.kind) {
     case 'npm':
       return JSON.parse(content).version;
+    case 'json':
+      return JSON.parse(content).version;
     case 'pyproject':
       return readTomlSectionVersion(content, 'project');
     case 'cargo':
@@ -258,7 +276,7 @@ function resolveNextVersion(spec, prereleaseSuffix) {
   return spec;
 }
 
-/** 同步六处 manifest（npm 三处走 npm version 连带 lockfile；TOML 三处正则替换） */
+/** 同步全部 manifest（npm 三处走 npm version 连带 lockfile；TOML 正则替换；插件 JSON 直接读写） */
 function syncAllManifests(version, { dryRun = false } = {}) {
   const changes = [];
   for (const manifest of MANIFESTS) {
@@ -274,6 +292,12 @@ function syncAllManifests(version, { dryRun = false } = {}) {
         continue;
       }
       run(`npm version ${version} --no-git-tag-version --allow-same-version`, path.dirname(manifest.file));
+    } else if (manifest.kind === 'json') {
+      // 插件 manifest：经 writeJsonVersion 改 version 字段（格式与既有文件一致）
+      if (!dryRun) {
+        const content = fs.readFileSync(filePath, 'utf-8');
+        fs.writeFileSync(filePath, writeJsonVersion(content, version), 'utf-8');
+      }
     } else {
       const content = fs.readFileSync(filePath, 'utf-8');
       const updated =
@@ -369,7 +393,7 @@ function cmdRelease({ spec, prereleaseSuffix, dryRun, noPush }) {
 
   console.log(`[release] 目标版本: ${version}（tag ${tag}，基于分支 ${branch}）`);
 
-  // ---- 同步六处 manifest ----
+  // ---- 同步全部 manifest ----
   const changes = syncAllManifests(version, { dryRun });
   printChanges(changes);
 
@@ -441,11 +465,11 @@ function printHelp() {
 
 用法:
   npm run release -- <version|patch|minor|major> [--prerelease alpha.1] [--dry-run] [--no-push]
-      一键发布: 校验 → 同步六处版本 → CHANGELOG 切版 → commit → tag → push 触发 CD
+      一键发布: 校验 → 同步全部版本 → CHANGELOG 切版 → commit → tag → push 触发 CD
   npm run release -- sync <version>
-      仅同步版本到六处 manifest（CD workflow_dispatch 用）
+      仅同步版本到全部 manifest（CD workflow_dispatch 用）
   npm run release -- check <version>
-      校验六处 manifest 版本一致（CD 守卫用）
+      校验全部 manifest 版本一致（CD 守卫用）
 
 示例:
   npm run release -- 0.1.1 --dry-run     # 预览 0.1.1 的全部改动

@@ -14,6 +14,7 @@ import {
   writeTomlSectionVersion,
   readCargoLockVersion,
   writeCargoLockVersion,
+  writeJsonVersion,
   latestVersionTag,
   releaseCommitFiles,
   rollbackGuidance,
@@ -184,15 +185,34 @@ test('Cargo.lock 只替换指定包块的 version', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 插件 JSON manifest 版本写入
+// ---------------------------------------------------------------------------
+
+test('writeJsonVersion 只改 version、保持字段序与格式', () => {
+  const sample = ['{', '  "name": "precis",', '  "version": "0.1.2",', '  "skills": "./skills/"', '}', ''].join('\n');
+  const updated = writeJsonVersion(sample, '0.2.0');
+  // version 已改，其余字段与键序不变，2 空格缩进 + 尾换行
+  assert.equal(
+    updated,
+    ['{', '  "name": "precis",', '  "version": "0.2.0",', '  "skills": "./skills/"', '}', ''].join('\n'),
+  );
+  // 幂等：同版本再写一次输出不变
+  assert.equal(writeJsonVersion(updated, '0.2.0'), updated);
+});
+
+// ---------------------------------------------------------------------------
 // 发布提交清单
 // ---------------------------------------------------------------------------
 
-test('releaseCommitFiles 覆盖六处 manifest + 三份 package-lock.json + CHANGELOG', () => {
+test('releaseCommitFiles 覆盖全部 manifest（含插件双 JSON）+ 三份 package-lock.json + CHANGELOG', () => {
   const files = releaseCommitFiles();
   // npm version 连带写 lockfile 的版本字段，漏提交会残留脏工作树阻塞下次发布（v0.1.1 实证）
   for (const lock of ['package-lock.json', 'frontend/package-lock.json', 'electron/package-lock.json']) {
     assert.ok(files.includes(lock), `发布提交清单缺少 ${lock}`);
   }
+  // 插件双 manifest（integrations + 仓库根垫片）必须随发布同步提交，marketplace 更新才可见
+  assert.ok(files.includes('integrations/kimi.plugin.json'), '发布提交清单缺少插件 manifest');
+  assert.ok(files.includes('.kimi-plugin/plugin.json'), '发布提交清单缺少插件根垫片 manifest');
   assert.deepEqual(files, [
     'package.json',
     'frontend/package.json',
@@ -200,6 +220,8 @@ test('releaseCommitFiles 覆盖六处 manifest + 三份 package-lock.json + CHAN
     'backend/pyproject.toml',
     'tui-rust/Cargo.toml',
     'tui-rust/Cargo.lock',
+    'integrations/kimi.plugin.json',
+    '.kimi-plugin/plugin.json',
     'package-lock.json',
     'frontend/package-lock.json',
     'electron/package-lock.json',

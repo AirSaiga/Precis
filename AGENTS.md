@@ -473,16 +473,17 @@ AI 聊天（agent 模式）经 `frontend_instruction` SSE 事件驱动前端 `se
 
 ## 版本发布与自动更新
 
-**版本单一事实源**：根 `package.json` 的 `version`；electron/frontend 的 package.json、`backend/pyproject.toml`、`tui-rust/Cargo.toml + Cargo.lock` 是同步副本，**禁止手工单改任何一处**——一律通过 `npm run release`（仓库根，`scripts/release.mjs`）同步。npm version 连带更新的三份 `package-lock.json` 随发布提交一并入库（`releaseCommitFiles()`）——勿从提交清单移除，漏提交残留脏工作树会挡下一次发布的干净树检查（v0.1.1 实证）。
+**版本单一事实源**：根 `package.json` 的 `version`；electron/frontend 的 package.json、`backend/pyproject.toml`、`tui-rust/Cargo.toml + Cargo.lock`、Kimi Code 插件双 manifest（`integrations/kimi.plugin.json` + 仓库根垫片 `.kimi-plugin/plugin.json`）是同步副本，**禁止手工单改任何一处**——一律通过 `npm run release`（仓库根，`scripts/release.mjs`）同步。插件版本跟应用走（全端统一版本号，marketplace 更新记录与应用发布对齐）。npm version 连带更新的三份 `package-lock.json` 随发布提交一并入库（`releaseCommitFiles()`）——勿从提交清单移除，漏提交残留脏工作树会挡下一次发布的干净树检查（v0.1.1 实证）。
 
-**发布流程**：`npm run release -- <版本|patch|minor|major> [--prerelease alpha.1] [--dry-run] [--no-push]`。脚本校验（main 分支 + 干净树 + 版本不倒退）→ 同步六处 manifest → CHANGELOG 切版（`[Unreleased]` 的 `### YYYY-MM` 内容落为 `## [X.Y.Z] - 日期` 分节）→ commit + annotated tag + push 触发 CD。
+**发布流程**：`npm run release -- <版本|patch|minor|major> [--prerelease alpha.1] [--dry-run] [--no-push]`。脚本校验（main 分支 + 干净树 + 版本不倒退）→ 同步全部 manifest（npm 三处经 npm version 连带 lockfile、TOML 正则替换、插件 JSON 直接读写）→ CHANGELOG 切版（`[Unreleased]` 的 `### YYYY-MM` 内容落为 `## [X.Y.Z] - 日期` 分节）→ commit + annotated tag + push 触发 CD。
 
 **CD 关键不变量**（`.github/workflows/cd.yml`，改流水线时勿破坏）：
 
-- tag 版本与六处 manifest 必须全等（`verify-manifests` job 用 `release.mjs check` 守卫）；`workflow_dispatch` 路径用 `release.mjs sync` 对齐，不覆写仓库文件
+- tag 版本与全部 manifest 必须全等（`verify-manifests` job 用 `release.mjs check` 守卫）；`workflow_dispatch` 路径用 `release.mjs sync` 对齐，不覆写仓库文件
 - Release 必须**非 draft** 才算发布完成——draft Release 对 electron-updater 不可见，客户端永远检测不到更新
 - 产物自检闸门（`scripts/verify-release-assets.mjs`）：latest.yml 引用的每个资产必须存在且 size/sha512 实测一致（历史出过清单连字符 vs 产物空格命名漂移致客户端更新 404）
 - 安装包产物名由 `electron/package.json` 的 `build.artifactName` 显式固定（无空格）
+- **PyPI 发布（`pypi` job）仅 tag 推送路径触发**——PyPI 版本不可重传，`workflow_dispatch` 演练不得发布；**冒烟先于发布**（干净 venv 装 wheel 验证 `--version`/demo 8 违规基线/退出码 1，PyPI 上传永久生效）；发布方式为 trusted publishing（OIDC，job 级 `id-token: write`），前置一次性配置在 pypi.org → Publishing → pending publisher（owner=AirSaiga，repo=Precis，workflow=cd.yml，environment 留空），未配置时 publish 步骤失败属预期
 
 **客户端更新链路约定**（`electron/src/update.ts` 等）：
 
