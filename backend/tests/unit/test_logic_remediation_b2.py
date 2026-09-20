@@ -571,6 +571,39 @@ class TestScalarsSemantics:
         assert dtype.validate("0")[0]
         assert dtype.validate("0.00")[0]
 
+    def test_decimal_precision_rejects_over_28_significant_digits(self):
+        """2026-09-20 修复回归：精度计数不得经过 decimal 上下文舍入。
+
+        Decimal.normalize() 受默认 context prec=28 影响，>28 位有效数字会被就地
+        舍入回 28 位再计数，导致 precision=28 时 29/30/33 位超限值假阴性放行
+        （修复前实测三者全部通过）。修复后直接对 as_tuple 数字串剥尾随零计数。
+        """
+        from app.shared.domain.data_types_parts.scalars import DecimalType
+
+        dtype = DecimalType(precision=28)
+        for v in (
+            "12345678901234567890123456789",
+            "123456789012345678901234567890",
+            "123456789012345678901234567890123",
+        ):
+            ok, err = dtype.validate(v)
+            assert not ok, f"{len(v)} 位有效数字在 precision=28 下应被拒绝"
+            assert "精度" in err
+
+    def test_decimal_precision_trailing_zero_semantics_kept(self):
+        """修复后 §1.20 语义保持：有效位计数忽略尾随零/指数形态。"""
+        from app.shared.domain.data_types_parts.scalars import DecimalType
+
+        dtype = DecimalType(precision=28)
+        ok, err = dtype.validate("150.00")  # 有效位 2
+        assert ok, err
+        ok, _ = dtype.validate("1" * 28)  # 恰 28 位有效数字：合法
+        assert ok
+        ok, _ = dtype.validate("1" * 29)  # 29 位：拒绝
+        assert not ok
+        ok, _ = dtype.validate("1E+30")  # 有效位 1，量级不属于精度
+        assert ok
+
     def test_date_type_accepts_datetime_with_time(self):
         from app.shared.domain.data_types_parts.scalars import DateType
 

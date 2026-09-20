@@ -63,12 +63,16 @@ class CommandResult:
         message: 返回给用户的提示消息
         data: 附加数据字典，可选
         should_exit: 是否触发 Shell 退出，默认为 False
+        exit_code: 显式进程退出码（仅单发模式生效），默认 None 表示由调用方
+            按 success 推导（成功 0 / 失败 1）。用于区分"校验发现数据违规"
+            （1）与"工具自身错误"（2）等不同失败类别
     """
 
     success: bool
     message: str
     data: dict[str, Any] | None = None
     should_exit: bool = False
+    exit_code: int | None = None
 
     @staticmethod
     def ok(message: str, data: dict[str, Any] | None = None) -> "CommandResult":
@@ -76,7 +80,7 @@ class CommandResult:
 
         Args:
             message: 成功的提示消息
-            data: 可选的附加数据字典
+            data: 可选的附加数据
 
         Returns:
             一个表示成功的 CommandResult 实例
@@ -84,17 +88,19 @@ class CommandResult:
         return CommandResult(success=True, message=message, data=data)
 
     @staticmethod
-    def error(message: str, data: dict[str, Any] | None = None) -> "CommandResult":
+    def error(message: str, data: dict[str, Any] | None = None, exit_code: int | None = None) -> "CommandResult":
         """创建错误结果。
 
         Args:
             message: 错误的提示消息
-            data: 可选的附加数据字典
+            data: 可选的附加数据
+            exit_code: 可选的显式进程退出码（仅单发模式生效），
+                如工具自身错误（参数错误/文件不存在）传 2
 
         Returns:
             一个表示失败的 CommandResult 实例
         """
-        return CommandResult(success=False, message=message, data=data)
+        return CommandResult(success=False, message=message, data=data, exit_code=exit_code)
 
     @staticmethod
     def exit(message: str = "再见!") -> "CommandResult":

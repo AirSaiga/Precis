@@ -94,6 +94,10 @@ jobs:
       - name: Golden-check CLI validate against qa_simple
         run: python -B -m scripts.qa_simple_golden_check
 
+      - name: Plugin golden test (kimi-code skill docs vs backend format)
+        # 插件 v2-format.md 示例配置的后端可运行性 + 双 manifest 一致性守卫
+        run: python -B -m scripts.plugin_golden_test
+
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@v4

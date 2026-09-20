@@ -413,11 +413,15 @@ class DecimalType(DataType):
             if not decimal_value.is_finite():
                 return False, f"'{value}' 不是有限的数值（NaN 或 Infinity 不被接受）"
             if self.precision:
-                # §1.20: 按数值语义计数精度——先 normalize 去尾随零与指数形态再数位数，
-                # 同值 "150"/"1.5E+2"/"150.00" 判定一致（原实现按存储表示计数，同值不同精度）
-                normalized = decimal_value.normalize()
-                _sign, digits, _exponent = normalized.as_tuple()
-                total_digits = len(digits)
+                # §1.20: 按数值语义计数精度——去尾随零与指数形态后数有效位数，
+                # 同值 "150"/"1.5E+2"/"150.00" 判定一致（原实现按存储表示计数，同值不同精度）。
+                # 2026-09-20 修复：不得经过 Decimal.normalize()——它受 decimal 上下文
+                # prec=28 影响，>28 位有效数字会被就地舍入回 28 位再计数，precision=28 时
+                # 29/30/33 位超限值假阴性放行（实测修复前三者全部通过）。改为直接对
+                # as_tuple 数字串剥尾随零，与 normalize 的有效位语义等价且无上下文舍入。
+                _sign, digits, _exponent = decimal_value.as_tuple()
+                significant = "".join(map(str, digits)).rstrip("0")
+                total_digits = len(significant) if significant else 1  # 全零值有效位记 1
                 if total_digits > self.precision:
                     return False, f"'{value}' 超出精度限制（最大 {self.precision} 位）"
             if self.scale is not None:

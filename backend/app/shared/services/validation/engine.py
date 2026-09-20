@@ -406,6 +406,9 @@ def validate_constraints(
                         "check_type": item.get("check_type")
                         or constraint_info.get("constraint_type", constraint.__class__.__name__),
                         "table": item.get("table") or constraint_info.get("table"),
+                        # P0-3: 透出来源约束文件路径（executor 已按 constraint_id 挂载）；
+                        # 格式校验/超时等非约束错误不走此分支，JSON 输出中为 null
+                        "constraint_file": getattr(constraint, "constraint_file", None),
                     }
                 )
 

@@ -211,9 +211,11 @@ class CommandExecutor:
 
             return command.execute(args, self.context)
         except CommandNotFoundError as e:
-            return CommandResult.error(str(e))
+            # 命令不存在属参数错误，单发模式下退出码 2（工具自身错误）
+            return CommandResult.error(str(e), exit_code=2)
         except Exception as e:
-            return CommandResult.error(f"命令执行失败: {e}")
+            # 命令异常崩溃属工具自身错误，单发模式下退出码 2（区别于校验发现违规的 1）
+            return CommandResult.error(f"命令执行失败: {e}", exit_code=2)
 
     def execute_with_args(self, args: list[str]) -> CommandResult:
         """使用预分割参数列表执行命令。
@@ -236,9 +238,11 @@ class CommandExecutor:
 
             return command.execute(args[1:], self.context)
         except CommandNotFoundError as e:
-            return CommandResult.error(str(e))
+            # 命令不存在属参数错误，单发模式下退出码 2（工具自身错误）
+            return CommandResult.error(str(e), exit_code=2)
         except Exception as e:
-            return CommandResult.error(f"命令执行失败: {e}")
+            # 命令异常崩溃属工具自身错误，单发模式下退出码 2（区别于校验发现违规的 1）
+            return CommandResult.error(f"命令执行失败: {e}", exit_code=2)
 
 
 def command(name: str, aliases: list[str] | None = None) -> Callable:

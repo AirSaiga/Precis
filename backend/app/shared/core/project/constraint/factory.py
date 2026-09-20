@@ -156,6 +156,9 @@ def create_constraints(
             constraint, error = create_constraint(const, schema_files)
             # 仅添加非 None 的约束（即已启用的约束）
             if constraint is not None:
+                # P0-3: 在实例上挂约束 ID（运行时对象不参与序列化回写），
+                # 供调用方（executor）将错误回溯到来源约束文件
+                constraint.constraint_id = const.id  # type: ignore[attr-defined]
                 constraints.append(constraint)
             elif error:
                 # 收集警告信息

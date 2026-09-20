@@ -1,0 +1,12 @@
+version: 2
+id: 6f7a8b9c-0d1e-4f2a-9b3c-5d6e7f8a9b0c
+type: Range
+enabled: true
+description: 单价必须在 0 ~ 1000000 之间
+refs:
+  table_id: 1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d
+  column_id: unit_price
+params:
+  min: 0
+  max: 1000000
+  boundary_mode: inclusive

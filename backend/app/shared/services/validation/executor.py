@@ -145,6 +145,16 @@ class ValidationExecutor:
         self.settings = self.loaded_project.manifest.settings
         self.manifest = self.loaded_project.manifest
 
+        # P0-3: 为每个运行时约束附加其来源约束文件路径（相对 manifest 目录）。
+        # 独立约束文件为其 YAML 路径，schema 内嵌约束为 schema 文件路径；
+        # 模板展开产物与无来源约束保持无该属性（校验错误中 constraint_file 为 null）。
+        # getattr 防御：load_project 被 mock 的测试边界可能不带该新字段
+        _source_map = getattr(self.loaded_project, "constraint_source_files", None) or {}
+        for _constraint in getattr(self.dataset_schema, "constraints", None) or []:
+            _cid = getattr(_constraint, "constraint_id", None)
+            if _cid is not None and _cid in _source_map:
+                _constraint.constraint_file = _source_map[_cid]  # type: ignore[attr-defined]
+
         # 执行器级别的脚本执行权限覆盖，优先级高于项目配置
         self.allow_unsafe_eval = allow_unsafe_eval
 

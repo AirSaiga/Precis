@@ -43,21 +43,28 @@
     # Standalone 模式（单次执行，适合自动化）
     precis validate --manifest /my/project/project.precis.yaml
     precis validate --manifest /my/project/project.precis.yaml --data-directory /my/project/data --table users
+    precis validate --manifest /my/project/project.precis.yaml --format json
 
 输出示例:
     CommandResult.ok("验证通过", data={"errors": [], "duration_ms": 120})
     CommandResult.error("验证完成，发现 3 个错误", data={"errors": [...], "duration_ms": 120})
 """
 
+import json
 import os
+import sys
 
 from rich.console import Console
 
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.exceptions import ValidationError
 from app.cli.shell.formatter import Formatter, Spinner
+from app.shared.services.validation.json_payload import build_json_payload as _build_json_payload
 
 _console = Console()
+
+# --format 的合法取值（JSON 契约版本号单一事实源在 validation.json_payload）
+_FORMAT_CHOICES = ("human", "json")
 
 
 # 选项表（单一事实源）：standalone 解析与 Shell 模式选项剥离共用
@@ -68,22 +75,30 @@ _STANDALONE_OPTIONS: dict[str, str] = {
     "-d": "data_directory",
     "--table": "table",
     "-t": "table",
+    "--format": "format",
+    "--report": "report",
 }
 
 
 def _parse_standalone_args(args: list[str]) -> dict:
     """解析 standalone 模式的命名参数。
 
-    从参数列表中提取 --manifest/-m、--data-directory/-d、--table/-t 选项。
+    从参数列表中提取 --manifest/-m、--data-directory/-d、--table/-t、--format 选项。
     不以 -- 或 - 开头的裸参数在无 --manifest 时被忽略（由 Shell 模式处理）。
 
     Args:
         args: 命令参数列表
 
     Returns:
-        包含 manifest、data_directory、table 键的字典，未提供的键值为 None
+        包含 manifest、data_directory、table、format、report 键的字典，未提供的键值为 None
     """
-    result: dict[str, str | None] = {"manifest": None, "data_directory": None, "table": None}
+    result: dict[str, str | None] = {
+        "manifest": None,
+        "data_directory": None,
+        "table": None,
+        "format": None,
+        "report": None,
+    }
     i = 0
     while i < len(args):
         arg = args[i]
@@ -143,7 +158,11 @@ class ValidateCommand(Command):
 
     @property
     def usage(self) -> str:
-        return "validate [table_name]\n  validate --manifest <path> [--data-directory <path>] [--table <name>]"
+        return (
+            "validate [table_name]\n"
+            "  validate --manifest <path> [--data-directory <path>] [--table <name>] "
+            "[--format human|json] [--report <path>]"
+        )
 
     def execute(self, args: list[str], context: ProjectContext) -> CommandResult:
         """执行数据校验命令。
@@ -200,7 +219,16 @@ class ValidateCommand(Command):
         validation_settings = context.project_config.get("validation", {}) if context.project_config else {}
         script_security = context.project_config.get("script_security", {}) if context.project_config else {}
 
-        return self._run_validation(manifest_path, data_dir, table_name, validation_settings, script_security)
+        return self._run_validation(
+            manifest_path,
+            data_dir,
+            table_name,
+            validation_settings,
+            script_security,
+            # 契约：--format 仅 standalone 模式生效，Shell/REPL 一律 human 输出
+            "human",
+            parsed_shell["report"],
+        )
 
     def _execute_standalone(self, parsed: dict) -> CommandResult:
         """Standalone 模式执行校验。
@@ -209,15 +237,23 @@ class ValidateCommand(Command):
         使用默认设置（timeout=30, 安全沙箱）。
 
         Args:
-            parsed: 解析后的参数字典，包含 manifest/data_directory/table
+            parsed: 解析后的参数字典，包含 manifest/data_directory/table/format/report
 
         Returns:
             校验结果
         """
+        # 输出格式：--format 缺省为 human（与历史行为完全一致），仅 standalone 模式生效
+        output_format = (parsed["format"] or "human").strip().lower()
+        if output_format not in _FORMAT_CHOICES:
+            return CommandResult.error(
+                f"--format 仅支持 {' 或 '.join(_FORMAT_CHOICES)}，收到: {parsed['format']}",
+                exit_code=2,
+            )
+
         manifest_path = os.path.abspath(parsed["manifest"])
 
         if not os.path.exists(manifest_path):
-            return CommandResult.error(f"清单文件不存在: {manifest_path}")
+            return CommandResult.error(f"清单文件不存在: {manifest_path}", exit_code=2)
 
         # 数据目录：显式指定 > 清单文件所在目录
         if parsed["data_directory"]:
@@ -226,12 +262,12 @@ class ValidateCommand(Command):
             data_dir = os.path.dirname(manifest_path)
 
         if not os.path.isdir(data_dir):
-            return CommandResult.error(f"数据目录不存在: {data_dir}")
+            return CommandResult.error(f"数据目录不存在: {data_dir}", exit_code=2)
 
         table_name = parsed["table"]
 
         # standalone 模式使用默认设置
-        return self._run_validation(manifest_path, data_dir, table_name, {}, {})
+        return self._run_validation(manifest_path, data_dir, table_name, {}, {}, output_format, parsed["report"])
 
     def _run_validation(
         self,
@@ -240,6 +276,8 @@ class ValidateCommand(Command):
         table_name: str | None,
         validation_settings: dict,
         script_security: dict,
+        output_format: str = "human",
+        report_path: str | None = None,
     ) -> CommandResult:
         """执行校验的核心逻辑，Shell 和 Standalone 模式共享。
 
@@ -249,6 +287,10 @@ class ValidateCommand(Command):
             table_name: 可选的表名过滤
             validation_settings: 校验设置字典
             script_security: 脚本安全设置字典
+            output_format: 输出格式，"human"（rich 人类可读，默认）或 "json"
+                （stdout 仅输出单个 JSON 文档，供 agent/CI 消费）
+            report_path: 可选的报告输出路径（.html/.xlsx，按扩展名分派；
+                与 --format json 可同时使用，报告与 JSON 内容同源）
 
         Returns:
             校验结果
@@ -291,15 +333,45 @@ class ValidateCommand(Command):
 
             executor = ValidationExecutor(manifest_path)
 
-            Formatter.print_header("开始执行数据校验")
+            # JSON 模式下抑制全部人类可读输出（header/Spinner/摘要/结果），
+            # 保证 stdout 只含单个 JSON 文档
+            json_mode = output_format == "json"
 
-            spinner = Spinner("正在校验数据")
-            spinner.start()
+            spinner: Spinner | None = None if json_mode else Spinner("正在校验数据")
+            if spinner is not None:
+                Formatter.print_header("开始执行数据校验")
+                spinner.start()
 
             try:
                 result = executor.execute(data_dir, options)
             finally:
-                spinner.stop(success=True)
+                if spinner is not None:
+                    spinner.stop(success=True)
+
+            errors = result.get("errors", [])
+            duration_ms = result.get("duration_ms", 0)
+
+            if json_mode:
+                payload = _build_json_payload(result)
+                # --report 与 --format json 可并用；提示走 stderr 保持 stdout 纯 JSON。
+                # 2026-09-20 契约修复：导出失败不再提前 return 留空 stdout——契约要求
+                # stdout 始终输出单个 JSON 文档（docs/contracts/validate-json-v1.md），
+                # 改为 payload 照常输出 + 错误经 stderr 透出 + 退出码维持 2
+                report_note = self._export_report_if_requested(payload, report_path)
+                report_failure: CommandResult | None = None
+                if isinstance(report_note, CommandResult):
+                    report_failure = report_note
+                elif report_note:
+                    print(report_note, file=sys.stderr)
+                # stdout 只输出 JSON 文档（UTF-8，ensure_ascii=False 保留中文原文）
+                print(json.dumps(payload, ensure_ascii=False))
+                if report_failure is not None:
+                    # 错误文案由调用方（单发模式 main / REPL 渲染器）按 CommandResult 呈现，
+                    # 此处不再重复 print，避免 stderr 出现两条相同消息
+                    return report_failure
+                if errors:
+                    return CommandResult.error("", data={"errors": errors, "duration_ms": duration_ms})
+                return CommandResult.ok("", data={"errors": [], "duration_ms": duration_ms})
 
             # 处理并显示加载阶段的警告信息
             # loading_errors 来自 LoadingError.to_dict()，友好信息在 title/description/fix_hint
@@ -316,8 +388,6 @@ class ValidateCommand(Command):
                     if err.get("fix_hint"):
                         _console.print(f"     建议: {err['fix_hint']}")
 
-            errors = result.get("errors", [])
-            duration_ms = result.get("duration_ms", 0)
             interrupted = result.get("interrupted", False)
 
             # C6 遇错即停:中断时提示用户剩余校验未执行(区别于正常完成)
@@ -338,6 +408,13 @@ class ValidateCommand(Command):
             output = Formatter.format_validation_result(errors)
             _console.print(output)
 
+            # human 模式同样支持 --report（内容与 JSON 契约同源）
+            report_note = self._export_report_if_requested(_build_json_payload(result), report_path)
+            if isinstance(report_note, CommandResult):
+                return report_note
+            if report_note:
+                _console.print(report_note)
+
             if errors:
                 return CommandResult.error("", data={"errors": errors, "duration_ms": duration_ms})
             else:
@@ -347,3 +424,25 @@ class ValidateCommand(Command):
             raise ValidationError(str(e))
         finally:
             inspector_logger.setLevel(_prev_level)
+
+    @staticmethod
+    def _export_report_if_requested(payload: dict, report_path: str | None) -> str | CommandResult:
+        """按需导出报告文件。
+
+        Args:
+            payload: JSON 契约 payload（报告内容与 stdout JSON 同源）
+            report_path: --report 给出的输出路径；None 表示未请求
+
+        Returns:
+            成功时返回提示文案（调用方决定走 stdout/stderr）；
+            未请求时返回空串；失败时返回 exit_code=2 的 CommandResult
+        """
+        if not report_path:
+            return ""
+        from app.shared.services.validation.report_export import export_report
+
+        try:
+            written = export_report(payload, report_path)
+        except (ValueError, OSError) as e:
+            return CommandResult.error(f"报告导出失败: {e}", exit_code=2)
+        return f"报告已写入: {written}"

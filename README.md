@@ -88,6 +88,11 @@ brew install python@3.12    # 装好后用 python3.12 调用
 
 克隆仓库后，根据使用场景二选一。
 
+> 只想在命令行/agent 里做数据校验、不需要 GUI？直接
+> `pip install -e ./backend`（或发布后 `pip install precis-cli`）获得 `precis` 命令，
+> 也可以在任何 agent harness（Kimi Code / Claude Code / MCP 客户端等）中接入：
+> [`integrations/`](integrations/README.md)。
+
 #### 路径一：一键脚本（推荐，普通用户）
 
 脚本自动完成：Python 3.12+ 探测 → 创建虚拟环境 → 安装后端依赖（`requirements.txt`）→ 安装前端三处依赖 → 构建前端与 Electron。

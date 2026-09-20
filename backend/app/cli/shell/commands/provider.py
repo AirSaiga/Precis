@@ -272,6 +272,10 @@ class ProviderCommand(Command):
             api_key=api_key,
             context_window=context_window,
         )
+        # §2.12 修复：用户显式输入的 key 标记为手工来源——否则该 id 若存在同名
+        # <ID>_API_KEY 环境变量，save 会把刚输入的 key 当 env 来源剔除、永不落盘
+        if api_key:
+            self._config.mark_api_key_manual(provider_id)
         self._config.add_or_update_provider(provider)
 
         print(Formatter.success(f"\n[*] 已添加 Provider: {name} ({provider_id})"))
@@ -346,6 +350,9 @@ class ProviderCommand(Command):
         # 编辑副本：后续字段修改只作用于副本，仅显式 "done" 才落盘；
         # ESC/中断丢弃副本，存储内与磁盘上的配置均不被污染
         provider = provider.model_copy(deep=True)
+        # §2.12 修复：仅在用户显式输入新 key 时标记手工来源（提交前统一标记，
+        # ESC 丢弃编辑则不标记——否则后续任何无关 save 会把 env 注入值当手工值落盘）
+        key_manually_set = False
 
         # 编辑菜单
         while True:
@@ -396,6 +403,7 @@ class ProviderCommand(Command):
                     ).strip()
                     if key_input:
                         provider.api_key = key_input
+                        key_manually_set = True
                     elif provider.api_key:
                         # 询问是否清空
                         confirm = (
@@ -410,6 +418,10 @@ class ProviderCommand(Command):
                 print(Formatter.info("已取消"))
                 return
 
+        # §2.12 修复：用户显式输入的新 key 标记为手工来源后再落盘——否则该 id
+        # 若存在同名 <ID>_API_KEY 环境变量，save 会把新 key 当 env 来源剔除不落盘
+        if key_manually_set:
+            self._config.mark_api_key_manual(provider.id)
         self._config.add_or_update_provider(provider)
         print(Formatter.success(f"\n[*] 已更新: {provider.name}"))
 

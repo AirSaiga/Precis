@@ -3,9 +3,11 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "precis"
+# 分发名 precis-cli：PyPI 上 "precis" 已被 2014 年的第三方包占用；
+# 命令名保持 `precis`（见 [project.scripts]），仅分发名带 -cli 后缀
+name = "precis-cli"
 version = "0.1.2"
-description = "Precis - 可配置数据校验工具 CLI"
+description = "Precis - 可配置数据校验工具 CLI（校验 CSV/Excel/JSON 数据质量）"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.12,<3.14"
@@ -63,17 +65,22 @@ ai = [
     "aiohttp>=3.9.0",
     "psutil>=5.9.6",
 ]
+# MCP server（stdio，`precis-mcp` 命令；agent harness 直连用）
+# 钉 <2：mcp 2.x 重命名了 FastMCP/低级 API（官方迁移指引建议 v1 代码先钉 1.x）
+mcp = [
+    "mcp>=1.30.0,<2",
+]
 # CLI Tab 补全 (仅 Windows 需要；Unix 使用 stdlib readline)
 completion = [
     "pyreadline3>=0.1.8; sys_platform == 'win32'",
 ]
 # 完整安装 (包含所有功能)
 full = [
-    "precis[api,ai,completion]",
+    "precis-cli[api,ai,completion,mcp]",
 ]
 # 开发依赖
 dev = [
-    "precis[api,ai]",
+    "precis-cli[api,ai,mcp]",
     "debugpy>=1.8.0",
     "ruff>=0.4.0",
     "mypy>=1.10.0",
@@ -89,6 +96,7 @@ dev = [
 [project.scripts]
 precis = "app.cli.shell.main:main"
 precis-start = "app.cli.start:main"
+precis-mcp = "app.mcp_server:main"
 
 [project.urls]
 Homepage = "https://github.com/AirSaiga/Precis"

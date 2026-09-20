@@ -86,6 +86,153 @@ def get_excel_sheet_names(file_path: str) -> list[str]:
         excel_file.close()
 
 
+# OOXML 命名空间：xlsx 内部 XML 的主命名空间、officeDocument 关系 id 属性、
+# 以及 *_rels 关系文件元素所属的 package 关系命名空间（注意 .iter() 不支持
+# "{*}" 通配——find/findall 的路径通配语法在标签匹配上是字面量，恒不命中）
+_XLSX_MAIN_NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+_XLSX_REL_ID = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"
+_XLSX_PKG_REL_NS = "{http://schemas.openxmlformats.org/package/2006/relationships}"
+
+
+def _xlsx_col_letters_to_index(letters: str) -> int:
+    """Excel 列字母（A/B/.../AA）转 1-based 列号。"""
+    index = 0
+    for ch in letters.upper():
+        index = index * 26 + (ord(ch) - ord("A") + 1)
+    return index
+
+
+def _xlsx_parse_cell_ref(ref: str) -> tuple[int, int]:
+    """单元格引用（如 B5）转 (row, col)，均 1-based。"""
+    i = 0
+    while i < len(ref) and ref[i].isalpha():
+        i += 1
+    return int(ref[i:]), _xlsx_col_letters_to_index(ref[:i])
+
+
+def _xlsx_cell_value(elem: Any, shared: list[str] | None) -> Any:
+    """从 <c> 元素解析单元格值，对齐 openpyxl data_only=True 的缓存值语义。"""
+    cell_type = elem.get("t")
+    if cell_type == "inlineStr":
+        return "".join(t.text or "" for t in elem.iter(f"{_XLSX_MAIN_NS}t"))
+    v_elem = elem.find(f"{_XLSX_MAIN_NS}v")
+    if v_elem is None or v_elem.text is None:
+        return None
+    raw = v_elem.text
+    if cell_type == "s":
+        # 共享字符串：v 为 sharedStrings.xml 中的下标
+        if shared is None:
+            return None
+        idx = int(raw)
+        return shared[idx] if 0 <= idx < len(shared) else None
+    if cell_type == "b":
+        return raw == "1"
+    if cell_type == "str":
+        return raw  # 公式字符串结果
+    # 数值（默认/公式缓存数值结果）：int→float→原样回退
+    try:
+        return int(raw)
+    except ValueError:
+        try:
+            return float(raw)
+        except ValueError:
+            return raw
+
+
+def read_merged_ranges_from_xlsx(
+    file_path: str | Path, sheet_name: str
+) -> list[tuple[int, int, int, int, list[Any]]] | None:
+    """流式读取 xlsx 目标 sheet 的合并单元格区域及各区域首行值（§1.27 分块路径专用）。
+
+    返回 (min_row, min_col, max_row, max_col, values) 五元组列表，values 为区域首行
+    min_col..max_col 各列的值（供跨块悬挂区域直接赋值续填）；sheet 不存在返回 None；
+    无合并区域返回 []。
+
+    为何不走 openpyxl：read_only 模式的 ReadOnlyWorksheet 不解析 merged_cells（无该
+    属性），普通模式则把全部 sheet 的 Cell 对象图整体物化——分块路径本是为 >500MB
+    大文件省内存而设，普通模式峰值内存约为 read_only 的 120 倍（0.5MB/15 万格实测
+    55MB vs ≈0MB）。故按 OOXML 结构直接 zipfile+ElementTree 流式解析：workbook.xml
+    定位目标 sheet → 第一遍扫描 <mergeCells> 取区域 → 第二遍流式扫描 <sheetData>
+    仅物化各区域首行的取值。共享字符串表按 openpyxl read_only 同口径全量载入
+    （上界为去重字符串数）。.xls（非 zip 容器）会抛 BadZipFile，由调用方降级处理。
+    """
+    import zipfile
+    from xml.etree import ElementTree as ET
+
+    with zipfile.ZipFile(file_path) as zf:
+        # 1) sheet 名 → 工作表 XML 条目路径（workbook.xml 的 r:id + 其关系文件）
+        rid: str | None = None
+        wb_root = ET.fromstring(zf.read("xl/workbook.xml"))
+        for sheet in wb_root.iter(f"{_XLSX_MAIN_NS}sheet"):
+            if sheet.get("name") == sheet_name:
+                rid = sheet.get(_XLSX_REL_ID)
+                break
+        if not rid:
+            return None
+        target: str | None = None
+        rels_root = ET.fromstring(zf.read("xl/_rels/workbook.xml.rels"))
+        for rel in rels_root.iter(f"{_XLSX_PKG_REL_NS}Relationship"):
+            if rel.get("Id") == rid:
+                target = rel.get("Target")
+                break
+        if not target:
+            return None
+        entry = target.lstrip("/") if target.startswith("/") else f"xl/{target}"
+
+        # 2) 第一遍：mergeCells 区域引用（行元素即扫即弃，内存有界）
+        ranges: list[tuple[int, int, int, int]] = []
+        with zf.open(entry) as stream:
+            for _event, elem in ET.iterparse(stream, events=("end",)):
+                if elem.tag == f"{_XLSX_MAIN_NS}mergeCell":
+                    ref = elem.get("ref") or ""
+                    if ":" in ref:
+                        start, end = ref.split(":", 1)
+                        r1, c1 = _xlsx_parse_cell_ref(start)
+                        r2, c2 = _xlsx_parse_cell_ref(end)
+                        ranges.append((min(r1, r2), min(c1, c2), max(r1, r2), max(c1, c2)))
+                    elem.clear()
+                elif elem.tag == f"{_XLSX_MAIN_NS}row":
+                    elem.clear()
+        if not ranges:
+            return []
+
+        # 3) 共享字符串表（存在时全量载入；openpyxl read_only 取值同口径）
+        shared: list[str] | None = None
+        if "xl/sharedStrings.xml" in zf.namelist():
+            shared = []
+            with zf.open("xl/sharedStrings.xml") as stream:
+                for _event, si in ET.iterparse(stream, events=("end",)):
+                    if si.tag == f"{_XLSX_MAIN_NS}si":
+                        shared.append("".join(t.text or "" for t in si.iter(f"{_XLSX_MAIN_NS}t")))
+                        si.clear()
+
+        # 4) 第二遍：仅物化各区域首行的单元格值
+        needed_rows = {r[0] for r in ranges}
+        row_values: dict[int, dict[int, Any]] = {}
+        with zf.open(entry) as stream:
+            for _event, row in ET.iterparse(stream, events=("end",)):
+                if row.tag != f"{_XLSX_MAIN_NS}row":
+                    continue
+                row_num = row.get("r")
+                if row_num is not None and int(row_num) in needed_rows:
+                    cells: dict[int, Any] = {}
+                    fallback_col = 0
+                    for cell in row:
+                        cell_ref = cell.get("r")
+                        col = _xlsx_parse_cell_ref(cell_ref)[1] if cell_ref else fallback_col + 1
+                        fallback_col = col
+                        cells[col] = _xlsx_cell_value(cell, shared)
+                    row_values[int(row_num)] = cells
+                row.clear()
+
+        result: list[tuple[int, int, int, int, list[Any]]] = []
+        for min_row, min_col, max_row, max_col in ranges:
+            cells = row_values.get(min_row, {})
+            values = [cells.get(c) for c in range(min_col, max_col + 1)]
+            result.append((min_row, min_col, max_row, max_col, values))
+        return result
+
+
 def apply_merged_ranges_fill(
     df: pd.DataFrame,
     merged_ranges: Any,

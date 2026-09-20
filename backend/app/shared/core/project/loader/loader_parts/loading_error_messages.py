@@ -226,6 +226,60 @@ def template_node_expansion_error(instance_id: str, node_id: str, message: str, 
     }
 
 
+def manifest_version_missing(supported: str) -> dict:
+    """manifest 顶层缺少 version 字段。
+
+    P0-1 版本识别：version 字段在 Pydantic 模型中有默认值，缺失会被静默吞掉，
+    故在解析前显式检查并在 loading_errors 通道报错。
+
+    Args:
+        supported: 当前支持的版本号列表描述（如 "2"）
+
+    Returns:
+        LoadingError 友好字段 dict
+    """
+    return {
+        "severity": "blocker",
+        "title": "配置文件缺少 version 字段",
+        "description": f"项目清单没有写 version 字段，无法识别配置格式。当前支持的版本为 {supported}。",
+        "fix_hint": f"请在 project.precis.yaml 顶层添加一行「version: {supported}」。",
+        "message": "缺少 version 字段，当前支持版本为 " + supported,
+        "context": {"involved": []},
+        "title_key": "inspection.issues.load.manifestVersionMissing.title",
+        "description_key": "inspection.issues.load.manifestVersionMissing.description",
+        "fix_hint_key": "inspection.issues.load.manifestVersionMissing.fixHint",
+        "message_params": {"supported": supported},
+    }
+
+
+def manifest_version_unsupported(version: object, supported: str) -> dict:
+    """manifest 顶层 version 字段不是受支持的版本。
+
+    Args:
+        version: 文件中实际写的 version 值（可能为任意 YAML 类型）
+        supported: 当前支持的版本号列表描述（如 "2"）
+
+    Returns:
+        LoadingError 友好字段 dict
+    """
+    return {
+        "severity": "blocker",
+        "title": f"配置版本 {version} 不被支持",
+        "description": f"项目清单写的版本是 {version!r}，当前支持的版本为 {supported}。旧版配置需要先升级才能使用。",
+        "fix_hint": (
+            f"请将配置升级到 V2 格式：顶层改为「version: {supported}」，schema 使用 columns+source 结构、"
+            "约束拆分为 constraints/*.constraint.yaml 独立文件（refs+params 分离）。"
+            "可参考仓库 qa_test/qa_simple/ 示例项目对照迁移。"
+        ),
+        "message": f"不支持的项目配置版本: {version!r}，当前支持版本为 {supported}",
+        "context": {"involved": []},
+        "title_key": "inspection.issues.load.manifestVersionUnsupported.title",
+        "description_key": "inspection.issues.load.manifestVersionUnsupported.description",
+        "fix_hint_key": "inspection.issues.load.manifestVersionUnsupported.fixHint",
+        "message_params": {"version": str(version), "supported": supported},
+    }
+
+
 def _looks_like_yaml_error(exc: BaseException, text: str) -> bool:
     """判断异常是否为 YAML 语法错误（而非字段校验错误）。"""
     # yaml.YAMLError 及其子类

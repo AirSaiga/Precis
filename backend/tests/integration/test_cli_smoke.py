@@ -336,7 +336,18 @@ class TestStandaloneArgsParser:
 
     def test_no_args(self):
         result = _parse_standalone_args([])
-        assert result == {"manifest": None, "data_directory": None, "table": None}
+        assert result == {
+            "manifest": None,
+            "data_directory": None,
+            "table": None,
+            "format": None,
+            "report": None,
+        }
+
+    def test_format_option(self):
+        result = _parse_standalone_args(["--manifest", "/m.yaml", "--format", "json"])
+        assert result["manifest"] == "/m.yaml"
+        assert result["format"] == "json"
 
     def test_long_options(self):
         result = _parse_standalone_args(

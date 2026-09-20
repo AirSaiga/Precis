@@ -39,6 +39,7 @@ from app.cli.shell.commands.base import Command, CommandResult
 from app.cli.shell.commands.config import ConfigCommand
 from app.cli.shell.commands.exit import ExitCommand
 from app.cli.shell.commands.help import HelpCommand
+from app.cli.shell.commands.infer_schema import InferSchemaCommand
 from app.cli.shell.commands.open import OpenCommand
 from app.cli.shell.commands.project import ProjectCommand
 from app.cli.shell.commands.provider import ProviderCommand
@@ -58,4 +59,5 @@ __all__ = [
     "AICommand",
     "PwdCommand",
     "LsCommand",
+    "InferSchemaCommand",
 ]

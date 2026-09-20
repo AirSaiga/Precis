@@ -51,7 +51,7 @@ from typing import Any
 import pandas as pd
 
 from app.shared.core.data_source.loaders.csv_loader import build_csv_read_kwargs
-from app.shared.core.data_source.loaders.excel_loader import apply_merged_ranges_fill
+from app.shared.core.data_source.loaders.excel_loader import apply_merged_ranges_fill, read_merged_ranges_from_xlsx
 from app.shared.core.data_source.schema_info import DataSourceInfo
 from app.shared.core.project.schema.types import TableSchemaFile
 from app.shared.domain.dataset_schema import DataSetSchema, TableSchema
@@ -272,25 +272,15 @@ class ChunkedDataLoader:
         返回 (min_row, min_col, max_row, max_col, values) 五元组列表——values 为区域
         首行各列的值，使跨块悬挂区域能直接赋值续填（合并单元格区域内所有格本就同值）。
         任何失败降级返回 None（调用方跳过填充，与 B27 降级语义一致——填充是尽力而为的增强）。
+
+        2026-09-20 修复：改用 excel_loader.read_merged_ranges_from_xlsx
+        （zipfile+ElementTree 流式解析）。此前 openpyxl 普通模式 load_workbook 会把
+        全部 sheet 的 Cell 对象图整体物化（read_only 模式的 ReadOnlyWorksheet 无
+        merged_cells 属性才退而用普通模式）——0.5MB/15 万格实测峰值 55MB vs
+        read_only ≈0MB（~120 倍放大），恰好落在 >500MB 分块阈值场景上。
         """
         try:
-            from openpyxl import load_workbook
-
-            wb = load_workbook(file_path, data_only=True)
-            try:
-                if sheet_name not in wb.sheetnames:
-                    logger.warning(f"合并区域读取：sheet '{sheet_name}' 不存在，跳过填充: {file_path}")
-                    return None
-                ws = wb[sheet_name]
-                result = []
-                for merged in ws.merged_cells.ranges:
-                    values = [
-                        ws.cell(row=merged.min_row, column=c).value for c in range(merged.min_col, merged.max_col + 1)
-                    ]
-                    result.append((merged.min_row, merged.min_col, merged.max_row, merged.max_col, values))
-                return result
-            finally:
-                wb.close()
+            return read_merged_ranges_from_xlsx(file_path, sheet_name)
         except Exception as e:
             logger.warning(f"分块 Excel 合并单元格区域读取失败，跳过填充（可能导致 NotNull 误报）: {file_path}: {e}")
             return None

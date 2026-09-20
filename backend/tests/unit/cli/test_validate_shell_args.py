@@ -56,7 +56,7 @@ class TestShellModeTableFilter:
         context.project_config = {}
         captured = {}
 
-        def fake_run_validation(manifest_path, data_dir, table_name, settings, security):
+        def fake_run_validation(manifest_path, data_dir, table_name, settings, security, *extra):
             captured["table_name"] = table_name
             from app.cli.shell.commands.base import CommandResult
 

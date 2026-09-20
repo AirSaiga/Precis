@@ -295,12 +295,7 @@ def get_version() -> dict[str, str]:
 
     @returns dict - 包含 version 字段的响应对象
     """
-    from importlib.metadata import PackageNotFoundError, version
+    from app.shared.core.app_version import get_app_version
 
-    ver = os.environ.get("PRECIS_APP_VERSION")
-    if not ver:
-        try:
-            ver = version("precis")
-        except PackageNotFoundError:
-            ver = "0.0.0-dev"
+    ver = get_app_version(fallback="0.0.0-dev")
     return {"version": ver}

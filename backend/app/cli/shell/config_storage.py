@@ -130,6 +130,15 @@ class CLIConfigStorage:
 
         self._save()
 
+    def mark_api_key_manual(self, provider_id: str) -> None:
+        """把 provider 的 api_key 标记为手工设置（§2.12：save 时不再按 env 来源剔除落盘）。
+
+        CLI 的 add/edit 路径在用户显式输入 API Key 后、落盘前调用——否则该 provider
+        若存在同名环境变量（<ID>_API_KEY），save() 会把用户刚输入的 key 当 env 来源
+        剔除，新 key 永不落盘（env 移除后 provider 无 key 可用）。
+        """
+        loader.mark_api_key_manual(provider_id)
+
     def list_providers(self) -> list[AIProvider]:
         """列出所有 Providers"""
         return list(self._config.providers)

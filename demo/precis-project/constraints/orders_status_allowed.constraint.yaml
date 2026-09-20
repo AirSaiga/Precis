@@ -1,0 +1,10 @@
+version: 2
+id: 8b9c0d1e-2f3a-4b4c-9d5e-7f8a9b0c1d2e
+type: AllowedValues
+enabled: true
+description: 订单状态枚举
+refs:
+  table_id: 1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d
+  column_id: status
+params:
+  allowed_values: [pending, paid, shipped, completed, cancelled]

@@ -1,0 +1,6 @@
+customer_id,name,email,phone,level
+C001,张伟,zhangwei@example.com,13800138000,vip
+C002,李娜,lina@example.com,13900139000,normal
+C003,王强,wangqiang@example.com,13700137000,vip
+C004,刘洋,liuyang@example.com,13600136000,normal
+C005,陈静,chenjing@example.com,13500135000,normal

@@ -1,0 +1,24 @@
+version: 2
+project:
+  id: 7c9e4a1b-2f3d-4e5a-8b6c-0d1e2f3a4b5c
+  name: demo 订单数据校验
+schemas:
+  - id: 1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d
+    path: schemas/orders.schema.yaml
+  - id: 2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e
+    path: schemas/customers.schema.yaml
+constraints:
+  - id: 3c4d5e6f-7a8b-4c9d-8e1f-2a3b4c5d6e7f
+    path: constraints/orders_order_id_notnull.constraint.yaml
+  - id: 4d5e6f7a-8b9c-4d0e-9f1a-3b4c5d6e7f8a
+    path: constraints/orders_customer_id_notnull.constraint.yaml
+  - id: 5e6f7a8b-9c0d-4e1f-8a2b-4c5d6e7f8a9b
+    path: constraints/orders_order_id_unique.constraint.yaml
+  - id: 6f7a8b9c-0d1e-4f2a-9b3c-5d6e7f8a9b0c
+    path: constraints/orders_unit_price_range.constraint.yaml
+  - id: 7a8b9c0d-1e2f-4a3b-8c4d-6e7f8a9b0c1d
+    path: constraints/orders_quantity_range.constraint.yaml
+  - id: 8b9c0d1e-2f3a-4b4c-9d5e-7f8a9b0c1d2e
+    path: constraints/orders_status_allowed.constraint.yaml
+  - id: 9c0d1e2f-3a4b-4c5d-8e6f-8a9b0c1d2e3f
+    path: constraints/orders_customer_fk.constraint.yaml

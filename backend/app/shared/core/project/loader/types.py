@@ -196,6 +196,9 @@ class LoadedProject:
         - dataset_schema: 运行时的数据集 Schema（包含 TableSchema 和约束实例）
         - warnings: 加载过程中的警告信息列表
         - loading_errors: 加载过程中的错误信息列表
+        - constraint_source_files: 约束 ID -> 来源文件路径（相对 manifest 目录）映射。
+            独立约束文件为 constraint YAML 路径，schema 内嵌约束为 schema 文件路径。
+            供校验错误回溯 constraint_file（P0-3），模板展开产物不在映射中。
     """
 
     manifest_path: Path
@@ -208,6 +211,7 @@ class LoadedProject:
     manual_data_files: dict[str, "ManualDataFile"] | None = None
     warnings: list[str] | None = None
     loading_errors: list[LoadingError] | None = None
+    constraint_source_files: dict[str, str] | None = None
 
     def __post_init__(self) -> None:
         # frozen=True 表示实例创建后不可变，因此必须通过 object.__setattr__ 来修改属性
@@ -219,6 +223,8 @@ class LoadedProject:
             object.__setattr__(self, "transform_files", {})
         if self.manual_data_files is None:
             object.__setattr__(self, "manual_data_files", {})
+        if self.constraint_source_files is None:
+            object.__setattr__(self, "constraint_source_files", {})
 
 
 @dataclass(frozen=True)

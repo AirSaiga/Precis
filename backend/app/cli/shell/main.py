@@ -37,6 +37,7 @@ from app.cli.shell.commands import (
     ConfigCommand,
     ExitCommand,
     HelpCommand,
+    InferSchemaCommand,
     LsCommand,
     OpenCommand,
     ProjectCommand,
@@ -60,23 +61,21 @@ def _setup_logging() -> None:
 
 
 def _setup_encoding() -> None:
-    """确保 stdout/stderr 使用 UTF-8 编码。
+    """确保 stdout/stderr 使用 UTF-8 编码（委托 shared.core.encoding 公共助手）。"""
+    from app.shared.core.encoding import setup_utf8_console
 
-    Windows 中文环境的默认终端编码为 GBK (cp936)，
-    无法输出 Unicode 字符（如 Spinner 动画帧、校验结果中的符号等）。
-    将 stdout/stderr 重新配置为 UTF-8，errors 策略为 replace，避免编码异常。
-    """
-    if sys.platform == "win32":
-        for stream in (sys.stdout, sys.stderr):
-            if stream and hasattr(stream, "reconfigure"):
-                try:
-                    stream.reconfigure(encoding="utf-8", errors="replace")
-                except (AttributeError, OSError):
-                    pass
+    setup_utf8_console()
 
 
 # 匹配 ANSI 颜色/样式转义序列（如 \x1b[36m、\x1b[0m）
 _ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _get_version() -> str:
+    """获取 CLI 版本号（委托 shared.core.app_version，供 --version 旗标）。"""
+    from app.shared.core.app_version import get_app_version
+
+    return get_app_version()
 
 
 def _wrap_ansi_for_readline(prompt: str) -> str:
@@ -113,6 +112,7 @@ class CLIShell:
         self.registry.register(OpenCommand())
         self.registry.register(ProjectCommand())
         self.registry.register(ValidateCommand())
+        self.registry.register(InferSchemaCommand())
         self.registry.register(ConfigCommand())
         self.registry.register(ProviderCommand())
         self.registry.register(AICommand())
@@ -144,8 +144,13 @@ class CLIShell:
                     print(result.message)
                 else:
                     Formatter.print_error(result.message)
-            # 单次执行模式：命令失败返回 1，成功返回 0
-            # 这对 CI/CD 自动化至关重要，流水线通过退出码判断校验是否通过
+            # 单发模式退出码契约：0 = 校验通过；1 = 校验完成但发现数据违规；
+            # 2 = 工具自身错误（参数错误、文件不存在、异常崩溃）。
+            # 命令显式携带 exit_code 时优先（如 validate 的清单不存在传 2），
+            # 其余按 success 推导（成功 0 / 失败 1）。这对 CI/CD 与 agent
+            # 自动化至关重要：仅凭退出码即可区分红绿与工具故障。
+            if result.exit_code is not None:
+                return result.exit_code
             return 0 if result.success else 1
 
         Formatter.print_welcome()
@@ -260,6 +265,11 @@ def main(args: list | None = None) -> int:
     if args is None:
         args = sys.argv[1:]
 
+    # 全局版本旗标：独立于命令体系，供外部集成（如 Kimi Code 插件）探测 CLI 可用性
+    if args and args[0] in ("--version", "-v"):
+        print(f"precis {_get_version()}")
+        return 0
+
     try:
         shell = CLIShell()
         return shell.run(args)
@@ -267,8 +277,9 @@ def main(args: list | None = None) -> int:
         Formatter.print_error(e.message)
         return e.exit_code
     except Exception as e:
+        # 未预期崩溃属工具自身错误，退出码 2（区别于"校验发现数据违规"的 1）
         Formatter.print_error(f"未预期的错误: {e}")
-        return 1
+        return 2
 
 
 if __name__ == "__main__":

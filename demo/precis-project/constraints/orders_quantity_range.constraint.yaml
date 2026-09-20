@@ -1,0 +1,12 @@
+version: 2
+id: 7a8b9c0d-1e2f-4a3b-8c4d-6e7f8a9b0c1d
+type: Range
+enabled: true
+description: 数量必须 >= 1
+refs:
+  table_id: 1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d
+  column_id: quantity
+params:
+  min: 1
+  max: 100000
+  boundary_mode: inclusive

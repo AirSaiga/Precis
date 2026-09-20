@@ -5,13 +5,14 @@
  * - containsStartupSignal：扫描 Uvicorn 就绪信号
  * - looksLikeStderrError：识别 stderr 真实错误
  * - tryReadBackendPort：读取端口文件(端口发现协议)
- *
- * API 轮询函数（waitForApiReady）涉及网络 I/O，此处仅验证可调用性，
- * 实际行为由集成测试覆盖。
+ * - waitForApiReady：版本端点就绪轮询（本地 HTTP server 实测，含 2026-09-20
+ *   修复回归——大响应 destroy 后不得挂死）
  */
 
 import { describe, it, expect } from 'vitest'
 import { writeFileSync, mkdtempSync } from 'node:fs'
+import * as http from 'node:http'
+import * as net from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
@@ -24,6 +25,10 @@ import {
   SIGNAL_SCAN_TAIL_CHARS,
   BACKEND_PORT_FILE,
 } from '../src/startup-probe'
+
+function listen(srv: http.Server): Promise<number> {
+  return new Promise((res) => srv.listen(0, '127.0.0.1', () => res((srv.address() as net.AddressInfo).port)))
+}
 
 describe('startup-probe - 常量', () => {
   it('STARTUP_SIGNALS 包含 Uvicorn 就绪标记', () => {
@@ -112,7 +117,66 @@ describe('startup-probe - tryReadBackendPort', () => {
   })
 })
 
-describe('startup-probe - 网络函数可调用性', () => {
+describe('startup-probe - waitForApiReady 回归', () => {
+  // 2026-09-20 修复回归：>4KB 大响应触发 req.destroy() 后 'end' 与 req 'error'
+  // 均不触发（destroy 不带 error 参数），socket 已销毁 socket-timeout 也不再回调，
+  // 此前 Promise 永不 settle（dev 端口被返回分块大响应的本地服务占用时启动链挂死）。
+  // 现由 res 'close' 兜底走统一重试/超时出口。
+  it('多块 >4KB 非 Precis 响应：不挂死，按内部超时 settle(false)', async () => {
+    const srv = http.createServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'text/html' })
+      res.write('x'.repeat(4096)) // 第一块 body=4096，不触发 >4096 destroy
+      setTimeout(() => {
+        try {
+          res.write('y'.repeat(8192)) // 第二块 body>4096 → req.destroy()
+        } catch {
+          /* 连接已断开 */
+        }
+      }, 50)
+      setTimeout(() => {
+        try {
+          res.end()
+        } catch {
+          /* 连接已断开 */
+        }
+      }, 200)
+    })
+    const port = await listen(srv)
+    try {
+      const ok = await waitForApiReady(port, 1200, 200)
+      expect(ok).toBe(false)
+    } finally {
+      srv.close()
+      srv.closeAllConnections?.()
+    }
+  }, 8000)
+
+  it('Precis 版本端点响应 {version}：settle(true)', async () => {
+    const srv = http.createServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ version: '0.1.2-test' }))
+    })
+    const port = await listen(srv)
+    try {
+      const ok = await waitForApiReady(port, 3000, 200)
+      expect(ok).toBe(true)
+    } finally {
+      srv.close()
+      srv.closeAllConnections?.()
+    }
+  }, 8000)
+
+  it('连接拒绝：按内部超时 settle(false)', async () => {
+    // 先占用一个端口再关闭，确保后续连接被拒绝
+    const probe = net.createServer()
+    await new Promise<void>((resolve) => probe.listen(0, '127.0.0.1', resolve))
+    const port = (probe.address() as net.AddressInfo).port
+    await new Promise<void>((resolve) => probe.close(() => resolve()))
+
+    const ok = await waitForApiReady(port, 1000, 200)
+    expect(ok).toBe(false)
+  }, 8000)
+
   it('waitForApiReady 是异步函数', () => {
     expect(typeof waitForApiReady).toBe('function')
   })

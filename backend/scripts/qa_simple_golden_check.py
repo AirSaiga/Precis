@@ -141,6 +141,10 @@ def run_check(assertion: GoldenAssertion) -> CheckResult:
 
 
 def main() -> int:
+    # Windows GBK 控制台下 print ✓/中文 会 UnicodeEncodeError，先重配 UTF-8
+    from app.shared.core.encoding import setup_utf8_console
+
+    setup_utf8_console()
     manifest = os.environ.get("QA_SIMPLE_MANIFEST", str(QA_SIMPLE_MANIFEST))
     data_dir = os.environ.get("QA_SIMPLE_DATA_DIR", str(QA_SIMPLE_DATA_DIR))
     assertion = GoldenAssertion(manifest_path=manifest, data_dir=data_dir)

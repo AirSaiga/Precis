@@ -122,9 +122,7 @@ class TestEditProviderDiscard:
         # 深拷贝保护：中断前对副本的 name 修改不污染存储内对象
         assert _stored_provider(cmd).name == "DeepSeek"
 
-    def test_done_saves_changes(
-        self, edit_env: tuple[ProviderCommand, Path], monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_done_saves_changes(self, edit_env: tuple[ProviderCommand, Path], monkeypatch: pytest.MonkeyPatch) -> None:
         """显式 "done"：正常保存修改到磁盘与内存态。"""
         cmd, config_file = edit_env
         _run_edit(cmd, monkeypatch, shows=["deepseek", "name", "done"], inputs=["Renamed"])
@@ -166,9 +164,7 @@ class TestEditContextWindow:
         assert _stored_provider(cmd).context_window is None
         assert _read_config(config_file)["providers"][0].get("context_window") is None
 
-    def test_valid_value_updates(
-        self, edit_env: tuple[ProviderCommand, Path], monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_valid_value_updates(self, edit_env: tuple[ProviderCommand, Path], monkeypatch: pytest.MonkeyPatch) -> None:
         """合法整数（>= 1024）：正常更新并保存。"""
         cmd, config_file = edit_env
         _run_edit(cmd, monkeypatch, shows=["deepseek", "context_window", "done"], inputs=["16384"])

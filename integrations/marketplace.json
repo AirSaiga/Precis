@@ -1,0 +1,10 @@
+{
+  "version": "2",
+  "plugins": [
+    {
+      "id": "precis",
+      "displayName": "Precis Data Validation",
+      "source": "https://github.com/AirSaiga/Precis"
+    }
+  ]
+}

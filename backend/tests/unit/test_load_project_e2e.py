@@ -19,8 +19,6 @@
 在临时目录中构建完整项目结构并测试加载流程。
 """
 
-import pytest
-
 from app.shared.core.project.loader.loader_parts.main import load_project
 from app.shared.services.project_loader import build_dataset_schema
 
@@ -181,6 +179,7 @@ schemas:
         assert any(e.error_type == "SchemaParseError" for e in result.loading_errors)
 
     def test_unsupported_version(self, tmp_path):
+        """P0-1 起，非 2 版本不再抛异常，而是经 loading_errors 结构化报错（含迁移指引）。"""
         manifest = tmp_path / "project.precis.yaml"
         manifest.write_text(
             """
@@ -192,9 +191,12 @@ project:
             encoding="utf-8",
         )
 
-        with pytest.raises(ValueError) as exc_info:
-            load_project(str(manifest))
-        assert "不支持" in str(exc_info.value)
+        loaded = load_project(str(manifest))
+        version_errors = [e for e in loaded.loading_errors if e.error_type == "ManifestVersionError"]
+        assert len(version_errors) == 1
+        assert "99" in version_errors[0].title
+        assert "升级" in version_errors[0].fix_hint
+        assert loaded.schema_files == {}
 
     def test_missing_constraint(self, tmp_path):
         manifest = tmp_path / "project.precis.yaml"

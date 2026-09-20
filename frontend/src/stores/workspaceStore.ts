@@ -152,9 +152,13 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     }
 
     // §3.1: 存储层保存 POSIX 形式（保留大小写与 .. 段，跨平台搬运配置可解析），
-    // 比较层继续用 normalizePath（大小写不敏感 + 消解）——两类用途分工
+    // 比较层双侧统一 normalizePath（大小写不敏感 + 消解）——两类用途分工。
+    // 2026-09-20 修复：此前比较右侧误用 toPosixPath 结果（保留大小写），Windows
+    // 盘符必大写，四路交叉比较恒不命中——重复导入不再合并、恒走追加。
     const normalizedFileId = toPosixPath(resolvedFileId)
     const normalizedLocalPath = toPosixPath(resolvedLocalPath)
+    const compareFileId = normalizePath(resolvedFileId)
+    const compareLocalPath = normalizePath(resolvedLocalPath)
 
     // 使用标准化后的路径进行查找（同时检查 fileId 和 localPath，防止同路径重复导入）
     // 四路交叉比较：新条目的 fileId/localPath 与已有条目的 fileId/localPath 两两匹配。
@@ -164,10 +168,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       const dsFileId = normalizePath(ds.fileId || '')
       const dsLocalPath = normalizePath(ds.localPath || '')
       return (
-        dsFileId === normalizedFileId ||
-        dsLocalPath === normalizedFileId ||
-        dsFileId === normalizedLocalPath ||
-        dsLocalPath === normalizedLocalPath
+        dsFileId === compareFileId ||
+        dsLocalPath === compareFileId ||
+        dsFileId === compareLocalPath ||
+        dsLocalPath === compareLocalPath
       )
     })
     if (existing) {

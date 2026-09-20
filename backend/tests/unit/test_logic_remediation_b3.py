@@ -375,3 +375,77 @@ class TestChunkedExcelMergedFill:
         chunks = loader._load_excel_chunked(str(path), "Sheet1", 0, chunk_size=1)
         values = [c["a"].tolist() for c in chunks]
         assert values == [[1], [2]]
+
+
+class TestXlsxMergedRangesReader:
+    """2026-09-20 修复回归：合并区域读取改 zipfile+ElementTree 流式解析。
+
+    修复动机：openpyxl 普通模式 load_workbook 会把全部 sheet 的 Cell 对象图
+    整体物化（0.5MB/15 万格实测峰值 55MB vs read_only ≈0MB，~120 倍放大），
+    恰好落在 >500MB 分块校验为之设计的场景上。read_only 模式的
+    ReadOnlyWorksheet 无 merged_cells 属性，故按 OOXML 结构直接流式解析。
+    """
+
+    def _write_xlsx(self, tmp_path, rows, merges):
+        from openpyxl import Workbook
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Sheet1"
+        for row in rows:
+            ws.append(row)
+        for ref in merges:
+            ws.merge_cells(ref)
+        path = tmp_path / "m.xlsx"
+        wb.save(path)
+        return path
+
+    def test_reader_vertical_merge_bounds_and_value(self, tmp_path):
+        from app.shared.core.data_source.loaders.excel_loader import read_merged_ranges_from_xlsx
+
+        path = self._write_xlsx(
+            tmp_path,
+            rows=[["dept", "name"], ["总部", "a"], [None, "b"], [None, "c"]],
+            merges=["A2:A4"],
+        )
+        ranges = read_merged_ranges_from_xlsx(str(path), "Sheet1")
+        assert ranges == [(2, 1, 4, 1, ["总部"])]
+
+    def test_reader_horizontal_merge_first_row_values(self, tmp_path):
+        """跨列合并：values 为首行 min_col..max_col 各列值（非锚点格为 None）。"""
+        from app.shared.core.data_source.loaders.excel_loader import read_merged_ranges_from_xlsx
+
+        path = self._write_xlsx(
+            tmp_path,
+            rows=[["h1", "h2", "h3"], ["合并值", None, None], ["x", "y", "z"]],
+            merges=["A2:C2"],
+        )
+        ranges = read_merged_ranges_from_xlsx(str(path), "Sheet1")
+        assert ranges == [(2, 1, 2, 3, ["合并值", None, None])]
+
+    def test_reader_numeric_first_row_value(self, tmp_path):
+        from app.shared.core.data_source.loaders.excel_loader import read_merged_ranges_from_xlsx
+
+        path = self._write_xlsx(tmp_path, rows=[["n"], [42], [None], [None]], merges=["A2:A4"])
+        ranges = read_merged_ranges_from_xlsx(str(path), "Sheet1")
+        assert ranges == [(2, 1, 4, 1, [42])]
+
+    def test_reader_unknown_sheet_returns_none(self, tmp_path):
+        from app.shared.core.data_source.loaders.excel_loader import read_merged_ranges_from_xlsx
+
+        path = self._write_xlsx(tmp_path, rows=[["a"], [1]], merges=[])
+        assert read_merged_ranges_from_xlsx(str(path), "NoSuchSheet") is None
+
+    def test_reader_no_merges_returns_empty(self, tmp_path):
+        from app.shared.core.data_source.loaders.excel_loader import read_merged_ranges_from_xlsx
+
+        path = self._write_xlsx(tmp_path, rows=[["a"], [1]], merges=[])
+        assert read_merged_ranges_from_xlsx(str(path), "Sheet1") == []
+
+    def test_reader_xls_degrades_to_none(self, tmp_path):
+        """非 zip 容器（.xls）：调用方降级为 None（跳过填充），不向上抛。"""
+        from app.shared.services.validation.chunked_loader import ChunkedDataLoader
+
+        p = tmp_path / "fake.xls"
+        p.write_bytes(b"not a zip")
+        assert ChunkedDataLoader._read_excel_merged_ranges(str(p), "Sheet1") is None

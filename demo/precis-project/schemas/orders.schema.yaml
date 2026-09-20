@@ -1,0 +1,30 @@
+version: 2
+id: 1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d
+name: orders
+description: 订单表
+source:
+  mode: relative_file
+  path: ../orders.csv
+columns:
+  - id: order_id
+    name: order_id
+    type: string
+    primary_key: true
+  - id: customer_id
+    name: customer_id
+    type: string
+  - id: product
+    name: product
+    type: string
+  - id: quantity
+    name: quantity
+    type: integer
+  - id: unit_price
+    name: unit_price
+    type: float
+  - id: order_date
+    name: order_date
+    type: date
+  - id: status
+    name: status
+    type: string

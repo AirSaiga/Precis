@@ -179,20 +179,43 @@ export async function waitForApiReady(
   // 4.23: 就绪判据从"任意 <500 状态码"收紧为 Precis 版本端点的 JSON 结构特征
   // （{version: string}）——旧端口被无关服务占用且返回 200 时不再假阳性"就绪"，
   // 前端不会连到错误服务。轮询退出时统一 clearTimeout，成功响应销毁连接防句柄残留。
+  //
+  // 2026-09-20 修复：>4KB 大响应触发 req.destroy() 后，'end' 与 req 'error' 均
+  // 不触发（destroy 不带 error 参数），socket 已销毁 socket-timeout 也不再回调，
+  // Promise 永不 settle——dev 模式端口文件指向的端口被返回分块大响应（如 Vite
+  // SPA fallback HTML）的本地服务占用时启动链直接挂死。现由 res 'close' 兜底：
+  // 凡未走到 'end' 的提前终止一律按"本轮探测失败"进入统一的重试/超时出口；
+  // 每轮 check 的终止事件（end/error/close/socket-timeout）只消费一次，防双触发。
   return new Promise((resolve) => {
     let nextTimer: NodeJS.Timeout | null = null;
     const finish = (ok: boolean) => {
       if (nextTimer) clearTimeout(nextTimer);
       resolve(ok);
     };
+    const retryOrFail = () => {
+      if (Date.now() - startTime > timeout) {
+        finish(false);
+      } else {
+        nextTimer = setTimeout(check, interval);
+      }
+    };
     const check = () => {
+      let consumed = false;
+      // 终止事件单飞守卫：四个终止出口共享同一标志，只允许第一个到达者消费
+      const once = (fn: () => void) => () => {
+        if (consumed) return;
+        consumed = true;
+        fn();
+      };
       const req = http.get(`http://127.0.0.1:${port}/api/latest/version`, (res) => {
         let body = '';
+        let ended = false;
         res.on('data', (chunk: Buffer) => {
           body += chunk.toString('utf-8');
           if (body.length > 4096) req.destroy(); // 防异常超大响应
         });
-        res.on('end', () => {
+        res.on('end', once(() => {
+          ended = true;
           res.destroy();
           let isPrecis = false;
           try {
@@ -203,30 +226,24 @@ export async function waitForApiReady(
           }
           if (isPrecis) {
             finish(true);
-          } else if (Date.now() - startTime > timeout) {
-            finish(false);
           } else {
-            nextTimer = setTimeout(check, interval);
+            retryOrFail();
           }
-        });
+        }));
+        // 大响应 destroy 后的兜底出口：未到达 'end' 的提前终止（含主动 destroy）
+        // 走统一重试/超时，不再依赖 'end'/'error'（destroy 后两者均不会触发）
+        res.on('close', once(() => {
+          if (ended) return;
+          retryOrFail();
+        }));
       });
 
-      req.on('error', () => {
-        if (Date.now() - startTime > timeout) {
-          finish(false);
-        } else {
-          nextTimer = setTimeout(check, interval);
-        }
-      });
+      req.on('error', once(retryOrFail));
 
-      req.setTimeout(interval, () => {
+      req.setTimeout(interval, once(() => {
         req.destroy();
-        if (Date.now() - startTime > timeout) {
-          resolve(false);
-        } else {
-          setTimeout(check, interval);
-        }
-      });
+        retryOrFail();
+      }));
     };
 
     check();

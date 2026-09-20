@@ -34,6 +34,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TypeVar
 
+from app.shared.core.io.yaml import read_yaml
 from app.shared.core.manifest_schema import is_supported_version
 from app.shared.core.project.constraint.reader import load_constraint
 from app.shared.core.project.loader.loader_parts import loading_error_messages
@@ -124,6 +125,51 @@ def _load_referenced_files(
     return result
 
 
+def _supported_versions_desc() -> str:
+    """当前支持的配置版本号描述（单一事实源为 manifest_schema.version 的常量）。"""
+    from app.shared.core.manifest_schema.version import get_version_info
+
+    return ", ".join(str(v) for v in get_version_info()["supported_versions"])
+
+
+def _check_manifest_version(manifest_file: Path) -> LoadingError | None:
+    """显式校验 manifest 顶层 version 字段（P0-1 版本识别机制）。
+
+    version 在 ProjectManifest 模型中有默认值，缺失时会被 Pydantic 静默补为 2，
+    因此必须在模型解析之前对原始 YAML 做显式检查：
+    - 缺失 → 报"缺少 version 字段，当前支持版本为 2"
+    - 非 2（含非整数类型）→ 报版本不支持并给迁移指引
+    - 等于 2 → 返回 None，走原有加载流程（行为不变）
+
+    Args:
+        manifest_file: manifest 文件路径
+
+    Returns:
+        版本问题对应的 LoadingError；版本合法时返回 None。
+        YAML 本身解析失败会直接抛出（与原有行为一致，由 load_manifest 兜底）。
+    """
+    raw = read_yaml(manifest_file)
+    if not isinstance(raw, dict):
+        # 非字典结构（如 YAML 列表）交给后续 Pydantic 校验报错，此处不重复处理
+        return None
+
+    if "version" not in raw or raw.get("version") is None:
+        return LoadingError(
+            error_type="ManifestVersionError",
+            file_path=str(manifest_file),
+            **loading_error_messages.manifest_version_missing(_supported_versions_desc()),
+        )
+
+    version = raw["version"]
+    if isinstance(version, bool) or not isinstance(version, int) or not is_supported_version(version):
+        return LoadingError(
+            error_type="ManifestVersionError",
+            file_path=str(manifest_file),
+            **loading_error_messages.manifest_version_unsupported(version, _supported_versions_desc()),
+        )
+    return None
+
+
 def load_project(
     manifest_path: str,
     schema_builder: SchemaBuilder | None = None,
@@ -149,12 +195,39 @@ def load_project(
     manifest_file = Path(manifest_path)
     project_root = manifest_file.parent
 
+    # P0-1: 在 Pydantic 解析之前显式校验 version 字段。
+    # 版本不识别时不进入后续加载阶段：错误经 loading_errors 结构化通道透出
+    # （--format json 时在 loading_warnings 可见），并返回空项目让校验流程
+    # 可控收场（数据加载阶段会报告"未加载任何数据表"）。
+    version_error = _check_manifest_version(manifest_file)
+    if version_error is not None:
+        from app.shared.core.project.manifest.types import ProjectManifest
+
+        placeholder_manifest = ProjectManifest.model_validate({"project": {"id": "unknown", "name": "unknown"}})
+        registries = build_registries(project_root, placeholder_manifest)
+        empty_schema: dict = {}
+        empty_constraints: dict = {}
+        empty_schema_obj = schema_builder(empty_schema, empty_constraints, registries)[0] if schema_builder else None
+        return LoadedProject(
+            manifest_path=manifest_file,
+            manifest=placeholder_manifest,
+            schema_files=empty_schema,
+            constraint_files=empty_constraints,
+            regex_node_files={},
+            transform_files={},
+            manual_data_files={},
+            dataset_schema=empty_schema_obj,
+            warnings=[],
+            loading_errors=[version_error],
+        )
+
     manifest = load_manifest(manifest_file)
 
     version = manifest.version
     if not is_supported_version(version):
-        supported = ", ".join(str(v) for v in [2])
-        raise ValueError(f"不支持的项目配置版本: {version}，支持的版本: {supported}")
+        # _check_manifest_version 已在解析前拦截非 2 版本，此处为防御性兜底
+        # （例如 raw 为非字典结构时 Pydantic 仍可能解析出非 2 版本）
+        raise ValueError(f"不支持的项目配置版本: {version}，支持的版本: {_supported_versions_desc()}")
 
     registries = build_registries(project_root, manifest)
 
@@ -187,6 +260,18 @@ def load_project(
         if cid in constraint_files:
             warnings.append(f"约束 ID '{cid}' 同时存在于独立文件和内嵌配置中，内嵌配置优先")
         constraint_files[cid] = const
+
+    # P0-3: 构建约束 ID -> 来源文件路径映射（相对 manifest 目录），供校验错误回溯。
+    # 独立约束取 manifest 引用路径；内嵌约束归属其宿主 schema 文件
+    # （内嵌约束 ID 形如 "{schema_id}_{item_id}"，按 schema id 前缀归属，含下划线表名也正确）。
+    constraint_source_files: dict[str, str] = {ref.id: ref.path for ref in manifest.constraints}
+    schema_path_by_id = {ref.id: ref.path for ref in manifest.schemas}
+    for schema_id, schema_path in schema_path_by_id.items():
+        embedded_prefix = f"{schema_id}_"
+        for embedded_id in embedded_constraints:
+            if embedded_id.startswith(embedded_prefix):
+                # 内嵌优先与 constraint_files 覆盖语义一致
+                constraint_source_files[embedded_id] = schema_path
 
     # 阶段 4：加载 Regex 节点文件
     regex_files = _load_referenced_files(
@@ -343,4 +428,5 @@ def load_project(
         dataset_schema=dataset_schema,
         warnings=warnings,
         loading_errors=loading_errors,
+        constraint_source_files=constraint_source_files,
     )
