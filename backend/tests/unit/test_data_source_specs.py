@@ -314,7 +314,8 @@ class TestCSVSourceSpec:
         assert spec.escapechar is None
         assert spec.encoding_detection is True
         assert spec.fallback_encodings == ["utf-8", "gbk", "latin1"]
-        assert spec.on_bad_lines == "warn"
+        # 默认 fail-closed：坏行报错而非静默跳过（校验工具漏报红线）
+        assert spec.on_bad_lines == "error"
 
     def test_custom_values(self):
         """自定义值"""

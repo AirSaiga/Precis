@@ -58,7 +58,7 @@ from app.shared.domain.dataset_schema import DataSetSchema
 from .chunked_loader import ChunkedDataLoader
 from .data_loader import DataLoader
 from .engine import execute_dag_if_needed, validate_constraints, validate_full_dataset
-from .memory_monitor import MemoryMonitor
+from .memory_monitor import DEFAULT_CHUNK_THRESHOLD_MB, MemoryMonitor
 from .postprocess import (
     attach_source_info,
     build_id_to_name_map,
@@ -97,7 +97,7 @@ class ValidationOptions:
         strict_mode: bool = False,
         allow_unsafe_eval: bool | None = None,
         table_filter: str | list[str] | None = None,
-        chunk_threshold_mb: float = 500,
+        chunk_threshold_mb: float = DEFAULT_CHUNK_THRESHOLD_MB,
         chunk_rows: int = 100_000,
     ):
         self.timeout_seconds = timeout_seconds

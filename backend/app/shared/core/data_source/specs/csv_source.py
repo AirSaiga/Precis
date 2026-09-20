@@ -35,7 +35,7 @@
         quotechar='"',
         encoding="utf-8",
         encoding_detection=True,
-        on_bad_lines="warn"
+        on_bad_lines="error"
     )
 
 输出示例:
@@ -100,8 +100,10 @@ class CSVSourceSpec(FileSourceSpec):
     )
 
     # 错误处理
+    # 默认 error（校验工具红线：字段数超表头的坏行静默跳过=漏报，用户在"缺行"
+    # 的数据上看到全绿；warn/skip 是显式 opt-in 的容忍行为）
     on_bad_lines: Literal["error", "warn", "skip"] = Field(
-        "warn", description="遇到坏行的处理方式：error-报错, warn-警告并跳过, skip-静默跳过"
+        "error", description="遇到坏行的处理方式：error-报错（默认，fail-closed）, warn-警告并跳过, skip-静默跳过"
     )
 
     def get_loader_class(self) -> builtins.type[DataSourceLoader]:

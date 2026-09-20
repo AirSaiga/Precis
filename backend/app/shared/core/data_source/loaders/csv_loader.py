@@ -65,7 +65,7 @@ def build_csv_read_kwargs(
     encoding: str,
     delimiter: str,
     quotechar: str = '"',
-    on_bad_lines: str = "warn",
+    on_bad_lines: str = "error",  # 与 CSVSourceSpec 默认同口径（fail-closed）
     escapechar: str | None = None,
     skip_rows: int = 0,
 ) -> dict[str, Any]:

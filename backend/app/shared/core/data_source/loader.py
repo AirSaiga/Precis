@@ -178,9 +178,10 @@ def _load_csv_with_new_loader(
     # source_config，manifest 默认值仅作兜底（与 preview/loader.py 的读取方式保持一致）。
     source_config = info.source_config or {}
 
-    # on_bad_lines 是 Literal 枚举（model_construct 不校验），非法值兜底为 "warn"，
+    # on_bad_lines 是 Literal 枚举（model_construct 不校验），非法值兜底为 "error"
+    # （与 CSVSourceSpec/CSVOptions 默认同口径：坏行静默跳过=校验工具漏报红线），
     # 避免把任意字符串透传给 pandas.read_csv 导致加载失败
-    on_bad_lines: Literal["error", "warn", "skip"] = "warn"
+    on_bad_lines: Literal["error", "warn", "skip"] = "error"
     if source_config.get("on_bad_lines") in ("error", "warn", "skip"):
         on_bad_lines = source_config["on_bad_lines"]  # type: ignore[assignment]  # 白名单校验后收窄
 

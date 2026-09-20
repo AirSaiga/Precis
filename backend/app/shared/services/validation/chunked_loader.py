@@ -134,11 +134,12 @@ class ChunkedDataLoader:
             # 注意：CSVOptions 无 nrows 字段，分块路径不发明 nrows 支持。
             source_config = getattr(schema, "source_config", None) or {}
 
-            # on_bad_lines 来自自由字典，按标准路径的白名单收窄，非法值兜底 "warn"，
+            # on_bad_lines 来自自由字典，按标准路径的白名单收窄，非法值兜底 "error"
+            # （与 CSVSourceSpec/CSVOptions 默认值同口径：坏行静默跳过=校验工具漏报），
             # 避免把任意字符串透传给 pandas.read_csv 导致加载失败
             on_bad_lines = source_config.get("on_bad_lines")
             if on_bad_lines not in ("error", "warn", "skip"):
-                on_bad_lines = "warn"
+                on_bad_lines = "error"
 
             read_kwargs = build_csv_read_kwargs(
                 header_row=schema.header_row if schema.header_row is not None else 0,

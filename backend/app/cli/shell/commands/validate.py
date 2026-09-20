@@ -254,6 +254,13 @@ class ValidateCommand(Command):
 
         if not os.path.exists(manifest_path):
             return CommandResult.error(f"清单文件不存在: {manifest_path}", exit_code=2)
+        if os.path.isdir(manifest_path):
+            # 指向目录时 open() 在 Windows 抛 PermissionError、Linux 抛 IsADirectoryError，
+            # 消息均误导排障方向（"权限"而非"这是目录"）——前置判明
+            return CommandResult.error(
+                f"清单路径是一个目录，请指向项目清单文件（project.precis.yaml）: {manifest_path}",
+                exit_code=2,
+            )
 
         # 数据目录：显式指定 > 清单文件所在目录
         if parsed["data_directory"]:

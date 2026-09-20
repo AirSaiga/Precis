@@ -186,7 +186,11 @@ class CSVOptions(BaseModel):
 
     skip_rows: int = Field(0, ge=0, description="跳过的行数")
 
-    on_bad_lines: Literal["error", "warn", "skip"] = Field("warn", description="遇到坏行的处理方式")
+    # 默认 error（校验工具红线：坏行静默跳过=漏报；warn/skip 为显式 opt-in，
+    # 与 CSVSourceSpec.on_bad_lines 默认值保持一致，标准/分块两路径同口径）
+    on_bad_lines: Literal["error", "warn", "skip"] = Field(
+        "error", description="遇到坏行的处理方式：error-报错（默认，fail-closed）, warn-警告并跳过, skip-静默跳过"
+    )
 
     def to_loader_config(self) -> dict[str, Any]:
         """@methoddesc 转换为加载器配置字典
