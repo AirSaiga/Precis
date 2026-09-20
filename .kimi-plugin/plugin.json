@@ -1,6 +1,6 @@
 {
   "name": "precis",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Precis data validation workflows for Kimi Code CLI",
   "skills": "./integrations/skills/",
   "commands": "./integrations/commands/",

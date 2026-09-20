@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-09-21
+
 ### 2026-09
 - PyPI 页面描述改为面向用户的专用 README：新增 `backend/PYPI_README.md`（一句话定位 → pip/uvx 安装 → 快速上手 → 退出码契约 → 配置示例 → 10 种约束一览 → AI agent 集成），`pyproject.toml` 的 `readme` 字段改指该文件并补 `keywords`（data-quality 等 8 词）——此前页面直接展示开发者向的 backend/README.md（架构图+开发命令，且含 PyPI 上必死的相对链接）。backend/README.md 保持开发者向不变，两份文档分开维护。随下一版本发布生效（PyPI 发布不可变，0.1.4 页面保持原样）。
 
