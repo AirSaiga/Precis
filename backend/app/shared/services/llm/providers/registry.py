@@ -38,6 +38,7 @@
 from ..config.models import AIProvider, ProviderType
 from .base import BaseProvider
 from .cached_provider import CachedProvider
+from .fake import FakeProvider
 from .ollama import OllamaProvider
 from .openai import OpenAIProvider
 
@@ -106,3 +107,5 @@ def create(config: AIProvider) -> BaseProvider:
 # 注册内置 Provider
 register(ProviderType.OPENAI, OpenAIProvider)
 register(ProviderType.OLLAMA, OllamaProvider)
+# fake 仅用于测试/演练（E2E 确定性守卫），不在 presets 中暴露
+register(ProviderType.FAKE, FakeProvider)

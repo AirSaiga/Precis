@@ -111,6 +111,39 @@ def _parse_standalone_args(args: list[str]) -> dict:
     return result
 
 
+def _extract_settings(project_config: dict | None) -> tuple[dict, dict]:
+    """从清单 dump 中提取 (validation, script_security) 设置。
+
+    兼容两种形态：标准清单 dump（settings 嵌套在 "settings" 键下，open 命令
+    的 project_config 即此形态）与直接以 settings 内容为顶层的形态。
+    旧实现读顶层 "validation"/"script_security" 在标准形态下恒 miss。
+    """
+    if not project_config:
+        return {}, {}
+    settings = project_config.get("settings")
+    if isinstance(settings, dict):
+        return settings.get("validation") or {}, settings.get("script_security") or {}
+    return project_config.get("validation") or {}, project_config.get("script_security") or {}
+
+
+def _load_manifest_settings(manifest_path: str) -> tuple[dict, dict]:
+    """轻量读取清单 YAML 的 settings 段，供 standalone 模式使用。
+
+    不做完整模型加载（executor 内部自会加载并报告真正的解析错误）；
+    文件不可读/非 dict 结构时静默回退默认设置。
+    """
+    try:
+        import yaml
+
+        with open(manifest_path, encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+    except Exception:
+        return {}, {}
+    if not isinstance(data, dict):
+        return {}, {}
+    return _extract_settings(data)
+
+
 def _find_dangling_option(args: list[str]) -> str | None:
     """检测缺值的 standalone 选项（尾部悬挂或值位置是下一个选项）。
 
@@ -236,9 +269,9 @@ class ValidateCommand(Command):
         manifest_path = os.path.join(project_path, "project.precis.yaml")
         data_dir = project_path
 
-        # 从项目配置中读取设置
-        validation_settings = context.project_config.get("validation", {}) if context.project_config else {}
-        script_security = context.project_config.get("script_security", {}) if context.project_config else {}
+        # 从项目配置中读取设置（settings 嵌套在清单 dump 的 "settings" 键下；
+        # 旧实现读顶层 "validation" 恒 miss，REPL 模式的 timeout/error_handling 实际从未生效）
+        validation_settings, script_security = _extract_settings(context.project_config)
 
         return self._run_validation(
             manifest_path,
@@ -255,7 +288,8 @@ class ValidateCommand(Command):
         """Standalone 模式执行校验。
 
         直接从命令行参数获取路径，不依赖项目上下文。
-        使用默认设置（timeout=30, 安全沙箱）。
+        读取清单内 settings（validation/script_security），缺省回退默认值
+        （timeout=30 / continue / 安全沙箱）。
 
         Args:
             parsed: 解析后的参数字典，包含 manifest/data_directory/table/format/report
@@ -294,8 +328,14 @@ class ValidateCommand(Command):
 
         table_name = parsed["table"]
 
-        # standalone 模式使用默认设置
-        return self._run_validation(manifest_path, data_dir, table_name, {}, {}, output_format, parsed["report"])
+        # standalone 模式同样读取清单内的 settings（插件/CI 场景改 YAML 的
+        # timeout/error_handling 由此生效；旧实现传空 settings 导致配置被忽略，
+        # 与 SKILL.md "调整超时/错误处理" 的指引矛盾）。清单不可读时退回默认值，
+        # 真正的解析错误由 executor 加载阶段报告。
+        validation_settings, script_security = _load_manifest_settings(manifest_path)
+        return self._run_validation(
+            manifest_path, data_dir, table_name, validation_settings, script_security, output_format, parsed["report"]
+        )
 
     def _run_validation(
         self,

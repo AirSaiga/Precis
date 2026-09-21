@@ -79,10 +79,14 @@ ALL_CONSTRAINT_TYPES: frozenset[str] = CONSTRAINT_TYPES | frozenset(CONSTRAINT_T
 # 需要特定参数的约束类型（供参数完整性校验）
 # 注意：Range 的 min/max 实际允许"至少一个"（见 _constraint_validator 特殊处理），
 # 此处仅声明"需要关注的参数键"，具体宽松度由 validator 决定。
+# Charset 必填 charsetMode：缺省时写盘侧不再静默默认 ascii（中文约束误判为 ascii 约束）；
+# Composite 必填 subConstraints：空子约束在引擎侧恒真（no-op 假通过）。
 CONSTRAINT_REQUIRED_PARAMS: dict[str, list[str]] = {
     "Range": ["min", "max"],
     "AllowedValues": ["allowedValues"],
     "ForeignKey": ["toTableId", "toColumnId"],
+    "Charset": ["charsetMode"],
+    "Composite": ["subConstraints"],
 }
 
 # 转换子类型白名单（22种）——原 response_parser(21条) 与 transform_handlers(22条) 不一致，

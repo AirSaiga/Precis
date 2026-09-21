@@ -275,6 +275,8 @@ AI 助手帮助
   - ForeignKey: 外键约束 (如: "关联到 orders 表的 user_id 列")
   - Conditional: 条件约束 (如: "如果 type 等于 A 则值为 B")
   - DateLogic: 日期逻辑约束 (如: "日期晚于 2023-01-01")
+  - Charset: 字符集约束 (如: "该列只能包含中文")
+  - Composite: 复合约束 (如: "该列必须非空且唯一")
         """
         print(Formatter.info(help_text))
 

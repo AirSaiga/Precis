@@ -26,7 +26,7 @@ import asyncio
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from app.shared.services.ai.failure_messages import describe_ai_failure
 from app.shared.services.llm.actions.action_parser import (
@@ -38,6 +38,10 @@ from app.shared.services.llm.chat.chat_system_prompt import build_system_prompt
 from app.shared.services.llm.chat.response_parser import ActionParser
 from app.shared.services.llm.config.models import AIProvider
 from app.shared.services.llm.providers.base import ChatMessage, ChatRequest
+
+if TYPE_CHECKING:
+    from app.shared.services.ai.agent.chat_tools.apply_actions import ApplyCallbacks
+    from app.shared.services.ai.agent.chat_tools.ask_user import AskCallbacks
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +99,10 @@ class ChatOptions:
     max_agent_iterations: int = 5
     # 画布节点快照（前端请求体携带，供 read_canvas 工具查询画布真实状态）
     canvas_nodes: list[dict[str, Any]] = field(default_factory=list)
+    # Agent 模式两阶段确认/交互问答回调（CLI 终端注入；HTTP 非流式缺省 → fail-closed 保持）
+    apply_callbacks: ApplyCallbacks | None = None
+    ask_callbacks: AskCallbacks | None = None
+    dry_run_enabled: bool = False
 
 
 @dataclass
@@ -454,6 +462,11 @@ class AIChatOrchestrator:
                 max_iterations=options.max_agent_iterations,
                 max_history_tokens=options.max_history_tokens,
                 canvas_nodes=options.canvas_nodes,
+                # CLI 终端环境经 ChatOptions 注入确认回调后解锁写盘/提问；
+                # HTTP 非流式缺省 None/False → apply_actions/ask_user 保持 fail-closed
+                apply_callbacks=options.apply_callbacks,
+                ask_callbacks=options.ask_callbacks,
+                dry_run_enabled=options.dry_run_enabled,
             )
         except Exception as e:
             logger.error(f"Agent 模式初始化失败: {e}")

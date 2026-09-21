@@ -41,7 +41,7 @@ import yaml
 
 from app.shared.services.llm.constraints.constraint_builder import (
     CONSTRAINT_TYPE_MAP,
-    _build_constraint_params,
+    _build_inline_constraint_item,
 )
 from app.shared.services.llm.constraints.constraint_id import _generate_constraint_id
 from app.shared.services.llm.constraints.frontend_instructions import generate_frontend_instructions
@@ -158,6 +158,7 @@ def process_inline_batch(actions: list[dict[str, Any]], workspace_path: str) -> 
                     constraint_type = spec.get("type", "")
                     target_column = spec.get("targetColumn", "")
                     target_column_id = spec.get("targetColumnId", "")
+                    target_columns = spec.get("targetColumnIds") or spec.get("targetColumns") or []
 
                     # 将约束类型别名标准化
                     std_type = CONSTRAINT_TYPE_MAP.get(constraint_type, constraint_type)
@@ -170,7 +171,11 @@ def process_inline_batch(actions: list[dict[str, Any]], workspace_path: str) -> 
                                 column_id = col.get("id")
                                 break
 
-                    if not column_id:
+                    # 多列联合唯一：单列引用可缺省（targetColumns 携带全部列引用）
+                    is_multi_unique = (
+                        std_type == "Unique" and isinstance(target_columns, list) and len(target_columns) > 1
+                    )
+                    if not column_id and not is_multi_unique:
                         results.append(
                             {
                                 "action": action,
@@ -183,23 +188,42 @@ def process_inline_batch(actions: list[dict[str, Any]], workspace_path: str) -> 
 
                     # 生成约束 ID
                     filename_table = table_name or target_node_id or "unknown"
-                    constraint_id = _generate_constraint_id(std_type, filename_table, target_column)
+                    filename_column = (
+                        target_column
+                        or target_column_id
+                        or ("_".join(str(c) for c in target_columns) if target_columns else "unknown")
+                    )
+                    constraint_id = _generate_constraint_id(std_type, filename_table, filename_column)
 
                     # DELETE 动作：从内存中的 constraints 移除「同列 + 同类型」项，绝不新增。
                     # 旧实现不区分 actionType，删除动作会被当作添加处理（只增不删还报成功）。
                     if action_type == "DELETE_CONSTRAINT_NODE":
                         has_delete = True
-                        remaining = [
-                            c
-                            for c in schema_data["constraints"]
-                            if not (c.get("column") == column_id and c.get("type") == std_type)
-                        ]
+                        if is_multi_unique:
+                            resolved_cols = [
+                                next(
+                                    (str(c.get("id")) for c in columns if c.get("id") == raw or c.get("name") == raw),
+                                    str(raw),
+                                )
+                                for raw in target_columns
+                            ]
+                            remaining = [
+                                c
+                                for c in schema_data["constraints"]
+                                if not (c.get("columns") == resolved_cols and c.get("type") == std_type)
+                            ]
+                        else:
+                            remaining = [
+                                c
+                                for c in schema_data["constraints"]
+                                if not (c.get("column") == column_id and c.get("type") == std_type)
+                            ]
                         if len(remaining) == len(schema_data["constraints"]):
                             results.append(
                                 {
                                     "action": action,
                                     "success": False,
-                                    "message": f"未找到内联约束: {std_type} on {filename_table}.{target_column}",
+                                    "message": f"未找到内联约束: {std_type} on {filename_table}.{filename_column}",
                                     "frontendInstructions": None,
                                 }
                             )
@@ -216,23 +240,30 @@ def process_inline_batch(actions: list[dict[str, Any]], workspace_path: str) -> 
                         )
                         continue
 
-                    # 构建内联约束结构（字段与其他约束保持一致）
+                    # 构建内联约束结构（共用构建器：与 update_yaml_config 内联分支同一实现，
+                    # Conditional 引用入 params、FK 目标入顶层字段、多列 Unique 用 columns）
                     constraint_description = spec.get("description") or f"{constraint_id}"
-                    inline_constraint = {
-                        "id": constraint_id,
-                        "column": column_id,
-                        "type": std_type,
-                        "enabled": True,
-                        "description": constraint_description,
-                    }
-                    params = _build_constraint_params(std_type, spec)
-                    if params:
-                        inline_constraint["params"] = params
+                    inline_constraint = _build_inline_constraint_item(
+                        std_type,
+                        spec,
+                        column_id or "",
+                        columns,
+                        table_name,
+                        target_column,
+                        workspace_path,
+                        constraint_id,
+                        description=constraint_description,
+                    )
 
-                    # 检查是否已存在相同列和类型的约束
+                    # 检查是否已存在相同列（或列组合）和类型的约束
                     existing_idx = None
                     for idx, existing in enumerate(schema_data["constraints"]):
-                        if existing.get("column") == column_id and existing.get("type") == std_type:
+                        same_target = (
+                            existing.get("columns") == inline_constraint.get("columns")
+                            if "columns" in inline_constraint
+                            else existing.get("column") == inline_constraint.get("column")
+                        )
+                        if same_target and existing.get("type") == std_type:
                             existing_idx = idx
                             break
 

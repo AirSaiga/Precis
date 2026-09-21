@@ -156,3 +156,26 @@ def test_run_case_fails_when_error_count_out_of_range(tmp_path):
     result = run_case(case_dir)
     assert not result.passed
     assert any("错误数" in f or "count" in f.lower() for f in result.failures)
+
+
+def test_real_golden_suite_passes_via_subprocess():
+    """真实 17 案例黄金集全量通过（子进程运行）。
+
+    子进程隔离的原因：golden_check 在模块导入前设置 PRECIS_ALLOW_UNSAFE_EVAL
+    （scripted.py 导入时读取并缓存），pytest 会话中其他测试可能已先行导入
+    scripted.py 导致进程内运行受导入顺序影响；子进程与 CI 步骤
+    （python -B -m scripts.golden_check）形态一致。
+    """
+    import subprocess
+
+    proc = subprocess.run(
+        [sys.executable, "-B", "-m", "scripts.golden_check"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        cwd=BACKEND_ROOT,
+        timeout=300,
+    )
+    assert proc.returncode == 0, f"黄金集失败:\nstdout: {proc.stdout}\nstderr: {proc.stderr}"
+    assert "全部 17 个黄金案例通过" in proc.stdout

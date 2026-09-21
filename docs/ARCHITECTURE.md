@@ -274,12 +274,13 @@ expandOnCanvas(instanceNodeId)                    [templateExpand.ts]
 
 > ⚠️ `e2e/flows/` 目录,独立 `package.json` 与 `playwright.config.ts`。spec 数量会增长,以 `ls e2e/flows/*.spec.ts` 实测为准。
 
-按主题分组(当前 37 个 spec):
+按主题分组(当前 38 个 spec):
 
 | 主题 | spec 文件 |
 |------|----------|
 | AI Chat | `ai-chat-agent.spec.ts`、`ai-chat-confirm.spec.ts`、`ai-chat-respond.spec.ts` |
 | AI 配置生成 | `ai-config-generation.spec.ts`、`ai-config-migration.spec.ts` |
+| AI 确定性守卫 | `ai-fake-provider.spec.ts`（fake provider 演练 agent 写盘/生成/迁移三链路，无真实 key 也可跑） |
 | Schema 生命周期 | `schema-import-validate.spec.ts`、`schema-settings-crud.spec.ts` |
 | JSON Schema | `json-schema-lifecycle.spec.ts`、`json-schema-nested-constraints.spec.ts` |
 | 约束 CRUD/覆盖 | `constraint-crud.spec.ts`、`constraint-types-coverage.spec.ts` |

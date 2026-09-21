@@ -40,6 +40,21 @@ class TestBuildConstraintRefs:
         assert refs["table_id"] == "sc_users"
         assert refs["column_ids"] == ["c1"]
 
+    def test_unique_multi_column_refs(self):
+        """多列联合唯一：targetColumns 数组 → column_ids 列表。"""
+        from app.shared.services.llm.constraints.constraint_builder import _build_constraint_refs
+
+        spec = {"targetNodeId": "sc_orders", "targetColumnIds": ["order_id", "line_no"]}
+        refs = _build_constraint_refs("UNIQUE", "orders", "", spec)
+        assert refs == {"table_id": "sc_orders", "column_ids": ["order_id", "line_no"]}
+
+    def test_unique_multi_column_by_names(self):
+        from app.shared.services.llm.constraints.constraint_builder import _build_constraint_refs
+
+        spec = {"targetNodeId": "sc_orders", "targetColumns": ["order_id", "line_no"]}
+        refs = _build_constraint_refs("UNIQUE", "orders", "", spec)
+        assert refs["column_ids"] == ["order_id", "line_no"]
+
     def test_foreign_key_refs(self):
         from app.shared.services.llm.constraints.constraint_builder import _build_constraint_refs
 
@@ -155,11 +170,230 @@ class TestBuildConstraintParams:
         assert params["reference_date"] == "2024-01-01"
         assert params["reference_date_end"] == "2024-12-31"
 
-    def test_conditional(self):
+    def test_conditional_then_condition_dsl(self):
+        """camelCase DSL 归一为运行时消费的 snake_case 键（历史缺陷：写 then_value 无消费方）。"""
         from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
 
-        params = _build_constraint_params("CONDITIONAL", {"params": {"thenValue": 42}})
-        assert params["then_value"] == 42
+        params = _build_constraint_params(
+            "CONDITIONAL",
+            {"params": {"thenCondition": {"operator": "greater_than", "value": 1000, "refColumn": "limit"}}},
+        )
+        assert params == {"then_condition": {"operator": "greater_than", "value": 1000, "ref_column": "limit"}}
+
+    def test_conditional_then_condition_in_values(self):
+        from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
+
+        params = _build_constraint_params(
+            "CONDITIONAL", {"params": {"thenCondition": {"operator": "in", "values": ["a", "b"]}}}
+        )
+        assert params == {"then_condition": {"operator": "in", "values": ["a", "b"]}}
+
+    def test_conditional_then_condition_str(self):
+        """字符串形态：已注册条件函数名（如 is_not_empty）原样透传。"""
+        from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
+
+        params = _build_constraint_params("CONDITIONAL", {"params": {"thenCondition": "is_not_empty"}})
+        assert params == {"then_condition": "is_not_empty"}
+
+    def test_conditional_then_condition_snake_compat(self):
+        from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
+
+        params = _build_constraint_params("CONDITIONAL", {"params": {"then_condition": {"operator": "not_null"}}})
+        assert params == {"then_condition": {"operator": "not_null"}}
+
+    def test_conditional_then_value_rejected(self):
+        """旧契约回归锁定：thenValue 已废弃，缺 thenCondition 必须失败而非静默落盘残缺约束。"""
+        import pytest
+
+        from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
+
+        with pytest.raises(ValueError, match="thenCondition"):
+            _build_constraint_params("CONDITIONAL", {"params": {"thenValue": 42}})
+
+    def test_conditional_invalid_operator_rejected(self):
+        import pytest
+
+        from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
+
+        with pytest.raises(ValueError, match="operator"):
+            _build_constraint_params("CONDITIONAL", {"params": {"thenCondition": {"operator": "contains"}}})
+
+    def test_conditional_in_requires_list(self):
+        import pytest
+
+        from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
+
+        with pytest.raises(ValueError, match="in"):
+            _build_constraint_params("CONDITIONAL", {"params": {"thenCondition": {"operator": "in", "value": "a"}}})
+
+    def test_charset_mode_mapping(self):
+        from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
+
+        for mode in ("ascii", "chinese", "chinese_mixed"):
+            params = _build_constraint_params("CHARSET", {"params": {"charsetMode": mode}})
+            assert params == {"charset_mode": mode}
+
+    def test_charset_mode_snake_compat(self):
+        from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
+
+        params = _build_constraint_params("CHARSET", {"params": {"charset_mode": "chinese"}})
+        assert params == {"charset_mode": "chinese"}
+
+    def test_charset_missing_rejected(self):
+        """历史缺陷回归：缺 charsetMode 曾静默默认 ascii（中文约束建成 ascii 约束→系统性误报）。"""
+        import pytest
+
+        from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
+
+        with pytest.raises(ValueError, match="charsetMode"):
+            _build_constraint_params("CHARSET", {"params": {}})
+
+    def test_charset_invalid_rejected(self):
+        import pytest
+
+        from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
+
+        with pytest.raises(ValueError, match="charsetMode"):
+            _build_constraint_params("CHARSET", {"params": {"charsetMode": "utf8"}})
+
+    def test_range_boundary_mode(self):
+        from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
+
+        params = _build_constraint_params("RANGE", {"params": {"min": 0, "max": 10, "boundaryMode": "exclusive"}})
+        assert params == {"min": 0, "max": 10, "boundary_mode": "exclusive"}
+
+    def test_range_boundary_mode_snake_compat(self):
+        from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
+
+        params = _build_constraint_params("RANGE", {"params": {"min": 0, "boundary_mode": "exclusive"}})
+        assert params["boundary_mode"] == "exclusive"
+
+    def test_range_boundary_mode_invalid_rejected(self):
+        import pytest
+
+        from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
+
+        with pytest.raises(ValueError, match="boundaryMode"):
+            _build_constraint_params("RANGE", {"params": {"min": 0, "boundaryMode": "closed"}})
+
+    def test_date_logic_calculation_age(self):
+        from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
+
+        params = _build_constraint_params(
+            "DATE_LOGIC",
+            {"params": {"logicMode": "calculation", "calculationType": "age", "targetValue": 18}},
+        )
+        assert params["logic_mode"] == "calculation"
+        assert params["calculation_type"] == "age"
+        assert params["target_value"] == 18
+
+    def test_date_logic_calculation_days_diff(self):
+        from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
+
+        params = _build_constraint_params(
+            "DATE_LOGIC",
+            {
+                "params": {
+                    "logicMode": "calculation",
+                    "calculationType": "days_diff",
+                    "targetColumn": "ship_date",
+                    "targetValue": 3,
+                }
+            },
+        )
+        assert params["calculation_type"] == "days_diff"
+        assert params["target_column"] == "ship_date"
+        assert params["target_value"] == 3
+
+    def test_date_logic_calculation_missing_calculation_type_rejected(self):
+        import pytest
+
+        from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
+
+        with pytest.raises(ValueError, match="calculationType"):
+            _build_constraint_params("DATE_LOGIC", {"params": {"logicMode": "calculation"}})
+
+    def test_date_logic_days_diff_missing_target_column_rejected(self):
+        import pytest
+
+        from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
+
+        with pytest.raises(ValueError, match="targetColumn"):
+            _build_constraint_params(
+                "DATE_LOGIC",
+                {"params": {"logicMode": "calculation", "calculationType": "days_diff", "targetValue": 3}},
+            )
+
+    def test_composite_expands_sub_constraints(self):
+        """subConstraints 简化列表展开为运行时消费的完整子约束文件 dict 列表。"""
+        from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
+
+        spec = {
+            "targetNodeId": "sc_users",
+            "params": {
+                "logic": "all",
+                "subConstraints": [
+                    {"type": "NOT_NULL", "targetColumn": "email"},
+                    {"type": "UNIQUE", "targetColumn": "email"},
+                ],
+            },
+        }
+        params = _build_constraint_params("COMPOSITE", spec, "users", "email", "", "comp_id")
+        assert params["logic"] == "all"
+        assert len(params["sub_constraints"]) == 2
+        sub1, sub2 = params["sub_constraints"]
+        assert sub1 == {
+            "version": 2,
+            "id": "comp_id_sub_1",
+            "type": "NotNull",
+            "enabled": True,
+            "refs": {"table_id": "sc_users", "column_id": "email"},
+            "params": {},
+        }
+        assert sub2["id"] == "comp_id_sub_2"
+        assert sub2["refs"] == {"table_id": "sc_users", "column_ids": ["email"]}
+
+    def test_composite_sub_params_mapped(self):
+        """子约束 params 走完整映射（如 Range boundary_mode），不是原样透传。"""
+        from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
+
+        spec = {
+            "targetNodeId": "t1",
+            "params": {
+                "subConstraints": [
+                    {"type": "Range", "targetColumn": "amount", "params": {"min": 0, "boundaryMode": "exclusive"}}
+                ]
+            },
+        }
+        params = _build_constraint_params("COMPOSITE", spec, "orders", "amount", "", "c1")
+        assert params["sub_constraints"][0]["params"] == {"min": 0, "max": None, "boundary_mode": "exclusive"}
+
+    def test_composite_empty_rejected(self):
+        """历史缺陷回归：空子约束在引擎侧恒真（no-op 假通过），必须拒绝落盘。"""
+        import pytest
+
+        from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
+
+        with pytest.raises(ValueError, match="subConstraints"):
+            _build_constraint_params("COMPOSITE", {"params": {}})
+
+    def test_composite_nested_rejected(self):
+        import pytest
+
+        from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
+
+        spec = {"params": {"subConstraints": [{"type": "Composite", "targetColumn": "x"}]}}
+        with pytest.raises(ValueError, match="嵌套"):
+            _build_constraint_params("COMPOSITE", spec)
+
+    def test_composite_invalid_logic_rejected(self):
+        import pytest
+
+        from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
+
+        spec = {"params": {"logic": "xor", "subConstraints": [{"type": "NotNull", "targetColumn": "x"}]}}
+        with pytest.raises(ValueError, match="logic"):
+            _build_constraint_params("COMPOSITE", spec)
 
     def test_unknown_type(self):
         from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
@@ -172,6 +406,80 @@ class TestBuildConstraintParams:
 
         params = _build_constraint_params("NOT_NULL", {})
         assert params == {}
+
+
+class TestBuildInlineConstraintItem:
+    """schema 内联约束项构建（update_yaml_config 与 process_inline_batch 共用路径）。"""
+
+    def test_conditional_inline_params(self):
+        """Conditional 内联：if_logic/if_conditions/then_column_id 写入 params（加载期提取到 refs）。"""
+        from app.shared.services.llm.constraints.constraint_builder import _build_inline_constraint_item
+
+        spec = {
+            "targetNodeId": "sc_users",
+            "targetColumn": "id_card",
+            "params": {
+                "ifConditions": [{"ifColumnId": "country", "operator": "eq", "value": "CN"}],
+                "thenCondition": {"operator": "not_null"},
+            },
+        }
+        item = _build_inline_constraint_item(
+            "Conditional", spec, "col_3", [{"id": "col_3", "name": "id_card"}], "users", "id_card", "", "cond_1"
+        )
+        assert item["column"] == "col_3"
+        assert item["params"]["then_condition"] == {"operator": "not_null"}
+        assert item["params"]["if_logic"] == "and"
+        assert item["params"]["if_conditions"] == [
+            {"if_column_id": "country", "operator": "eq", "value": "CN", "values": None}
+        ]
+        assert item["params"]["then_column_id"] == "col_3"
+
+    def test_foreign_key_inline_top_level_fields(self):
+        """ForeignKey 内联：目标表/列必须落 ConstraintItem 顶层字段（params 里无人消费）。"""
+        from app.shared.services.llm.constraints.constraint_builder import _build_inline_constraint_item
+
+        spec = {
+            "targetNodeId": "sc_orders",
+            "targetColumn": "user_id",
+            "params": {"toTableId": "sc_users", "toColumnId": "id"},
+        }
+        item = _build_inline_constraint_item(
+            "ForeignKey", spec, "col_9", [{"id": "col_9", "name": "user_id"}], "orders", "user_id", "", "fk_1"
+        )
+        assert item["from_column"] == "col_9"
+        assert item["to_table"] == "sc_users"
+        assert item["to_column"] == "id"
+
+    def test_unique_multi_column_uses_columns(self):
+        """多列 Unique 内联：columns 列表与 column 互斥。"""
+        from app.shared.services.llm.constraints.constraint_builder import _build_inline_constraint_item
+
+        schema_columns = [
+            {"id": "order_id", "name": "订单号"},
+            {"id": "line_no", "name": "行号"},
+        ]
+        spec = {"targetNodeId": "sc_orders", "targetColumns": ["订单号", "line_no"]}
+        item = _build_inline_constraint_item("Unique", spec, "", schema_columns, "orders", "", "", "uniq_1")
+        assert "column" not in item
+        assert item["columns"] == ["order_id", "line_no"]
+
+    def test_charset_inline_params(self):
+        from app.shared.services.llm.constraints.constraint_builder import _build_inline_constraint_item
+
+        spec = {"targetColumn": "nickname", "params": {"charsetMode": "chinese_mixed"}}
+        item = _build_inline_constraint_item(
+            "Charset", spec, "c1", [{"id": "c1", "name": "nickname"}], "users", "nickname", "", "cs_1"
+        )
+        assert item["params"] == {"charset_mode": "chinese_mixed"}
+
+    def test_empty_params_omitted(self):
+        from app.shared.services.llm.constraints.constraint_builder import _build_inline_constraint_item
+
+        spec = {"targetColumn": "email"}
+        item = _build_inline_constraint_item(
+            "NotNull", spec, "c1", [{"id": "c1", "name": "email"}], "users", "email", "", "nn_1"
+        )
+        assert "params" not in item
 
 
 class TestInlineBatchHelpers:

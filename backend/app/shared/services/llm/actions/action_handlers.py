@@ -53,6 +53,7 @@ from app.shared.services.llm.constraints.constraint_builder import (
     CONSTRAINT_TYPE_MAP,
     _build_constraint_params,
     _build_constraint_refs,
+    _build_inline_constraint_item,
 )
 from app.shared.services.llm.constraints.constraint_deletion import delete_constraint_file
 from app.shared.services.llm.constraints.constraint_id import _generate_constraint_id
@@ -225,18 +226,22 @@ def update_yaml_config(action: dict[str, Any], workspace_path: str) -> tuple[boo
     target_node_id = constraint_spec.get("targetNodeId", "")
     target_column_id = constraint_spec.get("targetColumnId", "")
     is_inline = constraint_spec.get("isInline", False)
+    # 多列联合唯一：targetColumns（列名/ID 数组）可作为 targetColumn 的替代
+    target_columns = constraint_spec.get("targetColumnIds") or constraint_spec.get("targetColumns") or []
 
     # 统一转换类型名
     std_type = CONSTRAINT_TYPE_MAP.get(constraint_type, constraint_type)
 
-    if not std_type or not target_column:
+    if not std_type or (not target_column and not target_columns):
         error_msg = f"无效的约束规格: constraint_type={constraint_type}, std_type={std_type}, table_name={table_name}, target_column={target_column}"
         logger.error(f"[updateYamlConfig] {error_msg}")
         return False, error_msg
 
     # 确定用于文件名的表标识符 (优先使用可读的名称)
     filename_table = table_name or target_node_id or "unknown"
-    filename_column = target_column or target_column_id or "unknown"
+    filename_column = (
+        target_column or target_column_id or ("_".join(str(c) for c in target_columns) if target_columns else "unknown")
+    )
 
     # DELETE 动作必须先于 is_inline 分支处理：删除语义与存储形态无关，
     # 旧实现 isInline=true 时先命中内联"添加"分支，只增不删还误报 success。
@@ -307,26 +312,36 @@ def update_yaml_config(action: dict[str, Any], workspace_path: str) -> tuple[boo
                             column_id = col.get("id")
                             break
 
-                if not column_id:
+                # 多列联合唯一：单列引用可缺省（targetColumns 携带全部列引用，由共用构建器解析）
+                is_multi_unique = std_type == "Unique" and isinstance(target_columns, list) and len(target_columns) > 1
+                if not column_id and not is_multi_unique:
                     # 目标列不存在时必须返回失败，否则会静默成功（与 process_inline_batch 对齐）。
                     error_msg = f"未找到列: {target_column}"
                     logger.warning(f"[updateYamlConfig] {error_msg}")
                     return False, error_msg
 
-                # 构建内联约束结构
-                inline_constraint = {
-                    "id": constraint_id,
-                    "column": column_id,
-                    "type": std_type,
-                }
-                params = _build_constraint_params(std_type, constraint_spec)
-                if params:
-                    inline_constraint["params"] = params
+                # 构建内联约束结构（共用构建器：Conditional 引用入 params、FK 目标入顶层字段、
+                # 多列 Unique 用 columns 列表，三种特殊形态与 process_inline_batch 收敛到同一实现）
+                inline_constraint = _build_inline_constraint_item(
+                    std_type,
+                    constraint_spec,
+                    column_id or "",
+                    columns,
+                    table_name,
+                    target_column,
+                    workspace_path,
+                    constraint_id,
+                )
 
-                # 检查是否已存在相同列和类型的约束
+                # 检查是否已存在相同列（或列组合）和类型的约束
                 existing_idx = None
                 for idx, existing in enumerate(schema_data["constraints"]):
-                    if existing.get("column") == column_id and existing.get("type") == std_type:
+                    same_target = (
+                        existing.get("columns") == inline_constraint.get("columns")
+                        if "columns" in inline_constraint
+                        else existing.get("column") == inline_constraint.get("column")
+                    )
+                    if same_target and existing.get("type") == std_type:
                         existing_idx = idx
                         break
 
@@ -377,7 +392,9 @@ def update_yaml_config(action: dict[str, Any], workspace_path: str) -> tuple[boo
                 enabled=True,
                 description=None,
                 refs=_build_constraint_refs(std_type, table_name, target_column, constraint_spec, workspace_path),
-                params=_build_constraint_params(std_type, constraint_spec),
+                params=_build_constraint_params(
+                    std_type, constraint_spec, table_name, target_column, workspace_path, constraint_id
+                ),
                 input_from_node=None,
                 input_column=None,
             )

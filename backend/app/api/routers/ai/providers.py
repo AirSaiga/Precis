@@ -58,8 +58,10 @@ def _is_configured(p: AIProvider) -> bool:
     """判断 Provider 是否已配置。
 
     loader.load() 已完成 env-var 覆盖，直接检查 api_key 即可。
-    本地 Provider（Ollama）不需要 API Key。
+    本地 Provider（Ollama）不需要 API Key；fake 是确定性测试 Provider，永不依赖 key。
     """
+    if p.type == ProviderType.FAKE:
+        return True
     if p.deployment == DeploymentType.LOCAL:
         return bool(p.base_url)
     return bool(p.api_key and p.api_key.strip())
@@ -391,7 +393,10 @@ async def create_provider(req: CreateProviderRequest) -> ProviderResponse:
     try:
         provider_type = ProviderType(req.type)
     except ValueError:
-        raise HTTPException(400, detail=f"不支持的 AI 服务类型「{req.type}」，目前仅支持 openai、ollama 两种接入方式")
+        raise HTTPException(
+            400,
+            detail=f"不支持的 AI 服务类型「{req.type}」，目前支持 openai、ollama 两种接入方式（fake 仅用于测试演练）",
+        )
 
     _validate_base_url(req.base_url)  # SSRF 防护
 

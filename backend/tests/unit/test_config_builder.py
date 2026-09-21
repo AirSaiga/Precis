@@ -406,7 +406,7 @@ class TestConstraintNormalization:
         )
         assert len(result["constraints"]) == 1
         c = list(result["constraints"].values())[0]
-        assert c["type"] == "Notnull"
+        assert c["type"] == "NotNull"
         assert c["refs"]["column_id"] == "email"
         assert c["version"] == 2
         assert c["enabled"] is True
@@ -518,7 +518,7 @@ class TestConstraintNormalization:
                     "then_column_id": "reason",
                     "if_conditions": [{"column": "status", "op": "==", "value": "inactive"}],
                     "if_logic": "and",
-                    "then_value": "required",
+                    "then_condition": {"operator": "not_null"},
                 }
             ]
         }
@@ -533,7 +533,46 @@ class TestConstraintNormalization:
         )
         c = list(result["constraints"].values())[0]
         assert c["refs"]["then_column_id"] == "reason"
-        assert c["params"]["then_value"] == "required"
+        assert c["params"]["then_condition"] == {"operator": "not_null"}
+
+    def test_charset_and_boundary_passthrough(self):
+        """生成链路简化格式：charset_mode / boundary_mode / DateLogic 计算参数落盘。"""
+        llm_result = {
+            "constraints": [
+                {"type": "charset", "table_id": "users", "column_id": "nickname", "charset_mode": "chinese_mixed"},
+                {
+                    "type": "range",
+                    "table_id": "users",
+                    "column_id": "age",
+                    "min": 0,
+                    "max": 150,
+                    "boundary_mode": "exclusive",
+                },
+                {
+                    "type": "DateLogic",
+                    "table_id": "users",
+                    "column_id": "birth_date",
+                    "logic_mode": "calculation",
+                    "calculation_type": "age",
+                    "target_value": 18,
+                },
+            ]
+        }
+        result = build_config(
+            project_id="p",
+            project_name="P",
+            config_path=None,
+            profiling_data=[],
+            llm_result=llm_result,
+            options=_make_options(),
+            existing_config=None,
+        )
+        constraints = list(result["constraints"].values())
+        by_type = {c["type"]: c for c in constraints}
+        assert by_type["Charset"]["params"] == {"charset_mode": "chinese_mixed"}
+        assert by_type["Range"]["params"]["boundary_mode"] == "exclusive"
+        assert by_type["DateLogic"]["params"]["calculation_type"] == "age"
+        assert by_type["DateLogic"]["params"]["target_value"] == 18
 
     def test_scripted_constraint(self):
         llm_result = {

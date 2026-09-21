@@ -16,7 +16,7 @@
 """@fileoverview LLM Provider 模块入口
 
 功能概述:
-- 统一导出各 Provider 实现（OpenAIProvider、OllamaProvider）及注册表接口
+- 统一导出各 Provider 实现（OpenAIProvider、OllamaProvider、FakeProvider）及注册表接口
 - 为上层业务提供统一的 Provider 创建和调用入口
 
 架构设计:
@@ -32,6 +32,7 @@
 """
 
 from .base import BaseProvider, ChatMessage, ChatRequest, ChatResponse
+from .fake import FakeProvider
 from .ollama import OllamaProvider
 from .openai import OpenAIProvider
 from .registry import create, register
@@ -45,4 +46,5 @@ __all__ = [
     "create",
     "OpenAIProvider",
     "OllamaProvider",
+    "FakeProvider",
 ]

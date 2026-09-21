@@ -1453,6 +1453,13 @@ class TestMultiActionScenarios:
         )
         validator = ActionValidator(str(tmp_path))
         for ctype in ["Charset", "Composite"]:
+            # 两类均有必填参数（charsetMode / subConstraints），缺失会在写盘侧 fail-fast，
+            # 校验器必须提前拦截；给足合法参数时应被接受
+            params = (
+                {"charsetMode": "chinese"}
+                if ctype == "Charset"
+                else {"subConstraints": [{"type": "NotNull", "targetColumn": "email"}]}
+            )
             result = validator.validate(
                 [
                     {
@@ -1461,11 +1468,43 @@ class TestMultiActionScenarios:
                             "type": ctype,
                             "targetNodeId": "sc_users",
                             "targetColumn": "email",
+                            "params": params,
                         },
                     }
                 ]
             )
             assert result.all_valid is True, f"{ctype} 应被接受，但得到 errors: {result.errors}"
+
+    def test_charset_and_composite_missing_required_params_rejected(self, tmp_path):
+        """Charset 缺 charsetMode / Composite 缺 subConstraints 必须被拒（防静默残缺落盘）。"""
+        _create_schema_dir(
+            tmp_path,
+            [
+                {
+                    "version": 2,
+                    "id": "sc_users",
+                    "name": "users",
+                    "columns": [{"id": "sc_email", "name": "email", "type": "string"}],
+                }
+            ],
+        )
+        validator = ActionValidator(str(tmp_path))
+        for ctype in ["Charset", "Composite"]:
+            result = validator.validate(
+                [
+                    {
+                        "actionType": "ADD_CONSTRAINT_NODE",
+                        "constraintSpec": {
+                            "type": ctype,
+                            "targetNodeId": "sc_users",
+                            "targetColumn": "email",
+                            "params": {},
+                        },
+                    }
+                ]
+            )
+            assert result.all_valid is False, f"{ctype} 缺必填参数应被拒绝"
+            assert any(e.error_type == "missing_required_param" for e in result.errors)
 
     def test_ambiguous_table_name_is_error(self, tmp_path):
         _create_schema_dir(

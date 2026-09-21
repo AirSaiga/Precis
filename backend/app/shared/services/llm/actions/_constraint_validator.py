@@ -103,6 +103,31 @@ def validate_constraint_action(
 
     # 2. 验证字段存在
     column_name = spec.get("targetColumn")
+    multi_columns = spec.get("targetColumns") or spec.get("targetColumnIds") or []
+    if not column_name and isinstance(multi_columns, list) and multi_columns:
+        # 多列联合唯一：targetColumns 携带全部列引用，逐列校验存在性；
+        # 后续单列流程（类型兼容性等）以首列继续
+        for mc in multi_columns:
+            mc_name = str(mc)
+            mc_found = any(
+                col_id == mc_name or col_data["name"] == mc_name for col_id, col_data in table_info["columns"].items()
+            )
+            if not mc_found:
+                suggestion = suggest_similar_column(mc_name, table_info)
+                errors.append(
+                    ValidationError(
+                        action_index=index,
+                        action_type=action_type,
+                        error_type="column_not_found",
+                        message=f"字段 '{mc_name}' 在表 '{table_info['name']}' 中不存在",
+                        suggestion=suggestion,
+                        auto_fixable=False,
+                    )
+                )
+        if errors:
+            return errors
+        column_name = str(multi_columns[0])
+
     if not column_name:
         errors.append(
             ValidationError(
@@ -260,7 +285,7 @@ def validate_constraint_params(
     errors = []
     params = spec.get("params", {})
 
-    # DateLogic range 模式参数完整性检查（不依赖 required_params）
+    # DateLogic 参数完整性检查（不依赖 required_params）
     if constraint_type == "DateLogic":
         logic_mode = params.get("logicMode", "compare")
         compare_op = params.get("compareOp", "gt")
@@ -279,6 +304,42 @@ def validate_constraint_params(
                         suggestion="请添加 params.referenceDateEnd / params.referenceColumnEnd",
                     )
                 )
+        if logic_mode == "calculation":
+            # calculation 模式（age/days_diff）参数完整性：写盘侧同样 fail-fast，此处提前拦截
+            calc = params.get("calculationType") or params.get("calculation_type")
+            if calc not in ("age", "days_diff"):
+                errors.append(
+                    ValidationError(
+                        action_index=index,
+                        action_type=action_type,
+                        error_type="missing_required_param",
+                        message="DateLogic calculation 模式需要 params.calculationType（age/days_diff）",
+                        suggestion="请添加 params.calculationType",
+                    )
+                )
+            else:
+                target_column = params.get("targetColumn") or params.get("target_column")
+                target_value = params.get("targetValue", params.get("target_value"))
+                if calc == "days_diff" and not target_column:
+                    errors.append(
+                        ValidationError(
+                            action_index=index,
+                            action_type=action_type,
+                            error_type="missing_required_param",
+                            message="DateLogic days_diff 需要 params.targetColumn（天数差比较的目标列）",
+                            suggestion="请添加 params.targetColumn",
+                        )
+                    )
+                if target_value is None:
+                    errors.append(
+                        ValidationError(
+                            action_index=index,
+                            action_type=action_type,
+                            error_type="missing_required_param",
+                            message="DateLogic calculation 模式需要 params.targetValue（比较目标值）",
+                            suggestion="请添加 params.targetValue",
+                        )
+                    )
 
     required = required_params.get(constraint_type, [])
     if required:

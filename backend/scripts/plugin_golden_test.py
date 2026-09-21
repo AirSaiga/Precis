@@ -20,8 +20,10 @@
 本脚本变红，防止"文档漂移静默失效"（与 AI 链路防漂移守卫同一思想）。
 
 检查项：
-1. 按 v2-format.md 的示例结构构造项目（NotNull + Range + AllowedValues +
-   ForeignKey），跑 validate 断言预期错误集（类型/行号/约束文件回溯）
+1. 按 v2-format.md 的示例结构构造项目（覆盖全部 10 种约束：NotNull / Range /
+   AllowedValues / ForeignKey / Unique / Charset / Conditional / DateLogic /
+   Scripted / Composite），跑 validate 断言预期错误集（类型/行号/约束文件回溯）
+   与 loading_warnings=0（约束全部成功加载执行，无 factory 静默丢弃）
 2. 双 manifest 一致性：integrations/kimi.plugin.json 与仓库根
    .kimi-plugin/plugin.json 的 name/version/mcpServers 一致，声明的
    skills/commands 目录真实存在
@@ -35,6 +37,8 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -66,6 +70,21 @@ columns:
     type: integer
   - id: status
     name: status
+    type: string
+  - id: email
+    name: email
+    type: string
+  - id: birth_date
+    name: birth_date
+    type: date
+  - id: country
+    name: country
+    type: string
+  - id: id_card
+    name: id_card
+    type: string
+  - id: nickname
+    name: nickname
     type: string
 """
 
@@ -118,10 +137,100 @@ refs:
 params: {}
 """
 
+_UNIQUE_YAML = """version: 2
+id: 66666666-7777-4888-9999-000000000001
+type: Unique
+enabled: true
+description: email 唯一
+refs:
+  table_id: orders
+  column_ids: [email]
+params: {}
+"""
+
+_CHARSET_YAML = """version: 2
+id: 66666666-7777-4888-9999-000000000002
+type: Charset
+enabled: true
+description: nickname 必须是中文
+refs:
+  table_id: orders
+  column_id: nickname
+params:
+  charset_mode: chinese
+"""
+
+_CONDITIONAL_YAML = """version: 2
+id: 66666666-7777-4888-9999-000000000003
+type: Conditional
+enabled: true
+description: 中国用户必须填身份证号
+refs:
+  table_id: orders
+  then_column_id: id_card
+  if_conditions:
+    - if_column_id: country
+      operator: eq
+      value: CN
+  if_logic: and
+params:
+  then_condition:
+    operator: not_null
+"""
+
+_DATELOGIC_YAML = """version: 2
+id: 66666666-7777-4888-9999-000000000004
+type: DateLogic
+enabled: true
+description: 出生日期必须晚于 1900-01-01
+refs:
+  table_id: orders
+  column_id: birth_date
+params:
+  logic_mode: compare
+  compare_op: gt
+  reference_date: "1900-01-01"
+"""
+
+_SCRIPTED_YAML = """version: 2
+id: 66666666-7777-4888-9999-000000000005
+type: Scripted
+enabled: true
+description: email 必须是合法邮箱格式
+refs:
+  table_id: orders
+  column_id: email
+params:
+  name: email_format_check
+  expression: 're_match(r"^[\\w.+-]+@[\\w-]+\\.[\\w.]+$", str(value))'
+"""
+
+_COMPOSITE_YAML = """version: 2
+id: 66666666-7777-4888-9999-000000000006
+type: Composite
+enabled: true
+description: country 只能是 CN 或 US
+refs:
+  table_id: orders
+params:
+  logic: all
+  sub_constraints:
+    - version: 2
+      id: 77777777-8888-4999-0000-000000000001
+      type: AllowedValues
+      enabled: true
+      refs: { table_id: orders, column_id: country }
+      params:
+        allowed_values: [CN, US]
+"""
+
 _MANIFEST_YAML = """version: 2
 project:
   id: 55555555-6666-4777-8888-999999999999
   name: plugin-golden-demo
+settings:
+  script_security:
+    allow_eval: true
 schemas:
   - id: orders
     path: schemas/orders.schema.yaml
@@ -134,25 +243,54 @@ constraints:
     path: constraints/status_allowed.constraint.yaml
   - id: 44444444-5555-4666-8777-888888888888
     path: constraints/self_fk.constraint.yaml
+  - id: 66666666-7777-4888-9999-000000000001
+    path: constraints/email_unique.constraint.yaml
+  - id: 66666666-7777-4888-9999-000000000002
+    path: constraints/nickname_charset.constraint.yaml
+  - id: 66666666-7777-4888-9999-000000000003
+    path: constraints/id_card_conditional.constraint.yaml
+  - id: 66666666-7777-4888-9999-000000000004
+    path: constraints/birth_datelogic.constraint.yaml
+  - id: 66666666-7777-4888-9999-000000000005
+    path: constraints/email_scripted.constraint.yaml
+  - id: 66666666-7777-4888-9999-000000000006
+    path: constraints/country_composite.constraint.yaml
 """
 
 # 数据设计（行号 0 起）：
-# 行 0 合法；行 1 amount 空 → NotNull；行 2 amount=999999 → Range；
-# 行 3 status=unknown → AllowedValues；行 4 status=pending → 仅 FK 自引用通过
+# 行 0 全部通过（但 email 与行 4 重复 → Unique 的 keep=False 会同时标记行 0/4）；
+# 行 1 amount 空 → NotNull；
+# 行 2 amount=999999 → Range；birth_date=1899-12-31 → DateLogic(compare gt 1900-01-01)；
+# 行 3 status=unknown → AllowedValues；country=CN 且 id_card 空 → Conditional；
+# 行 4 email 与行 0 重复 → Unique；
+# 行 5 nickname=Bob（非中文）→ Charset；country=UK → Composite(all: AllowedValues 子约束)；
+# 行 6 email=bad-email → Scripted(邮箱正则)。
 _CSV = (
-    "order_id,amount,status\n"
-    "ORD-001,10,pending\n"
-    "ORD-002,,pending\n"
-    "ORD-003,999999,pending\n"
-    "ORD-004,20,unknown\n"
-    "ORD-005,30,pending\n"
+    "order_id,amount,status,email,birth_date,country,id_card,nickname\n"
+    "ORD-001,10,pending,alice@example.com,1990-01-15,CN,110101199001150011,爱丽丝\n"
+    "ORD-002,,pending,bob@example.com,1985-03-20,US,,鲍勃\n"
+    "ORD-003,999999,pending,carol@example.com,1899-12-31,US,,卡罗尔\n"
+    "ORD-004,20,unknown,dave@example.com,1995-06-01,CN,,大卫\n"
+    "ORD-005,30,pending,alice@example.com,2000-01-01,US,,伊万\n"
+    "ORD-006,40,paid,eve@example.com,1991-02-02,UK,911101199102020012,Bob\n"
+    "ORD-007,50,paid,bad-email,1992-02-02,US,,艾娃\n"
 )
 
 # 预期错误集：(constraint_type, column, row_index, constraint_file)
+# constraint_type 为约束类名（JSON 契约的 check_type 口径）；
+# Unique/Conditional/Scripted 的违规条目不携带 column（引擎侧错误字典未填，契约允许）；
+# Composite(logic=all) 的错误归到父 Composite 文件，check_type 用 Composite 类名。
 _EXPECTED_ERRORS = {
     ("NotNullConstraint", "amount", 1, "constraints/amount_notnull.constraint.yaml"),
     ("RangeConstraint", "amount", 2, "constraints/amount_range.constraint.yaml"),
     ("AllowedValuesConstraint", "status", 3, "constraints/status_allowed.constraint.yaml"),
+    ("UniqueConstraint", None, 0, "constraints/email_unique.constraint.yaml"),
+    ("UniqueConstraint", None, 4, "constraints/email_unique.constraint.yaml"),
+    ("CharsetConstraint", "nickname", 5, "constraints/nickname_charset.constraint.yaml"),
+    ("ConditionalConstraint", None, 3, "constraints/id_card_conditional.constraint.yaml"),
+    ("DateLogicConstraint", "birth_date", 2, "constraints/birth_datelogic.constraint.yaml"),
+    ("ScriptedConstraint", None, 6, "constraints/email_scripted.constraint.yaml"),
+    ("CompositeConstraint", "country", 5, "constraints/country_composite.constraint.yaml"),
 }
 
 
@@ -163,38 +301,68 @@ def _build_golden_project(root: Path) -> Path:
     (root / "data").mkdir()
     (root / "data" / "orders.csv").write_text(_CSV, encoding="utf-8")
     (root / "schemas" / "orders.schema.yaml").write_text(_SCHEMA_YAML, encoding="utf-8")
-    (root / "constraints" / "amount_notnull.constraint.yaml").write_text(_NOTNULL_YAML, encoding="utf-8")
-    (root / "constraints" / "amount_range.constraint.yaml").write_text(_RANGE_YAML, encoding="utf-8")
-    (root / "constraints" / "status_allowed.constraint.yaml").write_text(_ALLOWED_YAML, encoding="utf-8")
-    (root / "constraints" / "self_fk.constraint.yaml").write_text(_FK_YAML, encoding="utf-8")
+    constraint_files = {
+        "amount_notnull.constraint.yaml": _NOTNULL_YAML,
+        "amount_range.constraint.yaml": _RANGE_YAML,
+        "status_allowed.constraint.yaml": _ALLOWED_YAML,
+        "self_fk.constraint.yaml": _FK_YAML,
+        "email_unique.constraint.yaml": _UNIQUE_YAML,
+        "nickname_charset.constraint.yaml": _CHARSET_YAML,
+        "id_card_conditional.constraint.yaml": _CONDITIONAL_YAML,
+        "birth_datelogic.constraint.yaml": _DATELOGIC_YAML,
+        "email_scripted.constraint.yaml": _SCRIPTED_YAML,
+        "country_composite.constraint.yaml": _COMPOSITE_YAML,
+    }
+    for name, content in constraint_files.items():
+        (root / "constraints" / name).write_text(content, encoding="utf-8")
     manifest = root / "project.precis.yaml"
     manifest.write_text(_MANIFEST_YAML, encoding="utf-8")
     return manifest
 
 
 def check_golden_validation() -> dict:
-    """构造项目并跑 CLI 校验，断言错误集与文档示例一致。"""
-    from app.cli.shell.commands.base import ProjectContext
-    from app.cli.shell.commands.validate import ValidateCommand
+    """构造项目并经真实 CLI 入口（python -m app.cli validate）跑校验，断言错误集与文档示例一致。
 
+    Scripted 约束的服务端总开关 PRECIS_ALLOW_UNSAFE_EVAL 在子进程环境注入：
+    scripted.py 在首次 import 时读取并缓存该变量，进程内设置会受 pytest 会话
+    中其他测试导入顺序影响，子进程隔离后与 CI/插件真实运行形态一致。
+    """
     with tempfile.TemporaryDirectory(prefix="precis_plugin_golden_") as td:
         manifest = _build_golden_project(Path(td))
-        cmd = ValidateCommand()
-        import io
-        from contextlib import redirect_stdout
-
-        buf = io.StringIO()
-        with redirect_stdout(buf):
-            result = cmd.execute(["--manifest", str(manifest), "--format", "json"], ProjectContext())
-        payload = json.loads(buf.getvalue())
+        env = {**os.environ, "PRECIS_ALLOW_UNSAFE_EVAL": "1"}
+        proc = subprocess.run(
+            [sys.executable, "-B", "-m", "app.cli", "validate", "--manifest", str(manifest), "--format", "json"],
+            capture_output=True,
+            text=True,
+            # CLI 的 JSON 输出固定 UTF-8（中文消息 ensure_ascii=False）；
+            # Windows 默认 locale 编码是 GBK，不显式指定会解码失败
+            encoding="utf-8",
+            errors="replace",
+            cwd=BACKEND_ROOT,
+            env=env,
+            timeout=120,
+        )
+        if proc.returncode not in (0, 1):
+            raise AssertionError(
+                f"CLI 校验进程异常退出（code={proc.returncode}）:\nstdout: {proc.stdout}\nstderr: {proc.stderr}"
+            )
+        try:
+            payload = json.loads(proc.stdout)
+        except json.JSONDecodeError as e:
+            raise AssertionError(f"stdout 不是合法 JSON: {e}\nstdout: {proc.stdout}\nstderr: {proc.stderr}") from e
 
         actual = {(e["constraint_type"], e["column"], e["row_index"], e["constraint_file"]) for e in payload["errors"]}
         if actual != _EXPECTED_ERRORS:
+            missing = _EXPECTED_ERRORS - actual
+            extra = actual - _EXPECTED_ERRORS
             raise AssertionError(
                 "插件 golden 校验错误集与预期不一致（v2-format.md 示例可能已失效）：\n"
-                f"  预期: {sorted(_EXPECTED_ERRORS)}\n"
-                f"  实际: {sorted(actual)}\n"
-                f"  result: {result.success}"
+                f"  缺失: {sorted(missing)}\n  多余: {sorted(extra)}\n"
+                f"  loading_warnings: {payload['loading_warnings']}"
+            )
+        if payload["loading_warnings"]:
+            raise AssertionError(
+                f"loading_warnings 非空——约束存在加载/构建失败（factory 静默丢弃）:\n  {payload['loading_warnings']}"
             )
         return {
             "errors": len(actual),

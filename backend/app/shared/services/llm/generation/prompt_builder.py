@@ -173,7 +173,7 @@ Schema 格式（请为每个 schema 提供语义化、唯一的 id，使用小�
 Constraint 格式（V2，refs/params 分离，table_id 必须与 schema 的 id 一致）：
 {"id": "users_email_notnull", "type": "NotNull", "enabled": true, "refs": {"table_id": "users", "column_id": "email"}, "params": {}}
 
-支持类型：NotNull, Unique, AllowedValues(refs+params{allowed_values}), Range(refs+params{min,max}), ForeignKey, Conditional。
+支持类型：NotNull, Unique(多列联合唯一用 refs.column_ids 列表), AllowedValues(params{allowed_values}), Range(params{min,max,boundary_mode: inclusive/exclusive}), ForeignKey(refs{from_table_id,from_column_id,to_table_id,to_column_id}), Conditional(refs{then_column_id,if_conditions:[{if_column_id,operator,value}],if_logic}+params{then_condition:{operator: not_null/greater_than/less_than/in/eq/neq, value}}), Scripted(params{expression}), Charset(params{charset_mode: ascii/chinese/chinese_mixed}), DateLogic(params{logic_mode: compare/calculation, compare_op, reference_date 或 reference_column, calculation_type: age/days_diff, target_value, target_column}), Composite(params{logic: all/any/none, sub_constraints:[完整子约束对象]}，不允许嵌套)。
 
 Regex Node 格式：
 {"id": "email_regex", "name": "邮箱格式", "pattern": "^[^@]+@[^@]+$", "match_mode": "full", "source_ref": {"table_id": "users", "column_id": "email"}}
@@ -184,6 +184,7 @@ Regex Node 格式：
 - 主键 → Unique
 - 非空列 → NotNull
 - 数值列 → Range
+- 纯中文/中英混合列 → Charset
 
 直接返回 JSON，不要解释。"""
 

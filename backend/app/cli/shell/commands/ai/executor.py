@@ -125,6 +125,15 @@ def execute_ai_chat(
     context_window = resolve_context_window(provider_config)
     max_history_tokens, _output_budget = compute_token_budgets(context_window)
 
+    # Agent 模式终端交互：注入 apply/ask 回调解开 fail-closed 写盘/提问闸门
+    # （非交互或 legacy JSON 路径不需要——legacy 走 confirm_callback 确认门）
+    agent_apply_callbacks = None
+    agent_ask_callbacks = None
+    if interactive and agent_mode:
+        from app.cli.shell.commands.ai.agent_interaction import build_agent_interaction
+
+        agent_apply_callbacks, agent_ask_callbacks = build_agent_interaction(spinner)
+
     # 配置对话选项
     options = ChatOptions(
         history=history or [],
@@ -137,6 +146,9 @@ def execute_ai_chat(
         agent_mode=agent_mode,
         max_agent_iterations=5,
         canvas_nodes=[],
+        apply_callbacks=agent_apply_callbacks,
+        ask_callbacks=agent_ask_callbacks,
+        dry_run_enabled=agent_apply_callbacks is not None,
     )
 
     try:

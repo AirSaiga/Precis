@@ -24,10 +24,13 @@
  * 保证 AI 创建的独立约束节点在"保存 roundtrip"时不丢参数。
  *
  * 键名对照（spec params → 节点 data）：
- * - range:      min/max(/boundary_mode) → minValue/maxValue(/boundaryMode)
+ * - range:      min/max(/boundaryMode) → minValue/maxValue(/boundaryMode)
  * - allowedValues: allowedValues → allowedValues（Set<string>）
  * - scripted:   expression(/pattern) → script
  * - foreignKey: toTableId/toColumnId → targetRef
+ * - charset:    charsetMode/charset_mode → charsetMode（ascii/chinese/chinese_mixed）
+ * - conditional: thenCondition/thenConditionConfig → thenConditionConfig；ifConditions 条目
+ *   的 ifColumnId 归一为 ref.columnId（保存链路消费的形态）
  * - 其余类型：同名透传或无需参数
  */
 
@@ -85,7 +88,10 @@ export function buildConstraintParamsData(
     }
     case 'charset': {
       const charsetMode = asString(params.charsetMode) ?? asString(params.charset_mode)
-      if (charsetMode === 'ascii' || charsetMode === 'chinese') data.charsetMode = charsetMode
+      // 与后端 charset_mode 三模式一致（chinese_mixed 此前漏收会导致 GUI 保存时丢参数）
+      if (charsetMode === 'ascii' || charsetMode === 'chinese' || charsetMode === 'chinese_mixed') {
+        data.charsetMode = charsetMode
+      }
       break
     }
     case 'foreignKey': {
@@ -117,17 +123,31 @@ export function buildConstraintParamsData(
       break
     }
     case 'conditional': {
-      for (const key of [
-        'ifColumn',
-        'ifValue',
-        'thenColumn',
-        'thenConditionConfig',
-        'ifLogic',
-      ] as const) {
+      // thenCondition 是后端/提示词契约键（thenConditionConfig 为 GUI 节点字段名），双侧兼容
+      const thenRaw = params.thenCondition ?? params.thenConditionConfig
+      if (thenRaw !== undefined && thenRaw !== null && thenRaw !== '')
+        data.thenConditionConfig = thenRaw
+      for (const key of ['ifColumn', 'ifValue', 'thenColumn', 'ifLogic'] as const) {
         const v = params[key]
         if (v !== undefined && v !== null && v !== '') data[key] = v
       }
-      if (Array.isArray(params.ifConditions)) data.ifConditions = params.ifConditions
+      if (Array.isArray(params.ifConditions)) {
+        // AI 指令的 ifConditions 条目带 ifColumnId 键；映射为保存链路可消费的形态
+        // （persistence builders 读取 ref.columnId / column，原样透传会在保存时被过滤丢失）
+        data.ifConditions = params.ifConditions.map((raw) => {
+          const e = raw as Record<string, unknown>
+          const colRef = typeof e.ifColumnId === 'string' && e.ifColumnId ? e.ifColumnId : undefined
+          return {
+            operator: e.operator,
+            value: e.value,
+            values: e.values,
+            column: typeof e.column === 'string' ? e.column : undefined,
+            ref: colRef
+              ? { columnId: colRef }
+              : (e.ref as { nodeId?: string; columnId?: string } | undefined),
+          }
+        })
+      }
       break
     }
     case 'notNull':

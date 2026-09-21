@@ -38,8 +38,8 @@ from plugin_golden_test import (  # noqa: E402
 def test_plugin_golden_validation():
     """v2-format.md 示例配置 → validate 预期错误集（文档漂移即红）。"""
     result = check_golden_validation()
-    assert result["errors"] == 3
-    assert result["summary"]["constraints_total"] == 4
+    assert result["errors"] == 10
+    assert result["summary"]["constraints_total"] == 10
     assert result["loading_warnings"] == 0
 
 

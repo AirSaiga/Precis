@@ -59,10 +59,12 @@ class ProviderType(str, Enum):
     定义支持的 AI Provider 类型：
     - OPENAI: OpenAI 兼容 API（云端/本地通用）
     - OLLAMA: Ollama 原生 API
+    - FAKE: 确定性假 Provider（仅测试/演练，见 providers/fake.py，不在预设中暴露）
     """
 
     OPENAI = "openai"  # OpenAI 兼容 API（云端/本地通用）
     OLLAMA = "ollama"  # Ollama 原生 API
+    FAKE = "fake"  # 确定性假 Provider（仅测试/演练，生产配置不应使用）
 
 
 class DeploymentType(str, Enum):

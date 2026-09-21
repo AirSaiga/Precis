@@ -414,7 +414,7 @@ AI 聊天（agent 模式）经 `frontend_instruction` SSE 事件驱动前端 `se
 | 修改节点 data 结构 | handler 硬编码字段 ↔ `persistence/builders/**` 读取侧**双侧对照**（只改一侧 = 保存 roundtrip 数据丢失） |
 | handler 新增 actionType 分支 | `frontend/tests/services/aiChatInstructionService.test.ts` 补用例（mock 边界：graphStore + vueFlowApi） |
 
-**已知缺口（后续）**：E2E `ai-chat-agent.spec.ts` 依赖真实 Provider、CI 无 key 时整体 skip，AI 链路缺确定性端到端守卫（候选方案：后端 fake provider 演练模式）；`ADD_*` 指令无幂等查重（当前依赖流式/completed 双通道去重）。
+**确定性守卫（已就位）**：后端 `providers/fake.py` 提供 `ProviderType.FAKE` 确定性剧本（为 users.nickname 添加 chinese_mixed Charset 约束），E2E `e2e/flows/ai-fake-provider.spec.ts` 借它无 key 守卫 AI 三链路（agent 聊天两阶段确认写盘 / 配置生成 / 配置迁移）；三个真实 Provider spec 保留不变。改 fake 剧本或三链路提示词特征字样（`build_prompt` 的 "## 输出要求"/"regex_nodes"、迁移消息的 "迁移"）时须同步该 spec 与 `backend/tests/unit/test_fake_provider.py`。**已知缺口（后续）**：`ADD_*` 指令无幂等查重（当前依赖流式/completed 双通道去重）。
 
 ### CustomNodeData 到 Record<string, unknown> 的安全转换
 

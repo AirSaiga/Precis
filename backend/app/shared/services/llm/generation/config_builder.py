@@ -43,6 +43,7 @@ from typing import Any
 import yaml
 
 from app.shared.core.utils.path_utils import make_relative, normalize_to_posix
+from app.shared.services.llm.constraints.constraint_builder import CONSTRAINT_TYPE_MAP
 
 
 def build_config(
@@ -169,8 +170,15 @@ def build_config(
         if not ctype:
             return None
 
-        # 统一类型名首字母大写
-        ctype_normalized = ctype[0].upper() + ctype[1:].lower() if ctype else "NotNull"
+        # 类型名标准化：大写别名表（NOT_NULL/DATE_LOGIC 等 + PascalCase 正名）优先，
+        # 再兜底忽略大小写/下划线的紧凑匹配（notnull/date_logic/DAT ELOGIC 等变体）。
+        # 旧实现 `ctype[0].upper()+ctype[1:].lower()` 会把 DateLogic 摧毁成 Datelogic、
+        # notnull 摧毁成 Notnull（均为非法类型名，下游 ConstraintFile 校验必挂）
+        ctype_normalized = CONSTRAINT_TYPE_MAP.get(ctype, ctype)
+        if ctype_normalized == ctype and ctype:
+            compact_map = {k.replace("_", "").lower(): v for k, v in CONSTRAINT_TYPE_MAP.items()}
+            compact_map.update({v.lower(): v for v in CONSTRAINT_TYPE_MAP.values()})
+            ctype_normalized = compact_map.get(ctype.lower().replace("_", ""), ctype)
 
         table_id = cdef.get("table_id", schema_id)
         column_id = cdef.get("column_id", "")
@@ -200,10 +208,39 @@ def build_config(
         elif ctype_normalized == "Range":
             params["min"] = cdef.get("min")
             params["max"] = cdef.get("max")
+            if cdef.get("boundary_mode") is not None:
+                params["boundary_mode"] = cdef.get("boundary_mode")
         elif ctype_normalized == "Conditional":
-            params["then_value"] = cdef.get("then_value")
+            # then_condition 是运行时唯一消费的 THEN 侧参数（旧 then_value 无消费方，
+            # 会致约束构造 TypeError 被 factory 丢弃——静默漏判）
+            then = cdef.get("then_condition") or cdef.get("thenCondition")
+            if then is not None:
+                params["then_condition"] = then
         elif ctype_normalized == "Scripted":
             params["expression"] = cdef.get("expression", "")
+        elif ctype_normalized == "Charset":
+            mode = cdef.get("charset_mode") or cdef.get("charsetMode")
+            if mode is not None:
+                params["charset_mode"] = mode
+        elif ctype_normalized == "DateLogic":
+            # 参考值/计算参数逐键透传（仅写实际提供的键）
+            for snake in (
+                "logic_mode",
+                "compare_op",
+                "reference_date",
+                "reference_column",
+                "reference_date_end",
+                "reference_column_end",
+                "calculation_type",
+                "target_value",
+                "target_column",
+            ):
+                if cdef.get(snake) is not None:
+                    params[snake] = cdef.get(snake)
+        elif ctype_normalized == "Composite":
+            if cdef.get("sub_constraints"):
+                params["sub_constraints"] = cdef.get("sub_constraints")
+                params["logic"] = cdef.get("logic", "all")
 
         # 表级约束（无 column_id/column_ids）时以 "unknown" 兜底参与 ID 生成，
         # 避免空列表 [0] 索引 IndexError 崩掉整个配置生成

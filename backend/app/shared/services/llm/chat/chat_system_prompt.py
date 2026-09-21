@@ -173,16 +173,20 @@ SYSTEM_PROMPT_JSON_FORMAT = """
                 "params": {
                     "min": 0,
                     "max": 100,
+                    "boundaryMode": "inclusive",
                     "allowedValues": ["A", "B"],
                     "pattern": "^[0-9]+$",
                     "expression": "value > 0",
                     "toTableId": "ref_table",
                     "toColumnId": "ref_id",
                     "ifConditions": [{"ifColumnId": "type", "operator": "eq", "value": "A"}],
-                    "thenValue": "val_A",
+                    "thenCondition": {"operator": "eq", "value": "val_A"},
                     "logicMode": "compare",
                     "compareOp": "gt",
-                    "referenceDate": "2023-01-01"
+                    "referenceDate": "2023-01-01",
+                    "calculationType": "age",
+                    "targetValue": 18,
+                    "charsetMode": "chinese_mixed"
                 }
             }
         }
@@ -217,14 +221,19 @@ SYSTEM_PROMPT_JSON_FORMAT = """
 
 ## 约束类型与参数说明
 - **NotNull**: 非空约束。参数：无。
-- **Unique**: 唯一约束。参数：无。
+- **Unique**: 唯一约束。单列无需参数；多列联合唯一用 constraintSpec.targetColumns（列名数组，如 ["order_id", "line_no"]）。
 - **AllowedValues**: 允许值约束。参数：`allowedValues` (List[Any])。
-- **Range**: 范围约束。参数：`min` (float/int), `max` (float/int)。
+- **Range**: 范围约束。参数：`min` (float/int), `max` (float/int)（至少一个），`boundaryMode` ("inclusive" 闭区间 / "exclusive" 开区间，默认 inclusive)。
 - **Scripted**: 脚本/正则约束。参数：`expression` (str) 或 `pattern` (str, 自动转为正则校验)。
 - **ForeignKey**: 外键约束。参数：`toTableId` (str), `toColumnId` (str)。
-- **Conditional**: 条件约束。参数：`ifConditions` (List), `thenValue` (Any)。
-  - `ifConditions` 结构：`[{"ifColumnId": "列名", "operator": "eq/ne/gt/lt/in", "value": "比较值"}]`
-- **DateLogic**: 日期逻辑约束。参数：`logicMode` ("compare"/"calculation"), `compareOp` ("gt/lt/eq/gte/lte/range"), `referenceDate` (str, "YYYY-MM-DD"), `referenceColumn` (str)。当 `compareOp` 为 "range" 时，必须同时提供 `referenceDateEnd` 或 `referenceColumnEnd`。
+- **Conditional**: 条件约束。参数：`ifConditions` (List), `thenCondition` (Object 或 str，必填)。
+  - `ifConditions` 结构：`[{"ifColumnId": "列名", "operator": "eq/neq/in/not_null/greater_than/less_than", "value": "比较值", "values": 列表(in 时可选)}]`
+  - `thenCondition` 两种形态：DSL 对象 `{"operator": "not_null/greater_than/less_than/in/eq/neq", "value": 比较值, "values": 列表(in 时), "refColumn": "同表参考列(可选，与该列比较)"}`；或字符串（已注册条件函数名，如 "is_not_empty"）。旧字段 thenValue 已废弃，不要再使用。
+- **DateLogic**: 日期逻辑约束。参数：`logicMode` ("compare"/"calculation")。
+  - compare 模式：`compareOp` ("gt/gte/lt/lte/eq/range"), `referenceDate` (str, "YYYY-MM-DD", 固定日期) 或 `referenceColumn` (str, 参考列，二选一)；`compareOp` 为 "range" 时必须同时提供 `referenceDateEnd` 或 `referenceColumnEnd`（与起点同形态）。
+  - calculation 模式：`calculationType` ("age"/"days_diff"), `targetValue` (数值，必填)；days_diff 另需 `targetColumn` (str, 天数差比较的目标列)。
+- **Charset**: 字符集约束。参数：`charsetMode` ("ascii"/"chinese"/"chinese_mixed"，必填——缺省会创建失败而非默认 ascii)。
+- **Composite**: 复合约束（把多条子约束按逻辑聚合为一条，如"非空且唯一"）。参数：`logic` ("all"/"any"/"none"，默认 all), `subConstraints` (List, 必填，每项 {"type": 约束类型, "targetColumn": "列名", "params": {该子约束的参数}})；不允许嵌套 Composite。
 
 ## 动作说明
 - ADD_CONSTRAINT_NODE: 添加约束节点。
