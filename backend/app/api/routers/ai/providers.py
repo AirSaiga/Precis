@@ -141,7 +141,7 @@ providers:
     type: openai
     base_url: https://api.deepseek.com
     api_key: ${DEEPSEEK_API_KEY}
-    model: deepseek-v4-pro
+    model: deepseek-flash
 
   # 本地 Ollama（无需 API Key）
   - id: ollama-local

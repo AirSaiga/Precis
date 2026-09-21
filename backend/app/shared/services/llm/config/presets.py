@@ -40,8 +40,8 @@
 输出示例:
     ProviderPreset(id="deepseek", name="DeepSeek", type="openai",
                    base_url="https://api.deepseek.com",
-                   default_model="deepseek-v4-flash",
-                   models=["deepseek-v4-flash", "deepseek-v4-pro"])
+                   default_model="deepseek-flash",
+                   models=["deepseek-flash"])
 """
 
 from __future__ import annotations
@@ -54,8 +54,10 @@ PROVIDER_PRESETS: dict[str, dict[str, Any]] = {
         "name": "DeepSeek",
         "type": "openai",
         "base_url": "https://api.deepseek.com",
-        "default_model": "deepseek-v4-pro",
-        "models": ["deepseek-v4-pro", "deepseek-v4-flash"],
+        # 2026-09-10 起官方滚动名为 deepseek-flash（当前指向 V4.1-Flash，超越 V4-Pro）；
+        # deepseek-v4-pro / deepseek-v4-flash 已下线并被路由到 V4.1-Flash，不再收录
+        "default_model": "deepseek-flash",
+        "models": ["deepseek-flash"],
     },
     "qwen": {
         "id": "qwen",

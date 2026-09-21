@@ -576,7 +576,7 @@ providers:
     type: openai
     base_url: https://api.deepseek.com
     api_key: sk-xxx
-    model: deepseek-v4-flash
+    model: deepseek-flash
 
   # 本地 Ollama（无需 API Key）
   - id: ollama-local

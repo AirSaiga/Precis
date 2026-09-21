@@ -85,7 +85,7 @@ class TestListPresets:
         assert ds["name"] == "DeepSeek"
         assert ds["type"] == "openai"
         assert ds["base_url"] == "https://api.deepseek.com"
-        assert "deepseek-v4-flash" in ds["models"]
+        assert "deepseek-flash" in ds["models"]
 
     @pytest.mark.asyncio
     async def test_returns_mimo_preset(self):

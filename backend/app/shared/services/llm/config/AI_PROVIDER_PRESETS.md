@@ -16,7 +16,7 @@
 
 因此：**新增/更新国内大模型支持 = 只改 `presets.py` 数据 + 同步本文档**，前端/CLI/TUI 无需任何代码改动。
 
-## 2. 当前预置清单（核对日期：2026-09-07）
+## 2. 当前预置清单（核对日期：2026-09-21）
 
 排序约定即字典顺序（= UI 下拉展示顺序）：国内主流在前、本地服务（Ollama）在末尾。
 范围约定：当前收录 DeepSeek、通义千问、智谱 GLM、Kimi、MiniMax、Xiaomi MiMo 六家国内厂商 + 本地 Ollama；
@@ -24,12 +24,12 @@
 
 | 预设 ID | 显示名 | base_url（OpenAI 兼容） | 默认模型 | 预置模型列表 |
 |---------|--------|--------------------------|----------|--------------|
-| `deepseek` | DeepSeek | `https://api.deepseek.com` | `deepseek-v4-pro` | `deepseek-v4-pro`（滚动更新，现行为 0813 版）、`deepseek-v4-flash` |
-| `qwen` | 通义千问 Qwen | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen3.8-max` | `qwen3.8-max`（旗舰）、`qwen3.7-plus`、`qwen3.8-flash`（1M 上下文） |
-| `glm` | 智谱 GLM | `https://open.bigmodel.cn/api/paas/v4` | `glm-5.3` | `glm-5.3`（当前主力）、`glm-5.3-flash`、`glm-5.2`（1M 上下文长任务旗舰） |
-| `kimi` | 月之暗面 Kimi | `https://api.moonshot.cn/v1` | `kimi-k3` | `kimi-k3`（2026-08-12 发布，2.8T/1M 上下文）、`kimi-k2.7-code`（编程）、`kimi-k2.6`（256K 多模态通用）、`kimi-latest`（滚动别名） |
-| `minimax` | MiniMax | `https://api.minimaxi.com/v1` | `MiniMax-M3` | `MiniMax-M3`（Frontier Coding/多模态 1M 上下文）、`MiniMax-M2.5`（Agent 生产级）、`MiniMax-M2.7-highspeed`（高速版） |
-| `mimo` | Xiaomi MiMo | `https://api.xiaomimimo.com/v1` | `mimo-v2.5` | `mimo-v2.5`（全模态感知）、`mimo-v2.5-pro`（旗舰推理） |
+| `deepseek` | DeepSeek | `https://api.deepseek.com` | `deepseek-flash` | `deepseek-flash`（滚动名，现指向 V4.1-Flash，2026-09-10 发布，官方称全面超越 V4-Pro） |
+| `qwen` | 通义千问 Qwen | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen3.8-max` | `qwen3.8-max`（2026-08-03 发布，2.4T/1M 上下文，Max 级首次开源）、`qwen3.7-plus`、`qwen3.8-flash`（08-26 发布，多模态 1M 上下文） |
+| `glm` | 智谱 GLM | `https://open.bigmodel.cn/api/paas/v4` | `glm-5.3` | `glm-5.3`（当前主力，08-14 发布）、`glm-5.3-flash`（08-26 开源，320B MoE/1M 上下文，价格为 5.3 的 1/10）、`glm-5.2`（1M 上下文长任务旗舰；GLM-5.4 截至核对日未发布） |
+| `kimi` | 月之暗面 Kimi | `https://api.moonshot.cn/v1` | `kimi-k3` | `kimi-k3`（旗舰，2.8T/1M 上下文）、`kimi-k2.7-code`（编程）、`kimi-k2.6`（256K 多模态通用）、`kimi-latest`（滚动别名） |
+| `minimax` | MiniMax | `https://api.minimaxi.com/v1` | `MiniMax-M3` | `MiniMax-M3`（2026-06-01 发布，MSA 注意力/1M 上下文/多模态，无更新代际）、`MiniMax-M2.5`（Agent 生产级）、`MiniMax-M2.7-highspeed`（高速版） |
+| `mimo` | Xiaomi MiMo | `https://api.xiaomimimo.com/v1` | `mimo-v2.5` | `mimo-v2.5`（全模态感知）、`mimo-v2.5-pro`（旗舰推理，1T/1M 上下文） |
 | `ollama` | Ollama Local | `http://localhost:11434` | `llama3.2` | 空（运行时向本地服务探测） |
 
 ### API Key 获取入口
@@ -42,7 +42,11 @@ DeepSeek <https://platform.deepseek.com> ｜ 百炼 <https://bailian.console.ali
    `/chat/completions`。含版本路径的厂商**必须带全**（`/v1`、`/compatible-mode/v1`、`/api/paas/v4`），
    且**不得以 `/` 结尾**（有单测守卫 `test_openai_presets_base_url_is_https_without_trailing_slash`）。
 2. **DeepSeek**：裸域与 `/v1` 均可用，预设取裸域（存量测试断言了这一形态，勿顺手改掉）。
-   `deepseek-v4-pro` 是滚动模型名（内部版本如 0813，官方保证模型名不变），无需拼接日期后缀。
+   **2026-09-10 起官方滚动名为 `deepseek-flash`**（当前指向 V4.1-Flash：552B MoE、原生多模态、
+   官方称全面超越 V4-Pro）。旧名清理状态：`deepseek-v4-pro` 自 09-14 12:00 起全部路由到 V4.1-Flash
+   并按 Flash 单价计费（实质下线，故预设不再收录）；`deepseek-v4-flash`/`deepseek-v4-flash-vision-exp`
+   已下线、模型名暂时路由兼容；`deepseek-chat`/`deepseek-reasoner` 2026-07 已停用。V4.1-Pro 上线后
+   再补入预设。定价为峰谷分时（闲时半价），Flash 系缓存命中另有低价。
 3. **通义千问（百炼）**：兼容模式路径是 `/compatible-mode/v1`，不是 DashScope 原生 `/api/v1`。
    国际站为 `https://dashscope-intl.aliyuncs.com/compatible-mode/v1`，密钥与国内不通用（预设取国内站，下同）。
 4. **智谱 GLM**：按量付费端点为 `/api/paas/v4`；GLM Coding Plan（编程套餐）走 `/api/coding/paas/v4`——两者按账户订阅类型选择，
