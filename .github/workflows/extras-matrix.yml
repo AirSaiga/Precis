@@ -1,0 +1,47 @@
+name: Extras Matrix
+
+# precis-cli 安装形态矩阵验证（bare/api/ai/mcp/full 各自一次性 venv 真隔离）。
+# 手动触发：发布前用本地 wheel（默认），发布后勾选 pypi 巡检线上包。
+# 不挂在 push/PR 上——5 个 venv + 安装约 5-8 分钟，避免拖慢常规 CI。
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: '安装数据源（wheel=本地构建 wheel，pypi=PyPI 线上最新版）'
+        required: false
+        default: 'wheel'
+        type: choice
+        options:
+          - wheel
+          - pypi
+      variants:
+        description: '形态子集（逗号分隔，留空=全量 bare,api,ai,mcp,full）'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify-extras-matrix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run extras matrix verification
+        run: |
+          ARGS=""
+          if [ "${{ github.event.inputs.source }}" = "pypi" ]; then ARGS="$ARGS --pypi"; fi
+          if [ -n "${{ github.event.inputs.variants }}" ]; then ARGS="$ARGS --variants ${{ github.event.inputs.variants }}"; fi
+          # shellcheck disable=SC2086
+          npm run verify:extras -- $ARGS

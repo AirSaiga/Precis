@@ -24,6 +24,7 @@ scripts/
 ├── release-gui.mjs + release-gui.html # 发布控制台 GUI(npm run release:gui)
 ├── pypi-gui.mjs + pypi-gui.html      # PyPI 管理控制台 GUI(npm run pypi:gui)
 ├── verify-pypi-package.mjs           # PyPI 已发布包验证(干净 venv 装线上包跑冒烟)
+├── verify-extras-matrix.mjs          # extras 安装形态矩阵验证(npm run verify:extras;5 形态各自 venv 真隔离)
 ├── verify-release-assets.mjs         # CD 产物自检闸门 / Release asset verification
 ├── extract-release-notes.mjs         # CD 提取 Release notes / Release notes extraction
 ├── check-license-headers.mjs         # CI license 头守卫 / License header guard
