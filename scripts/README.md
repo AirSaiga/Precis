@@ -22,6 +22,8 @@ scripts/
 │
 ├── release.mjs                       # 版本发布脚本(npm run release)/ Release script
 ├── release-gui.mjs + release-gui.html # 发布控制台 GUI(npm run release:gui)
+├── pypi-gui.mjs + pypi-gui.html      # PyPI 管理控制台 GUI(npm run pypi:gui)
+├── verify-pypi-package.mjs           # PyPI 已发布包验证(干净 venv 装线上包跑冒烟)
 ├── verify-release-assets.mjs         # CD 产物自检闸门 / Release asset verification
 ├── extract-release-notes.mjs         # CD 提取 Release notes / Release notes extraction
 ├── check-license-headers.mjs         # CI license 头守卫 / License header guard
@@ -37,6 +39,7 @@ scripts/
 │   ├── start-cli.bat                   # 交互式 CLI / Interactive CLI
 │   ├── start-tui-rust.bat              # Rust TUI 终端界面 / Rust TUI
 │   ├── release-gui.bat                 # 发布控制台 GUI 入口 / Release GUI entry
+│   ├── pypi-gui.bat                    # PyPI 管理控制台 GUI 入口 / PyPI GUI entry
 │   ├── free-port.bat                   # 端口清理工具(手动)/ Port cleanup (manual)
 │   └── clean-cache.ps1                 # 清理缓存 / Cache cleanup
 │
@@ -49,7 +52,8 @@ scripts/
     ├── start-electron.sh               # 仅启动 Electron / Electron only
     ├── start-cli.sh                    # 交互式 CLI / Interactive CLI
     ├── start-tui-rust.sh               # Rust TUI 终端界面 / Rust TUI
-    └── release-gui.sh                  # 发布控制台 GUI 入口 / Release GUI entry
+    ├── release-gui.sh                  # 发布控制台 GUI 入口 / Release GUI entry
+    └── pypi-gui.sh                     # PyPI 管理控制台 GUI 入口 / PyPI GUI entry
 ```
 
 > Windows 和 Mac/Linux 的启动脚本一一对应。`free-port.bat`(端口清理)和 `clean-cache.ps1`(缓存清理)为 Windows 专属手动工具。Mac 脚本同样适用于 Linux。

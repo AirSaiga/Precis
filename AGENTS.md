@@ -500,6 +500,8 @@ AI 聊天（agent 模式）经 `frontend_instruction` SSE 事件驱动前端 `se
 
 **发布控制台 GUI**：`npm run release:gui`（`scripts/release-gui.mjs` + `release-gui.html`，零依赖 Node 内置 HTTP + 单页 HTML，日志经 SSE 推送；双击入口仓库根 `release-gui.bat` → `scripts/windows/release-gui.bat`，mac 对称 `scripts/mac/release-gui.sh`）。安全约束改 GUI 时不得放宽：只绑 127.0.0.1；客户端只能触发固定动作枚举；任何用户输入（版本号/tag/端口）必须先过 `validateVersionish`/`validateTag`/`validatePort` 白名单正则才允许拼进 shell 命令；POST 状态变更接口校验来源（`isLocalBrowserRequest`：外源 Origin 与 DNS rebinding Host 一律 403——只绑 127.0.0.1 挡不住浏览器跨站无预检 POST）；收到退出信号先显式终止任务子进程与本地更新源（Unix 上 detached 任务在独立进程组，不随主进程死）。
 
+**PyPI 管理控制台 GUI**：`npm run pypi:gui`（`scripts/pypi-gui.mjs` + `pypi-gui.html`，端口 17889 与 release-gui 并存；双击入口仓库根 `pypi-gui.bat`，mac 对称 `scripts/mac/pypi-gui.sh`）。定位是发布后的"后巡检"：四方版本对齐（本地 manifest ↔ git tag ↔ GitHub Release ↔ PyPI，`computeAlignment` 纯函数，数据源缺失记 unknown 不误报）、PyPI 发布历史与文件清单、最新 tag 的 pypi job 状态（GitHub Actions API，可选 `GITHUB_TOKEN` 环境变量提额）、pypistats 下载统计、一键验证线上包（`scripts/verify-pypi-package.mjs`：干净 venv 装真实 PyPI 包，跑与 cd.yml 发布前冒烟同口径的 `--version` + demo 8 违规基线）。设计边界：PyPI 无公开写 API（yank/删除只能网页操作、版本不可重传），控制台是**纯只读 + 本地验证、零凭证落盘**。改控制台须沿用：纯函数与安全校验从 `release.mjs`/`release-gui.mjs` import 复用（单一实现，勿复制副本）；安全约束与 release-gui 完全一致（127.0.0.1 绑定、动作枚举 `verify-pypi`、`validateVersionish`、`isLocalBrowserRequest`）；外部数据源单源容错（allSettled + 超时 + TTL 缓存，单源失败只影响自己那张卡）。测试：单测进 `scripts/tests/pypi-gui.test.mjs`（`npm run test:scripts`），E2E `npm run e2e:pypi:gui`（`e2e/playwright.pypi-gui.config.ts`，镜像 release-gui spec 的分层策略，`/api/run` 一律拦截、绝不真实 pip install）。
+
 ---
 
 ## Pre-commit Hooks
