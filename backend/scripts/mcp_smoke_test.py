@@ -53,7 +53,14 @@ class McpStdioClient:
             cwd=str(server_cwd),
             text=True,
             encoding="utf-8",
-            env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+            env={
+                **os.environ,
+                "PYTHONIOENCODING": "utf-8",
+                # 子进程须跑仓库源码而非 site-packages 里可能陈旧的安装副本
+                # （CI 装 -e 无此问题；本地裸装旧版会让冒烟测到旧代码，
+                # CI run 35575157626 实证本地绿/CI 红的分歧）
+                "PYTHONPATH": str(BACKEND_ROOT),
+            },
         )
 
     def request(self, request_id: int, method: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -159,10 +166,17 @@ def run_smoke(server_cwd: Path, manifest_rel: str | None = None) -> dict[str, An
         # 6. 路径越界拒绝（manifest 指向白名单外）
         # 越界路径须跨平台：写死 Windows 盘符（Z:/…）在 Linux 非绝对路径、被锚到
         # 根下报"清单不存在"而非"越界"（CI run 35507767842 实证）；系统临时目录
-        # 必在 server_cwd（白名单根）之外
+        # 必在 server_cwd（白名单根）之外。
+        # H9 修复后工具级失败由 SDK 包装为 isError=true（TextContent 为纯文本
+        # 错误消息，不再是 JSON error 体）——此步骤断言 isError 与"越界"文案
         outside = Path(tempfile.gettempdir()) / "precis_mcp_outside" / "project.precis.yaml"
-        escaped = client.tool_result_payload(5, "validate_data", {"manifest": str(outside)})
-        assert "error" in escaped and "越界" in escaped["error"], escaped
+        escaped_resp = client.request(
+            5, "tools/call", {"name": "validate_data", "arguments": {"manifest": str(outside)}}
+        )
+        escaped_result = escaped_resp.get("result", {})
+        assert escaped_result.get("isError") is True, f"越界 manifest 应包装为 isError=true: {escaped_result}"
+        error_text = "".join(c.get("text", "") for c in escaped_result.get("content", []))
+        assert "越界" in error_text, error_text
 
         return {
             "initialized": True,
