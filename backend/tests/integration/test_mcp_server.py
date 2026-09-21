@@ -81,3 +81,42 @@ def test_mcp_tool_functions_in_process(tmp_path, monkeypatch):
     outside_manifest = tmp_path / "outside" / "project.precis.yaml"
     with pytest.raises(ValueError, match="越界"):
         tool_validate_data(manifest=str(outside_manifest))
+
+
+@pytest.mark.skipif(not _mcp_sdk_available(), reason="mcp SDK 未安装（可选依赖 precis-cli[mcp]）")
+def test_mcp_call_tool_value_error_wraps_is_error():
+    """H9 回归：工具级 ValueError 须经 SDK 包装为 isError=true。
+
+    过去 call_tool 本地捕获 ValueError 返回正常 TextContent（JSON error 体），
+    协议层把失败伪装成成功（isError=false），违反 MCP 语义。修复后 handler
+    不捕获，SDK 的 call_tool 装饰器统一包装 isError=true 且 server 不崩。
+    """
+    import sys
+
+    import anyio
+
+    sys.path.insert(0, str(BACKEND_ROOT))
+    import mcp.types as types
+
+    from app.mcp_server import _build_server
+
+    server = _build_server()
+    handler = server.request_handlers[types.CallToolRequest]
+
+    # 未知工具名 → _dispatch_tool_sync 抛 ValueError("未知工具: ...")
+    req = types.CallToolRequest(params=types.CallToolRequestParams(name="nonexistent_tool", arguments={}))
+    response = anyio.run(handler, req)
+    inner = response.root if hasattr(response, "root") else response
+
+    assert getattr(inner, "isError", None) is True, f"工具级失败应包装为 isError=true，实际: {inner!r}"
+    error_text = "".join(c.text for c in getattr(inner, "content", []) if isinstance(c, types.TextContent))
+    assert "未知工具" in error_text
+
+    # 越界路径同样走 isError（validate_data 的路径白名单拒绝）
+    outside = "Z:/definitely/outside/project.precis.yaml"
+    req2 = types.CallToolRequest(
+        params=types.CallToolRequestParams(name="validate_data", arguments={"manifest": outside})
+    )
+    response2 = anyio.run(handler, req2)
+    inner2 = response2.root if hasattr(response2, "root") else response2
+    assert getattr(inner2, "isError", None) is True

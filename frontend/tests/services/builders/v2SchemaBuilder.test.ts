@@ -312,6 +312,38 @@ describe('v2/schemaBuilder - buildV2SchemaFile', () => {
     expect((fk as any).to_table).toBe('orders')
   })
 
+  it('persists FK allow_null switch (confirmed #8, B3 parity)', () => {
+    const child = constraintNode({
+      id: 'fk-an',
+      type: 'foreignKeyConstraint',
+      sourceTable: 'users',
+      sourceColumn: 'id',
+      targetTable: 'orders',
+      targetColumn: 'user_id',
+      allowNull: true,
+    })
+    const node = schemaNode(childrenIds(['fk-an']))
+    const result = buildV2SchemaFile([node, child], 'schema-1')
+    const fk = result.constraints!.find((c: any) => c.id === 'fk-an')
+    expect((fk as any).params).toEqual({ allow_null: true })
+  })
+
+  it('omits FK allow_null when switch off (confirmed #8)', () => {
+    const child = constraintNode({
+      id: 'fk-off',
+      type: 'foreignKeyConstraint',
+      sourceTable: 'users',
+      sourceColumn: 'id',
+      targetTable: 'orders',
+      targetColumn: 'user_id',
+      allowNull: false,
+    })
+    const node = schemaNode(childrenIds(['fk-off']))
+    const result = buildV2SchemaFile([node, child], 'schema-1')
+    const fk = result.constraints!.find((c: any) => c.id === 'fk-off')
+    expect((fk as any).params).toEqual({})
+  })
+
   it('handles Scripted embedded constraint', () => {
     const child = constraintNode({
       id: 'sc-1',
@@ -444,6 +476,25 @@ describe('v2/schemaBuilder - buildV2SchemaFile', () => {
     expect((cd as any).params.then_condition).toEqual({ operator: 'equals', value: 'active' })
     expect((cd as any).params.if_conditions).toBeDefined()
     expect((cd as any).params.if_conditions[0].if_column_id).toBe('col-age')
+  })
+
+  it('persists Conditional skip_if switch (confirmed #8, B3 parity)', () => {
+    const child = constraintNode({
+      id: 'cd-skip',
+      type: 'conditionalConstraint',
+      thenColumn: 'col-status',
+      thenConditionConfig: { operator: 'equals', value: 'active' },
+      ifLogic: 'all',
+      ifConditions: [
+        { operator: 'eq', column: 'col-age', value: '18', ref: { columnId: 'col-age' } },
+      ],
+      thenRef: { nodeId: 'schema-1', columnId: 'col-status' },
+      skipIfCondition: true,
+    })
+    const node = schemaNode(childrenIds(['cd-skip']))
+    const result = buildV2SchemaFile([node, child], 'schema-1')
+    const cd = result.constraints!.find((c: any) => c.id === 'cd-skip')
+    expect((cd as any).params.skip_if).toBe(true)
   })
 
   it('handles conditional with missing thenRef fields', () => {

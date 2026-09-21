@@ -126,7 +126,7 @@ class ConfigShowCommand(Command):
         return CommandResult.ok("\n".join(output_lines))
 
     def _show_single_file(self, config_path: str, config_file: str) -> CommandResult:
-        """显示单个配置文件。
+        """显示单个配置文件（原文输出，H11）。
 
         Args:
             config_path: 文件的完整路径
@@ -134,14 +134,18 @@ class ConfigShowCommand(Command):
 
         Returns:
             文件内容或错误提示
+
+        H11：过去用 PyYAML safe_load+dump 有损重序列化（注释全丢、`007`→`7`），
+        与无参模式/`--string` 的"原样呈现"承诺三方不一致。改为直接读原文输出，
+        与无参模式的 _show_file 同口径。
         """
         try:
             with open(config_path, encoding="utf-8") as f:
-                content = yaml.safe_load(f)
+                raw_text = f.read()
 
             output_lines = [
                 Formatter.header(f"\n{config_file}"),
-                yaml.dump(content, allow_unicode=True, default_flow_style=False),
+                raw_text,
             ]
             return CommandResult.ok("\n".join(output_lines))
         except yaml.YAMLError as e:

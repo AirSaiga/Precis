@@ -26,6 +26,7 @@
 import os
 import tempfile
 
+import pandas as pd
 import pytest
 
 from app.shared.services.validation.chunked_loader import (
@@ -186,6 +187,45 @@ class TestChunkedDataLoaderCSVSourceConfig:
             assert chunks[0].iloc[1]["note"] == "c"
         finally:
             os.unlink(tmp_path)
+
+
+class TestChunkedDataLoaderExcelSourceConfig:
+    """Excel 分块加载参数对齐标准 ExcelLoader 的回归（旧#11 + R1 组合场景）。"""
+
+    def test_load_excel_chunked_honors_skip_rows_and_merged_date(self, tmp_path) -> None:
+        """skip_rows 说明行不得进入分块数据，且合并日期单元格保留日期语义。
+
+        布局：行 1-2 为说明行（skip_rows=2），行 3 为表头，行 4-6 为数据，
+        B4:B6 合并存放日期——分块读取后三行均应填到 datetime 值。
+        """
+        import datetime as dt
+
+        from openpyxl import Workbook
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "S"
+        ws["A1"], ws["A2"] = "说明行一", "说明行二"
+        ws["A3"], ws["B3"] = "name", "deadline"
+        ws["A4"], ws["A5"], ws["A6"] = "甲", "乙", "丙"
+        ws["B4"] = dt.date(2024, 1, 15)
+        ws.merge_cells("B4:B6")
+        f = tmp_path / "skip_rows_merged.xlsx"
+        wb.save(f)
+
+        class MockSchema:
+            header_row = 0
+            sheet_name = "S"
+            source_config = {"skip_rows": 2}
+
+        loader = ChunkedDataLoader.__new__(ChunkedDataLoader)
+        chunks = loader._load_dataframe_chunked(str(f), MockSchema(), chunk_size=2)
+
+        assert [list(c.columns) for c in chunks] == [["name", "deadline"], ["name", "deadline"]]
+        merged = pd.concat(chunks)
+        assert merged["name"].tolist() == ["甲", "乙", "丙"]
+        # R1+旧#11 组合断言：合并区域首行日期换算后按值续填到各块，不得退化为序列号 int
+        assert all(isinstance(v, (dt.date, dt.datetime)) for v in merged["deadline"])
 
 
 class TestChunkedDataLoaderDataFrameChunked:

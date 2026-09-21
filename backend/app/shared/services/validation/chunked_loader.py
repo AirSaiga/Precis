@@ -169,6 +169,7 @@ class ChunkedDataLoader:
         sheet_name: str,
         header_row: int,
         chunk_size: int,
+        skip_rows: int = 0,
     ) -> list[pd.DataFrame]:
         """
         @methoddesc 分块加载 Excel 文件
@@ -178,18 +179,20 @@ class ChunkedDataLoader:
         参数:
             file_path: Excel 文件路径
             sheet_name: Sheet 名称
-            header_row: 表头行号
+            header_row: 表头行号（0-based，不含 skip_rows）
             chunk_size: 每个分块的行数
+            skip_rows: 表头前跳过的行数（旧#11：与标准 ExcelLoader 对齐）
 
         返回:
             DataFrame 分块列表
         """
         try:
-            # 先读取表头确定列数
+            # 先读取表头确定列数（与数据读取同基准：先跳过 skip_rows 再取 header_row 行）
             header_df = pd.read_excel(
                 file_path,
                 sheet_name=sheet_name,
                 header=header_row,
+                skiprows=skip_rows,
                 nrows=0,
             )
             columns = header_df.columns.tolist()
@@ -205,7 +208,7 @@ class ChunkedDataLoader:
             merged_ranges = self._read_excel_merged_ranges(file_path, sheet_name)
 
             chunks: list[pd.DataFrame] = []
-            current_skip = header_row + 1  # 跳过表头行
+            current_skip = skip_rows + header_row + 1  # 跳过 skip_rows + 表头行
             # 回归 #8: 累计已读数据行数(不含表头),用于给每块设置全局连续的 0-based 数据行号,
             # 使约束校验的 row_index 反映行在原文件的真实数据位置(与 CSV 分块的全局连续 index 对齐)。
             data_row_offset = 0
@@ -233,7 +236,7 @@ class ChunkedDataLoader:
                         chunk,
                         merged_ranges,
                         header_row=header_row,
-                        skip_rows=0,
+                        skip_rows=skip_rows,
                         global_row_offset=data_row_offset,
                     )
                     skipped_cross_total += skipped_cross
@@ -310,7 +313,11 @@ class ChunkedDataLoader:
         elif ext in (".xlsx", ".xls"):
             sheet_name = getattr(schema, "sheet_name", None) or "Sheet1"
             header_row = getattr(schema, "header_row", 0) or 0
-            return self._load_excel_chunked(file_path, sheet_name, header_row, chunk_size)
+            # 旧#11：Excel 分块参数对齐标准 ExcelLoader——skip_rows 未透传时
+            # 表头定位与合并填充行号换算都会错位（CSV 分块路径已透传）
+            source_config = getattr(schema, "source_config", None) or {}
+            skip_rows = int(source_config.get("skip_rows", 0) or 0)
+            return self._load_excel_chunked(file_path, sheet_name, header_row, chunk_size, skip_rows)
         else:
             # JSON 等格式不支持分块，全量加载后按行切分
             logger.info(f"文件格式 {ext} 不支持原生分块加载，将全量加载后切分")
@@ -439,16 +446,21 @@ class ChunkedDataLoader:
                         )
                         file_to_schemas = {source_path: [info]}
                         # 与 data_loader 标准模式对齐：透传 manifest 级编码/分隔符默认值与 sheet 回退映射
-                        loaded, _ = load_grouped_sources(
+                        loaded, load_errors = load_grouped_sources(
                             file_to_schemas,
                             default_encoding=self.settings.file_processing.default_encoding,
                             csv_delimiter=self.settings.file_processing.csv_delimiter,
                             file_to_sheet_names=file_to_sheet_names or None,
                         )
+                        # R8：透传加载器结构化错误（坏行行号、部分表失败原因等），
+                        # 对齐标准模式 loading_errors 上报口径，防整表静默漏检
+                        for load_err in load_errors:
+                            load_err.setdefault("table", table_name)
+                            loading_errors.append(load_err)
                         if loaded:
                             df = next(iter(loaded.values()))
                             chunked_datasets[table_id] = [df]
-                        else:
+                        elif not load_errors:
                             loading_errors.append(
                                 {
                                     "error_type": "DataLoadingError",
@@ -479,16 +491,20 @@ class ChunkedDataLoader:
                     )
                     file_to_schemas = {source_path: [info]}
                     # 与 data_loader 标准模式对齐：透传 manifest 级编码/分隔符默认值与 sheet 回退映射
-                    loaded, _ = load_grouped_sources(
+                    loaded, load_errors = load_grouped_sources(
                         file_to_schemas,
                         default_encoding=self.settings.file_processing.default_encoding,
                         csv_delimiter=self.settings.file_processing.csv_delimiter,
                         file_to_sheet_names=file_to_sheet_names or None,
                     )
+                    # R8：透传加载器结构化错误，对齐标准模式 loading_errors 上报口径
+                    for load_err in load_errors:
+                        load_err.setdefault("table", table_name)
+                        loading_errors.append(load_err)
                     if loaded:
                         df = next(iter(loaded.values()))
                         chunked_datasets[table_id] = [df]
-                    else:
+                    elif not load_errors:
                         loading_errors.append(
                             {
                                 "error_type": "DataLoadingError",

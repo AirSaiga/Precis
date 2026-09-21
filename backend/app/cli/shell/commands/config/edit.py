@@ -86,8 +86,9 @@ class ConfigEditCommand(Command):
             # 列出可用的配置文件
             available = []
             for root, _, files in os.walk(project_path):
-                # 跳过隐藏目录
-                if any(part.startswith(".") for part in root.split(os.sep)):
+                # 跳过项目内的隐藏子目录（以项目根为基准，同 config check 修法）
+                rel_root = os.path.relpath(root, project_path)
+                if rel_root != "." and any(part.startswith(".") for part in rel_root.split(os.sep)):
                     continue
                 for f in files:
                     if f.endswith((".yaml", ".yml")):
@@ -103,8 +104,13 @@ class ConfigEditCommand(Command):
         editor = self._get_editor()
 
         try:
+            # EDITOR/VISUAL 可含参数（如 "code -w"、"vim -f"）——shlex 拆分后拼接，
+            # 原样整体当可执行名会在含空格/参数时 FileNotFoundError
+            import shlex
+
+            editor_cmd = shlex.split(editor, posix=(sys.platform != "win32"))
             result = subprocess.run(
-                [editor, config_path],
+                [*editor_cmd, config_path],
                 cwd=project_path,
             )
 

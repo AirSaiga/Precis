@@ -22,7 +22,7 @@
 import type { CustomNode } from '@/types/graph'
 import type { ConstraintFileV2 } from '@/types/projectV2'
 import type { BuilderContext, NodeBuilder } from '../../types'
-import { buildSingleColumnRefs } from './helpers'
+import { buildForeignKeyRefs, buildSingleColumnRefs } from './helpers'
 
 /**
  * 根据子约束节点数据构建 params。
@@ -81,6 +81,9 @@ export function buildSubConstraintParams(
       return {
         then_condition: subData.thenConditionConfig,
       }
+    // confirmed #2：FK 子约束的 allow_null 开关此前被丢掉（无 case 恒落 default {}）
+    case 'ForeignKey':
+      return subData.allowNull === true ? { allow_null: true } : {}
     default:
       return {}
   }
@@ -106,13 +109,19 @@ export const compositeBuilder: NodeBuilder<ConstraintFileV2> = {
         const subType = subNode.type!.replace('Constraint', '')
         // V2 正名（首字母大写）：type 字段与 params 构建共用同一派生值（B1 回归）
         const subTypeName = subType.charAt(0).toUpperCase() + subType.slice(1)
+        // confirmed #2：FK 子约束用 from/to 双引用 refs（与独立 FK builder 同源），
+        // 其余类型保持单列 refs
+        const refs =
+          subTypeName === 'ForeignKey'
+            ? buildForeignKeyRefs(subData, schemaIdByNodeId)
+            : buildSingleColumnRefs(subData, nodes, schemaIdByNodeId)
         return {
           id: subNode.id,
           type: subTypeName,
           enabled: subData.enabled !== false,
           description:
             (subData.configName as string) || (subData.description as string) || undefined,
-          refs: buildSingleColumnRefs(subData, nodes, schemaIdByNodeId),
+          refs,
           params: buildSubConstraintParams(subData, subTypeName),
         }
       })

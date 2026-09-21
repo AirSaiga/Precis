@@ -127,6 +127,7 @@ class ValidationExecutor:
         manifest_path: str,
         settings_override: Any = None,
         allow_unsafe_eval: bool | None = None,
+        allowed_roots: list[str] | None = None,
     ):
         # 校验清单文件存在性
         # 【防御性编程】在初始化阶段即检查文件是否存在，避免后续操作失败
@@ -167,10 +168,12 @@ class ValidationExecutor:
         self._schema_by_id: dict[str, TableSchemaFile] = dict(self.loaded_project.schema_files)
 
         # 初始化数据源解析器，负责将相对路径解析为绝对路径
+        # allowed_roots：受限入口（MCP）注入时，absolute 数据源复用根校验防越界读
         self._resolver = DataSourceResolver(
             project_root=self.project_root,
             manifest=self.manifest,
             schema_by_id=self._schema_by_id,
+            allowed_roots=allowed_roots,
         )
         # 初始化数据加载器，负责批量加载数据文件
         self._data_loader = DataLoader(

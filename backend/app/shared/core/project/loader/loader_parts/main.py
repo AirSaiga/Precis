@@ -138,8 +138,10 @@ def _check_manifest_version(manifest_file: Path) -> LoadingError | None:
     version 在 ProjectManifest 模型中有默认值，缺失时会被 Pydantic 静默补为 2，
     因此必须在模型解析之前对原始 YAML 做显式检查：
     - 缺失 → 报"缺少 version 字段，当前支持版本为 2"
-    - 非 2（含非整数类型）→ 报版本不支持并给迁移指引
-    - 等于 2 → 返回 None，走原有加载流程（行为不变）
+    - 值等价于支持版本 → 返回 None，走原有加载流程。H12 起宽松收窄 int：
+      `version: "2"`（YAML 书写器惯常加引号）与 `2.0` 均按值等价放行，
+      不再按类型误杀；布尔与无法无损转 int 的值（"abc"、1.5 等）仍拒绝
+    - 非支持版本 → 报版本不支持并给迁移指引
 
     Args:
         manifest_file: manifest 文件路径
@@ -161,7 +163,19 @@ def _check_manifest_version(manifest_file: Path) -> LoadingError | None:
         )
 
     version = raw["version"]
-    if isinstance(version, bool) or not isinstance(version, int) or not is_supported_version(version):
+    coerced: int | None = None
+    if isinstance(version, bool):
+        coerced = None
+    elif isinstance(version, int):
+        coerced = version
+    elif isinstance(version, float) and version.is_integer():
+        coerced = int(version)
+    elif isinstance(version, str):
+        try:
+            coerced = int(version.strip())
+        except ValueError:
+            coerced = None
+    if coerced is None or not is_supported_version(coerced):
         return LoadingError(
             error_type="ManifestVersionError",
             file_path=str(manifest_file),
@@ -262,16 +276,18 @@ def load_project(
         constraint_files[cid] = const
 
     # P0-3: 构建约束 ID -> 来源文件路径映射（相对 manifest 目录），供校验错误回溯。
-    # 独立约束取 manifest 引用路径；内嵌约束归属其宿主 schema 文件
-    # （内嵌约束 ID 形如 "{schema_id}_{item_id}"，按 schema id 前缀归属，含下划线表名也正确）。
+    # 独立约束取 manifest 引用路径；内嵌约束归属其宿主 schema 文件。
+    # H13：宿主取自 collect_constraints_from_schemas 落进 refs 的 table_id /
+    # from_table_id（构建时已记录），弃 schema id 前缀猜测——orders 与
+    # orders_extra 前缀碰撞时前缀法会把约束指错文件
     constraint_source_files: dict[str, str] = {ref.id: ref.path for ref in manifest.constraints}
     schema_path_by_id = {ref.id: ref.path for ref in manifest.schemas}
-    for schema_id, schema_path in schema_path_by_id.items():
-        embedded_prefix = f"{schema_id}_"
-        for embedded_id in embedded_constraints:
-            if embedded_id.startswith(embedded_prefix):
-                # 内嵌优先与 constraint_files 覆盖语义一致
-                constraint_source_files[embedded_id] = schema_path
+    for embedded_id, embedded_cf in embedded_constraints.items():
+        host_schema_id = embedded_cf.refs.get("table_id") or embedded_cf.refs.get("from_table_id")
+        host_path = schema_path_by_id.get(host_schema_id) if host_schema_id else None
+        if host_path:
+            # 内嵌优先与 constraint_files 覆盖语义一致
+            constraint_source_files[embedded_id] = host_path
 
     # 阶段 4：加载 Regex 节点文件
     regex_files = _load_referenced_files(

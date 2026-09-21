@@ -34,11 +34,9 @@
     CommandResult.error("配置项不存在: project.unknown")
 """
 
-import os
-
 import yaml
 
-from app.cli.shared_services.config_ops import get_by_dotpath
+from app.cli.shared_services.config_ops import find_config_file, get_by_dotpath
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 
 
@@ -80,9 +78,11 @@ class ConfigGetCommand(Command):
 
         config_file = args[0]
         key_path = args[1]
-        config_path = os.path.join(project_path, config_file)
+        # 穿越防护与族内其他命令（show/set/check）同源：find_config_file
+        # 统一拒绝绝对路径/.. 引用并做文件名递归回退（原裸 join 是族内唯一残留）
+        config_path = find_config_file(project_path, config_file)
 
-        if not os.path.isfile(config_path):
+        if not config_path:
             return CommandResult.error(f"配置文件不存在: {config_file}")
 
         try:

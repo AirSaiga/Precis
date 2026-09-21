@@ -519,6 +519,86 @@ class TestLoadChunkedSources:
         # resolver 未解析出 sheet 名时传 None（与 data_loader 的标准模式一致）
         assert captured["kwargs"]["file_to_sheet_names"] is None
 
+    def test_chunk_fallback_propagates_grouped_loader_errors(self, tmp_path, monkeypatch):
+        """R8 回归: 分块失败回退全量加载时，load_grouped_sources 的错误须透传。
+
+        过去 `loaded, _ =` 丢弃错误——坏行行号丢失、整表约束违规从结果静默消失。
+        """
+        import app.shared.core.data_source.loader as loader_module
+
+        csv_file = tmp_path / "data" / "users.csv"
+        csv_file.parent.mkdir()
+        csv_file.write_text("id,name\n1,alice\n", encoding="utf-8")
+
+        resolver = MagicMock()
+        resolver.resolve_first_data_source.return_value = str(csv_file.parent)
+        resolver.resolve_source_path.return_value = (str(csv_file), None)
+
+        table_schema = MagicMock()
+        table_schema.name = "users"
+        table_schema.header_row = 0
+        table_schema.source_config = {"delimiter": ","}
+        dataset_schema = MagicMock()
+        dataset_schema.tables = {"users": table_schema}
+
+        loader = self._make_loader(resolver, dataset_schema, {"users": MagicMock()})
+        loader._monitor.should_chunk = lambda _path: True  # 强制走分块 → 失败 → 回退
+        loader._monitor.chunk_rows = 100
+        loader._monitor.take_snapshot = lambda _path: None
+        loader._load_dataframe_chunked = MagicMock(side_effect=Exception("chunk error"))
+
+        def fake_load_grouped_sources(file_to_schemas, **kwargs):
+            return {}, [
+                {"error_type": "LoadFailed", "message": "第 3 行字段数与表头不符", "source_path": str(csv_file)}
+            ]
+
+        monkeypatch.setattr(loader_module, "load_grouped_sources", fake_load_grouped_sources)
+
+        result, loading_errors = loader.load_chunked_sources(str(csv_file.parent))
+        assert "users" not in result
+        propagated = [e for e in loading_errors if e.get("error_type") == "LoadFailed"]
+        assert len(propagated) == 1, f"加载器错误须透传进 loading_errors，实际: {loading_errors}"
+        assert propagated[0]["table"] == "users"
+        assert "第 3 行" in propagated[0]["message"]
+
+    def test_small_file_propagates_grouped_loader_errors(self, tmp_path, monkeypatch):
+        """R8 回归: 小文件全量加载同样透传 load_grouped_sources 的错误（含部分表失败）。"""
+        import pandas as pd
+
+        import app.shared.core.data_source.loader as loader_module
+
+        csv_file = tmp_path / "data" / "users.csv"
+        csv_file.parent.mkdir()
+        csv_file.write_text("id,name\n1,alice\n", encoding="utf-8")
+
+        resolver = MagicMock()
+        resolver.resolve_first_data_source.return_value = str(csv_file.parent)
+        resolver.resolve_source_path.return_value = (str(csv_file), None)
+
+        table_schema = MagicMock()
+        table_schema.name = "users"
+        table_schema.header_row = 0
+        table_schema.source_config = None
+        dataset_schema = MagicMock()
+        dataset_schema.tables = {"users": table_schema}
+
+        loader = self._make_loader(resolver, dataset_schema, {"users": MagicMock()})
+        loader._monitor.should_chunk = lambda _path: False
+
+        def fake_load_grouped_sources(file_to_schemas, **kwargs):
+            # 部分成功场景：数据返回 + 结构化错误并存
+            return {"users": pd.DataFrame({"id": [1]})}, [
+                {"error_type": "LoadFailed", "message": "行 7 解码失败", "source_path": str(csv_file)}
+            ]
+
+        monkeypatch.setattr(loader_module, "load_grouped_sources", fake_load_grouped_sources)
+
+        result, loading_errors = loader.load_chunked_sources(str(csv_file.parent))
+        assert "users" in result
+        propagated = [e for e in loading_errors if e.get("error_type") == "LoadFailed"]
+        assert len(propagated) == 1, f"部分表失败须进 loading_errors，实际: {loading_errors}"
+        assert propagated[0]["table"] == "users"
+
     def test_filter_string_vs_list(self, tmp_path):
         """表过滤应支持字符串和列表两种形式。"""
         data_dir = tmp_path / "data"

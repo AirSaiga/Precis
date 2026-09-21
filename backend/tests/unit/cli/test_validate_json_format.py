@@ -386,10 +386,11 @@ class TestFormatOptionParsing:
         """无 --manifest 时 --format json 不触发 standalone 模式（Shell 模式忽略）。"""
         cmd = ValidateCommand()
         result = cmd.execute(["--format", "json"], ProjectContext())
-        # 未打开项目 → Shell 模式报错（而非 standalone 的清单不存在）
+        # 未打开项目 → Shell 模式报错（而非 standalone 的清单不存在）；
+        # 使用错误对齐单发退出码契约：exit_code=2（区别于"发现违规"的 1）
         assert result.success is False
         assert "未打开项目" in result.message
-        assert result.exit_code is None
+        assert result.exit_code == 2
 
     def test_invalid_format_rejected_before_manifest_check(self, tmp_path):
         """非法 --format 在 manifest 存在性检查之前被拒绝，退出码 2。"""

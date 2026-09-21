@@ -53,6 +53,7 @@ from app.cli.shared_services.generation_ops import (
 )
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.formatter import Formatter
+from app.shared.core.utils.path_utils import display_relpath
 from app.shared.services.llm.generation import (
     ConfigGenerationService,
     GenerationOptions,
@@ -200,7 +201,7 @@ class AIGenerateCommand(Command):
         print(Formatter.info(f"迭代次数: {max_iterations}"))
         print(Formatter.info("数据文件:"))
         for p in file_paths:
-            print(f"  - {os.path.relpath(p, project_path)}")
+            print(f"  - {display_relpath(p, project_path)}")
 
         def progress_callback(stage: str, progress: float, extra: dict[str, Any] | None = None) -> None:
             """终端进度回调。"""

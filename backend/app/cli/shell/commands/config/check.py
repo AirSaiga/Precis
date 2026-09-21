@@ -104,8 +104,11 @@ class ConfigCheckCommand(Command):
         # 否则验证所有 YAML 文件
         all_files = []
         for root, _, files in os.walk(project_path):
-            # 跳过隐藏目录
-            if any(part.startswith(".") for part in root.split(os.sep)):
+            # 跳过项目内的隐藏子目录（.git 等）——以项目根为基准算相对路径，
+            # 项目自身位于隐藏目录时不受影响（原实现按绝对路径分段判断，
+            # 根目录含点前缀时整个 walk 被跳过，0 文件假绿）
+            rel_root = os.path.relpath(root, project_path)
+            if rel_root != "." and any(part.startswith(".") for part in rel_root.split(os.sep)):
                 continue
             for f in files:
                 if f.endswith((".yaml", ".yml")):
@@ -145,7 +148,9 @@ class ConfigCheckCommand(Command):
             return CommandResult.ok(f"✓ 所有 {valid_count} 个配置文件格式正确")
 
         # 有错误时只显示错误文件（除非指定 --all）
-        output_lines = [f"[bold]\n发现 {invalid_count} 个配置文件格式错误:[/bold]"]
+        # 注意：文案不再内嵌 [bold] 等 rich 标记——CommandResult.error 经
+        # Formatter.print_error 统一转义渲染，内嵌标记会以字面量呈现
+        output_lines = [f"\n发现 {invalid_count} 个配置文件格式错误:"]
         output_lines.extend(results)
         if show_all:
             output_lines.append(f"\n总计: {valid_count} 个有效, {invalid_count} 个无效")

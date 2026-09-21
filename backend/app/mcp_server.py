@@ -60,9 +60,6 @@ _CONSTRAINT_PARAM_DOCS: dict[str, dict[str, str]] = {
     "Composite": {"refs": "table_id", "params": "logic(all|any) + sub_constraints（内嵌子约束列表）"},
 }
 
-# MCP 协议版本（与官方 SDK 卆商；回退值用于异常客户端）
-_PROTOCOL_VERSION = "2024-11-05"
-
 
 def _allowed_roots() -> list[Path]:
     """路径白名单根：server 工作目录 + 环境变量追加根。"""
@@ -111,7 +108,9 @@ def tool_validate_data(manifest: str, data_directory: str | None = None, table: 
 
     data_dir = _safe_resolve_path(data_directory, "数据目录") if data_directory else str(Path(manifest_path).parent)
 
-    executor = ValidationExecutor(manifest_path)
+    # 白名单透传 executor→resolver：manifest/schema 内容声明的 absolute 数据源
+    # 同样受根校验约束（防 manifest 内容越界读任意文件）
+    executor = ValidationExecutor(manifest_path, allowed_roots=[str(r) for r in _allowed_roots()])
     result = executor.execute(data_dir, ValidationOptions(table_filter=table))
     return build_json_payload(result)
 
@@ -163,6 +162,9 @@ def tool_infer_schema(
     """从数据文件推断 schema 草稿（复用 services 层推断逻辑）。"""
     from app.shared.services.schema_inference import infer_schema
 
+    if sample_rows < 1:
+        # schema 层已声明 minimum:1；直调路径（协议校验被绕过）在此兜底
+        raise ValueError(f"sample_rows 须为正整数，收到: {sample_rows}")
     file_path = _safe_resolve_path(data_file, "数据文件")
     return infer_schema(
         file_path,
@@ -198,7 +200,7 @@ _TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
         "type": "object",
         "properties": {
             "data_file": {"type": "string", "description": "CSV/Excel/JSON 数据文件路径"},
-            "sample_rows": {"type": "integer", "description": "采样行数（默认 1000）"},
+            "sample_rows": {"type": "integer", "minimum": 1, "description": "采样行数（默认 1000）"},
             "table_id": {"type": "string", "description": "表 ID（替换既有 schema 时传原 id）"},
             "table_name": {"type": "string", "description": "表显示名"},
             "source_path": {"type": "string", "description": "写入 schema 的 source.path"},
@@ -257,11 +259,10 @@ def _build_server() -> Any:
     async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         # 校验/推断是重同步计算（pandas 加载 + 全表校验），放工作线程执行：
         # 直接在事件循环里阻塞会导致 stdio 读写与工具计算互相等待（Windows 实测死锁）
-        try:
-            result = await anyio.to_thread.run_sync(_dispatch_tool_sync, name, arguments)
-        except ValueError as e:
-            # 参数/路径类错误：工具级失败（isError），不崩 server
-            return [TextContent(type="text", text=json.dumps({"error": str(e)}, ensure_ascii=False))]
+        # 工具级失败（ValueError：路径越界/非法参数）不在此捕获——H9：SDK 的 call_tool
+        # 装饰器统一把 handler 异常包装为 isError=true 的 CallToolResult（server 不崩），
+        # 本地包装成正常返回会把协议层失败伪装成成功
+        result = await anyio.to_thread.run_sync(_dispatch_tool_sync, name, arguments)
         return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False))]
 
     return server
@@ -273,9 +274,17 @@ def _warm_up_imports() -> None:
     Windows 实测：首次 tools/call 在 anyio 工作线程内触发 executor→pandas 的
     重量级 import 会死锁（import 锁与运行中的事件循环互等）。启动期一次性
     导入后，工具线程内不再发生模块级 import，死锁消除且首调用更快。
+
+    不变量：工具线程内出现的所有 app 内延迟导入都必须在此登记——2026-09-21
+    审计实证 json_payload（tool_validate_data 内）与 project_loader
+    （executor.build_dataset_schema 惰性导入）破坏该不变量，已补齐。
     """
+    from app.shared.services.project_loader import build_dataset_schema  # noqa: F401
     from app.shared.services.schema_inference import infer_schema  # noqa: F401
-    from app.shared.services.validation import executor  # noqa: F401
+    from app.shared.services.validation import (
+        executor,  # noqa: F401
+        json_payload,  # noqa: F401
+    )
 
 
 def main() -> int:
@@ -288,8 +297,17 @@ def main() -> int:
             except (AttributeError, OSError):
                 pass
 
-    from mcp.server import NotificationOptions
-    from mcp.server.stdio import stdio_server
+    try:
+        from mcp.server import NotificationOptions
+        from mcp.server.stdio import stdio_server
+    except ImportError:
+        # H15：裸装（无 [mcp] extra）给安装指引，不裸 ModuleNotFoundError traceback
+        # （对齐 ai 门控先例 6fa1aed4 的 extras 形态指引）
+        print(
+            "错误：缺少 MCP 依赖（mcp SDK）。precis-mcp 需要 [mcp] extra，请执行:\n  pip install 'precis-cli[mcp]'",
+            file=sys.stderr,
+        )
+        return 1
 
     _warm_up_imports()
 

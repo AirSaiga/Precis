@@ -259,6 +259,19 @@ const inspection = {
         fixHint:
           '请检查该节点的参数配置与引用的列/表是否存在，修正后重新加载项目；缺失的规则在此之前不会参与校验。',
       },
+      manifestVersionMissing: {
+        title: '配置文件缺少 version 字段',
+        description:
+          '项目清单没有写 version 字段，无法识别配置格式。当前支持的版本为 {supported}。',
+        fixHint: '请在 project.precis.yaml 顶层添加一行「version: {supported}」。',
+      },
+      manifestVersionUnsupported: {
+        title: '配置版本 {version} 不被支持',
+        description:
+          '项目清单写的版本是「{version}」，当前支持的版本为 {supported}。旧版配置需要先升级才能使用。',
+        fixHint:
+          '请将配置升级到 V2 格式：顶层改为「version: {supported}」，schema 使用 columns+source 结构、约束拆分为 constraints/*.constraint.yaml 独立文件（refs+params 分离）。可参考示例项目对照迁移。',
+      },
     },
     /** 多个 schema 文件使用了同一个表 ID（约束按 id 引用表，不是表名重复） */
     schemaIdDuplicate: {

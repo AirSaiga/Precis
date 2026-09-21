@@ -29,11 +29,15 @@
 from __future__ import annotations
 
 import html
+import re
 from pathlib import Path
 from typing import Any
 
 # 违规明细表的列头（HTML 与 Excel 共用口径）
 _REPORT_COLUMNS = ("表", "列", "行号", "值", "约束类型", "约束文件", "错误消息")
+
+# Excel sheet 名禁用字符（openpyxl create_sheet 对含这些字符的标题抛 ValueError）
+_SHEET_NAME_INVALID = re.compile(r"[\[\]:*?/\\]")
 
 
 def _error_row(entry: dict[str, Any]) -> list[str]:
@@ -181,9 +185,20 @@ def export_excel_report(payload: dict[str, Any], output_path: str | Path) -> Pat
         errors_by_table.setdefault(key, []).append(entry)
 
     sheet_names = {t.get("name") for t in payload.get("tables", []) if t.get("name")}
+    used_titles: set[str] = set()
     for name in sorted(sheet_names | set(errors_by_table.keys())):
-        # Excel sheet 名长度上限 31 字符，超长截断
-        sheet = workbook.create_sheet(title=name[:31])
+        # Excel sheet 名约束：禁用字符 [ ] : * ? / \ 替换为下划线，长度上限 31 字符。
+        # 清洗/截断可能引起两表同名（如 "订单[1]" 与 "订单/1" 同变 "订单_1"）——
+        # 追加序号后缀保证唯一，否则 create_sheet 抛 ValueError 使整份报告导出失败
+        sanitized = _SHEET_NAME_INVALID.sub("_", str(name))[:31] or "汇总"
+        title = sanitized
+        suffix = 2
+        while title in used_titles:
+            tail = f"~{suffix}"
+            title = sanitized[: 31 - len(tail)] + tail
+            suffix += 1
+        used_titles.add(title)
+        sheet = workbook.create_sheet(title=title)
         sheet.append(list(_REPORT_COLUMNS))
         for cell in sheet[1]:
             cell.font = header_font

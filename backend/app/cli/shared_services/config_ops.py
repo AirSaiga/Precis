@@ -41,6 +41,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import os
 import tempfile
 from collections.abc import Iterator
@@ -207,6 +208,10 @@ def resolve_config_file(project_path: str, filename: str | None) -> tuple[str | 
 def get_by_dotpath(data: dict, key_path: str) -> tuple[bool, Any]:
     """按点号路径从字典中查找值。
 
+    YAML 键可为非字符串（如 ``2024:`` 解析为 int、``true:`` 解析为 bool）——
+    路径段除精确匹配外也按字符串形态匹配非字符串键，防止"键存在却查不到"
+    进而被 set 侧写出同形态影子键。
+
     Args:
         data: 配置字典
         key_path: 点号路径，如 "project.name"
@@ -217,8 +222,16 @@ def get_by_dotpath(data: dict, key_path: str) -> tuple[bool, Any]:
     keys = key_path.split(".")
     value: Any = data
     for key in keys:
-        if isinstance(value, dict) and key in value:
-            value = value[key]
+        if isinstance(value, dict):
+            if key in value:
+                value = value[key]
+                continue
+            for k, v in value.items():
+                if not isinstance(k, str) and str(k) == key:
+                    value = v
+                    break
+            else:
+                return False, None
         else:
             return False, None
     return True, value
@@ -227,7 +240,8 @@ def get_by_dotpath(data: dict, key_path: str) -> tuple[bool, Any]:
 def set_by_dotpath(data: dict, key_path: str, value: Any) -> dict:
     """按点号路径写入值，返回新 data（不改原 dict）。
 
-    中间层级不存在时自动创建空字典。
+    中间层级不存在时自动创建空字典；路径段与既有非字符串键（如 int ``2024``）
+    字符串形态相同时复用原键，防止写出同形态影子键并存。
 
     Args:
         data: 原配置字典（不会被修改）
@@ -244,10 +258,21 @@ def set_by_dotpath(data: dict, key_path: str, value: Any) -> dict:
     keys = key_path.split(".")
     current = new_data
     for key in keys[:-1]:
-        if key not in current or not isinstance(current[key], dict):
-            current[key] = {}
-        current = current[key]
-    current[keys[-1]] = value
+        existing = current.get(key)
+        if isinstance(existing, dict):
+            current = existing
+            continue
+        # 同形态非字符串键复用（写原键而非另建字符串影子键）
+        non_str_key = next((k for k in current if not isinstance(k, str) and str(k) == key), None)
+        if non_str_key is not None and isinstance(current[non_str_key], dict):
+            current = current[non_str_key]
+            continue
+        target = non_str_key if non_str_key is not None else key
+        current[target] = {}
+        current = current[target]
+    leaf = keys[-1]
+    leaf_key = next((k for k in current if not isinstance(k, str) and str(k) == leaf), leaf)
+    current[leaf_key] = value
     return new_data
 
 
@@ -267,8 +292,9 @@ def parse_config_value(value_str: str) -> tuple[bool, Any, str]:
         value_str: 原始字符串值
 
     Returns:
-        (成功, 转换后的值, 错误信息)；本实现始终成功，错误信息为空字符串。
-        保留 tuple 三元组以匹配接口契约，便于未来扩展严格模式。
+        (成功, 转换后的值, 错误信息)；毒化字面量（inf/nan/下划线整数等
+        无法被下游安全消费的数值形态）返回 (False, None, 错误信息)，
+        调用方应拒绝落盘。
     """
     # 尝试布尔值
     if value_str.lower() == "true":
@@ -278,17 +304,24 @@ def parse_config_value(value_str: str) -> tuple[bool, Any, str]:
     if value_str.lower() == "null" or value_str.lower() == "none":
         return True, None, ""
 
-    # 尝试整数
-    try:
-        return True, int(value_str), ""
-    except ValueError:
-        pass
+    # 尝试整数：拒绝 Python 下划线字面量（'1_0' 静默变 10 会毒化下游数值读取）
+    if "_" not in value_str:
+        try:
+            return True, int(value_str), ""
+        except ValueError:
+            pass
 
-    # 尝试浮点数
-    try:
-        return True, float(value_str), ""
-    except ValueError:
-        pass
+    # 尝试浮点数：拒绝非有限值（inf/nan/溢出 1e999）与下划线字面量——
+    # timeout_seconds: .inf 落盘后 validate 侧 int(inf) 抛 OverflowError，项目从此无法校验
+    if "_" not in value_str:
+        try:
+            parsed_float = float(value_str)
+        except ValueError:
+            parsed_float = None
+        if parsed_float is not None:
+            if not math.isfinite(parsed_float):
+                return False, None, f"不接受非有限数值: {value_str}（inf/nan 落盘会使项目无法校验）"
+            return True, parsed_float, ""
 
     # 去除引号
     if (value_str.startswith('"') and value_str.endswith('"')) or (

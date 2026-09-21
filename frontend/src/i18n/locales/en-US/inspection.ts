@@ -269,6 +269,19 @@ const inspection = {
         fixHint:
           'Check that node’s params and referenced columns/tables, then reload the project. Until fixed, the missing rule does not participate in validation.',
       },
+      manifestVersionMissing: {
+        title: 'Config file is missing the version field',
+        description:
+          'The project manifest has no version field, so the config format cannot be identified. Currently supported version: {supported}.',
+        fixHint: 'Add a line "version: {supported}" at the top level of project.precis.yaml.',
+      },
+      manifestVersionUnsupported: {
+        title: 'Config version {version} is not supported',
+        description:
+          'The manifest declares version "{version}", but the currently supported version is {supported}. Older configs must be upgraded first.',
+        fixHint:
+          'Upgrade the config to the V2 format: set the top level to "version: {supported}", use the columns+source schema structure, and split constraints into standalone constraints/*.constraint.yaml files (refs+params separated). See the sample project for reference.',
+      },
     },
     /** Multiple schema files reuse the same table ID (constraints reference tables by ID) */
     schemaIdDuplicate: {

@@ -48,6 +48,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -93,6 +94,28 @@ _XLSX_MAIN_NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 _XLSX_REL_ID = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"
 _XLSX_PKG_REL_NS = "{http://schemas.openxmlformats.org/package/2006/relationships}"
 
+# 严格 OOXML（ECMA-376 Strict）的主命名空间—— transitional 与 strict 仅 URI
+# 不同，元素局部名一致。合并填充解析按局部名匹配即可同时兼容两种文件
+_XLSX_STRICT_MAIN_NS = "{http://purl.oclc.org/ooxml/spreadsheetml/2006/main}"
+
+
+def _xlsx_local_name(tag: str) -> str:
+    """剥离命名空间返回 XML 局部名（transitional/strict OOXML 通吃）。"""
+    return tag.rpartition("}")[2]
+
+
+def _xlsx_find_child(elem: Any, local: str) -> Any:
+    """按局部名查找首个子元素（等价于 find('{ns}local')，但命名空间无关）。"""
+    for child in elem:
+        if _xlsx_local_name(child.tag) == local:
+            return child
+    return None
+
+
+def _xlsx_iter_local(elem: Any, local: str) -> Iterator[Any]:
+    """按局部名遍历后代元素（命名空间无关版 elem.iter('{ns}local')）。"""
+    return (e for e in elem.iter() if _xlsx_local_name(e.tag) == local)
+
 
 def _xlsx_col_letters_to_index(letters: str) -> int:
     """Excel 列字母（A/B/.../AA）转 1-based 列号。"""
@@ -110,12 +133,54 @@ def _xlsx_parse_cell_ref(ref: str) -> tuple[int, int]:
     return int(ref[i:]), _xlsx_col_letters_to_index(ref[:i])
 
 
-def _xlsx_cell_value(elem: Any, shared: list[str] | None) -> Any:
-    """从 <c> 元素解析单元格值，对齐 openpyxl data_only=True 的缓存值语义。"""
+def _xlsx_date_style_indexes(zf: Any) -> set[int] | None:
+    """解析 styles.xml，返回数字格式为日期型的样式索引集合（R1）。
+
+    对齐 openpyxl apply_stylesheet 的判定：cellXfs 中每个 xf 的 numFmtId 解析为
+    格式串（自定义 numFmts 优先，其次内置格式表），is_date_format 判定。
+    styles.xml 缺失（极简工作簿）返回 None——调用方按纯数值处理。
+    """
+    from xml.etree import ElementTree as ET
+
+    from openpyxl.styles.numbers import builtin_format_code, is_date_format
+
+    if "xl/styles.xml" not in zf.namelist():
+        return None
+    styles_root = ET.fromstring(zf.read("xl/styles.xml"))
+    custom: dict[int, str] = {}
+    for numfmt in _xlsx_iter_local(styles_root, "numFmt"):
+        fmt_id, code = numfmt.get("numFmtId"), numfmt.get("formatCode")
+        if fmt_id is not None and code is not None:
+            custom[int(fmt_id)] = code
+    date_styles: set[int] = set()
+    cell_xfs = _xlsx_find_child(styles_root, "cellXfs")
+    if cell_xfs is None:
+        return date_styles
+    for idx, xf in enumerate(cell_xfs):
+        if _xlsx_local_name(xf.tag) != "xf":
+            continue
+        raw_id = xf.get("numFmtId")
+        if raw_id is None:
+            continue
+        fmt = custom.get(int(raw_id)) or builtin_format_code(int(raw_id))
+        if fmt and is_date_format(fmt):
+            date_styles.add(idx)
+    return date_styles
+
+
+def _xlsx_cell_value(
+    elem: Any, shared: list[str] | None, date_styles: set[int] | None = None, epoch: Any = None
+) -> Any:
+    """从 <c> 元素解析单元格值，对齐 openpyxl data_only=True 的缓存值语义。
+
+    date_styles 为 ``_xlsx_date_style_indexes`` 产出的日期样式索引集合：命中的数值
+    单元格按 Excel 序列号换算为 datetime（R1——此前返回序列号 int，跨块合并填充后
+    同列混 Timestamp/int 导致日期约束误报、两路径判定不一致）。
+    """
     cell_type = elem.get("t")
     if cell_type == "inlineStr":
-        return "".join(t.text or "" for t in elem.iter(f"{_XLSX_MAIN_NS}t"))
-    v_elem = elem.find(f"{_XLSX_MAIN_NS}v")
+        return "".join(t.text or "" for t in _xlsx_iter_local(elem, "t"))
+    v_elem = _xlsx_find_child(elem, "v")
     if v_elem is None or v_elem.text is None:
         return None
     raw = v_elem.text
@@ -129,7 +194,16 @@ def _xlsx_cell_value(elem: Any, shared: list[str] | None) -> Any:
         return raw == "1"
     if cell_type == "str":
         return raw  # 公式字符串结果
-    # 数值（默认/公式缓存数值结果）：int→float→原样回退
+    # 数值（默认/公式缓存数值结果）：日期样式先行换算，其余 int→float→原样回退
+    if date_styles is not None:
+        style_attr = elem.get("s")
+        if style_attr is not None and int(style_attr) in date_styles:
+            from openpyxl.utils.datetime import from_excel
+
+            try:
+                return from_excel(float(raw), epoch=epoch)
+            except (ValueError, OverflowError, TypeError):
+                pass  # 脏序列号按普通数值回退
     try:
         return int(raw)
     except ValueError:
@@ -159,19 +233,28 @@ def read_merged_ranges_from_xlsx(
     import zipfile
     from xml.etree import ElementTree as ET
 
+    from openpyxl.utils.datetime import MAC_EPOCH, WINDOWS_EPOCH
+
     with zipfile.ZipFile(file_path) as zf:
         # 1) sheet 名 → 工作表 XML 条目路径（workbook.xml 的 r:id + 其关系文件）
+        # 标签按局部名匹配：transitional 与 strict OOXML 主命名空间 URI 不同但局部名一致
         rid: str | None = None
         wb_root = ET.fromstring(zf.read("xl/workbook.xml"))
-        for sheet in wb_root.iter(f"{_XLSX_MAIN_NS}sheet"):
+        for sheet in _xlsx_iter_local(wb_root, "sheet"):
             if sheet.get("name") == sheet_name:
                 rid = sheet.get(_XLSX_REL_ID)
                 break
         if not rid:
             return None
+        # 日期序列号换算基准：workbookPr date1904 声明 MAC 1904 体系（默认 Windows 1900）
+        epoch = WINDOWS_EPOCH
+        for wb_pr in _xlsx_iter_local(wb_root, "workbookPr"):
+            if (wb_pr.get("date1904") or "").lower() in ("1", "true"):
+                epoch = MAC_EPOCH
+            break
         target: str | None = None
         rels_root = ET.fromstring(zf.read("xl/_rels/workbook.xml.rels"))
-        for rel in rels_root.iter(f"{_XLSX_PKG_REL_NS}Relationship"):
+        for rel in _xlsx_iter_local(rels_root, "Relationship"):
             if rel.get("Id") == rid:
                 target = rel.get("Target")
                 break
@@ -183,7 +266,7 @@ def read_merged_ranges_from_xlsx(
         ranges: list[tuple[int, int, int, int]] = []
         with zf.open(entry) as stream:
             for _event, elem in ET.iterparse(stream, events=("end",)):
-                if elem.tag == f"{_XLSX_MAIN_NS}mergeCell":
+                if _xlsx_local_name(elem.tag) == "mergeCell":
                     ref = elem.get("ref") or ""
                     if ":" in ref:
                         start, end = ref.split(":", 1)
@@ -191,7 +274,7 @@ def read_merged_ranges_from_xlsx(
                         r2, c2 = _xlsx_parse_cell_ref(end)
                         ranges.append((min(r1, r2), min(c1, c2), max(r1, r2), max(c1, c2)))
                     elem.clear()
-                elif elem.tag == f"{_XLSX_MAIN_NS}row":
+                elif _xlsx_local_name(elem.tag) == "row":
                     elem.clear()
         if not ranges:
             return []
@@ -202,16 +285,17 @@ def read_merged_ranges_from_xlsx(
             shared = []
             with zf.open("xl/sharedStrings.xml") as stream:
                 for _event, si in ET.iterparse(stream, events=("end",)):
-                    if si.tag == f"{_XLSX_MAIN_NS}si":
-                        shared.append("".join(t.text or "" for t in si.iter(f"{_XLSX_MAIN_NS}t")))
+                    if _xlsx_local_name(si.tag) == "si":
+                        shared.append("".join(t.text or "" for t in _xlsx_iter_local(si, "t")))
                         si.clear()
 
-        # 4) 第二遍：仅物化各区域首行的单元格值
+        # 4) 第二遍：仅物化各区域首行的单元格值（日期样式表用于序列号→datetime 换算）
+        date_styles = _xlsx_date_style_indexes(zf)
         needed_rows = {r[0] for r in ranges}
         row_values: dict[int, dict[int, Any]] = {}
         with zf.open(entry) as stream:
             for _event, row in ET.iterparse(stream, events=("end",)):
-                if row.tag != f"{_XLSX_MAIN_NS}row":
+                if _xlsx_local_name(row.tag) != "row":
                     continue
                 row_num = row.get("r")
                 if row_num is not None and int(row_num) in needed_rows:
@@ -221,7 +305,7 @@ def read_merged_ranges_from_xlsx(
                         cell_ref = cell.get("r")
                         col = _xlsx_parse_cell_ref(cell_ref)[1] if cell_ref else fallback_col + 1
                         fallback_col = col
-                        cells[col] = _xlsx_cell_value(cell, shared)
+                        cells[col] = _xlsx_cell_value(cell, shared, date_styles, epoch)
                     row_values[int(row_num)] = cells
                 row.clear()
 
@@ -249,7 +333,7 @@ def apply_merged_ranges_fill(
             (min_row, min_col, max_row, max_col, values) 五元组列表（分块路径——values 为
             区域首行各列的值，供跨块悬挂区域直接赋值，合并单元格区域内所有格本就同值）
         header_row: 表头行号（0-based，不含 skip_rows）
-        skip_rows: 表头前跳过的行数（openpyxl→df 行号换算基准；分块路径读取不带 skip_rows，保持 0）
+        skip_rows: 表头前跳过的行数（openpyxl→df 行号换算基准；标准与分块路径同值透传）
         global_row_offset: 本 df 首行对应的全局数据行号（0-based；标准路径整表为 0）
 
     返回:

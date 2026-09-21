@@ -51,10 +51,25 @@ HISTORY_FILE = os.path.expanduser("~/.precis_project_history")
 MAX_HISTORY = 10
 
 
+def _backup_corrupt_history() -> None:
+    """把损坏的历史文件改名备份（.corrupt.bak），失败仅记日志。
+
+    原实现在 JSON 损坏后静默按空历史继续——下次保存直接覆盖，
+    用户历史不可恢复；备份保留现场供手工抢救。
+    """
+    try:
+        backup = f"{HISTORY_FILE}.corrupt.bak"
+        os.replace(HISTORY_FILE, backup)
+        logger.warning("项目历史文件损坏，已备份到 %s 并从空历史继续", backup)
+    except OSError:
+        logger.error("备份损坏的项目历史文件失败: %s", HISTORY_FILE, exc_info=True)
+
+
 def load_history() -> list[dict]:
     """加载项目打开历史。
 
     从 HISTORY_FILE 读取历史记录。文件不存在、格式损坏或权限不足时返回空列表。
+    JSON 损坏时先把原文件备份为 ``*.corrupt.bak`` 再按空历史继续（不静默清零）。
 
     Returns:
         历史记录列表，每个元素为包含 path 和 last_opened 的字典
@@ -78,7 +93,8 @@ def load_history() -> list[dict]:
                 return valid
             return []
     except json.JSONDecodeError:
-        # JSON 格式损坏，返回空列表
+        # JSON 格式损坏：备份后按空历史继续
+        _backup_corrupt_history()
         return []
     except PermissionError:
         # 无权限读取，返回空列表
@@ -91,7 +107,8 @@ def load_history() -> list[dict]:
 def _save_history(history: list[dict]) -> None:
     """保存项目打开历史。
 
-    将历史记录写入 HISTORY_FILE。保存失败仅记录日志，不阻断主流程。
+    原子写（临时文件 + os.replace）：进程中断不会留下半截 JSON——
+    半截文件在下次 load 即被判损坏。保存失败仅记录日志，不阻断主流程。
 
     Args:
         history: 历史记录列表
@@ -99,8 +116,10 @@ def _save_history(history: list[dict]) -> None:
     try:
         # 确保目录存在（用户主目录）
         os.makedirs(os.path.dirname(HISTORY_FILE), exist_ok=True)
-        with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+        tmp_file = f"{HISTORY_FILE}.tmp"
+        with open(tmp_file, "w", encoding="utf-8") as f:
             json.dump(history, f, ensure_ascii=False, indent=2)
+        os.replace(tmp_file, HISTORY_FILE)
     except (PermissionError, OSError):
         # 保存失败时记录错误日志，但不阻断主流程
         logger.error("保存项目历史记录失败", exc_info=True)

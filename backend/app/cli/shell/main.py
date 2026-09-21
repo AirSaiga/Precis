@@ -138,12 +138,19 @@ class CLIShell:
             if input_line.lower() in ("exit!", "quit!", "qq"):
                 print(Formatter.success("再见!"))
                 sys.exit(0)
-            result = executor.execute_with_args(initial_args)
-            if result.message:
-                if result.success:
-                    print(result.message)
-                else:
-                    Formatter.print_error(result.message)
+            try:
+                result = executor.execute_with_args(initial_args)
+                if result.message:
+                    if result.success:
+                        print(result.message)
+                    else:
+                        Formatter.print_error(result.message)
+            except KeyboardInterrupt:
+                # 单发模式 Ctrl+C 友好退出（R7，对齐 REPL 分支先例）：
+                # 交互命令（provider 菜单等）被中断时不应裸 traceback + exit 130
+                print()
+                print(Formatter.info("已取消（用户中断）"))
+                return 1
             # 单发模式退出码契约：0 = 校验通过；1 = 校验完成但发现数据违规；
             # 2 = 工具自身错误（参数错误、文件不存在、异常崩溃）。
             # 命令显式携带 exit_code 时优先（如 validate 的清单不存在传 2），

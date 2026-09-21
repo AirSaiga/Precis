@@ -330,3 +330,19 @@ class TestConfigShowV2:
         result = cmd.execute([], ctx)
         assert result.success is True
         assert "没有找到任何配置文件" in result.message
+
+    def test_single_file_outputs_raw_text_losslessly(self, tmp_path):
+        """H11 回归：config show <file> 原文输出——注释与前导零不得被重序列化丢失。"""
+        from app.cli.shell.commands.config.show import ConfigShowCommand
+
+        source = "# 顶部注释：身份字段勿动\nproject:\n  id: '007'   # 编号保前导零\n  name: 我的项目\n"
+        (tmp_path / "project.precis.yaml").write_text(source, encoding="utf-8")
+
+        cmd = ConfigShowCommand()
+        ctx = _make_project_context(str(tmp_path))
+        result = cmd.execute(["project.precis.yaml"], ctx)
+        assert result.success is True
+        # 注释原样保留（PyYAML 重序列化会全丢）
+        assert "# 顶部注释：身份字段勿动" in result.message
+        # 引号风格与前导零原样保留（重序列化会 '007'→7）
+        assert "id: '007'" in result.message

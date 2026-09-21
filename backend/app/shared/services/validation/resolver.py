@@ -39,6 +39,7 @@
 
 import logging
 import os
+from pathlib import Path
 
 from app.shared.core.project.manifest.types import ProjectManifestV2
 from app.shared.core.project.schema.types import TableSchemaFile
@@ -58,6 +59,9 @@ class DataSourceResolver:
 
     设计决策：
     - 从 ValidationExecutor 中提取，单一职责：只做路径解析，不涉及数据加载或校验
+    - allowed_roots（可选）：注入后 manifest/schema 声明的 absolute 数据源
+      必须落在根内——MCP 等受限入口防"manifest 内容越界读任意文件"
+      （CLI 场景不注入，维持原行为）
     """
 
     def __init__(
@@ -65,10 +69,23 @@ class DataSourceResolver:
         project_root: str,
         manifest: ProjectManifestV2,
         schema_by_id: dict[str, TableSchemaFile],
+        allowed_roots: list[str] | None = None,
     ):
         self.project_root = project_root
         self.manifest = manifest
         self._schema_by_id = schema_by_id
+        self._allowed_roots = allowed_roots
+
+    def _within_allowed_roots(self, path: str) -> bool:
+        """绝对路径白名单校验（未注入 allowed_roots 时恒放行）。"""
+        if not self._allowed_roots:
+            return True
+        resolved = Path(path).resolve()
+        for root in self._allowed_roots:
+            root_path = Path(root).resolve()
+            if resolved == root_path or root_path in resolved.parents:
+                return True
+        return False
 
     def resolve_first_data_source(self) -> str | None:
         """
@@ -85,7 +102,10 @@ class DataSourceResolver:
         ds = self.manifest.data_sources[0]
 
         if ds.mode == "absolute":
-            # 绝对路径模式：直接使用配置的路径
+            # 绝对路径模式：直接使用配置的路径（受限入口须过白名单校验）
+            if not self._within_allowed_roots(ds.path):
+                logger.warning(f"[DataSourceResolver] 数据源目录越界（absolute 模式被拒）: {ds.path}")
+                return None
             if os.path.isdir(ds.path):
                 return os.path.normpath(ds.path)
             else:
@@ -124,6 +144,11 @@ class DataSourceResolver:
         if schema_file.source:
             src = schema_file.source
             if src.mode == "absolute_file":
+                # 受限入口（MCP）注入 allowed_roots 时，manifest 内容声明的
+                # absolute 数据源同样须过白名单——防越界读任意文件
+                if not self._within_allowed_roots(src.path):
+                    logger.warning(f"[DataSourceResolver] 数据文件越界（absolute_file 模式被拒）: {src.path}")
+                    return None, sheet_name
                 return src.path, sheet_name
 
             src_path = src.path

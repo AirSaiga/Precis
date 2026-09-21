@@ -148,3 +148,59 @@ class TestConstraintFileBacktrace:
         source_map = loaded.constraint_source_files or {}
         assert source_map["orders_amount_notnull"] == "constraints/orders_amount_notnull.constraint.yaml"
         assert source_map["orders_qty_required"] == "schemas/orders.schema.yaml"
+
+    def test_embedded_constraint_prefix_collision_attributed_to_host(self, tmp_path):
+        """H13 回归：schema id 前缀碰撞（orders vs orders_extra）时归属宿主 schema。
+
+        过去按 "{schema_id}_" 前缀猜宿主，orders_extra_x 会被 orders 前缀
+        抢先命中而指错文件；现在取构建时记录的宿主 table_id。
+        """
+        from app.shared.core.project.loader import load_project
+
+        proj = tmp_path / "proj"
+        (proj / "schemas").mkdir(parents=True)
+        (proj / "data").mkdir()
+        (proj / "data" / "orders.csv").write_text("id,qty\n1,1\n", encoding="utf-8")
+        (proj / "data" / "orders_extra.csv").write_text("id,qty\n1,\n", encoding="utf-8")
+
+        for sid in ("orders", "orders_extra"):
+            (proj / "schemas" / f"{sid}.schema.yaml").write_text(
+                f"""version: 2
+id: {sid}
+name: {sid}
+source:
+  mode: relative_file
+  path: data/{sid}.csv
+columns:
+  - id: id
+    name: id
+    type: integer
+  - id: qty
+    name: qty
+    type: integer
+constraints:
+  - id: qty_required
+    type: NotNull
+    column: qty
+""",
+                encoding="utf-8",
+            )
+
+        (proj / "project.precis.yaml").write_text(
+            """version: 2
+project:
+  id: prefix-collision-demo
+  name: prefix-collision-demo
+schemas:
+  - id: orders
+    path: schemas/orders.schema.yaml
+  - id: orders_extra
+    path: schemas/orders_extra.schema.yaml
+""",
+            encoding="utf-8",
+        )
+
+        loaded = load_project(str(proj / "project.precis.yaml"))
+        source_map = loaded.constraint_source_files or {}
+        assert source_map["orders_qty_required"] == "schemas/orders.schema.yaml"
+        assert source_map["orders_extra_qty_required"] == "schemas/orders_extra.schema.yaml"

@@ -34,6 +34,18 @@ def normalize_to_posix(path: str) -> str:
     return result
 
 
+def display_relpath(path: str, root: str) -> str:
+    """展示用相对路径：跨盘符（Windows 不同盘符）等 relpath 不可用时回退绝对路径。
+
+    os.path.relpath 在 Windows 上对跨盘符路径抛 ValueError（"path is on mount
+    'C:'，start is on mount 'D:'"）——数据文件与项目分处不同盘符时展示层不应崩。
+    """
+    try:
+        return os.path.relpath(path, root)
+    except ValueError:
+        return os.path.abspath(path)
+
+
 def paths_equal(a: str, b: str, *, ignore_case: bool = True) -> bool:
     """标准化后比较两个路径是否等价。
 

@@ -98,3 +98,29 @@ export function buildSingleColumnRefs(
 
   return {}
 }
+
+/**
+ * FK 双引用（from/to）refs 构建——独立 FK builder 与 Composite 子约束共用单一事实源
+ * （confirmed #2：复合约束内 FK 子约束此前走单列 refs，from/to 双引用被丢成空表）。
+ */
+export function buildForeignKeyRefs(
+  data: Record<string, unknown>,
+  schemaIdByNodeId: Record<string, string>
+): {
+  from_table_id?: string
+  from_column_id?: string
+  to_table_id?: string
+  to_column_id?: string
+} {
+  const sRef = data.sourceRef as { nodeId?: string; columnId?: string } | undefined
+  const tRef = data.targetRef as { nodeId?: string; columnId?: string } | undefined
+  if (sRef?.nodeId && sRef?.columnId && tRef?.nodeId && tRef?.columnId) {
+    return {
+      from_table_id: normalizeSchemaId(sRef.nodeId, schemaIdByNodeId) || sRef.nodeId,
+      from_column_id: sRef.columnId,
+      to_table_id: normalizeSchemaId(tRef.nodeId, schemaIdByNodeId) || tRef.nodeId,
+      to_column_id: tRef.columnId,
+    }
+  }
+  return {}
+}

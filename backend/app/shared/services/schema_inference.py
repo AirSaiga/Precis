@@ -27,6 +27,12 @@
 - 全部为 ISO 日期（YYYY-MM-DD）→ date
 - 其余（含混合类型、全空列）→ string
 
+已知能力缺口（2026-09-21 审计成文）:
+- 推断永不产出 decimal——V2 类型系统含 decimal（精确数值），但头部采样
+  无法可靠区分"需要精确十进制"与"普通浮点"（如金额 0.1 与科学计数），
+  盲目提升会造成误判。需要 decimal 的列请手工改 schema 类型；
+  后续如支持，需引入启发式（如全部字面量 ≤2 位小数且无科学计数法）评估
+
 设计说明:
 - CSV/Excel 以 dtype=str 读入，避免 pandas 预转换掩盖原始格式
   （"1.0" 与 "1" 的区别、日期字符串等）；JSON 值为原生类型，
@@ -38,6 +44,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import uuid
 from datetime import date
 from pathlib import Path
@@ -55,6 +62,9 @@ _JSON_EXTS = {".json", ".jsonl"}
 
 # boolean 字面量集合（大小写不敏感）
 _BOOL_LITERALS = {"true", "false"}
+
+# 严格日期形态：YYYY-MM-DD（下游 DateType 校验格式）
+_STRICT_DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 # 默认采样行数
 DEFAULT_SAMPLE_ROWS = 1000
@@ -92,12 +102,15 @@ def _classify_value(value: Any) -> str | None:
             return "float"
     except ValueError:
         pass
-    # 日期：严格 ISO 格式（YYYY-MM-DD）
-    try:
-        date.fromisoformat(text)
-        return "date"
-    except ValueError:
-        pass
+    # 日期：严格 YYYY-MM-DD 形态（下游 DateType 按 %Y-%m-%d 校验）。
+    # 不直接用 fromisoformat 宽松集——Python>=3.11 还接受 ISO 周日期
+    # （2025-W01-1）、紧凑格式（20250115）等，推成 date 后下游整列误报
+    if _STRICT_DATE_RE.fullmatch(text):
+        try:
+            date.fromisoformat(text)
+            return "date"
+        except ValueError:
+            pass
     return "string"
 
 
@@ -179,9 +192,9 @@ def _read_head(data_file: Path, sample_rows: int) -> pd.DataFrame:
         if suffix in _CSV_EXTS:
             return pd.read_csv(data_file, dtype=str, nrows=sample_rows, keep_default_na=True)
         if suffix in _EXCEL_EXTS:
-            # Excel 不支持按行采样，整体读入后取头部（大文件场景后续再优化）
-            df = pd.read_excel(data_file, dtype=str)
-            return df.head(sample_rows)
+            # 2026-09-21：Excel 走 nrows 头部截断（此前整体读入后取头部，
+            # 大文件在推断场景被全量物化——MCP infer_schema 可被任意数据文件触发）
+            return pd.read_excel(data_file, dtype=str, nrows=sample_rows)
         if suffix in _JSON_EXTS:
             return _read_json_head(data_file, sample_rows)
     except pd.errors.EmptyDataError as e:
@@ -190,15 +203,22 @@ def _read_head(data_file: Path, sample_rows: int) -> pd.DataFrame:
 
 
 def _read_json_head(data_file: Path, sample_rows: int) -> pd.DataFrame:
-    """读取 JSON（对象数组）或 JSONL（逐行对象）头部样本。"""
-    text = data_file.read_text(encoding="utf-8")
+    """读取 JSON（对象数组）或 JSONL（逐行对象）头部样本。
+
+    JSONL 按行流式截断（凑满 sample_rows 即停，不把大文件全文读入）；
+    .json 顶层对象数组无法部分解析，仅对结果截断。
+    """
     if data_file.suffix.lower() == ".jsonl":
-        records = []
-        for line in text.splitlines():
-            line = line.strip()
-            if line:
-                records.append(json.loads(line))
-        return pd.DataFrame(records).head(sample_rows)
+        records: list[Any] = []
+        with data_file.open(encoding="utf-8") as f:
+            for line in f:
+                if len(records) >= sample_rows:
+                    break
+                line = line.strip()
+                if line:
+                    records.append(json.loads(line))
+        return pd.DataFrame(records)
+    text = data_file.read_text(encoding="utf-8")
     data = json.loads(text)
     if isinstance(data, dict):
         data = [data]

@@ -258,8 +258,6 @@ AI 助手帮助
   qq           - 直接退出整个程序（全局可用）
 
 启动选项:
-    --stream         - 启用流式输出
-    --no-stream      - 禁用流式输出（默认，显示 loading spinner）
     --no-agent-mode  - 关闭 Agent 深度模式（降级为旧 JSON actions 路径）
 
 你可以用自然语言描述你的需求，例如:

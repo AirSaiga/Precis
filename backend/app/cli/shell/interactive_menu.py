@@ -82,6 +82,39 @@ class InteractiveMenu:
         self.items.append(MenuItem(key, label, description))
         return self
 
+    def _stdin_is_interactive(self) -> bool:
+        """检测 stdin 是否为终端。
+
+        管道/CI 重定向（`echo xxx | precis`）下 readchar 不可用——Windows 上
+        readchar 直连控制台（绕过管道 stdin）会晦涩报错或挂起，须回退到
+        走标准输入的编号选择。
+        """
+        try:
+            return sys.stdin.isatty()
+        except Exception:
+            return False
+
+    def _select_via_stdin_line(self, status_lines: list[str] | None = None) -> str | None:
+        """非 TTY 回退：编号列表 + input() 单行读取（管道/重定向友好）。"""
+        if self.title:
+            print(f"{self.COLOR_GREEN}{self.title}{self.COLOR_RESET}")
+        for line in status_lines or []:
+            print(f"  {line}")
+        for idx, item in enumerate(self.items, 1):
+            desc = f" {self.COLOR_GRAY}{item.description}{self.COLOR_RESET}" if item.description else ""
+            print(f"  {idx}. {item.label}{desc}")
+        if self.show_cancel:
+            print("  0. cancel - 返回")
+        try:
+            raw = input("请输入编号: ").strip()
+        except EOFError:
+            return None
+        if not raw or raw == "0":
+            return None
+        if raw.isdigit() and 1 <= int(raw) <= len(self.items):
+            return self.items[int(raw) - 1].key
+        return None
+
     def _get_menu_line_count(self) -> int:
         """计算菜单总行数（用于清除）"""
         count = 0
@@ -149,6 +182,10 @@ class InteractiveMenu:
         if not self.items:
             return None
 
+        # 管道/CI（stdin 非 TTY）：readchar 不可用，回退编号选择
+        if not self._stdin_is_interactive():
+            return self._select_via_stdin_line()
+
         # 隐藏光标
         sys.stdout.write(self.HIDE_CURSOR)
         sys.stdout.flush()
@@ -214,6 +251,10 @@ class InteractiveMenu:
         """
         if not self.items:
             return None
+
+        # 管道/CI（stdin 非 TTY）：readchar 不可用，回退编号选择（带状态行）
+        if not self._stdin_is_interactive():
+            return self._select_via_stdin_line(status_lines)
 
         # 隐藏光标
         sys.stdout.write(self.HIDE_CURSOR)

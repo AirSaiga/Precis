@@ -39,6 +39,8 @@
     CommandResult.error("配置文件不存在: project.precis.yaml")
 """
 
+from typing import Any
+
 from app.cli.shared_services.config_ops import (
     MATCH_BASENAME,
     parse_config_value,
@@ -98,8 +100,13 @@ class ConfigSetCommand(Command):
         value_str = raw_args[2]
 
         # 解析值（委托 shared_services 纯逻辑，CLI/TUI 同源）
-        # parse_config_value 始终成功返回三元组，行为与原 _parse_value 一致
-        value = value_str if as_string else parse_config_value(value_str)[1]
+        # 毒化字面量（inf/nan/下划线整数）被拒绝时按参数错误处理，不落盘
+        if as_string:
+            value: Any = value_str
+        else:
+            parse_ok, value, parse_error = parse_config_value(value_str)
+            if not parse_ok:
+                return CommandResult.error(parse_error)
 
         # 定位结果（用于文件名模糊回退命中时披露实际写入路径）
         resolved_path, match_kind = resolve_config_file(project_path, config_file)

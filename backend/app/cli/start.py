@@ -98,9 +98,29 @@ def _resolve_port(arg_port: int | None) -> int:
     return resolve_port(arg_port)
 
 
+def _api_dependencies_available() -> bool:
+    """探测 API 服务依赖是否可用（H15，对齐 ai 门控先例 6fa1aed4）。"""
+    try:
+        import uvicorn  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
 def main() -> int:
     """Main entry point for precis-start."""
     args = _parse_args()
+
+    # H15：裸装（无 [api] extra）先给安装指引再退出——若放行到后面才炸，
+    # 已产生端口文件/浏览器线程等副作用且用户只见裸 ModuleNotFoundError traceback
+    if not _api_dependencies_available():
+        print(
+            "错误：缺少 API 服务依赖（uvicorn/fastapi 等）。precis-start 需要 [api] extra，请执行:\n"
+            "  pip install 'precis-cli[api]'",
+            file=sys.stderr,
+        )
+        return 1
+
     work_dir = _resolve_work_dir(args.work_dir)
     preferred_port = _resolve_port(args.port)
 

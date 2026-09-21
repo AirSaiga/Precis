@@ -93,7 +93,9 @@ function buildConstraintItemFromNode(node: CustomNode): ConstraintItemV2 | null 
       from_column: d.sourceColumn as string,
       to_table: d.targetTable as string,
       to_column: d.targetColumn as string,
-      params: {},
+      // confirmed #8（B3 对齐）：allowNull 开关此前被丢（恒 {}），与新版
+      // persistence/builders/constraint/foreignKey.ts 同口径持久化
+      params: d.allowNull === true ? { allow_null: true } : {},
     }
   }
 
@@ -119,6 +121,10 @@ function buildConstraintItemFromNode(node: CustomNode): ConstraintItemV2 | null 
     const params: Record<string, unknown> = {
       then_condition: d.thenConditionConfig,
     }
+
+    // confirmed #8（B3 对齐）：skip_if 开关此前被丢，与新版
+    // persistence/builders/constraint/conditional.ts 同口径持久化
+    if (d.skipIfCondition === true) params.skip_if = true
 
     // THEN 列
     const thenRef = d.thenRef as { columnId?: string; nodeId?: string } | undefined

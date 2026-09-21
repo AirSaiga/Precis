@@ -36,6 +36,7 @@ from __future__ import annotations
 import glob
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -45,6 +46,25 @@ logger = logging.getLogger(__name__)
 
 # 支持的文件扩展名（generate/migrate 共用）
 SUPPORTED_EXTENSIONS = (".xlsx", ".xls", ".csv", ".json", ".jsonl")
+
+# 实体 id 安全白名单：字母/数字/下划线/连字符（H10——LLM 生成的 id 未消毒即拼盘
+# 路径时，`../../evil` 类路径成分可越项目写文件/建目录，写盘前须拒绝）
+_SAFE_ENTITY_ID_RE = re.compile(r"[A-Za-z0-9_-]+")
+
+
+def _filter_safe_entity_ids(entities: dict[str, Any], kind: str) -> dict[str, Any]:
+    """过滤掉含路径成分或非法字符的实体 id，记录错误日志（H10）。
+
+    Returns:
+        仅保留安全 id 的实体字典；非法 id 整体跳过（不写盘、不进 manifest 引用）
+    """
+    safe: dict[str, Any] = {}
+    for eid, body in entities.items():
+        if isinstance(eid, str) and _SAFE_ENTITY_ID_RE.fullmatch(eid):
+            safe[eid] = body
+        else:
+            logger.error("跳过非法实体 id（含路径成分或非法字符，kind=%s）: %r", kind, eid)
+    return safe
 
 
 def scan_data_files(patterns: list[str], project_path: str) -> list[str]:
@@ -91,8 +111,9 @@ def scan_data_files(patterns: list[str], project_path: str) -> list[str]:
 def apply_generated_config(result: dict[str, Any], project_path: str) -> list[str]:
     """将生成的配置写入项目目录。
 
-    会保留现有 project.precis.yaml 中的 transforms/manual_data 等引用，
-    覆盖写入 schemas、constraints、regex_nodes。
+    保留策略为并集（R6）：生成 manifest 未携带的既有顶层键（project/settings/
+    templates/data_sources 等）一律保留，防止空/局部 manifest 清空既有配置；
+    schemas、constraints、regex_nodes 引用则始终按生成结果覆盖写入。
 
     Args:
         result: ConfigGenerationService / ConfigMigrationService 返回的配置字典
@@ -111,16 +132,24 @@ def apply_generated_config(result: dict[str, Any], project_path: str) -> list[st
         except Exception:
             logger.warning("读取现有 manifest 失败，将覆盖写入", exc_info=True)
 
-    manifest = result.get("manifest") or {"version": 2, "project": {"id": "", "name": ""}}
+    generated_manifest = result.get("manifest")
+    if generated_manifest:
+        manifest = dict(generated_manifest)
+    else:
+        # LLM 未返回 manifest：以现有 manifest 为底仅补最小骨架，
+        # 不再制造空 project 兜底清空既有 project.id/settings（R6）
+        manifest = dict(existing_manifest)
+        manifest.setdefault("version", 2)
+        manifest.setdefault("project", {"id": "", "name": ""})
 
-    # 保留现有 manifest 中生成未覆盖的引用
-    for key in ("transforms", "manual_data"):
-        if key in existing_manifest and key not in manifest:
-            manifest[key] = existing_manifest[key]
+    # 保留策略并集（R6）：生成 manifest 未携带的既有键一律保留
+    for key, value in existing_manifest.items():
+        if key not in manifest:
+            manifest[key] = value
 
-    schemas = result.get("schemas", {})
-    constraints = result.get("constraints", {})
-    regex_nodes = result.get("regex_nodes", {})
+    schemas = _filter_safe_entity_ids(result.get("schemas", {}) or {}, "schema")
+    constraints = _filter_safe_entity_ids(result.get("constraints", {}) or {}, "constraint")
+    regex_nodes = _filter_safe_entity_ids(result.get("regex_nodes", {}) or {}, "regex")
 
     # 确保目录存在
     (Path(project_path) / "schemas").mkdir(exist_ok=True)

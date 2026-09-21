@@ -51,6 +51,7 @@ from app.cli.shared_services.generation_ops import (
 )
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.formatter import Formatter
+from app.shared.core.utils.path_utils import display_relpath
 from app.shared.services.ai.migrate_service import ConfigMigrationService
 from app.shared.services.llm.generation import (
     GenerationOptions,
@@ -70,6 +71,10 @@ def _infer_language(file_path: str) -> str:
     if lower.endswith(".xlsx") or lower.endswith(".xls") or lower.endswith(".csv"):
         return "excel_formula"
     return "natural_language"
+
+
+# --language 可选值（与 usage 声明一致）
+_SUPPORTED_LANGUAGES = ("python", "sql", "excel_formula", "natural_language")
 
 
 class AIMigrateCommand(Command):
@@ -171,6 +176,9 @@ class AIMigrateCommand(Command):
 
         if language is None:
             language = _infer_language(script_path)
+        elif language not in _SUPPORTED_LANGUAGES:
+            # 枚举校验：非法值前置拒绝（usage 已声明可选值），不透传下游晦涩报错
+            return CommandResult.error(f"--language 仅支持 {'|'.join(_SUPPORTED_LANGUAGES)}，收到: {language}")
 
         try:
             with open(script_path, encoding="utf-8") as f:
@@ -202,10 +210,10 @@ class AIMigrateCommand(Command):
 
         print(Formatter.header("\nAI 配置迁移"))
         print(Formatter.info(f"项目: {project_name}"))
-        print(Formatter.info(f"脚本: {os.path.relpath(script_path, project_path)} ({language})"))
+        print(Formatter.info(f"脚本: {display_relpath(script_path, project_path)} ({language})"))
         print(Formatter.info("数据文件:"))
         for p in file_paths:
-            print(f"  - {os.path.relpath(p, project_path)}")
+            print(f"  - {display_relpath(p, project_path)}")
 
         def progress_callback(stage: str, progress: float, extra: dict[str, Any] | None = None) -> None:
             """终端进度回调。"""

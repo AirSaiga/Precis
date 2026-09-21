@@ -251,11 +251,19 @@ class Formatter:
 
         for i, error in enumerate(errors, 1):
             error_type = error.get("error_type", "UnknownError")
-            message = error.get("message", "无错误信息")
+            # 双字段兼容：格式检查/约束错误经 service 层归一为 cell_value/error_message，
+            # 部分内部路径仍产 value/message（对齐 json_payload.py 的兼容读取）
+            message = error.get("message")
+            if message is None:
+                message = error.get("error_message")
+            if message is None:
+                message = "无错误信息"
             table_name = error.get("table", "")
             column = error.get("column", "")
             row_index = error.get("row_index")
             value = error.get("value")
+            if value is None:
+                value = error.get("cell_value")
 
             type_display = error_type.replace("Violation", "").replace("Error", "")
             type_color = "red" if "Violation" in error_type else "yellow"
@@ -263,15 +271,15 @@ class Formatter:
             lines.append(f"  [bold][{i}][/bold] [{type_color}]【{type_display}】[/{type_color}]")
 
             if table_name:
-                lines.append(f"      表: [cyan]{table_name}[/cyan]")
+                lines.append(f"      表: [cyan]{markup_escape(str(table_name))}[/cyan]")
                 if column:
-                    lines.append(f"      列: [cyan]{column}[/cyan]")
+                    lines.append(f"      列: [cyan]{markup_escape(str(column))}[/cyan]")
                 if row_index is not None:
                     lines.append(f"      行号: [cyan]{row_index}[/cyan]")
                 if value is not None:
-                    lines.append(f"      值: [yellow]{value}[/yellow]")
+                    lines.append(f"      值: [yellow]{markup_escape(str(value))}[/yellow]")
 
-            lines.append(f"      [dim]消息:[/dim] {message}")
+            lines.append(f"      [dim]消息:[/dim] {markup_escape(str(message))}")
             lines.append("")
 
         lines.append("[cyan]" + "═" * 60 + "[/cyan]")
@@ -315,8 +323,8 @@ class Formatter:
             ds = (raw_datasets or {}).get(table)
             row_count = len(ds) if ds is not None and hasattr(ds, "__len__") else "-"
             source = fc.get("source_file") or ""
-            src_hint = f" [dim]({source})[/dim]" if source else ""
-            table_lines.append(f"    {bullet} {table}: {row_count} 行{src_hint}")
+            src_hint = f" [dim]({markup_escape(str(source))})[/dim]" if source else ""
+            table_lines.append(f"    {bullet} {markup_escape(str(table))}: {row_count} 行{src_hint}")
         tables_block = "\n".join(table_lines) if table_lines else "    (无)"
 
         # ---- 约束检查统计 ----
@@ -353,7 +361,7 @@ class Formatter:
                 tag = f"[green]{mark_ok}[/green]" if passed else f"[red]{mark_fail}[/red]"
                 err_cnt = c.get("error_count", 0)
                 err_hint = f" [red]({err_cnt} 错误)[/red]" if err_cnt else ""
-                lines.append(f"    {bullet} {desc}  {tag}{err_hint}")
+                lines.append(f"    {bullet} {markup_escape(str(desc))}  {tag}{err_hint}")
 
         return "\n".join(lines)
 

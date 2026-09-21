@@ -111,6 +111,21 @@ def _parse_standalone_args(args: list[str]) -> dict:
     return result
 
 
+def _find_dangling_option(args: list[str]) -> str | None:
+    """检测缺值的 standalone 选项（尾部悬挂或值位置是下一个选项）。
+
+    `validate --table`（尾部悬挂）过去被静默忽略 → 变全表校验；
+    `validate --table --format json` 的值位被下一个选项占据时同理。
+    返回首个悬挂选项名（无则 None），供调用方报参数错误。
+    """
+    for i, arg in enumerate(args):
+        if arg not in _STANDALONE_OPTIONS:
+            continue
+        if i + 1 >= len(args) or args[i + 1] in _STANDALONE_OPTIONS:
+            return arg
+    return None
+
+
 def _split_positional_args(args: list[str]) -> list[str]:
     """剥离 args 中的选项及选项值，返回剩余位置参数。
 
@@ -183,6 +198,10 @@ class ValidateCommand(Command):
         """
         # 检测是否为 standalone 模式
         parsed = _parse_standalone_args(args)
+        # 尾部悬挂选项（缺值）前置拒绝：防 `validate --table` 静默降级为全表校验
+        dangling = _find_dangling_option(args)
+        if dangling:
+            return CommandResult.error(f"{dangling} 需要参数值\n用法: {self.usage}", exit_code=2)
         if parsed["manifest"] is not None:
             return self._execute_standalone(parsed)
 
@@ -203,7 +222,9 @@ class ValidateCommand(Command):
         """
         project_path = context.project_path
         if project_path is None:
-            return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目")
+            # 使用错误（未打开项目）对齐 standalone 各错误路径的 exit_code=2 契约，
+            # 避免 CI 按 0/1/2 分流把工具错误误判为"发现数据违规"
+            return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目", exit_code=2)
 
         # 表名过滤来源优先级：--table/-t 选项 > 首个位置参数 > None（校验全部）
         # 位置参数须先剥离选项及选项值，否则 `validate --table users` 会把 "--table" 当表名

@@ -128,9 +128,25 @@ class TestManifestVersionCheck:
         assert "升级" in err.fix_hint
         assert "qa_test/qa_simple" in err.fix_hint
 
-    def test_string_version_rejected(self, tmp_path):
-        """version: "2"（字符串）同样被拒——类型不明确视为不识别。"""
+    def test_string_version_two_accepted(self, tmp_path):
+        """H12：version: "2"（字符串）值等价于 2，按值放行不再按类型误杀。"""
         manifest = _write_manifest(tmp_path, _STRING_VERSION_MANIFEST)
+        loaded = load_project(str(manifest))
+
+        version_errors = [e for e in loaded.loading_errors if e.error_type == "ManifestVersionError"]
+        assert version_errors == []
+
+    def test_float_version_two_point_zero_accepted(self, tmp_path):
+        """H12：version: 2.0 无损转 int 后按值放行。"""
+        manifest = _write_manifest(tmp_path, _VALID_MANIFEST.replace("version: 2", "version: 2.0", 1))
+        loaded = load_project(str(manifest))
+
+        version_errors = [e for e in loaded.loading_errors if e.error_type == "ManifestVersionError"]
+        assert version_errors == []
+
+    def test_string_version_three_still_rejected(self, tmp_path):
+        """值不支持仍拒绝：version: "3" → ManifestVersionError + 迁移指引。"""
+        manifest = _write_manifest(tmp_path, _STRING_VERSION_MANIFEST.replace('version: "2"', 'version: "3"', 1))
         loaded = load_project(str(manifest))
 
         version_errors = [e for e in loaded.loading_errors if e.error_type == "ManifestVersionError"]

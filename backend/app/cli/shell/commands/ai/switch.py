@@ -58,19 +58,20 @@ class AISwitchCommand(Command):
 
     @property
     def usage(self) -> str:
-        return "ai switch <provider_id>"
+        return "ai switch [provider_id]"
 
     @property
     def help_text(self) -> str:
         return """
-用法: ai switch <provider_id>
+用法: ai switch [provider_id]
 
 示例:
-  ai switch openai   # 切换到 OpenAI
-  ai switch kimi     # 切换到 Kimi
+  ai switch             # 交互式选择 Provider（方向键导航）
+  ai switch openai      # 切换到 OpenAI
+  ai switch kimi        # 切换到 Kimi
 
 说明:
-  切换到已配置的 Provider。
+  缺省参数时进入交互式选择；传入 provider_id 时直接切换（大小写不敏感）。
   使用 'ai status' 查看可用的 Provider。
         """.strip()
 
