@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-09-21
+
 ### 2026-09
 - **AI Provider 预设季度核对（2026-09-21）**：DeepSeek 官方 09-10 发布 V4.1-Flash 并启用新滚动名 **`deepseek-flash`**（552B MoE、原生多模态、官方称全面超越 V4-Pro）——预设默认模型与候选随之更新；旧名 `deepseek-v4-pro` 自 09-14 起全部请求被路由到 V4.1-Flash 并按 Flash 单价计费（实质下线）、`deepseek-v4-flash`/`deepseek-v4-flash-vision-exp` 已下线路由兼容，三者全部移出预设候选（存量用户 `ai_providers.yaml` 中已配置的旧模型名不受预设变更影响，但调用会被官方静默路由并按新价计费，建议手动改为 `deepseek-flash`）。其余五家核对无迭代：GLM-5.4 截至核对日未发布（5.3/5.3-flash 仍为主力）、Qwen3.8 系与 Kimi K3、MiniMax M3、MiMo v2.5 系均在役——仅在文档补注各模型发布时间与要点。同步 `AI_PROVIDER_PRESETS.md` 表格与核对日期。
 
