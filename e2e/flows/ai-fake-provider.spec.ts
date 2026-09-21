@@ -197,12 +197,14 @@ test.describe('AI Fake Provider（确定性 CI 守卫）', () => {
       if (previousActiveId && previousActiveId !== fakeProviderId) {
         // 还原原有默认，避免影响真实 provider 的会话与其它 spec 的 skip 判定
         await apiHelper.post(`/ai/providers/${previousActiveId}/activate`, {})
-      } else if (!previousActiveId) {
-        // 原本没有默认 provider：删除 fake（删除活动 provider 会自动清空 defaults.chat）
-        await apiHelper.delete(`/ai/providers/${fakeProviderId}`)
       }
+      // 无论此前是否存在默认 provider，都必须删除 fake 条目：type=fake 写入真实
+      // 用户配置（~/.precis/ai_providers.yaml）后，不认识该类型的已安装版本
+      // （如 0.1.6，枚举仅 openai/ollama）会因校验失败拒绝启动（v0.1.7 实证踩坑）。
+      // 无默认时删除活动 provider 会自动清空 defaults.chat，语义同样正确
+      await apiHelper.delete(`/ai/providers/${fakeProviderId}`)
     } catch {
-      // 清理失败不影响测试结果（下次运行会复用已有 fake provider）
+      // 清理失败不影响测试结果（残留条目由下次运行 beforeAll 的复用分支兜底）
     }
   })
 
