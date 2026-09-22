@@ -198,8 +198,8 @@ export interface DateLogicConstraintNodeData extends BaseConstraintNodeData {
   referenceColumnEnd?: string
   /** 计算类型：age（年龄）/ days_diff（天数差） */
   calculationType?: 'age' | 'days_diff'
-  /** 目标日期值 */
-  targetValue?: string
+  /** 目标值（计算模式必填；提示词教的即数值形态，后端 target_value 接受 int/float/str） */
+  targetValue?: string | number
   /** 目标列 */
   targetColumn?: string
 }

@@ -29,8 +29,11 @@
  * - scripted:   expression(/pattern) → script
  * - foreignKey: toTableId/toColumnId → targetRef
  * - charset:    charsetMode/charset_mode → charsetMode（ascii/chinese/chinese_mixed）
- * - conditional: thenCondition/thenConditionConfig → thenConditionConfig；ifConditions 条目
- *   的 ifColumnId 归一为 ref.columnId（保存链路消费的形态）
+ * - dateLogic:  同名透传；targetValue 双形态（数值/字符串——提示词教的即数值，
+ *   后端 target_value 接受 int/float/str）
+ * - conditional: thenCondition/thenConditionConfig → thenConditionConfig（DSL 键名
+ *   归一 refColumn→ref_column）；ifConditions 条目的 ifColumnId 归一为 ref.columnId
+ *   （保存链路消费的形态）
  * - 其余类型：同名透传或无需参数
  */
 
@@ -42,6 +45,30 @@ function asNumber(value: unknown): number | undefined {
 /** 从 params 取字符串 */
 function asString(value: unknown): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined
+}
+
+/** 从 params 取非空字符串或有限数值（提示词对部分参数教的即数值形态） */
+function asStringOrNumber(value: unknown): string | number | undefined {
+  return asString(value) ?? asNumber(value)
+}
+
+/**
+ * 归一 THEN 条件 DSL 键名（镜像后端 constraint_builder._normalize_then_condition）。
+ *
+ * 提示词教 camelCase `refColumn`，而后端写盘归一为 `ref_column`；运行时
+ * （conditional.py 只认 snake）与 GUI 编辑器（useConditional.normalizeThenCondition
+ * 读 ref_column）同样只消费 snake——原样存 camelCase 会让列间比较静默失效，
+ * 且 GUI 保存时以 camelCase 覆写已落盘的正确 YAML。snake 键原样通过（双接受）。
+ */
+function normalizeThenConditionDsl(raw: Record<string, unknown>): Record<string, unknown> {
+  const normalized: Record<string, unknown> = {}
+  if (raw.operator !== undefined && raw.operator !== null) normalized.operator = raw.operator
+  for (const key of ['value', 'values'] as const) {
+    if (raw[key] !== undefined && raw[key] !== null) normalized[key] = raw[key]
+  }
+  const refColumn = asString(raw.refColumn) ?? asString(raw.ref_column)
+  if (refColumn) normalized.ref_column = refColumn
+  return normalized
 }
 
 /** 从 params 取字符串数组（容忍单值/非字符串项，统一规整为字符串数组） */
@@ -114,19 +141,26 @@ export function buildConstraintParamsData(
         'referenceDateEnd',
         'referenceColumnEnd',
         'calculationType',
-        'targetValue',
         'targetColumn',
       ] as const) {
         const v = asString(params[key])
         if (v) data[key] = v
       }
+      // targetValue 数值必填参数（age/days_diff）：只认 string 会把它丢弃，
+      // GUI 保存时以缺参覆写后端已落盘的正确文件（后端 fail-closed 报配置错误）
+      const targetValue = asStringOrNumber(params.targetValue)
+      if (targetValue !== undefined) data.targetValue = targetValue
       break
     }
     case 'conditional': {
-      // thenCondition 是后端/提示词契约键（thenConditionConfig 为 GUI 节点字段名），双侧兼容
+      // thenCondition 是后端/提示词契约键（thenConditionConfig 为 GUI 节点字段名），双侧兼容；
+      // DSL 对象经 normalizeThenConditionDsl 归一键名后入节点 data（见该函数注释）
       const thenRaw = params.thenCondition ?? params.thenConditionConfig
-      if (thenRaw !== undefined && thenRaw !== null && thenRaw !== '')
+      if (typeof thenRaw === 'string' && thenRaw) {
         data.thenConditionConfig = thenRaw
+      } else if (thenRaw && typeof thenRaw === 'object') {
+        data.thenConditionConfig = normalizeThenConditionDsl(thenRaw as Record<string, unknown>)
+      }
       for (const key of ['ifColumn', 'ifValue', 'thenColumn', 'ifLogic'] as const) {
         const v = params[key]
         if (v !== undefined && v !== null && v !== '') data[key] = v
