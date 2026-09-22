@@ -87,6 +87,7 @@ ValidationExecutor (services/validation/executor.py)
 | 路径 | `createPathingModule` | — |
 | 持久化状态 | `createPersistenceStatusModule` | — |
 | 作用域 | `createScopeModule` | — |
+| 视图筛选 | `createViewFilterModule` | `modules/viewFilter.ts`(视图模式三态 + 节点类型分组显隐;只管理自己隐藏的节点,与坞聚合隐藏互不侵犯;localStorage 按项目配置路径分桶持久化,不进 project.view.json) |
 
 **约定**(稳定原则,见 AGENTS.md):
 - 每个工厂通过参数接收 `nodes`/`edges` 等响应式引用(依赖注入),不直接 import store

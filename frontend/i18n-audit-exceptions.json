@@ -2,19 +2,20 @@
   "_comment": "i18n 审查 allowlist。dynamicPrefixes：代码用 t(`prefix.${var}`) 动态拼接的命名空间前缀；baseline*：治理前存量快照，守卫仅对超出 baseline 的新增违规判定失败。修复存量后用 npm run audit:i18n -- --update-baseline 刷新（会按当前实际值重写本文件，注意届时 baseline 数应不增）。",
   "dynamicPrefixes": [
     "inspection.severity.",
-    "constraints.constraintTypes.",
     "inspection.actions.",
     "inspection.issues.",
     "common.fullValidation.task.scope.sourceTypes.",
     "common.fullValidation.task.stageStatus.",
     "constraintTypes.",
+    "canvas.viewFilter.groups.",
     "validation.errorTypes.",
     "customNodes.transformNode.types.",
     "inspector.transformNode.typeSemantics.",
     "messages.canvas.transformMenu.categories.",
     "messages.canvas.transformMenu.constraintCategories.",
     "shortcuts.category.",
-    "template.errors."
+    "template.errors.",
+    "commandPalette.commands."
   ],
   "baselineMissing": [],
   "baselineOnlyZh": [],

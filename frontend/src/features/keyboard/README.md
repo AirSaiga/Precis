@@ -195,13 +195,14 @@ commands: {
 
 ## 快捷键分类
 
-| 分类   | 命令前缀       | Handler 目录       | 示例                    |
-| ------ | -------------- | ------------------ | ----------------------- |
-| 画布   | `canvas.*`     | handlers/canvas/   | zoomIn, fitView         |
-| 节点   | `node.*`       | handlers/node/     | duplicate, delete, move |
-| 历史   | `history.*`    | handlers/history/  | undo, redo              |
-| 编辑器 | `editor.*`     | handlers/editor/   | save                    |
-| 连接   | `connection.*` | handlers/ (需新建) | create, delete          |
+| 分类   | 命令前缀       | Handler 目录                   | 示例                        |
+| ------ | -------------- | ------------------------------ | --------------------------- |
+| 画布   | `canvas.*`     | handlers/canvas/               | zoomIn, fitView             |
+| 节点   | `node.*`       | handlers/node/                 | duplicate, delete, move     |
+| 历史   | `history.*`    | handlers/history/              | undo, redo                  |
+| 编辑器 | `editor.*`     | handlers/editor/               | save                        |
+| 连接   | `connection.*` | handlers/ (需新建)             | create, delete              |
+| 面板   | `palette.*`    | commands/ 内直接 emit eventBus | openCommandPalette (Ctrl+K) |
 
 ## 快捷键配置
 

@@ -115,13 +115,14 @@ function extractUsedKeys(content) {
 
 // ─── 从 locale 文件构建 key 树（esbuild transform + 动态导入）──────────────────
 // index.ts 把子模块聚合为顶层命名空间。default-export 文件（common/shortcuts/inspection/
-// feedback/inspectorConstraints）需按注册名还原命名空间；inspectorConstraints 合并进 inspector。
+// feedback/inspectorConstraints/commandPalette）需按注册名还原命名空间；inspectorConstraints 合并进 inspector。
 const DEFAULT_EXPORT_NAMESPACE = {
   common: 'common',
   shortcuts: 'shortcuts',
   inspection: 'inspection',
   feedback: 'feedback',
   inspectorConstraints: 'inspector',
+  commandPalette: 'commandPalette',
 }
 
 // 导入名称 → 顶层命名空间（来自 index.ts 的具名导入）。绝大部分与文件内 const 名一致，

@@ -11,9 +11,9 @@ This file provides guidance to Qoder (qoder.com) when working with code in this 
 ## Build & Run Commands
 
 ```bash
-npm run install:all                     # 全部依赖（root + frontend + electron）
+npm run install:all                     # 全部依赖（npm workspaces：root + frontend + electron + e2e 一次根目录安装）
 cd backend && pip install -e ".[dev]"   # 后端开发依赖（ruff/pytest/mypy）
-cd e2e && npm ci                        # E2E 依赖
+npx playwright install chromium         # E2E 浏览器二进制（依赖已随 workspaces 安装）
 
 npm run dev                             # 后端 + 前端（concurrently）
 npm run electron:dev                    # Electron 桌面版（自动管理后端进程）
@@ -41,6 +41,8 @@ cd e2e && npx playwright test
 ```
 
 > **端口策略**：后端端口默认由 OS 动态分配（`start_server.py --port 0`），实际端口写入 `backend/.backend-port`，Vite 代理（`dynamic-backend-proxy.ts` 插件）与 Electron 主进程自动读取该文件发现端口，无需手动配置。如需固定端口，在 `.env` 设置 `VITE_BACKEND_PORT`。
+
+> **npm workspaces**：`frontend` / `electron` / `e2e` 是根 package.json 的 workspaces，依赖统一 hoist 到根 `node_modules`，子包 lockfile 已合并为根单一 `package-lock.json`——**不要在子目录单独 `npm install`/`npm ci`**（会整树重装），安装/CI 一律在根目录执行一次。`overrides` 只在根 package.json 生效（子包中的 overrides 会被 npm 忽略并告警），安全补丁与版本钉版统一加在根。其中 `vue` 被钉在 `3.5.22`：更新版本（≥3.5.23）的类型与 graphStore 深层泛型叠加触发 `TS2589`（type instantiation excessively deep），升级 vue 前须先解决该类型深度问题；`vue-tsc` 被钉在 `3.1.1`：3.3.x 在 `composite` 构建下会把 `.js` 产物直接 emit 进 `src/`（污染源码树、被 eslint 扫到、可能 shadow `.ts` 导入），升级 vue-tsc 前须确认不再 emit。electron 镜像配置在根 `.npmrc`（workspace 安装不读 `electron/.npmrc`）。electron-builder 两个 hoist 适配（`electron/package.json` 的 build 字段，勿随意移除）：`electronVersion` 显式固定（版本探测只查 `electron/node_modules`，hoist 后读不到；**升级 electron 依赖时必须同步该字段**）；`npmRebuild: false`（否则 electron-builder 发现 `electron/node_modules` 不存在会在 electron 目录执行 `npm install --production`，workspaces 下这会**清掉整棵依赖树的全部 devDependencies**；sharp 等 N-API 预编译二进制无需 rebuild）。
 
 ---
 
@@ -473,9 +475,9 @@ AI 聊天（agent 模式）经 `frontend_instruction` SSE 事件驱动前端 `se
 
 ## 版本发布与自动更新
 
-**版本单一事实源**：根 `package.json` 的 `version`；electron/frontend 的 package.json、`backend/pyproject.toml`、`tui-rust/Cargo.toml + Cargo.lock`、Kimi Code 插件双 manifest（`integrations/kimi.plugin.json` + 仓库根垫片 `.kimi-plugin/plugin.json`）是同步副本，**禁止手工单改任何一处**——一律通过 `npm run release`（仓库根，`scripts/release.mjs`）同步。插件版本跟应用走（全端统一版本号，marketplace 更新记录与应用发布对齐）。npm version 连带更新的三份 `package-lock.json` 随发布提交一并入库（`releaseCommitFiles()`）——勿从提交清单移除，漏提交残留脏工作树会挡下一次发布的干净树检查（v0.1.1 实证）。
+**版本单一事实源**：根 `package.json` 的 `version`；electron/frontend 的 package.json、`backend/pyproject.toml`、`tui-rust/Cargo.toml + Cargo.lock`、Kimi Code 插件双 manifest（`integrations/kimi.plugin.json` + 仓库根垫片 `.kimi-plugin/plugin.json`）是同步副本，**禁止手工单改任何一处**——一律通过 `npm run release`（仓库根，`scripts/release.mjs`）同步。插件版本跟应用走（全端统一版本号，marketplace 更新记录与应用发布对齐）。连带更新的根 `package-lock.json` 随发布提交一并入库（`releaseCommitFiles()`）——勿从提交清单移除，漏提交残留脏工作树会挡下一次发布的干净树检查（v0.1.1 实证）。
 
-**发布流程**：`npm run release -- <版本|patch|minor|major> [--prerelease alpha.1] [--dry-run] [--no-push]`。脚本校验（main 分支 + 干净树 + 版本不倒退）→ 同步全部 manifest（npm 三处经 npm version 连带 lockfile、TOML 正则替换、插件 JSON 直接读写）→ CHANGELOG 切版（`[Unreleased]` 的 `### YYYY-MM` 内容落为 `## [X.Y.Z] - 日期` 分节）→ commit + annotated tag + push 触发 CD。
+**发布流程**：`npm run release -- <版本|patch|minor|major> [--prerelease alpha.1] [--dry-run] [--no-push]`。脚本校验（main 分支 + 干净树 + 版本不倒退）→ 同步全部 manifest（npm 三处直接写 JSON 并连带补丁根 lockfile 版本条目、TOML 正则替换、插件 JSON 直接读写）→ CHANGELOG 切版（`[Unreleased]` 的 `### YYYY-MM` 内容落为 `## [X.Y.Z] - 日期` 分节）→ commit + annotated tag + push 触发 CD。
 
 **CD 关键不变量**（`.github/workflows/cd.yml`，改流水线时勿破坏）：
 
@@ -498,11 +500,11 @@ AI 聊天（agent 模式）经 `frontend_instruction` SSE 事件驱动前端 `se
 
 **发布脚本与 CD 辅助脚本的测试**：`scripts/tests/`（node --test，根 `npm run test:scripts`，CI 有 `release-scripts` job）；纯函数从 `.mjs` 导出，脚本入口都有"直接执行才跑 main"守卫，新增脚本沿用该模式。
 
-**extras 安装形态矩阵验证**：`npm run verify:extras`（`scripts/verify-extras-matrix.mjs`）——bare/api/ai/mcp/full 五种安装形态各自在一次性 venv 中真隔离安装并断言：裸装三个入口（`precis-mcp`/`precis-start`/`precis ai`）必须给 extras 安装指引（H15/ai 门控回归），api/ai/mcp/full 验证依赖可导入 + 探测函数为真 + `precis-mcp` 完成 MCP initialize 真握手。默认本地构建 wheel（发布前可跑），`--pypi` 装线上最新版（发布后巡检），`--variants` 可选子集。CI 为手动触发 job（`.github/workflows/extras-matrix.yml` workflow_dispatch，source 可选 wheel/pypi）——刻意不挂 push/PR（5 venv 约 5-8 分钟）。改 extras 定义（pyproject optional-dependencies）或裸装门控行为后必跑。
+**extras 安装形态矩阵验证**：`npm run verify:extras`（`scripts/release/verify-extras-matrix.mjs`）——bare/api/ai/mcp/full 五种安装形态各自在一次性 venv 中真隔离安装并断言：裸装三个入口（`precis-mcp`/`precis-start`/`precis ai`）必须给 extras 安装指引（H15/ai 门控回归），api/ai/mcp/full 验证依赖可导入 + 探测函数为真 + `precis-mcp` 完成 MCP initialize 真握手。默认本地构建 wheel（发布前可跑），`--pypi` 装线上最新版（发布后巡检），`--variants` 可选子集。CI 为手动触发 job（`.github/workflows/extras-matrix.yml` workflow_dispatch，source 可选 wheel/pypi）——刻意不挂 push/PR（5 venv 约 5-8 分钟）。改 extras 定义（pyproject optional-dependencies）或裸装门控行为后必跑。
 
-**发布控制台 GUI**：`npm run release:gui`（`scripts/release-gui.mjs` + `release-gui.html`，零依赖 Node 内置 HTTP + 单页 HTML，日志经 SSE 推送；双击入口仓库根 `release-gui.bat` → `scripts/windows/release-gui.bat`，mac 对称 `scripts/mac/release-gui.sh`）。安全约束改 GUI 时不得放宽：只绑 127.0.0.1；客户端只能触发固定动作枚举；任何用户输入（版本号/tag/端口）必须先过 `validateVersionish`/`validateTag`/`validatePort` 白名单正则才允许拼进 shell 命令；POST 状态变更接口校验来源（`isLocalBrowserRequest`：外源 Origin 与 DNS rebinding Host 一律 403——只绑 127.0.0.1 挡不住浏览器跨站无预检 POST）；收到退出信号先显式终止任务子进程与本地更新源（Unix 上 detached 任务在独立进程组，不随主进程死）。
+**发布控制台 GUI**：`npm run release:gui`（`scripts/release/release-gui.mjs` + `release-gui.html`，零依赖 Node 内置 HTTP + 单页 HTML，日志经 SSE 推送；双击入口仓库根 `release-gui.bat` → `scripts/windows/release-gui.bat`，mac 对称 `scripts/mac/release-gui.sh`）。安全约束改 GUI 时不得放宽：只绑 127.0.0.1；客户端只能触发固定动作枚举；任何用户输入（版本号/tag/端口）必须先过 `validateVersionish`/`validateTag`/`validatePort` 白名单正则才允许拼进 shell 命令；POST 状态变更接口校验来源（`isLocalBrowserRequest`：外源 Origin 与 DNS rebinding Host 一律 403——只绑 127.0.0.1 挡不住浏览器跨站无预检 POST）；收到退出信号先显式终止任务子进程与本地更新源（Unix 上 detached 任务在独立进程组，不随主进程死）。
 
-**PyPI 管理控制台 GUI**：`npm run pypi:gui`（`scripts/pypi-gui.mjs` + `pypi-gui.html`，端口 17889 与 release-gui 并存；双击入口仓库根 `pypi-gui.bat`，mac 对称 `scripts/mac/pypi-gui.sh`）。定位是发布后的"后巡检"：四方版本对齐（本地 manifest ↔ git tag ↔ GitHub Release ↔ PyPI，`computeAlignment` 纯函数，数据源缺失记 unknown 不误报）、PyPI 发布历史与文件清单、最新 tag 的 pypi job 状态（GitHub Actions API，可选 `GITHUB_TOKEN` 环境变量提额）、pypistats 下载统计、一键验证线上包（`scripts/verify-pypi-package.mjs`：干净 venv 装真实 PyPI 包，跑与 cd.yml 发布前冒烟同口径的 `--version` + demo 8 违规基线）。设计边界：PyPI 无公开写 API（yank/删除只能网页操作、版本不可重传），控制台是**纯只读 + 本地验证、零凭证落盘**。改控制台须沿用：纯函数与安全校验从 `release.mjs`/`release-gui.mjs` import 复用（单一实现，勿复制副本）；安全约束与 release-gui 完全一致（127.0.0.1 绑定、动作枚举 `verify-pypi`、`validateVersionish`、`isLocalBrowserRequest`）；外部数据源单源容错（allSettled + 超时 + TTL 缓存，单源失败只影响自己那张卡）。测试：单测进 `scripts/tests/pypi-gui.test.mjs`（`npm run test:scripts`），E2E `npm run e2e:pypi:gui`（`e2e/playwright.pypi-gui.config.ts`，镜像 release-gui spec 的分层策略，`/api/run` 一律拦截、绝不真实 pip install）。
+**PyPI 管理控制台 GUI**：`npm run pypi:gui`（`scripts/release/pypi-gui.mjs` + `pypi-gui.html`，端口 17889 与 release-gui 并存；双击入口仓库根 `pypi-gui.bat`，mac 对称 `scripts/mac/pypi-gui.sh`）。定位是发布后的"后巡检"：四方版本对齐（本地 manifest ↔ git tag ↔ GitHub Release ↔ PyPI，`computeAlignment` 纯函数，数据源缺失记 unknown 不误报）、PyPI 发布历史与文件清单、最新 tag 的 pypi job 状态（GitHub Actions API，可选 `GITHUB_TOKEN` 环境变量提额）、pypistats 下载统计、一键验证线上包（`scripts/release/verify-pypi-package.mjs`：干净 venv 装真实 PyPI 包，跑与 cd.yml 发布前冒烟同口径的 `--version` + demo 8 违规基线）。设计边界：PyPI 无公开写 API（yank/删除只能网页操作、版本不可重传），控制台是**纯只读 + 本地验证、零凭证落盘**。改控制台须沿用：纯函数与安全校验从 `scripts/release.mjs`（发布核心，原地不动）/`scripts/release/release-gui.mjs` import 复用（单一实现，勿复制副本）；安全约束与 release-gui 完全一致（127.0.0.1 绑定、动作枚举 `verify-pypi`、`validateVersionish`、`isLocalBrowserRequest`）；外部数据源单源容错（allSettled + 超时 + TTL 缓存，单源失败只影响自己那张卡）。测试：单测进 `scripts/tests/pypi-gui.test.mjs`（`npm run test:scripts`），E2E `npm run e2e:pypi:gui`（`e2e/playwright.pypi-gui.config.ts`，镜像 release-gui spec 的分层策略，`/api/run` 一律拦截、绝不真实 pip install）。
 
 ---
 

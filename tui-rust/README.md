@@ -38,8 +38,7 @@ TUI 是独立于 Electron 桌面端和 Web 前端的**第三种客户端形态**
 
 ```bash
 # 推荐：根目录便捷脚本（自动复用已运行的后端，没有则由 TUI 自行拉起）
-npm run start:tui-rust:win        # Windows
-npm run start:tui-rust:mac        # macOS / Linux
+npm run start:tui                 # Windows / macOS / Linux（跨平台统一入口）
 
 # 手动构建运行
 cd tui-rust && cargo build

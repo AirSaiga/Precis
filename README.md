@@ -115,7 +115,7 @@ npm run setup:mac              # macOS / Linux（等同 bash scripts/setup.sh）
 git clone https://github.com/AirSaiga/Precis.git
 cd Precis
 
-# 1. 前端三处依赖（根 / frontend / electron）
+# 1. 前端依赖（npm workspaces：根目录一次安装 frontend / electron / e2e）
 npm run install:all
 
 # 2. 后端虚拟环境 + 可编辑安装（含开发工具）
@@ -140,7 +140,7 @@ cp .env.example .env
 npm run electron:dev          # ① 桌面应用（推荐）：自动拉起后端 + 前端
 npm run dev                   # ② 开发模式：前后端分离，带热重载（端口动态分配）
 npm run cli                   # ③ CLI：交互式命令行
-npm run start:tui-rust:win    # ④ TUI 终端界面（macOS/Linux 用 start:tui-rust:mac）
+npm run start:tui             # ④ TUI 终端界面（跨平台，自动分发 .bat/.sh）
 ```
 
 | 入口 | 说明 |
@@ -148,7 +148,7 @@ npm run start:tui-rust:win    # ④ TUI 终端界面（macOS/Linux 用 start:tui
 | `npm run electron:dev` | Electron 自动管理后端子进程，最省心 |
 | `npm run dev` | concurrently 同时起后端 + 前端，便于调试 |
 | `npm run cli` | 纯命令行，无需前端 |
-| `npm run start:tui-rust:win` / `:mac` | Rust 终端界面；脚本自动复用已运行的后端，没有则由 TUI 自行拉起（详见 [`tui-rust/README.md`](tui-rust/README.md)） |
+| `npm run start:tui` | Rust 终端界面；脚本自动复用已运行的后端，没有则由 TUI 自行拉起（详见 [`tui-rust/README.md`](tui-rust/README.md)） |
 | `./scripts/mac/start-cli.sh` | macOS 脚本自动定位 venv，无需激活 |
 
 ### 验证安装
@@ -321,7 +321,7 @@ Developers should use the editable install `pip install -e ".[dev]"` to get code
 git clone https://github.com/AirSaiga/Precis.git
 cd Precis
 
-# 1. Frontend deps (root / frontend / electron)
+# 1. Frontend deps (npm workspaces: one root install covers frontend / electron / e2e)
 npm run install:all
 
 # 2. Backend venv + editable install (with dev tools)
@@ -346,7 +346,7 @@ Four entry points — pick as needed (①②③ require the backend venv activat
 npm run electron:dev          # ① Desktop app (recommended): auto-spawns backend + frontend
 npm run dev                   # ② Dev mode: backend + frontend split, with hot reload (dynamic ports)
 npm run cli                   # ③ CLI: interactive shell
-npm run start:tui-rust:win    # ④ TUI terminal app (macOS/Linux: start:tui-rust:mac)
+npm run start:tui             # ④ TUI terminal app (cross-platform, dispatches .bat/.sh)
 ```
 
 | Entry | Notes |
@@ -354,7 +354,7 @@ npm run start:tui-rust:win    # ④ TUI terminal app (macOS/Linux: start:tui-rus
 | `npm run electron:dev` | Electron manages the backend subprocess — least hassle |
 | `npm run dev` | concurrently runs backend + frontend, good for debugging |
 | `npm run cli` | CLI only, no frontend needed |
-| `npm run start:tui-rust:win` / `:mac` | Rust terminal UI; the script reuses a running backend if any, otherwise the TUI spawns its own (see [`tui-rust/README.md`](tui-rust/README.md)) |
+| `npm run start:tui` | Rust terminal UI; the script reuses a running backend if any, otherwise the TUI spawns its own (see [`tui-rust/README.md`](tui-rust/README.md)) |
 | `./scripts/mac/start-cli.sh` | macOS script auto-locates the venv |
 
 ### Verify the Installation
