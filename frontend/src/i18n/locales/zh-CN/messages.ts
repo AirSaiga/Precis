@@ -21,9 +21,6 @@
  */
 
 const messages = {
-  success: {
-    expressionSaved: '表达式规则已保存！',
-  },
   error: {
     loadResourceFailed: '加载资源失败',
     saveFailed: '保存失败',

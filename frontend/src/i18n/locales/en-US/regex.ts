@@ -62,11 +62,8 @@ const expressions = {
     cancelSelection: 'Cancel Selection',
   },
   interactiveBuilder: {
-    inputText: 'Input Text',
     exampleText: 'e.g.: Order Amount > 100',
     previewSelection: 'Preview Selection',
-    previewHere: 'Preview here...',
-    matchPreview: 'Match Preview',
   },
   ruleConfigPanel: {
     ruleConfig: 'Rule Configuration',
@@ -123,8 +120,6 @@ const expressions = {
     errorMessage: 'Error Message',
   },
   ruleList: {
-    patterns: 'Patterns (Combination Rules)',
-    addPattern: 'Add Pattern',
     atomicPatterns: 'Atomic Patterns',
     addAtomicPattern: 'Add Atomic Pattern',
   },

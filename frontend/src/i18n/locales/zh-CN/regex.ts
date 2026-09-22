@@ -62,11 +62,8 @@ const expressions = {
     cancelSelection: '取消选择',
   },
   interactiveBuilder: {
-    inputText: '输入文本',
     exampleText: '例如: 订单金额 > 100',
     previewSelection: '划词预览',
-    previewHere: '在此处预览...',
-    matchPreview: '匹配预览',
   },
   ruleConfigPanel: {
     ruleConfig: '规则配置',
@@ -121,8 +118,6 @@ const expressions = {
     errorMessage: '错误信息',
   },
   ruleList: {
-    patterns: 'Patterns (组合规则)',
-    addPattern: '添加 Pattern',
     atomicPatterns: 'Atomic Patterns (原子规则)',
     addAtomicPattern: '添加 Atomic Pattern',
   },

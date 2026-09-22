@@ -21,9 +21,6 @@
  */
 
 const messages = {
-  success: {
-    expressionSaved: 'Expression rules saved!',
-  },
   error: {
     loadResourceFailed: 'Failed to load resources',
     saveFailed: 'Save failed',
