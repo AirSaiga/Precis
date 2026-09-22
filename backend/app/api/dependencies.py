@@ -36,6 +36,7 @@
 
 # backend/app/api/dependencies.py
 import os
+from urllib.parse import quote, unquote
 
 from fastapi import Depends, Header, HTTPException
 
@@ -63,6 +64,44 @@ class ProjectStore:
         :param project_path: 项目配置目录的绝对路径
         """
         self.project_path = project_path
+
+
+def _decode_header_path(value: str) -> str:
+    """还原 HTTP header 携带的非 ASCII 路径。
+
+    两种线上契约并存，按特征识别、互不干扰：
+
+    1. GUI 契约（axios/fetch）：前端在出口处对路径做 encodeURIComponent（纯
+       ASCII 百分号转义）。浏览器 XHR/fetch 的 header 值只接受 ByteString
+       （ISO-8859-1），中文原值会被 XHR 直接拒绝；axios 1.18 的
+       toByteStringHeaderValue 还会把 latin1 之外的字符静默删除——不转义的
+       中文路径会以"删字后的错误路径"上线且无从在服务端还原。判定是否为
+       规范转义串用 round-trip 校验（quote(unquote(v)) == v），字面上含 % 的
+       合法路径通常不会被误解码（例外：字面 "%XX" 恰为合法 UTF-8 转义序列
+       的路径会被还原，随后走校验链报错而非指向任意目录）。round-trip 的
+       转义集必须与 encodeURIComponent 的不转义集对齐：JS 保留
+       `!'()*` 五字符原样上线，校验端 quote 的 safe 集须包含它们，否则含
+       括号/感叹号的中文路径（如 `D:/项目(备份)`）契约判定必败，被契约 2
+       原样放行后以百分号串走校验链 400/404。
+    2. TUI/脚本契约（reqwest FromBytes、curl 等）：UTF-8 原始字节按 obs-text
+       上线。ASGI 服务器把 header 字节按 latin-1 解码成乱码，latin-1 与字节流
+       双射，编码回字节再按 UTF-8 解码即可无损还原；非 UTF-8 字节保持原值，
+       交由后续校验链正常报错。
+    """
+    # 契约 1：规范百分号转义（GUI）。safe 集对齐 encodeURIComponent 的保留集
+    # （`!'()*`），Python quote 恒不转义字母数字与 `_.-~`，两者已一致
+    if "%" in value:
+        try:
+            decoded = unquote(value, errors="strict")
+        except UnicodeDecodeError:
+            decoded = None
+        if decoded is not None and decoded != value and quote(decoded, safe="!'()*") == value:
+            return decoded
+    # 契约 2：UTF-8 原始字节（TUI/脚本）
+    try:
+        return value.encode("latin-1").decode("utf-8")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return value
 
 
 async def get_project_config_path(
@@ -121,6 +160,9 @@ def _validate_project_root(raw_path: str | None) -> str:
     """
     if not raw_path:
         raise HTTPException(status_code=400, detail="X-Project-Config-Path header 不能为空。")
+    # 还原 header 编码乱码（见 _decode_header_path）：中文路径经 UTF-8 上线、
+    # latin-1 解码后 isdir 必失败，必须先还原再做后续校验
+    raw_path = _decode_header_path(raw_path)
     # 步骤1：先校验原始输入是否为绝对路径
     # 在 Windows 下，os.path.abspath 会把相对路径（如 "../project"）解析成绝对路径，
     # 导致后续 isabs 检查无法拒绝相对路径。因此必须在规范化之前先做判断。

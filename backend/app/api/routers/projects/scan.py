@@ -69,7 +69,7 @@ def scan_projects(
 def _parse_project(project_path: str, manifest_path: str) -> ProjectInfo | None:
     """解析单个项目的 manifest 文件获取元信息。"""
     try:
-        with open(manifest_path, encoding="utf-8") as f:
+        with open(manifest_path, encoding="utf-8-sig") as f:
             manifest = yaml.safe_load(f)
     except Exception:
         return None

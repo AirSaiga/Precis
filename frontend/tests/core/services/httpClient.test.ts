@@ -130,6 +130,23 @@ describe('httpClient 请求拦截器', () => {
     // 进而触发项目路径失效误清理（实际事故：有效项目的最近记录被连带清空）
     expect(getHeader('X-Project-Config-Path')).toBe('/explicit/proj')
   })
+
+  it('中文项目路径注入时转义为 ASCII 安全值（encodeURIComponent 契约）', async () => {
+    // 浏览器 XHR header 值仅接受 ByteString，axios 还会静默删除 latin1 外字符
+    // ——不转义的中文路径会被删成错误路径发出（实际事故：D:\precis隔离测试
+    // 上线成 D:\precis）。转义由后端 _decode_header_path 还原。
+    const path = 'D:\\precis隔离测试\\测试数据\\precis-project'
+    localStorage.setItem('activeProjectPaths', JSON.stringify({ configPath: path, dataPath: path }))
+
+    await apiClient.get('/test')
+
+    expect(getHeader('X-Project-Config-Path')).toBe(encodeURIComponent(path))
+  })
+
+  it('调用方显式传入的中文路径同样转义', async () => {
+    await apiClient.get('/test', { headers: { 'X-Project-Config-Path': 'D:\\中文\\proj' } })
+    expect(getHeader('X-Project-Config-Path')).toBe(encodeURIComponent('D:\\中文\\proj'))
+  })
 })
 
 describe('httpClient 请求拦截器 - X-Precis-Auth token 注入', () => {

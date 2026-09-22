@@ -223,7 +223,7 @@ def get_reporting_config(store: ProjectStore = Depends(get_project_store)) -> Re
         )
     try:
         # 读取并解析 YAML 配置文件
-        with open(config_path, encoding="utf-8") as f:
+        with open(config_path, encoding="utf-8-sig") as f:
             config_data = yaml.safe_load(f)
         return ReportingConfig(**config_data)
     except Exception as e:

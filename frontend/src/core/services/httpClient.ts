@@ -39,7 +39,11 @@
  */
 
 import { logger } from '@/core/utils/logger'
-import { normalizeConfigDir, normalizePath } from '@/core/utils/pathNormalization'
+import {
+  encodeConfigPathHeader,
+  normalizeConfigDir,
+  normalizePath,
+} from '@/core/utils/pathNormalization'
 import { eventBus } from '@/core/eventBus'
 import { getApiToken, hasApiToken } from '@/core/services/apiToken'
 import axios, { isAxiosError, type AxiosInstance, type AxiosError } from 'axios'
@@ -248,6 +252,9 @@ function readActiveProjectPath(): string | undefined {
  * - X-Project-Config-Path: 当前激活项目的配置文件路径
  *   用途: 后端据此定位项目配置目录
  *   来源: localStorage (activeProjectPaths，由 projectStore 写入)
+ *   编码: 出口统一经 encodeConfigPathHeader 转义为 ASCII 安全值（中文路径
+ *   无法原样通过 XHR/fetch 的 ByteString 校验，axios 还会静默删字），后端
+ *   _decode_header_path 负责还原
  * - X-Precis-Auth: 后端 API 一次性 token（仅 Electron 打包模式有值）
  *   用途: 后端据此放行 app:// 页面（Origin: null）的跨域请求；
  *   恶意网页拿不到 token，其 null Origin 请求仍被后端 CORS 拒绝
@@ -269,12 +276,17 @@ apiClient.interceptors.request.use(
   (config) => {
     // 规范化路径格式后注入请求头，供后端定位项目配置目录
     const normalized = normalizeConfigDir(readActiveProjectPath())
-    const hasExplicitHeader =
+    const rawExplicit =
       typeof config.headers?.get === 'function'
-        ? config.headers.get('X-Project-Config-Path') != null
-        : (config.headers as Record<string, unknown> | undefined)?.['X-Project-Config-Path'] != null
-    if (normalized && !hasExplicitHeader) {
-      config.headers['X-Project-Config-Path'] = normalized
+        ? config.headers.get('X-Project-Config-Path')
+        : (config.headers as Record<string, unknown> | undefined)?.['X-Project-Config-Path']
+    const explicitPath = typeof rawExplicit === 'string' ? rawExplicit : undefined
+    // 出口统一转义为 ASCII 安全值（encodeConfigPathHeader）：中文路径未经转义
+    // 会被 XHR 拒绝、或被 axios 静默删字成错误路径；显式路径（bootstrap 校验、
+    // 项目切换等调用方的权威路径）与注入路径一视同仁
+    const headerValue = explicitPath ?? normalized
+    if (headerValue) {
+      config.headers['X-Project-Config-Path'] = encodeConfigPathHeader(headerValue)
     }
 
     // 注入后端 API 一次性 token（打包模式 CORS 放行凭据；显式头不覆盖）

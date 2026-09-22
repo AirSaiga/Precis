@@ -34,6 +34,7 @@
 
 import { getApiBaseUrl } from './httpClient'
 import { getApiToken, hasApiToken } from './apiToken'
+import { encodeConfigPathHeader } from '../utils/pathNormalization'
 
 /** API 路径前缀，与 Axios 实例的 baseURL 保持一致 */
 const API_PREFIX = '/api/latest'
@@ -63,6 +64,11 @@ function buildHeaders(extra?: Record<string, string>): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(extra ?? {}),
+  }
+  // 项目路径转义为 ASCII 安全值：fetch 的 header 值只接受 ByteString，中文
+  // 原值会直接抛 TypeError；与 axios 拦截器出口契约一致（后端 unquote 还原）
+  if ('X-Project-Config-Path' in headers) {
+    headers['X-Project-Config-Path'] = encodeConfigPathHeader(headers['X-Project-Config-Path'])
   }
   if (hasApiToken() && !('X-Precis-Auth' in headers)) {
     headers['X-Precis-Auth'] = getApiToken()

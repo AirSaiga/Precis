@@ -96,7 +96,11 @@ fn render_summary(frame: &mut Frame, app: &App, area: Rect) {
                 Line::from({
                     let mut spans = vec![Span::raw("  ")];
                     spans.extend(widgets::badge(
-                        &format!("{} {}", icons::result::FAIL, pick("校验失败", "Validation failed")),
+                        &format!(
+                            "{} {}",
+                            icons::result::FAIL,
+                            pick("校验失败", "Validation failed")
+                        ),
                         colors::red(),
                     ));
                     spans
@@ -154,7 +158,11 @@ fn render_summary(frame: &mut Frame, app: &App, area: Rect) {
                 v.push(Line::from({
                     let mut spans = vec![Span::raw("  ")];
                     spans.extend(widgets::badge(
-                        &format!("{} {}", icons::result::PASS, pick("校验通过", "Validation passed")),
+                        &format!(
+                            "{} {}",
+                            icons::result::PASS,
+                            pick("校验通过", "Validation passed")
+                        ),
                         colors::green(),
                     ));
                     spans.push(Span::styled(stats, Style::default().fg(colors::muted())));

@@ -86,7 +86,7 @@ def load_workspace_config(project_root: str) -> dict[str, Any]:
         }
 
     try:
-        with open(config_path, encoding="utf-8") as f:
+        with open(config_path, encoding="utf-8-sig") as f:
             return yaml.safe_load(f) or {}
     except Exception as e:
         raise HTTPException(

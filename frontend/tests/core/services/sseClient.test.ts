@@ -165,4 +165,30 @@ describe('createSSEClient token 头默认注入', () => {
     expect(captured[0].url).toContain('/ai/jobs/job-1/cancel')
     expect(captured[0].headers['X-Precis-Auth']).toBe('tok-123')
   })
+
+  it('X-Project-Config-Path 中文路径转义为 ASCII 安全值（fetch header ByteString 约束）', async () => {
+    const client = createSSEClient()
+    await client.connect(
+      '/ai/chat/stream',
+      {},
+      { onEvent: noop },
+      { ...opts, headers: { 'X-Project-Config-Path': 'D:\\precis隔离测试\\proj' } }
+    )
+    client.close()
+    expect(captured[0].headers['X-Project-Config-Path']).toBe(
+      encodeURIComponent('D:\\precis隔离测试\\proj')
+    )
+  })
+
+  it('X-Project-Config-Path 纯 ASCII 路径保持原样', async () => {
+    const client = createSSEClient()
+    await client.connect(
+      '/ai/chat/stream',
+      {},
+      { onEvent: noop },
+      { ...opts, headers: { 'X-Project-Config-Path': 'D:/plain/proj' } }
+    )
+    client.close()
+    expect(captured[0].headers['X-Project-Config-Path']).toBe('D:/plain/proj')
+  })
 })

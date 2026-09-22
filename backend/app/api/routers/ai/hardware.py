@@ -117,7 +117,11 @@ def diagnose_hardware() -> HardwareDiagnoseResponse:
         import subprocess
 
         result = subprocess.run(
-            ["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader"], capture_output=True, text=True
+            ["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",  # 中文 Windows 下 text=True 默认按 GBK 解码会乱码/抛错
         )
         if result.returncode == 0:
             for line in result.stdout.strip().split("\n"):

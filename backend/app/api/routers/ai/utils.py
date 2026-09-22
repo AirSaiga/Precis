@@ -138,12 +138,19 @@ def expand_paths(
 
     数据文件类型：.xlsx, .xls, .csv, .json, .jsonl
     """
+    # 还原 header 线上编码（GUI 契约 percent-encode / TUI 原始 UTF-8 字节，见
+    # app.api.dependencies._decode_header_path）：前端出口统一转义后，未解码的
+    # 百分号串作 base 解析相对路径会全 miss，中文项目下静默返回空列表
+    from app.api.dependencies import _decode_header_path
+
+    base_path = _decode_header_path(x_project_config_path) if x_project_config_path else None
+
     result = []
     seen = set()
 
     for raw_path in paths:
         # 1. 解析为绝对路径
-        path = _resolve_path(raw_path, x_project_config_path)
+        path = _resolve_path(raw_path, base_path)
 
         # 2. 如果是目录，递归展开
         if os.path.isdir(path):

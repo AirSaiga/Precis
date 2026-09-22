@@ -286,8 +286,12 @@ fn render_table(frame: &mut Frame, app: &App, area: Rect) {
             Row::new(vec![
                 Cell::from(if selected { icons::BAR } else { " " })
                     .style(Style::default().fg(colors::gradient_a())),
-                Cell::from(if is_active { icons::status::CONNECTED } else { "" })
-                    .style(Style::default().fg(colors::green())),
+                Cell::from(if is_active {
+                    icons::status::CONNECTED
+                } else {
+                    ""
+                })
+                .style(Style::default().fg(colors::green())),
                 Cell::from(Line::from(name_spans)),
                 Cell::from(p.provider_type.clone()),
                 Cell::from(icons::truncate(&p.model, 20)),

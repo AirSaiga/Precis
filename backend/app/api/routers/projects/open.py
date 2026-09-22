@@ -36,7 +36,7 @@ def _get_project_name(project_path: str) -> str:
     """从 project.precis.yaml 中读取项目名称，失败时返回目录名。"""
     manifest_path = os.path.join(project_path, "project.precis.yaml")
     try:
-        with open(manifest_path, encoding="utf-8") as f:
+        with open(manifest_path, encoding="utf-8-sig") as f:
             manifest = yaml.safe_load(f)
         if isinstance(manifest, dict):
             project = manifest.get("project", {})

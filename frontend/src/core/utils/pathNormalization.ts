@@ -300,3 +300,19 @@ export function normalizeConfigDir(inputPath?: string): string {
   }
   return withoutTrailing
 }
+
+/**
+ * 项目路径 → HTTP header 线上安全值
+ *
+ * 浏览器 XHR/fetch 的 header 值只能是 ByteString（ISO-8859-1），中文路径无法
+ * 原样上线（XHR 直接抛 TypeError）；axios 的 toByteStringHeaderValue 还会把
+ * latin1 之外的字符静默删除——中文路径会被删成另一个错误路径发出。因此在
+ * 发送出口统一 encodeURIComponent 转义为纯 ASCII，由后端 _decode_header_path
+ * 按契约 unquote 还原。
+ *
+ * 仅对含非 ASCII 字符的值转义：encodeURIComponent 的结果必为纯 ASCII，因此
+ * 该函数天然幂等（重试等场景重复经过出口不会二次编码）。
+ */
+export function encodeConfigPathHeader(path: string): string {
+  return /[^\x00-\x7F]/.test(path) ? encodeURIComponent(path) : path
+}

@@ -284,7 +284,7 @@ def atomic_write_yaml(file_path: Path, data: dict[str, Any], preserve_format: bo
                 yaml_parser.preserve_quotes = True
                 yaml_parser.default_flow_style = False
 
-                with open(file_path, encoding="utf-8") as f:
+                with open(file_path, encoding="utf-8-sig") as f:
                     existing_data = yaml_parser.load(f)
 
                 if existing_data is not None:

@@ -106,7 +106,7 @@ def handle_header_row_changed(
 
             if os.path.exists(schema_path):
                 try:
-                    with open(schema_path, encoding="utf-8") as f:
+                    with open(schema_path, encoding="utf-8-sig") as f:
                         schema_content = yaml.safe_load(f)
 
                     if "header_row" not in schema_content:

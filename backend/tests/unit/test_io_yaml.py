@@ -65,6 +65,24 @@ class TestReadYaml:
         with pytest.raises(FileNotFoundError):
             read_yaml(file_path)
 
+    def test_read_yaml_with_utf8_bom(self):
+        """兼容记事本等编辑器保存的 UTF-8 带 BOM（BOM 不得混入首个键名）"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            file_path = Path(tmpdir) / "bom.yaml"
+            file_path.write_bytes("project:\n  name: 测试项目\n".encode("utf-8-sig"))
+            result = read_yaml(file_path)
+
+        assert result["project"]["name"] == "测试项目"
+
+    def test_read_yaml_without_bom_unchanged(self):
+        """无 BOM 的常规 UTF-8 读取行为不受 utf-8-sig 升级影响"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            file_path = Path(tmpdir) / "nobom.yaml"
+            file_path.write_text("project:\n  name: 中文\n", encoding="utf-8")
+            result = read_yaml(file_path)
+
+        assert result["project"]["name"] == "中文"
+
 
 class TestWriteYaml:
     """write_yaml 单元测试"""

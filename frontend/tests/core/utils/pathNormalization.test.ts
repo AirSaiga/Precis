@@ -20,8 +20,28 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { normalizePath, toPosixPath } from '@/core/utils/pathNormalization'
+import { encodeConfigPathHeader, normalizePath, toPosixPath } from '@/core/utils/pathNormalization'
 import { normalizeSourceKey, sourceKeyString } from '@/utils/typeHelpers'
+
+describe('encodeConfigPathHeader（header 线上安全值契约）', () => {
+  it('中文路径转义为纯 ASCII，且可无损还原', () => {
+    const path = 'D:\\precis隔离测试\\测试数据\\precis-project'
+    const encoded = encodeConfigPathHeader(path)
+    // encodeURIComponent 契约：结果不含非 ASCII 字符（可安全通过 XHR ByteString 校验）
+    expect(/[^\x00-\x7F]/.test(encoded)).toBe(false)
+    expect(decodeURIComponent(encoded)).toBe(path)
+  })
+
+  it('ASCII 路径原样返回（不引入多余转义）', () => {
+    expect(encodeConfigPathHeader('D:/plain/proj')).toBe('D:/plain/proj')
+  })
+
+  it('幂等：转义结果再次转义不变（重试重复经过出口不会二次编码）', () => {
+    const path = 'D:\\隔离测试\\proj'
+    const once = encodeConfigPathHeader(path)
+    expect(encodeConfigPathHeader(once)).toBe(once)
+  })
+})
 
 describe('toPosixPath（§3.1 存储层专用）', () => {
   it('保留原始大小写', () => {

@@ -371,7 +371,7 @@ def set_config_value_in_file(project_path: str, filename: str, key_path: str, va
     yaml_parser.preserve_quotes = True
 
     try:
-        with open(config_path, encoding="utf-8") as f:
+        with open(config_path, encoding="utf-8-sig") as f:
             data = yaml_parser.load(f)
     except RuamelYAMLError as e:
         return False, f"YAML 解析失败: {e}"
@@ -482,7 +482,7 @@ def load_config_content(project_path: str, filename: str) -> dict | str:
     if not config_path:
         return f"配置文件不存在: {filename}"
     try:
-        with open(config_path, encoding="utf-8") as f:
+        with open(config_path, encoding="utf-8-sig") as f:
             content = yaml.safe_load(f)
             if content:
                 return content if isinstance(content, dict) else str(content)

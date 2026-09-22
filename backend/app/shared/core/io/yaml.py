@@ -162,7 +162,9 @@ def read_yaml(path: Path) -> dict[str, Any]:
     :raises FileNotFoundError: 当指定路径的文件不存在时抛出
     :raises yaml.YAMLError: 当 YAML 格式错误时抛出
     """
-    with open(path, encoding="utf-8") as f:
+    # utf-8-sig：兼容记事本等编辑器保存的"UTF-8 带 BOM"（BOM 若混入会被
+    # yaml 误认Control Character抛错）；无 BOM 时解码行为与 utf-8 完全一致
+    with open(path, encoding="utf-8-sig") as f:
         return cast(dict[str, Any], yaml.safe_load(f))
 
 

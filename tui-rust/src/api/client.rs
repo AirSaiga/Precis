@@ -22,6 +22,16 @@ use anyhow::{Context, Result};
 use super::types::*;
 use crate::i18n::pick;
 
+/// 构造 X-Project-Config-Path header 值。
+///
+/// reqwest 的 `header(名, 字符串)` 走 `HeaderValue::from_str`，只接受可见
+/// ASCII——含中文的项目路径会在客户端直接构造失败（请求根本发不出去）。
+/// 改为按原始 UTF-8 字节构造（obs-text 0x80-0xFF 对 header 值合法），字节
+/// 原样上线，由后端 `_decode_header_path`（latin-1 → UTF-8 还原）解出真实路径。
+fn project_path_header_value(p: &str) -> Option<reqwest::header::HeaderValue> {
+    reqwest::header::HeaderValue::from_bytes(p.as_bytes()).ok()
+}
+
 /// 后端 API 客户端
 pub struct ApiClient {
     base_url: String,
@@ -62,24 +72,30 @@ impl ApiClient {
         self.project_path.as_deref()
     }
 
+    /// 为请求注入 X-Project-Config-Path header（已设置项目路径时）
+    ///
+    /// header 值统一经 `project_path_header_value` 构造，支持非 ASCII 路径
+    /// （构造失败则跳过注入，请求将因缺 header 被后端 400 拒绝——路径本身
+    /// 含控制字符时本就无法作为项目路径）。
+    fn with_project_header(&self, mut req: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+        if let Some(ref p) = self.project_path {
+            if let Some(v) = project_path_header_value(p) {
+                req = req.header("X-Project-Config-Path", v);
+            }
+        }
+        req
+    }
+
     /// 构建带项目 header 的 POST 请求
     fn post(&self, path: &str) -> reqwest::RequestBuilder {
         let url = format!("{}{}", self.base_url, path);
-        let mut req = self.http.post(&url);
-        if let Some(ref p) = self.project_path {
-            req = req.header("X-Project-Config-Path", p);
-        }
-        req
+        self.with_project_header(self.http.post(&url))
     }
 
     /// 构建带项目 header 的 GET 请求
     fn get(&self, path: &str) -> reqwest::RequestBuilder {
         let url = format!("{}{}", self.base_url, path);
-        let mut req = self.http.get(&url);
-        if let Some(ref p) = self.project_path {
-            req = req.header("X-Project-Config-Path", p);
-        }
-        req
+        self.with_project_header(self.http.get(&url))
     }
 
     /// 健康检查：GET /health
@@ -175,10 +191,7 @@ impl ApiClient {
     pub async fn get_active_provider(&self) -> Result<Option<super::types::ProviderInfo>> {
         let resp = self
             .http
-            .get(format!(
-                "{}/api/latest/ai/providers/active",
-                self.base_url
-            ))
+            .get(format!("{}/api/latest/ai/providers/active", self.base_url))
             .send()
             .await?;
         if !resp.status().is_success() {
@@ -271,12 +284,10 @@ impl ApiClient {
 
     /// 获取全量配置
     pub async fn get_full_config(&self) -> Result<super::types::FullConfigResponse> {
-        let mut req = self
-            .http
-            .get(format!("{}/api/latest/project/config/full", self.base_url));
-        if let Some(ref p) = self.project_path {
-            req = req.header("X-Project-Config-Path", p);
-        }
+        let req = self.with_project_header(
+            self.http
+                .get(format!("{}/api/latest/project/config/full", self.base_url)),
+        );
         let resp = req.send().await?;
         let text = resp.text().await?;
         serde_json::from_str(&text).context("解析配置响应失败")
@@ -290,10 +301,10 @@ impl ApiClient {
         message: &str,
         history: &[super::types::ChatMessage],
     ) -> Result<super::types::AiChatResponse> {
-        let mut req = self.http.post(format!("{}/api/latest/ai/chat", self.base_url));
-        if let Some(ref p) = self.project_path {
-            req = req.header("X-Project-Config-Path", p);
-        }
+        let req = self.with_project_header(
+            self.http
+                .post(format!("{}/api/latest/ai/chat", self.base_url)),
+        );
         let body = super::types::AiChatRequest {
             message: message.to_string(),
             context: None,
@@ -338,7 +349,30 @@ mod urlencoding {
 
 #[cfg(test)]
 mod tests {
+    use super::project_path_header_value;
     use super::urlencoding::encode;
+
+    #[test]
+    fn chinese_project_path_builds_valid_header_value() {
+        // 直接 header(名, 字符串) 会因非可见 ASCII 构造失败（请求发不出去）；
+        // from_bytes 按 UTF-8 原始字节上线，后端 _decode_header_path 负责还原
+        let path = "D:\\precis隔离测试\\测试数据\\precis-project";
+        let v = project_path_header_value(path).expect("中文路径应可构造 header 值");
+        assert_eq!(v.as_bytes(), path.as_bytes());
+    }
+
+    #[test]
+    fn ascii_project_path_unchanged() {
+        let v = project_path_header_value("D:/plain/project").unwrap();
+        assert_eq!(v.as_bytes(), b"D:/plain/project");
+    }
+
+    #[test]
+    fn control_characters_rejected_to_skip_injection() {
+        // 含 NUL 等控制字符的路径无法构成合法 header 值，返回 None 由
+        // with_project_header 跳过注入（请求被后端缺 header 校验拒绝）
+        assert!(project_path_header_value("D:\\bad\u{0}path").is_none());
+    }
 
     #[test]
     fn encodes_query_breaking_characters() {

@@ -1423,7 +1423,11 @@ mod tests {
 
     /// 在系统临时目录下构造独立的测试目录树，返回根路径
     fn make_test_root(name: &str) -> PathBuf {
-        let root = std::env::temp_dir().join(format!("precis-tui-workdir-{}-{}", std::process::id(), name));
+        let root = std::env::temp_dir().join(format!(
+            "precis-tui-workdir-{}-{}",
+            std::process::id(),
+            name
+        ));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).expect("create test root");
         root
@@ -1473,12 +1477,7 @@ mod tests {
         // 安装目录旁就算有 qa_test 也不该被使用（无开发态布局探测命中）
         std::fs::create_dir_all(root.join("installed/qa_test")).expect("qa_test dir");
 
-        let got = resolve_work_dir(
-            &exe_dir,
-            Some(&exe_dir),
-            None,
-            Some(&root.join("home")),
-        );
+        let got = resolve_work_dir(&exe_dir, Some(&exe_dir), None, Some(&root.join("home")));
         assert_eq!(got, root.join("home"), "打包态应回退用户主目录");
         let _ = std::fs::remove_dir_all(&root);
     }
