@@ -1,8 +1,15 @@
 {
   "name": "precis",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Precis data validation workflows for Kimi Code CLI",
-  "keywords": ["data-validation", "csv", "excel", "json", "schema", "constraints"],
+  "keywords": [
+    "data-validation",
+    "csv",
+    "excel",
+    "json",
+    "schema",
+    "constraints"
+  ],
   "author": "Precis Team",
   "homepage": "https://github.com/AirSaiga/Precis",
   "license": "Apache-2.0",

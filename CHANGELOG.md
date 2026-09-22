@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-09-23
+
 ### 2026-09
 - **校验报错 i18n 系统性修复（GUI 非阻断级）**：此前除保存前预校验外，**所有约束校验报错均为硬编码中文**——后端 13 个约束校验器约 86 处错误 `message`、前端 `toResult` 的"第 X 行:"行前缀与各 handler 兜底文案，切换英文语言后约束节点校验详情、全量校验报告仍显示中文。修复为既有 `LocalizedMessage`（key + fallback + params）机制的端到端接入：后端全部校验错误增量携带稳定 `error_code`（UPPER_SNAKE）+ `error_params`（JSON 标量插值参数），经 `UnifiedValidationService` 适配层、`/validate/*` 行模型（`ValidationErrorRow` 增补可选字段，契约只增不破）、全量校验报告 builder 三路透传；前端 `toResult`/各 handler 构建 key 化 `localizedErrors`（`error_code → validation.codes.<CODE>`，行级错误组合 `validation.rowError` 行前缀），经 `syncStrategies` 落节点数据、`useConstraintNodeBase.displayErrors` 与报告两组件经 `renderLocalizedMessage` 渲染（**随 locale 切换实时刷新**，未登记码自动回退后端 `message` 原文）；zh-CN/en-US 双侧补齐全部错误码条目与按约束种类的 `requestFailed` 文案；`i18n-audit-exceptions` 登记 `validation.codes.` 动态前缀。`message` 中文兜底保留（CLI/契约输出不变，契约文档补记增补字段）；notNullHandler 原本只产不消费的 `localizedErrors` 半迁移一并接通渲染端。回归：后端 `test_validation_error_codes.py` 11 例（错误码存在性/UPPER_SNAKE/JSON 可序列化/三路透传），前端 `localizedMessage`/`validationHelpers`/`validationReportViewModel` 单测覆盖码映射、行号 1-based 转换、无码回退与零错误边界。
 
