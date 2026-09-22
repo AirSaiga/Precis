@@ -6,7 +6,7 @@
  * 但验证对象是**发布后线上真实产物**（发布前冒烟验证的是本地 dist/ 的 wheel）。
  *
  * 用法:
- *   node scripts/verify-pypi-package.mjs --version <X> [--index-url <URL>] [--python <path>] [--keep]
+ *   node scripts/release/verify-pypi-package.mjs --version <X> [--index-url <URL>] [--python <path>] [--keep]
  *
  * 步骤:
  *   1. 检查 Python 解释器版本满足包的 requires-python（>=3.12,<3.14）
@@ -23,10 +23,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { isValidSemver } from './release.mjs';
+import { isValidSemver } from '../release.mjs';
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
-const ROOT = path.resolve(path.dirname(SCRIPT_PATH), '..');
+const ROOT = path.resolve(path.dirname(SCRIPT_PATH), '..', '..');
 const DEMO_MANIFEST = path.join(ROOT, 'demo', 'precis-project', 'project.precis.yaml');
 /** demo 项目验收基线：恰好 8 处违规（与 cd.yml pypi job 冒烟、MCP 集成测试同口径） */
 const EXPECTED_VIOLATIONS = 8;
@@ -156,7 +156,7 @@ function detectPython(pythonCmd) {
 async function main() {
   const args = parseVerifyArgs(process.argv.slice(2));
   if (args.help || args.unknown) {
-    log(`用法: node scripts/verify-pypi-package.mjs --version <X> [--index-url <URL>] [--python <path>] [--keep]`);
+    log(`用法: node scripts/release/verify-pypi-package.mjs --version <X> [--index-url <URL>] [--python <path>] [--keep]`);
     process.exit(args.help ? 0 : 2);
   }
   if (!args.version || !isValidSemver(args.version)) {

@@ -79,7 +79,7 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: electron/package-lock.json
+          cache-dependency-path: package-lock.json
 
       # Windows 路径
       - name: Build & publish (Windows)
@@ -88,12 +88,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
           ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
+        # npm workspaces：前端与 Electron 依赖统一在根目录一次安装
         run: |
-          cd frontend
           npm ci
+          cd frontend
           npm run build-only
           cd ../electron
-          npm ci
           npm run build:electron
           npm run fetch-python
           npm run install:backend-deps
@@ -107,11 +107,10 @@ jobs:
           ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: |
-          cd frontend
           npm ci
+          cd frontend
           npm run build-only
           cd ../electron
-          npm ci
           npm run build:electron
           npm run fetch-python
           npm run install:backend-deps

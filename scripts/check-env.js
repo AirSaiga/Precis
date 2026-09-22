@@ -228,10 +228,8 @@ async function main() {
     separator();
     console.log('');
     log('cyan', '可用命令:');
-    console.log(`  ${colors.white}npm run start:cli:win${colors.reset}        - 启动 CLI (Windows)`);
-    console.log(`  ${colors.white}npm run start:cli:mac${colors.reset}        - 启动 CLI (Mac/Linux)`);
-    console.log(`  ${colors.white}npm run start:electron:win${colors.reset}   - 启动桌面版 (Windows)`);
-    console.log(`  ${colors.white}npm run start:electron:mac${colors.reset}   - 启动桌面版 (Mac/Linux)`);
+    console.log(`  ${colors.white}npm run start:cli${colors.reset}          - 启动 CLI`);
+    console.log(`  ${colors.white}npm run start:electron${colors.reset}     - 启动桌面版`);
     console.log(`  ${colors.white}npm run dev${colors.reset}                  - 启动开发服务器`);
   } else {
     log('yellow', '⚠ 环境检查未通过');

@@ -11,12 +11,15 @@
  *       校验全部 manifest 版本与期望值一致，不一致退出码非 0（CD 版本守卫 job 使用）
  *
  * 版本单一事实源（SSOT）: 根 package.json 的 version。
- * 同步副本: electron/package.json、frontend/package.json（经 npm version 连带各自 lock）+
+ * 同步副本: electron/package.json、frontend/package.json（npm workspaces：三处 package.json
+ *           直接写 version 字段，并连带补丁根 package-lock.json 的 version 条目——子包 lockfile
+ *           已合并为根单一 lockfile，npm version 在 workspace 子目录不会更新根 lock 中的
+ *           workspace 版本条目，故不再使用 npm version）+
  *           backend/pyproject.toml、tui-rust/Cargo.toml、tui-rust/Cargo.lock（precis-tui 包块）+
  *           Kimi Code 插件双 manifest（integrations/kimi.plugin.json 与仓库根垫片
  *           .kimi-plugin/plugin.json，全端统一版本号的组成部分——插件版本跟应用走，
  *           marketplace 更新记录才与应用发布对齐；两文件由 plugin_golden_test 守卫一致）。
- *           npm 三处连带更新的 package-lock.json 也随发布提交入库（releaseCommitFiles），
+ *           连带更新的根 package-lock.json 也随发布提交入库（releaseCommitFiles），
  *           漏提交会残留脏工作树，把下一次发布挡在干净树检查上（v0.1.1 实证）。
  */
 
@@ -28,7 +31,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const ROOT = path.resolve(path.dirname(SCRIPT_PATH), '..');
 
-/** 版本载体清单（npm 三处经 npm version 同步 lock，TOML 正则替换，插件 JSON 直接读写） */
+/** 版本载体清单（npm 三处直接写 JSON 并连带根 lockfile，TOML 正则替换，插件 JSON 直接读写） */
 export const MANIFESTS = [
   { file: 'package.json', kind: 'npm' },
   { file: 'frontend/package.json', kind: 'npm' },
@@ -41,13 +44,13 @@ export const MANIFESTS = [
 ];
 
 /**
- * 发布提交应包含的文件：全部 manifest（含插件双 JSON）+ 三份 package-lock.json + CHANGELOG。
- * npm version 更新 package.json 时会连带写各目录 lockfile 的版本字段；
- * 若不一并提交，发布后工作树残留未提交改动，下一次发布被干净树检查阻塞。
+ * 发布提交应包含的文件：全部 manifest（含插件双 JSON）+ 根 package-lock.json + CHANGELOG。
+ * npm workspaces 下子包 lockfile 已合并为根单一 package-lock.json；sync 会连带补丁其中的
+ * version 条目（顶层 version、packages[""] 与各 workspace 条目）。若不一并提交，
+ * 发布后工作树残留未提交改动，下一次发布被干净树检查阻塞。
  */
 export function releaseCommitFiles() {
-  const lockfiles = MANIFESTS.filter((m) => m.kind === 'npm').map((m) => m.file.replace(/package\.json$/, 'package-lock.json'));
-  return [...MANIFESTS.map((m) => m.file), ...lockfiles, 'CHANGELOG.md'];
+  return [...MANIFESTS.map((m) => m.file), 'package-lock.json', 'CHANGELOG.md'];
 }
 
 // ============================================================================
@@ -134,6 +137,26 @@ function withSuffix(base, suffix) {
 export function writeJsonVersion(content, version) {
   const data = JSON.parse(content);
   data.version = version;
+  return `${JSON.stringify(data, null, 2)}\n`;
+}
+
+/**
+ * 根 package-lock.json 的版本字段联动（纯函数）：npm workspaces 下子包 lockfile 合并为
+ * 根单一 lockfile，sync 版本时需同步三处——顶层 version、packages[""]（根包）与
+ * 各 workspace 条目（packages["frontend"] / packages["electron"] 等，键为 workspace
+ * 相对路径，"" 表示根包）。versionsByPath 形如 { '': '0.2.0', frontend: '0.2.0' }。
+ * 序列化格式与 npm 自身输出一致（2 空格缩进 + 尾换行），round-trip 不产生无关 diff。
+ */
+export function writePackageLockVersions(content, versionsByPath) {
+  const data = JSON.parse(content);
+  if (versionsByPath[''] !== undefined) {
+    data.version = versionsByPath[''];
+  }
+  for (const [pkgPath, version] of Object.entries(versionsByPath)) {
+    const entry = data.packages?.[pkgPath];
+    if (!entry) throw new Error(`package-lock.json 缺少 packages["${pkgPath}"] 条目`);
+    entry.version = version;
+  }
   return `${JSON.stringify(data, null, 2)}\n`;
 }
 
@@ -276,9 +299,12 @@ function resolveNextVersion(spec, prereleaseSuffix) {
   return spec;
 }
 
-/** 同步全部 manifest（npm 三处走 npm version 连带 lockfile；TOML 正则替换；插件 JSON 直接读写） */
+/** 同步全部 manifest（npm 三处直接写 JSON 并连带根 lockfile；TOML 正则替换；插件 JSON 直接读写） */
 function syncAllManifests(version, { dryRun = false } = {}) {
   const changes = [];
+  // npm manifest 对应的根 lockfile packages 键（'' = 根包，其余为 workspace 相对路径）
+  const npmLockUpdates = {};
+  let npmChanged = false;
   for (const manifest of MANIFESTS) {
     const filePath = path.join(ROOT, manifest.file);
     const before = readManifestVersion(manifest);
@@ -287,12 +313,19 @@ function syncAllManifests(version, { dryRun = false } = {}) {
       continue;
     }
     if (manifest.kind === 'npm') {
-      if (dryRun) {
-        changes.push({ file: manifest.file, before, after: version, applied: 'dry-run（将执行 npm version，连带 lockfile）' });
-        continue;
+      // npm workspaces：子包 lockfile 已合并为根 package-lock.json，npm version 在 workspace
+      // 子目录不会更新根 lock 的 workspace 版本条目——改为直接写 JSON，并在循环后统一补丁根 lockfile
+      if (!dryRun) {
+        const content = fs.readFileSync(filePath, 'utf-8');
+        fs.writeFileSync(filePath, writeJsonVersion(content, version), 'utf-8');
       }
-      run(`npm version ${version} --no-git-tag-version --allow-same-version`, path.dirname(manifest.file));
-    } else if (manifest.kind === 'json') {
+      const dir = path.dirname(manifest.file).replace(/\\/g, '/');
+      npmLockUpdates[dir === '.' ? '' : dir] = version;
+      npmChanged = true;
+      changes.push({ file: manifest.file, before, after: version, applied: dryRun ? 'dry-run（将写 JSON，连带根 lockfile）' : 'done' });
+      continue;
+    }
+    if (manifest.kind === 'json') {
       // 插件 manifest：经 writeJsonVersion 改 version 字段（格式与既有文件一致）
       if (!dryRun) {
         const content = fs.readFileSync(filePath, 'utf-8');
@@ -309,6 +342,23 @@ function syncAllManifests(version, { dryRun = false } = {}) {
       if (!dryRun) fs.writeFileSync(filePath, updated, 'utf-8');
     }
     changes.push({ file: manifest.file, before, after: version, applied: dryRun ? 'dry-run' : 'done' });
+  }
+  // 根 package-lock.json 版本字段联动（顶层 version + packages[""] + 各 workspace 条目）
+  if (npmChanged) {
+    const lockPath = path.join(ROOT, 'package-lock.json');
+    if (fs.existsSync(lockPath)) {
+      const lockContent = fs.readFileSync(lockPath, 'utf-8');
+      const updatedLock = writePackageLockVersions(lockContent, npmLockUpdates);
+      if (updatedLock !== lockContent) {
+        if (!dryRun) fs.writeFileSync(lockPath, updatedLock, 'utf-8');
+        changes.push({
+          file: 'package-lock.json',
+          before: '（多版本条目）',
+          after: version,
+          applied: dryRun ? 'dry-run（将连带更新）' : 'done（连带更新）',
+        });
+      }
+    }
   }
   return changes;
 }

@@ -15,14 +15,14 @@ import {
   mapOverallTotals,
   parseChangelogVersions,
   buildPypiActionCommand,
-} from '../pypi-gui.mjs';
+} from '../release/pypi-gui.mjs';
 import {
   checkVersionOutput,
   checkValidatePayload,
   venvPython,
   venvPrecis,
   parseVerifyArgs,
-} from '../verify-pypi-package.mjs';
+} from '../release/verify-pypi-package.mjs';
 
 // ---------------------------------------------------------------------------
 // mapPypiReleases
@@ -260,7 +260,7 @@ test('parseChangelogVersions：提取 [X.Y.Z] 小节头，跳过 Unreleased 与�
 test('buildPypiActionCommand：verify-pypi 拼装受控命令', () => {
   const { label, cmd, cwd } = buildPypiActionCommand('verify-pypi', { version: '0.1.5' });
   assert.match(label, /0\.1\.5/);
-  assert.equal(cmd, 'node scripts/verify-pypi-package.mjs --version 0.1.5');
+  assert.equal(cmd, 'node scripts/release/verify-pypi-package.mjs --version 0.1.5');
   assert.equal(cwd, path.resolve(import.meta.dirname, '../..'));
 });
 

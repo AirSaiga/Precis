@@ -25,7 +25,7 @@ echo   - Keep this window open while using the console
 echo   - Close this window (or Ctrl+C) to stop the console
 echo.
 
-call node scripts\release-gui.mjs %*
+call node scripts\release\release-gui.mjs %*
 if errorlevel 1 (
     echo.
     echo [ERROR] Release console exited with an error.

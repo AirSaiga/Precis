@@ -15,6 +15,7 @@ import {
   readCargoLockVersion,
   writeCargoLockVersion,
   writeJsonVersion,
+  writePackageLockVersions,
   latestVersionTag,
   releaseCommitFiles,
   rollbackGuidance,
@@ -204,12 +205,11 @@ test('writeJsonVersion 只改 version、保持字段序与格式', () => {
 // 发布提交清单
 // ---------------------------------------------------------------------------
 
-test('releaseCommitFiles 覆盖全部 manifest（含插件双 JSON）+ 三份 package-lock.json + CHANGELOG', () => {
+test('releaseCommitFiles 覆盖全部 manifest（含插件双 JSON）+ 根 package-lock.json + CHANGELOG', () => {
   const files = releaseCommitFiles();
-  // npm version 连带写 lockfile 的版本字段，漏提交会残留脏工作树阻塞下次发布（v0.1.1 实证）
-  for (const lock of ['package-lock.json', 'frontend/package-lock.json', 'electron/package-lock.json']) {
-    assert.ok(files.includes(lock), `发布提交清单缺少 ${lock}`);
-  }
+  // npm workspaces：子包 lockfile 已合并为根单一 lockfile，sync 连带补丁其版本条目，
+  // 漏提交会残留脏工作树阻塞下次发布（v0.1.1 实证）
+  assert.ok(files.includes('package-lock.json'), '发布提交清单缺少根 package-lock.json');
   // 插件双 manifest（integrations + 仓库根垫片）必须随发布同步提交，marketplace 更新才可见
   assert.ok(files.includes('integrations/kimi.plugin.json'), '发布提交清单缺少插件 manifest');
   assert.ok(files.includes('.kimi-plugin/plugin.json'), '发布提交清单缺少插件根垫片 manifest');
@@ -223,10 +223,48 @@ test('releaseCommitFiles 覆盖全部 manifest（含插件双 JSON）+ 三份 pa
     'integrations/kimi.plugin.json',
     '.kimi-plugin/plugin.json',
     'package-lock.json',
-    'frontend/package-lock.json',
-    'electron/package-lock.json',
     'CHANGELOG.md',
   ]);
+});
+
+// ---------------------------------------------------------------------------
+// 根 package-lock.json 版本字段联动（npm workspaces 单一 lockfile）
+// ---------------------------------------------------------------------------
+
+test('writePackageLockVersions 同步顶层 version 与各 workspace 条目', () => {
+  const lock = JSON.stringify(
+    {
+      name: 'precis',
+      version: '0.1.0',
+      lockfileVersion: 3,
+      packages: {
+        '': { name: 'precis', version: '0.1.0' },
+        frontend: { version: '0.1.0', dependencies: { vue: '^3.0.0' } },
+        electron: { name: 'precis-desktop', version: '0.1.0' },
+        e2e: { version: '1.0.0' },
+        'node_modules/vue': { version: '3.5.0' },
+      },
+    },
+    null,
+    2,
+  );
+  const updated = writePackageLockVersions(lock, { '': '0.2.0', frontend: '0.2.0', electron: '0.2.0' });
+  const parsed = JSON.parse(updated);
+  // 顶层 version 与根包、被同步的 workspace 条目均更新
+  assert.equal(parsed.version, '0.2.0');
+  assert.equal(parsed.packages[''].version, '0.2.0');
+  assert.equal(parsed.packages.frontend.version, '0.2.0');
+  assert.equal(parsed.packages.electron.version, '0.2.0');
+  // 未被同步的条目（e2e 不在 MANIFESTS 中、第三方包）保持不变
+  assert.equal(parsed.packages.e2e.version, '1.0.0');
+  assert.equal(parsed.packages['node_modules/vue'].version, '3.5.0');
+  // 幂等：同样的更新再写一次输出不变
+  assert.equal(writePackageLockVersions(updated, { '': '0.2.0', frontend: '0.2.0', electron: '0.2.0' }), updated);
+});
+
+test('writePackageLockVersions 缺少对应 workspace 条目时抛错', () => {
+  const lock = JSON.stringify({ version: '0.1.0', packages: { '': { version: '0.1.0' } } });
+  assert.throws(() => writePackageLockVersions(lock, { frontend: '0.2.0' }), /packages\["frontend"\]/);
 });
 
 // ---------------------------------------------------------------------------

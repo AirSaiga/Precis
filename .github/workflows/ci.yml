@@ -27,9 +27,11 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: package-lock.json
 
+      # npm workspaces：子包 lockfile 已合并为根单一 lockfile，依赖统一在根目录安装
       - name: Install dependencies
+        working-directory: .
         run: npm ci
 
       - name: Lint
@@ -137,9 +139,11 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: electron/package-lock.json
+          cache-dependency-path: package-lock.json
 
+      # npm workspaces：依赖统一在根目录安装（根 node_modules/.bin 对子目录可用）
       - name: Install dependencies
+        working-directory: .
         run: npm ci
 
       - name: TypeScript compile check
@@ -228,15 +232,12 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: e2e/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install E2E dependencies
+      # npm workspaces：e2e 与前端依赖统一在根目录一次安装
+      - name: Install dependencies
+        working-directory: .
         run: npm ci
-
-      - name: Install frontend dependencies
-        run: |
-          cd ../frontend
-          npm ci
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
@@ -328,18 +329,16 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: electron/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install frontend dependencies
-        working-directory: frontend
+      # npm workspaces：前端与 Electron 依赖统一在根目录一次安装
+      - name: Install dependencies
+        working-directory: .
         run: npm ci
 
       - name: Build frontend
         working-directory: frontend
         run: npm run build-only
-
-      - name: Install electron dependencies
-        run: npm ci
 
       - name: TypeScript compile
         run: npx tsc
@@ -384,18 +383,16 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: electron/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install frontend dependencies
-        working-directory: frontend
+      # npm workspaces：前端与 Electron 依赖统一在根目录一次安装
+      - name: Install dependencies
+        working-directory: .
         run: npm ci
 
       - name: Build frontend
         working-directory: frontend
         run: npm run build-only
-
-      - name: Install electron dependencies
-        run: npm ci
 
       - name: TypeScript compile
         run: npx tsc
@@ -444,8 +441,8 @@ jobs:
           name: electron-win-package
           path: electron/release/
 
+      # npm workspaces：e2e 依赖统一在根目录安装
       - name: Install e2e dependencies
-        working-directory: e2e
         run: npm ci
 
       - name: Install Playwright browsers

@@ -3,7 +3,7 @@
  * @fileoverview Precis 发布控制台 —— 打包 / 发布 / 更新演练 / 线上状态 的本地轻量 GUI
  *
  * 设计目标："无脑"操作——每个动作一个按钮 + 一个实时日志窗，版本号全部预填。
- * 技术形态：零依赖（仅 Node 内置模块）HTTP 服务 + 单页 HTML（scripts/release-gui.html），
+ * 技术形态：零依赖（仅 Node 内置模块）HTTP 服务 + 单页 HTML（scripts/release/release-gui.html），
  *           子进程 stdout/stderr 经 SSE 流式推送浏览器，无任何前端构建步骤。
  *
  * 用法: npm run release:gui [-- --port 17888 --no-open]
@@ -36,15 +36,15 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const SCRIPT_DIR = path.dirname(SCRIPT_PATH);
-const ROOT = path.resolve(SCRIPT_DIR, '..');
+const ROOT = path.resolve(SCRIPT_DIR, '..', '..');
 const ELECTRON_DIR = path.join(ROOT, 'electron');
 const HTML_PATH = path.join(SCRIPT_DIR, 'release-gui.html');
 const REPO_SLUG = 'AirSaiga/Precis';
 const DEFAULT_PORT = 17888;
 
 // 复用 release.mjs / verify-release-assets.mjs 的纯函数（单一实现，避免副本漂移）
-const { MANIFESTS, readManifestVersion, bumpVersion } = await import('./release.mjs');
-const { parseLatestYml } = await import('./verify-release-assets.mjs');
+const { MANIFESTS, readManifestVersion, bumpVersion } = await import('../release.mjs');
+const { parseLatestYml } = await import('../verify-release-assets.mjs');
 
 // ============================================================================
 // 输入校验与命令拼装（纯函数，供 node --test 单测）

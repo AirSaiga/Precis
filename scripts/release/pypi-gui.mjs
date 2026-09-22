@@ -11,7 +11,7 @@
  *       公开 API，可选读 GITHUB_TOKEN/GH_TOKEN 环境变量提额，仅内存使用不持久化）。
  *
  * 技术形态：镜像 release-gui.mjs——零依赖（仅 Node 内置模块）HTTP 服务 + 单页 HTML
- *           （scripts/pypi-gui.html），子进程日志经 SSE 流式推送浏览器。
+ *           （scripts/release/pypi-gui.html），子进程日志经 SSE 流式推送浏览器。
  *           纯函数与安全校验复用既有导出（单一实现，避免副本漂移）：
  *           release.mjs 的版本读取/semver 比较；release-gui.mjs 的输入白名单与来源校验。
  *
@@ -37,13 +37,13 @@ import path from 'node:path';
 import { execSync, spawn } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 // 复用 release.mjs 纯函数（单一实现；被 import 无副作用）
-import { MANIFESTS, readManifestVersion, compareSemver, latestVersionTag } from './release.mjs';
+import { MANIFESTS, readManifestVersion, compareSemver, latestVersionTag } from '../release.mjs';
 // 复用 release-gui.mjs 的输入白名单与来源校验（服务启动有"直接执行才跑 main"守卫，import 无副作用）
 import { isLocalBrowserRequest, validateVersionish, stripAnsi, createLineSplitter } from './release-gui.mjs';
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const SCRIPT_DIR = path.dirname(SCRIPT_PATH);
-const ROOT = path.resolve(SCRIPT_DIR, '..');
+const ROOT = path.resolve(SCRIPT_DIR, '..', '..');
 const HTML_PATH = path.join(SCRIPT_DIR, 'pypi-gui.html');
 const REPO_SLUG = 'AirSaiga/Precis';
 const PYPI_PACKAGE = 'precis-cli';
@@ -246,7 +246,7 @@ export function buildPypiActionCommand(action, params = {}) {
       const version = requireVersion(params.version);
       return {
         label: `验证线上包 ${PYPI_PACKAGE}==${version}`,
-        cmd: `node scripts/verify-pypi-package.mjs --version ${version}`,
+        cmd: `node scripts/release/verify-pypi-package.mjs --version ${version}`,
         cwd: ROOT,
       };
     }

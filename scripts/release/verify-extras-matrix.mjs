@@ -14,7 +14,7 @@
  *         --pypi 从官方源装最新版（发布后巡检）。
  *
  * 用法:
- *   node scripts/verify-extras-matrix.mjs [--pypi] [--keep] [--python <path>] [--variants a,b,c]
+ *   node scripts/release/verify-extras-matrix.mjs [--pypi] [--keep] [--python <path>] [--variants a,b,c]
  *
  * 退出码: 0 全部通过；1 任一形态失败（逐项打印原因）
  */
@@ -26,7 +26,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
-const ROOT = path.resolve(path.dirname(SCRIPT_PATH), '..');
+const ROOT = path.resolve(path.dirname(SCRIPT_PATH), '..', '..');
 const BACKEND = path.join(ROOT, 'backend');
 
 // ============================================================================
@@ -298,7 +298,7 @@ async function runVariant({ variant, venvDir, version, usePyPI, wheelPath }) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help || args.unknown) {
-    log(`用法: node scripts/verify-extras-matrix.mjs [--pypi] [--keep] [--python <path>] [--variants bare,api,ai,mcp,full]`);
+    log(`用法: node scripts/release/verify-extras-matrix.mjs [--pypi] [--keep] [--python <path>] [--variants bare,api,ai,mcp,full]`);
     process.exit(args.help ? 0 : 2);
   }
   let variantNames;

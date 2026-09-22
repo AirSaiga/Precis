@@ -35,7 +35,7 @@ import {
   selectVariants,
   venvPython,
   venvBin,
-} from '../verify-extras-matrix.mjs';
+} from '../release/verify-extras-matrix.mjs';
 
 test('VARIANTS 覆盖 5 种形态且名称唯一', () => {
   const names = VARIANTS.map((v) => v.name);

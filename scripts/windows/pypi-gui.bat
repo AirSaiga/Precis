@@ -25,7 +25,7 @@ echo   - Keep this window open while using the console
 echo   - Close this window (or Ctrl+C) to stop the console
 echo.
 
-call node scripts\pypi-gui.mjs %*
+call node scripts\release\pypi-gui.mjs %*
 if errorlevel 1 (
     echo.
     echo [ERROR] PyPI console exited with an error.

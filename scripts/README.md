@@ -13,6 +13,7 @@ scripts/
 ├── setup.ps1                 # Windows 一键部署 / Windows one-click deploy
 ├── setup.sh                  # Mac/Linux 一键部署 / Mac/Linux one-click deploy
 ├── check-env.js              # 环境检查工具 / Environment checker
+├── start.mjs                 # 跨平台统一启动入口(npm run start:<target>)/ Unified launcher
 ├── build-mac.sh              # Mac 打包脚本(DMG) / Mac build script
 ├── build-cli.ps1             # Windows 打包 CLI 为自包含 zip / Win CLI packaging
 ├── build-cli.sh              # Mac 打包 CLI 为自包含 tar.gz / Mac CLI packaging
@@ -21,10 +22,11 @@ scripts/
 ├── README.md                 # 本文档 / This document
 │
 ├── release.mjs                       # 版本发布脚本(npm run release)/ Release script
-├── release-gui.mjs + release-gui.html # 发布控制台 GUI(npm run release:gui)
-├── pypi-gui.mjs + pypi-gui.html      # PyPI 管理控制台 GUI(npm run pypi:gui)
-├── verify-pypi-package.mjs           # PyPI 已发布包验证(干净 venv 装线上包跑冒烟)
-├── verify-extras-matrix.mjs          # extras 安装形态矩阵验证(npm run verify:extras;5 形态各自 venv 真隔离)
+├── release/                          # 发布/运维控制台与巡检脚本 / Release & ops console scripts
+│   ├── release-gui.mjs + release-gui.html # 发布控制台 GUI(npm run release:gui)
+│   ├── pypi-gui.mjs + pypi-gui.html      # PyPI 管理控制台 GUI(npm run pypi:gui)
+│   ├── verify-pypi-package.mjs           # PyPI 已发布包验证(干净 venv 装线上包跑冒烟)
+│   └── verify-extras-matrix.mjs          # extras 安装形态矩阵验证(npm run verify:extras;5 形态各自 venv 真隔离)
 ├── verify-release-assets.mjs         # CD 产物自检闸门 / Release asset verification
 ├── extract-release-notes.mjs         # CD 提取 Release notes / Release notes extraction
 ├── check-license-headers.mjs         # CI license 头守卫 / License header guard
@@ -127,30 +129,23 @@ All startup scripts auto-detect and prefer `backend/.venv` Python; fall back to 
 
 #### 通过 npm 别名启动 / Via npm Aliases
 
-根目录 `package.json` 已注册便捷别名 / Convenience aliases in root `package.json`:
+根目录 `package.json` 注册了便捷别名，`scripts/start.mjs` 按当前平台自动分发到 `scripts/windows/*.bat` 或 `scripts/mac/*.sh` / Convenience aliases in root `package.json`, auto-dispatched by `scripts/start.mjs`:
 
 ```bash
 # 跨平台 / Cross-platform
 npm run dev                  # 后端 + 前端 (无 Electron) / Backend + Frontend (no Electron)
 
-# Windows
-npm run start:prod:win       # = start.bat
-npm run start:dev:win        # = start-dev.bat
-npm run start:backend:win    # = start-backend.bat
-npm run start:frontend:win   # = start-frontend.bat
-npm run start:electron:win   # = start-electron.bat
-npm run start:cli:win        # = start-cli.bat
-npm run start:tui-rust:win   # = start-tui-rust.bat
-
-# Mac/Linux
-npm run start:prod:mac       # = start.sh
-npm run start:dev:mac        # = start-dev.sh
-npm run start:backend:mac    # = start-backend.sh
-npm run start:frontend:mac   # = start-frontend.sh
-npm run start:electron:mac   # = start-electron.sh
-npm run start:cli:mac        # = start-cli.sh
-npm run start:tui-rust:mac   # = start-tui-rust.sh
+# 统一启动别名（自动按平台分发 .bat / .sh）/ Unified launchers
+npm run start:prod           # = start.bat / start.sh
+npm run start:dev            # = start-dev.bat / start-dev.sh
+npm run start:backend        # = start-backend.bat / start-backend.sh
+npm run start:frontend       # = start-frontend.bat / start-frontend.sh
+npm run start:electron       # = start-electron.bat / start-electron.sh
+npm run start:cli            # = start-cli.bat / start-cli.sh
+npm run start:tui            # = start-tui-rust.bat / start-tui-rust.sh
 ```
+
+`node scripts/start.mjs <target>` 直接调用亦可；dispatcher 同时接受历史别名 `desktop`（= electron）与 `tui-rust`（= tui）。release-gui / pypi-gui 不经该入口，用 `npm run release:gui` / `npm run pypi:gui`。
 
 ## 脚本差异对比 / Script Differences
 
@@ -180,10 +175,8 @@ backend\.venv\Scripts\activate
 source backend/.venv/bin/activate
 pip install -r backend/requirements.txt
 
-# Node 依赖 / Node deps
+# Node 依赖 / Node deps（npm workspaces：根目录一次安装 frontend / electron / e2e）
 npm install
-cd frontend && npm install && cd ..
-cd electron && npm install && cd ..
 
 # 构建 / Build
 cd frontend && npm run build && cd ..

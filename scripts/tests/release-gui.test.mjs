@@ -14,7 +14,7 @@ import {
   buildActionCommand,
   createLineSplitter,
   stripAnsi,
-} from '../release-gui.mjs';
+} from '../release/release-gui.mjs';
 
 // ---------------------------------------------------------------------------
 // 输入校验白名单（GUI 的安全边界：所有用户输入先过这里才允许进入 shell 字符串）

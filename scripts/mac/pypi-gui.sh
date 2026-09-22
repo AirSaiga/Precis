@@ -14,4 +14,4 @@ cd "${PROJECT_ROOT}"
 
 echo "[INFO] Precis PyPI 管理控制台启动中... 浏览器将自动打开（默认 http://127.0.0.1:17889）"
 echo "[INFO] Ctrl+C 退出"
-exec node scripts/pypi-gui.mjs "$@"
+exec node scripts/release/pypi-gui.mjs "$@"
