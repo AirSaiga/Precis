@@ -25,7 +25,7 @@ cd "${PROJECT_ROOT}"
 resolve_python || prompt_exit 1
 
 cd "${BACKEND_DIR}"
-"${PYTHON_CMD}" -B app/cli_main.py "$@"
+"${PYTHON_CMD}" -B -m app.cli "$@"
 EXIT_CODE=$?
 
 if [ $EXIT_CODE -ne 0 ]; then

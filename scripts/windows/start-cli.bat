@@ -33,7 +33,7 @@ if /i "%AUTO_RESTART%"=="1" goto :main_loop
 
 :single_run
 cd /d "%PROJECT_ROOT%\backend"
-"%PYTHON_CMD%" -B app\cli_main.py %*
+"%PYTHON_CMD%" -B -m app.cli %*
 set "EXIT_CODE=%ERRORLEVEL%"
 echo.
 if %EXIT_CODE% neq 0 (
@@ -44,7 +44,7 @@ exit /b %EXIT_CODE%
 
 :main_loop
 cd /d "%PROJECT_ROOT%\backend"
-"%PYTHON_CMD%" -B app\cli_main.py %*
+"%PYTHON_CMD%" -B -m app.cli %*
 
 echo.
 if %ERRORLEVEL% neq 0 (

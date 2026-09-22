@@ -4,16 +4,16 @@
 
 ## 单元测试 vs E2E 边界
 
-| 范围                                                | 单元测试 (`frontend/tests/`)        | E2E (`e2e/flows/`) |
-| --------------------------------------------------- | ----------------------------------- | ------------------ |
-| 纯函数 / 工具类                                     | ✅ 必须覆盖                         | ❌ 不需要          |
-| 服务层工厂 / 构建器 / 校验器                        | ✅ 必须覆盖                         | ❌ 不需要          |
-| API 调用层（mock HTTP）                             | ✅ 覆盖                             | ❌ 不需要          |
-| GraphStore 工厂模块（`createXxxModule`）            | ✅ 覆盖                             | ❌ 不需要          |
-| Vue 组件 / `.vue`                                   | ❌ 原则不覆盖（挂载级回归例外见下） | ✅ E2E 覆盖        |
-| Composables（依赖 Pinia/Vue Flow/Vue 响应式）       | ⚠️ 过渡存量见下                     | ✅ E2E 覆盖        |
-| 普通 Pinia Store（canvasStore、expressionStore 等） | ❌ 不覆盖                           | ✅ E2E 覆盖        |
-| 跨组件/跨 Store 的完整用户流程                      | ❌ 不覆盖                           | ✅ E2E 覆盖        |
+| 范围                                          | 单元测试 (`frontend/tests/`)        | E2E (`e2e/flows/`) |
+| --------------------------------------------- | ----------------------------------- | ------------------ |
+| 纯函数 / 工具类                               | ✅ 必须覆盖                         | ❌ 不需要          |
+| 服务层工厂 / 构建器 / 校验器                  | ✅ 必须覆盖                         | ❌ 不需要          |
+| API 调用层（mock HTTP）                       | ✅ 覆盖                             | ❌ 不需要          |
+| GraphStore 工厂模块（`createXxxModule`）      | ✅ 覆盖                             | ❌ 不需要          |
+| Vue 组件 / `.vue`                             | ❌ 原则不覆盖（挂载级回归例外见下） | ✅ E2E 覆盖        |
+| Composables（依赖 Pinia/Vue Flow/Vue 响应式） | ⚠️ 过渡存量见下                     | ✅ E2E 覆盖        |
+| 普通 Pinia Store（canvasStore 等）            | ❌ 不覆盖                           | ✅ E2E 覆盖        |
+| 跨组件/跨 Store 的完整用户流程                | ❌ 不覆盖                           | ✅ E2E 覆盖        |
 
 > 详细策略见项目根目录 `AGENTS.md` 的 **Testing Strategy** 章节。
 
@@ -59,7 +59,7 @@ frontend/tests/
 以下测试目前仍在 vitest 中运行，但按策略应由 E2E 覆盖。保留它们是为了过渡期不丢失断言，但新增类似测试时请优先写到 `e2e/flows/`。
 
 - `tests/composables/` — `useGlobalConfirm`、`useTheme`（注：实际测试的是 `@/core/utils/theme` 纯函数，建议改名为 `tests/core/utils/theme.test.ts`）、`shared/useToast`、`shared/useStreamingMessage`、`validation/useValidationErrorFilter`、`canvas/useCanvasNodeOperations.dragPosition`、`nodes/connectionHandlers`、`nodes/json/useJsonSchemaValidation`、`nodes/shared/useSchemaDataBase`、`nodes/transform/transformCategory`、`resource/useResourceInteraction`
-- `tests/stores/`（graphStore/ 除外）— `aiChatStore`、`appModeStore`、`canvasStore`、`canvasTabStore`、`dragStore`、`expressionStore`、`feedbackStore`、`projectStore`、`resourceDragStore`、`resourceTreeStore`、`scriptEditorStore`、`settingsNavStore`、`settingsPreferencesStore`、`shortcutStore`、`validationTaskStore`、`workspaceStore`
+- `tests/stores/`（graphStore/ 除外）— `aiChatStore`、`appModeStore`、`canvasStore`、`canvasTabStore`、`dragStore`、`feedbackStore`、`projectStore`、`resourceDragStore`、`resourceTreeStore`、`scriptEditorStore`、`settingsNavStore`、`settingsPreferencesStore`、`shortcutStore`、`validationTaskStore`、`workspaceStore`
 
 ## 新增测试规范
 

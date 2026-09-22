@@ -23,7 +23,7 @@ import {
   outputParamTypeToDataType,
   coerceExtractedValue,
 } from '@/features/regex/services/regexOutputMapping'
-import type { OutputMappingParamType } from '@/types/regex'
+import type { OutputMappingParamType } from '@/features/regex/types'
 
 describe('isOutputParamBinding', () => {
   it('returns true for valid param bindings', () => {

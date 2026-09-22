@@ -27,7 +27,7 @@
 
 输入示例:
     从外部导入所需的报告器:
-    from backend.app.shared.core.reporter.reporters import (
+    from app.shared.core.reporter.reporters import (
         Reporter,           # 抽象基类，用于自定义报告器
         LocalFileReporter,  # 本地文件报告器
         EmailReporter,      # 邮件报告器
