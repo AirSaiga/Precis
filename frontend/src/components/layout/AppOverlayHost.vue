@@ -54,6 +54,9 @@ limitations under the License.
 
   <ProjectManagementModal v-model="projectManagementVisible" />
 
+  <!-- Ctrl+K 命令面板（组件常驻挂载，显隐由 eventBus 'open-command-palette' 驱动） -->
+  <CommandPalette />
+
   <!-- 正则表达式设计弹窗 -->
   <RegexDesignModal
     :visible="graphStore.designModalVisible"
@@ -88,6 +91,7 @@ limitations under the License.
   import GlobalConfirmModal from '@/components/common/GlobalConfirmModal.vue'
   import InspectionDrawer from '@/components/inspection/InspectionDrawer.vue'
   import ShortcutSettingsPanel from '@/components/settings/ShortcutSettingsPanel.vue'
+  import CommandPalette from '@/features/command-palette/components/CommandPalette.vue'
   import type {
     RegexNodeData,
     RegexDesignUpdateData,

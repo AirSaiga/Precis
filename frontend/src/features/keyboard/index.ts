@@ -39,6 +39,7 @@ import { platformDetector } from './platform'
 import { getBaseCommands } from './commands/baseCommands'
 import { getCanvasCommands } from './commands/canvasCommands'
 import { getHelpCommands } from './commands/helpCommands'
+import { getPaletteShortcutCommands } from './commands/paletteCommands'
 /**
  * 快捷键管理器接口
  */
@@ -141,7 +142,12 @@ export function createKeyboardShortcuts(
 
   const buildDefaultCommands = (): Command[] => {
     return autoRegisterDefaults
-      ? [...getBaseCommands(), ...getCanvasCommands(), ...getHelpCommands()]
+      ? [
+          ...getBaseCommands(),
+          ...getCanvasCommands(),
+          ...getHelpCommands(),
+          ...getPaletteShortcutCommands(),
+        ]
       : []
   }
 

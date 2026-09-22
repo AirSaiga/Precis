@@ -66,6 +66,15 @@ export interface AppEvents {
   viewchange: { view: string }
   'open-settings': undefined
   'open-project-management': undefined
+  /** 打开命令面板（Ctrl+K，features/keyboard 的 palette.open 命令发射） */
+  'open-command-palette': undefined
+  /**
+   * 请求画布宿主执行快速整理（quickOrganize）。
+   * useNodeOrganizer 内部 useVueFlow() 依赖 VueFlow provide/inject，只有在
+   * NodeCanvas 宿主内实例化才连到真实画布——画布外（命令面板等）经此事件
+   * 委托给 NodeCanvas 内的 organizer 实例执行。
+   */
+  'request-quick-organize': undefined
   'project-closed': undefined
   /**
    * 持久化的项目路径已失效（后端返回"提供的项目配置路径不存在"404）。

@@ -24,6 +24,7 @@ import commonLocales from './common'
 import shortcuts from './shortcuts'
 import inspection from './inspection'
 import feedback from './feedback'
+import commandPalette from './commandPalette'
 
 import { navigation, assetLibrary } from './core'
 import { canvas, nodeTypeMenu, statusBar } from './canvas'
@@ -88,6 +89,7 @@ const zhCN = {
   shortcuts,
   inspection,
   feedback,
+  commandPalette,
 }
 
 export default zhCN
