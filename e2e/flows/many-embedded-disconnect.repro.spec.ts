@@ -505,13 +505,13 @@ test.describe('拖入多列 Schema 后内嵌约束断连复现', () => {
       const ys = constraintNodes.map((n) => n.y)
       const spanY = Math.max(...ys) - Math.min(...ys)
       console.log(
-        `[repro] 约束节点纵向跨度: ${spanY.toFixed(0)}px（${constraintNodes.length} 个，栅格期望 ≤ ~1500px）`,
+        `[repro] 约束节点纵向跨度: ${spanY.toFixed(0)}px（${constraintNodes.length} 个，栅格期望 ≤ ~2200px）`,
       )
-      // 阈值 1250→1500：聚合时代约束卡片经坞「展开全部」重排，栅格行距按实测卡高
-      // （约束卡 ~170px，含详情区）计算，6 行满列跨度 ≈ 1320px；单列长条回归
-      // （24 张 × ~190+ 步进 ≈ 5500px）仍会被拦截，锁的判别力不变
+      // 阈值 1500→2200：实测约束卡行高 ~280px（卡体 ~250 + 行距），6 行满列
+      // 跨度 1586~1677px（本地/CI 实测），1500 误伤正常栅格；单列长条回归
+      // （24 张 × ~280px 行进 ≈ 6700px）仍会被拦截，锁的判别力不变
       expect(spanY, '约束节点纵向跨度过大，退化为单列长条').toBeLessThanOrEqual(
-        1500,
+        2200,
       )
     }
   })

@@ -374,24 +374,30 @@ test.describe("画布视图模式", () => {
     }
 
     // 3. 校验：vw_users（name pass / age error）与 vw_orders（pass）
-    // 状态类同时出现在节点根 div 与内部状态点上，用 .first() 避开 strict mode
+    // 状态类同时出现在节点根 div 与内部状态点上，用 .first() 避开 strict mode。
+    // CI 慢环境下校验回写与节点 DOM 渐进入场/重建交叠，状态类可能瞬时缺席
+    // （首跑两次 20s "element(s) not found"，本地同树绿）——用 toPass 整段重试
     await validateSchemaViaPipeline(page, "vw_users", "vw_users.csv");
-    await expect(
-      page
-        .locator(`.vue-flow__node[data-id="${USERS_ERROR_CARD}"] .status-error`)
-        .first(),
-    ).toBeVisible({ timeout: 20_000 });
-    await expect(
-      page
-        .locator(`.vue-flow__node[data-id="${USERS_PASS_CARD}"] .status-pass`)
-        .first(),
-    ).toBeVisible({ timeout: 20_000 });
+    await expect(async () => {
+      await expect(
+        page
+          .locator(`.vue-flow__node[data-id="${USERS_ERROR_CARD}"] .status-error`)
+          .first(),
+      ).toBeVisible({ timeout: 10_000 });
+      await expect(
+        page
+          .locator(`.vue-flow__node[data-id="${USERS_PASS_CARD}"] .status-pass`)
+          .first(),
+      ).toBeVisible({ timeout: 10_000 });
+    }).toPass({ timeout: 60_000 });
     await validateSchemaViaPipeline(page, "vw_orders", "vw_orders.csv");
-    await expect(
-      page
-        .locator(`.vue-flow__node[data-id="${ORDERS_PASS_CARD}"] .status-pass`)
-        .first(),
-    ).toBeVisible({ timeout: 20_000 });
+    await expect(async () => {
+      await expect(
+        page
+          .locator(`.vue-flow__node[data-id="${ORDERS_PASS_CARD}"] .status-pass`)
+          .first(),
+      ).toBeVisible({ timeout: 10_000 });
+    }).toPass({ timeout: 60_000 });
 
     // 4. 仅异常：pass 卡隐藏、error 卡保留、非约束节点不受影响
     await page.locator('[data-testid="view-mode-errors-only"]').click();
