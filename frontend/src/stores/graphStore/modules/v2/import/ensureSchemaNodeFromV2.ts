@@ -37,7 +37,7 @@ import type { CustomNode } from '@/types/graph'
 import type { JSONOptionsV2 } from '@/types/projectV2'
 import { getV2Schema } from '@/api/projectV2Api'
 import { parseColumnSpecs } from '@/services/builders/parseColumnSpec'
-import { normalizePath } from '@/core/utils/pathNormalization'
+import { normalizeTransportPath } from '@/core/utils/pathNormalization'
 import { addNodes } from '@/services/canvas/vueFlowApi'
 export function createEnsureSchemaNodeFromV2(params: {
   nodes: Ref<CustomNode[]>
@@ -73,7 +73,7 @@ export function createEnsureSchemaNodeFromV2(params: {
         : sourcePathMode === 'relative_file'
           ? resolveProjectRelativePath(configPath, schema.source?.path)
           : undefined
-    const localPath = rawLocalPath ? normalizePath(rawLocalPath) : undefined
+    const localPath = rawLocalPath ? normalizeTransportPath(rawLocalPath) : undefined
     const sourceMode = 'localfile'
 
     // JSON schema 不需要 sheet

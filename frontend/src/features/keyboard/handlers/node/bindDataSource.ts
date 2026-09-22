@@ -36,7 +36,12 @@ import { addNodes } from '@/services/canvas/vueFlowApi'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { fetchPreviewDataFromPath } from '@/services/preview/fetchPreviewFromPath'
-import { normalizePath, isAbsolutePath, ensureDirPath } from '@/core/utils/pathNormalization'
+import {
+  normalizePath,
+  normalizeTransportPath,
+  isAbsolutePath,
+  ensureDirPath,
+} from '@/core/utils/pathNormalization'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import { tabularColumnGenerator } from '@/utils/nodes/columnGeneration/TabularColumnGenerator'
 import { jsonColumnGenerator } from '@/utils/nodes/columnGeneration/JsonColumnGenerator'
@@ -113,8 +118,7 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
       e.target === schemaNode.id &&
       sourceTypes.includes(
         graphStore.nodes.find((n) => n.id === e.source)?.type as
-          | 'sourcePreview'
-          | 'jsonSourcePreview'
+          'sourcePreview' | 'jsonSourcePreview'
       )
   )
   if (alreadyConnected) {
@@ -123,21 +127,23 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
   }
 
   // ---- 根据 Schema 自身的 sourcePathMode 解析绝对路径 ----
+  // 传输层语义（normalizeTransportPath，保留大小写）：结果直接发后端加载并
+  // 注册进资源树——比较层小写化在大小写敏感 FS 上会 404（见工具注释）
   let resolvedLocalPath: string
   const sourcePathMode = schemaData.sourcePathMode || 'relative_file'
   if (sourcePathMode === 'absolute_file' && isAbsolutePath(localPath)) {
-    resolvedLocalPath = normalizePath(localPath)
+    resolvedLocalPath = normalizeTransportPath(localPath)
   } else if (isAbsolutePath(localPath)) {
-    resolvedLocalPath = normalizePath(localPath)
+    resolvedLocalPath = normalizeTransportPath(localPath)
   } else {
     const projectStore = useProjectStore()
     const rawProjectRoot =
       projectStore.currentPaths?.configPath || projectStore.currentPaths?.dataPath
     const projectRoot = rawProjectRoot ? ensureDirPath(rawProjectRoot) : ''
     if (projectRoot) {
-      resolvedLocalPath = normalizePath(projectRoot + localPath.replace(/^[\/\\]+/, ''))
+      resolvedLocalPath = normalizeTransportPath(projectRoot + localPath.replace(/^[\/\\]+/, ''))
     } else {
-      resolvedLocalPath = normalizePath(localPath)
+      resolvedLocalPath = normalizeTransportPath(localPath)
     }
   }
 
@@ -346,8 +352,7 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
       e.source !== sourcePreviewNodeId &&
       sourceTypes.includes(
         graphStore.nodes.find((n) => n.id === e.source)?.type as
-          | 'sourcePreview'
-          | 'jsonSourcePreview'
+          'sourcePreview' | 'jsonSourcePreview'
       )
   )
   for (const edge of oldEdges) {

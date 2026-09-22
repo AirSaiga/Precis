@@ -136,6 +136,19 @@ export function isAbsolutePath(input: string): boolean {
 }
 
 /**
+ * 传输/存储层路径规范化：任何平台保留大小写。
+ *
+ * 与 normalizePath（比较层，Windows 判定下转小写便于判同 key）相对——本函数
+ * 的结果会作为真实文件路径发往后端加载或写入节点 data（schema localPath、
+ * 数据源绑定等），Linux/macOS 大小写敏感文件系统上被小写化即文件不存在。
+ * 分层依据 CI E2E 实证：Playwright headless 在 Linux 上 UA 报 Windows，凡
+ * 传输层借道比较层规范化的路径在 CI 上 404。
+ */
+export function normalizeTransportPath(input: string): string {
+  return canonicalizePath(input, false)
+}
+
+/**
  * 确保路径指向目录（如果指向文件则提取目录部分）
  *
  * 与 normalizePath 的区别：保留末尾的 `/`，便于拼接相对路径。

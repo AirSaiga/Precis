@@ -43,6 +43,7 @@ vi.mock('@/services/builders', () => ({
 
 vi.mock('@/core/utils/pathNormalization', () => ({
   normalizePath: vi.fn((p: string) => p),
+  normalizeTransportPath: vi.fn((p: string) => p),
 }))
 
 vi.mock('@/stores/graphStore/modules/v2/shared/embeddedConstraints', () => ({

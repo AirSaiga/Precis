@@ -23,10 +23,24 @@ import { describe, it, expect } from 'vitest'
 import {
   encodeConfigPathHeader,
   normalizePath,
+  normalizeTransportPath,
   resolveRelativePath,
   toPosixPath,
 } from '@/core/utils/pathNormalization'
 import { normalizeSourceKey, sourceKeyString } from '@/utils/typeHelpers'
+
+describe('normalizeTransportPath（传输层：任何平台保留大小写）', () => {
+  // 分层依据 CI E2E 实证：schema localPath 经比较层 normalizePath 小写化后
+  // 发后端，大小写敏感 FS 上 404（Playwright headless 在 Linux 上 UA 报 Windows）
+  it('混合大小写路径原样保留（含盘符与 POSIX）', () => {
+    expect(normalizeTransportPath('/tmp/Proj-AbC/Data.csv')).toBe('/tmp/Proj-AbC/Data.csv')
+    expect(normalizeTransportPath('D:\\Proj-AbC\\Data.csv')).toBe('D:/Proj-AbC/Data.csv')
+  })
+
+  it('仍做分隔符合并、去尾斜杠与 .. 消解（传输层同样需要规范形态）', () => {
+    expect(normalizeTransportPath('/tmp//a/b/../c/')).toBe('/tmp/a/c')
+  })
+})
 
 describe('normalizePath 的 POSIX 绝对路径前导斜杠（跨平台回归）', () => {
   // 回归背景：split('/') 把前导 '/' 拆成空段被过滤，'/tmp/x' 曾被相对化成
