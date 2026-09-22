@@ -53,6 +53,20 @@ describe('normalizePath 的 POSIX 绝对路径前导斜杠（跨平台回归）'
       '/tmp/precis-e2e-3417/data/vw_users.csv'
     )
   })
+
+  it('resolveRelativePath 传输层语义：任何平台保留大小写（Linux 大小写敏感 FS 上小写化即 404）', () => {
+    // CI 实证：mkdtemp 目录含大写（spXBBa），Playwright headless 在 Linux 上
+    // UA 报 Windows —— 比较层规范化误转小写后发后端文件不存在
+    expect(resolveRelativePath('data/VW_Users.csv', '/tmp/precis-e2e-4886-spXBBa')).toBe(
+      '/tmp/precis-e2e-4886-spXBBa/data/VW_Users.csv'
+    )
+    // Windows 盘符路径同样保留大小写
+    expect(resolveRelativePath('Data/Users.csv', 'D:/Proj-AbC')).toBe('D:/Proj-AbC/Data/Users.csv')
+  })
+
+  it('resolveRelativePath 绝对 rel 分支保留大小写并消解 ..', () => {
+    expect(resolveRelativePath('/Tmp/A/../B.csv', '/x/Proj')).toBe('/Tmp/B.csv')
+  })
 })
 
 describe('encodeConfigPathHeader（header 线上安全值契约）', () => {

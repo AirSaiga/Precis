@@ -38,7 +38,11 @@
  * 现在仅在 Windows 上转小写（Windows 文件系统不区分大小写，转小写便于比较）。
  */
 function isCaseInsensitiveFileSystem(): boolean {
-  // navigator.userAgent 在浏览器与 Electron renderer 中均可用
+  // navigator.userAgent 在浏览器与 Electron renderer 中均可用。
+  // 已知误报边界（CI E2E 实证）：Playwright headless Chromium 在 Linux runner
+  // 上 UA 仍报 Windows —— 凡把规范化结果当"真实路径"传输（发后端加载、写节点
+  // data）的场景必须走大小写保留形态（见 resolveRelativePath /
+  // canonicalizePath(lowercase=false)），不得依赖本判定
   if (typeof navigator !== 'undefined' && navigator.userAgent) {
     return /Win/i.test(navigator.userAgent) || /Windows/i.test(navigator.platform || '')
   }
@@ -47,27 +51,24 @@ function isCaseInsensitiveFileSystem(): boolean {
 }
 
 /**
- * 将任意路径转换为标准形式（canonical form）
+ * 规范化核心（共享实现）。
  *
- * 标准化规则：
- * 1. 去除首尾空白
- * 2. 将所有反斜杠 `\` 替换为正斜杠 `/`
- * 3. 合并连续的正斜杠为单个 `/`（处理后端 "d://path" 等异常格式）
- * 4. 解析 `.` 和 `..` 路径段（保留 Windows 驱动器前缀 `c:/`）
- * 5. 仅 Windows 转换为小写（文件系统不区分大小写），Linux/macOS 保留原大小写
- * 6. 去除末尾的 `/`（文件路径）
- *
- * @param input - 原始路径
- * @returns 标准化后的路径
+ * @param lowercase - true=比较层语义（Windows 上转小写便于判同 key）；
+ *   false=传输/存储层语义（任何平台都保留大小写——Linux/macOS 文件系统
+ *   大小写敏感，真实目录名含大写时被小写化即 404）
  */
-export function normalizePath(input: string): string {
+function canonicalizePath(input: string, lowercase: boolean): string {
   if (!input) return ''
   const trimmed = input.trim().replace(/\\/g, '/').replace(/\/+/g, '/')
-  // B33：仅在 Windows（大小写不敏感 FS）上转小写
-  const normalized = isCaseInsensitiveFileSystem() ? trimmed.toLowerCase() : trimmed
-  // 保留 Windows 驱动器前缀（如 "c:/"），避免解析 .. 时误删
+  const normalized = lowercase ? trimmed.toLowerCase() : trimmed
+  // 保留 Windows 驱动器前缀（如 "c:/"），避免解析 .. 时误删；
+  // 盘符大小写仅比较层（lowercase）归一小写——传输层保留原样
   const driveMatch = normalized.match(/^[a-zA-Z]:\//)
-  const prefix = driveMatch ? normalized.slice(0, 3).toLowerCase() : ''
+  const prefix = driveMatch
+    ? lowercase
+      ? normalized.slice(0, 3).toLowerCase()
+      : normalized.slice(0, 3)
+    : ''
   const rest = prefix ? normalized.slice(prefix.length) : normalized
   // POSIX 绝对路径的前导 '/'：split('/') 会把它拆成空段被下方 filter 丢弃，
   // 必须先行捕获回填——否则 Linux/macOS 上 '/tmp/x' 被相对化成 'tmp/x'，
@@ -85,6 +86,24 @@ export function normalizePath(input: string): string {
   const joined = resolved.join('/')
   const result = prefix + leadingSlash + joined
   return result || (normalized.startsWith('/') ? '/' : '')
+}
+
+/**
+ * 将任意路径转换为标准形式（canonical form）
+ *
+ * 标准化规则：
+ * 1. 去除首尾空白
+ * 2. 将所有反斜杠 `\` 替换为正斜杠 `/`
+ * 3. 合并连续的正斜杠为单个 `/`（处理后端 "d://path" 等异常格式）
+ * 4. 解析 `.` 和 `..` 路径段（保留 Windows 驱动器前缀 `c:/`）
+ * 5. 仅 Windows 转换为小写（文件系统不区分大小写），Linux/macOS 保留原大小写
+ * 6. 去除末尾的 `/`（文件路径）
+ *
+ * @param input - 原始路径
+ * @returns 标准化后的路径
+ */
+export function normalizePath(input: string): string {
+  return canonicalizePath(input, isCaseInsensitiveFileSystem())
 }
 
 /**
@@ -141,21 +160,27 @@ export function ensureDirPath(input: string): string {
 }
 
 /**
- * 解析相对路径为绝对路径
+ * 解析相对路径为绝对路径（传输/存储层语义：任何平台都保留大小写）。
+ *
+ * 输出会作为真实文件路径使用（发往后端加载、写入节点 data、磁盘查找），
+ * 不能借用 normalizePath 的比较层小写化——Linux/macOS 大小写敏感文件系统
+ * 上，真实目录名含大写被小写化即文件不存在（CI E2E 实证：Playwright
+ * headless 在 Linux runner 上 UA 报 Windows，使按 UA 判定的比较层规范化
+ * 误转小写，混合大小写的 mkdtemp 目录 404）。
  *
  * @param relPath - 相对路径
  * @param baseDir - 基础目录（必须是目录路径）
  * @returns 绝对路径，如果解析失败返回 undefined
  */
 export function resolveRelativePath(relPath: string, baseDir: string): string | undefined {
-  const base = ensureDirPath(baseDir)
   const rel = relPath.trim()
-  if (!base || !rel) return undefined
-  // 如果 rel 已经是绝对路径，直接标准化后返回
-  if (isAbsolutePath(rel)) return normalizePath(rel)
-  // 拼接路径
+  if (!rel) return undefined
+  if (isAbsolutePath(rel)) return canonicalizePath(rel, false)
+  const base = canonicalizePath(baseDir, false)
+  if (!base) return undefined
+  // 拼接路径（消解 base 的尾斜杠后统一以 '/' 连接）
   const normalizedRel = rel.replace(/\\/g, '/').replace(/^\/+/, '')
-  return base + normalizedRel
+  return base + '/' + normalizedRel
 }
 
 /**
