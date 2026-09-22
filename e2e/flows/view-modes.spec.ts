@@ -335,12 +335,34 @@ test.describe("画布视图模式", () => {
   test("仅异常隐藏通过卡、聚焦隔离闭包、刷新后模式恢复", async ({
     projectPage,
     isolatedProjectPath,
+    apiHelper,
   }) => {
     test.setTimeout(240_000);
     const page = projectPage;
 
     // 1. 夹具：两 Schema 三约束（每表 ≤ 3 卡，低于聚合阈值不建坞）
     writeFixture(isolatedProjectPath);
+
+    // [CI-diag] 定位 CI-only 404（本地 Windows 绿、CI Linux 三轮全红）：
+    // 三问——Node 侧文件在吗 / data 目录里有什么 / 后端直连（绕过 UI 与
+    // Vite 代理）看得到吗。与请求载荷已核对：UI 发出的路径本身正确。
+    {
+      const dataDir = path.join(isolatedProjectPath, "data");
+      const csv = path.join(dataDir, "vw_users.csv");
+      console.log(
+        `[CI-diag] writeFixture 后 existsSync(vw_users.csv)=${fs.existsSync(csv)}` +
+          ` data目录=${fs.existsSync(dataDir) ? fs.readdirSync(dataDir).join(",") : "<不存在>"}`,
+      );
+      const probe = await apiHelper.post("/validate", {
+        validation_type: "not_null",
+        target_column_name: "name",
+        source_file_path: csv,
+        column_data_type: "String",
+      });
+      console.log(
+        `[CI-diag] 直连后端探测 status=${probe.status} body=${(await probe.text()).slice(0, 160)}`,
+      );
+    }
 
     await openProjectOnCanvas(page, isolatedProjectPath);
     await showCanvasControls(page);
@@ -377,6 +399,20 @@ test.describe("画布视图模式", () => {
     // 状态类同时出现在节点根 div 与内部状态点上，用 .first() 避开 strict mode。
     // CI 慢环境下校验回写与节点 DOM 渐进入场/重建交叠，状态类可能瞬时缺席
     // （首跑两次 20s "element(s) not found"，本地同树绿）——用 toPass 整段重试
+    // [CI-diag] 导入完成后复探：文件还在吗 + 直连后端结果（对比 T0 探针定位删除窗口）
+    {
+      const csv = path.join(isolatedProjectPath, "data", "vw_users.csv");
+      console.log(`[CI-diag] 导入后 existsSync(vw_users.csv)=${fs.existsSync(csv)}`);
+      const probe2 = await apiHelper.post("/validate", {
+        validation_type: "not_null",
+        target_column_name: "name",
+        source_file_path: csv,
+        column_data_type: "String",
+      });
+      console.log(
+        `[CI-diag] 导入后直连探测 status=${probe2.status} body=${(await probe2.text()).slice(0, 160)}`,
+      );
+    }
     await validateSchemaViaPipeline(page, "vw_users", "vw_users.csv");
     await expect(async () => {
       await expect(
