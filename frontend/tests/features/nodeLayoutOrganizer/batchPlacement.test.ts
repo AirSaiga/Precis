@@ -18,6 +18,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   layoutBatchAsColumn,
+  layoutBatchAsGrid,
   computeItemsBounds,
   computeClearanceShift,
   type ColumnLayoutItem,
@@ -156,5 +157,59 @@ describe('computeClearanceShift', () => {
     for (const obstacle of obstacles) {
       expect(overlaps(shifted, obstacle)).toBe(false)
     }
+  })
+})
+
+describe('layoutBatchAsGrid（栅格布局：列满换列）', () => {
+  const ORIGIN = { x: 420, y: 200 }
+  const OPTS = { rowsPerColumn: 3, columnGap: 80, rowGap: 20 }
+
+  it('每列至多 rowsPerColumn 个，填满换列，保持输入顺序', () => {
+    const items = ['a', 'b', 'c', 'd', 'e'].map((id) => makeItem(id))
+    const positions = layoutBatchAsGrid(items, ORIGIN, OPTS)
+
+    // 列 0：a/b/c；列 1：d/e
+    expect(positions.get('a')).toEqual({ x: 420, y: 200 })
+    expect(positions.get('b')).toEqual({ x: 420, y: 320 })
+    expect(positions.get('c')).toEqual({ x: 420, y: 440 })
+    // 列 1 x = 420 + 260(列 0 最宽) + 80(gap)
+    expect(positions.get('d')).toEqual({ x: 760, y: 200 })
+    expect(positions.get('e')).toEqual({ x: 760, y: 320 })
+  })
+
+  it('列宽按该列最宽条目累进（不同宽度不重叠）', () => {
+    const items = [
+      makeItem('wide', 400, 100),
+      makeItem('a', 260, 100),
+      makeItem('b', 260, 100),
+      makeItem('c', 260, 100),
+    ]
+    const positions = layoutBatchAsGrid(items, ORIGIN, OPTS)
+
+    // rowsPerColumn=3 → 列 0 = [wide, a, b]，列 1 = [c]
+    // 列 1 x = 420 + 400(列 0 最宽) + 80(gap)
+    expect(positions.get('c')?.x).toBe(900)
+    // 列 0 的 a 紧贴列左缘
+    expect(positions.get('a')?.x).toBe(420)
+  })
+
+  it('纵向高度受 rowsPerColumn 约束（单列长条问题回归锁）', () => {
+    // 22 个约束、每列 6 个 → 纵向最多 6 行，而非 22 行
+    const items = Array.from({ length: 22 }, (_, i) => makeItem(`n${i}`))
+    const positions = layoutBatchAsGrid(items, ORIGIN, {
+      rowsPerColumn: 6,
+      columnGap: 420,
+      rowGap: 60,
+    })
+
+    const ys = [...positions.values()].map((p) => p.y)
+    const spanY = Math.max(...ys) - Math.min(...ys)
+    // 6 行 × (100 高 + 60 间距) - 60 = 960；远小于单列直排的 22 × 160 = 3520
+    expect(spanY).toBeLessThanOrEqual(1000)
+    expect(positions.size).toBe(22)
+  })
+
+  it('空批次返回空 Map', () => {
+    expect(layoutBatchAsGrid([], ORIGIN, OPTS).size).toBe(0)
   })
 })

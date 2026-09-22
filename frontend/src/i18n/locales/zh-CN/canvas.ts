@@ -35,6 +35,22 @@ const canvas = {
     toggleLeft: '切换左侧面板',
     toggleRight: '切换右侧面板',
   },
+  // 画布视图模式 + 节点类型筛选（CanvasControls 左下角控件）
+  viewFilter: {
+    panorama: '全景',
+    focus: '聚焦',
+    errorsOnly: '仅异常',
+    focusHint: '聚焦模式：选中一个节点后点击可聚焦其关联子图',
+    typeFilter: '按节点类型筛选',
+    groups: {
+      schema: 'Schema',
+      source: '数据源',
+      transform: '转换',
+      constraint: '约束',
+      regex: '正则',
+      other: '其他',
+    },
+  },
   // [新增] NodeCanvas相关
   nodeCanvas: {
     headerChangedRegenerate: '检测到表头已变更，是否基于新表头 "{header}" 重新生成列定义？',

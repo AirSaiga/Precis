@@ -331,23 +331,11 @@ export function useCanvasNodeOperations(flowWrapper: Ref<HTMLElement | null>) {
     cascadeFromConstraint: boolean = false
   ) => {
     // 从 payload 中解构获取类型、元数据和来源
-    const {
-      type,
-      meta,
-      source,
-      associatedRegexIds,
-      associatedConstraintIds,
-      embeddedConstraints,
-      implicitRegexFields,
-    } = payload
+    const { type, meta, source, associatedRegexIds, implicitRegexFields } = payload
 
     // 类型断言
-    const embeddedConstraintsList = embeddedConstraints as
-      | Array<{ id: string; name: string }>
-      | undefined
     const implicitRegexFieldsList = implicitRegexFields as
-      | Array<{ inferredPatternId: string }>
-      | undefined
+      Array<{ inferredPatternId: string }> | undefined
 
     // 使用 switch 语句根据类型分发到不同的创建逻辑
     switch (type) {
@@ -398,33 +386,24 @@ export function useCanvasNodeOperations(flowWrapper: Ref<HTMLElement | null>) {
         if (source === 'projectResources' && meta && typeof meta === 'object' && 'id' in meta) {
           const schemaId = String((meta as Record<string, unknown>).id)
 
+          // ① 始终先创建 Schema 节点本身（含内嵌约束物化）。
+          //    必须先于独立约束/正则导入：它们（includeDeps:false）的连线在各自
+          //    导入结束 flush 边缓冲时，若 Schema 节点尚不存在，会被 Vue Flow
+          //    addEdges 的 findNode 检查静默丢弃（AGENTS.md Vue Flow 边陷阱）——
+          //    结果是"节点在、边丢失"= 断连（2026-09-21 用户实证：拖入员工信息表
+          //    后关联独立约束节点全部断连）。
+          await store.importV2ResourceToCanvas('schema', schemaId, position, {
+            includeDeps: false,
+            moveIfExists: true,
+          })
+
           // 【主核爆发展开】如果是从独立约束级联过来的，则不触发自身的级联渲染
           if (!cascadeFromConstraint) {
-            // 1. 独立约束节点
-            if (
-              associatedConstraintIds &&
-              Array.isArray(associatedConstraintIds) &&
-              associatedConstraintIds.length > 0
-            ) {
-              let offsetY = 160
-              // 如果已经有内嵌约束（importV2ResourceToCanvas 会自动处理），从内嵌约束下方开始
-              if (embeddedConstraintsList && embeddedConstraintsList.length > 0) {
-                offsetY = 160 + embeddedConstraintsList.length * 160
-              }
-              for (const constraintId of associatedConstraintIds) {
-                // 过滤掉内嵌约束（格式为 schemaId_constraintId）
-                if (!constraintId.startsWith(`${schemaId}_`)) {
-                  const constraintPosition = { x: position.x + 840, y: position.y + offsetY }
-                  await store.importV2ResourceToCanvas(
-                    'constraint',
-                    constraintId,
-                    constraintPosition,
-                    { includeDeps: false, moveIfExists: true }
-                  )
-                  offsetY += 160
-                }
-              }
-            }
+            // 关联独立约束不再在此处逐个导入：Schema 导入内部已通过
+            // 「是否连带导入关联约束」弹窗询问用户（全部导入/只导 Schema），
+            // 连带创建的节点会随本次批次一起经过 relayoutImportedConstraintBatch
+            // 的栅格重排（2026-09-21 移除旧循环——旧循环先于 Schema 导入独立约束，
+            // 正是"约束节点断连"的根因，且其单列落点会把批次拉成长条）。
 
             // 3. 拉出显式声明绑定的正则节点（排除隐式匹配）
             if (
@@ -450,12 +429,6 @@ export function useCanvasNodeOperations(flowWrapper: Ref<HTMLElement | null>) {
             }
             // 4. 🚫 隐式正则阻断：遇到隐式正则字段不生成任何正则节点（已在上面过滤）
           }
-
-          // 始终创建 Schema 节点本身
-          await store.importV2ResourceToCanvas('schema', schemaId, position, {
-            includeDeps: false,
-            moveIfExists: true,
-          })
         } else {
           const label = t('messages.canvas.newTable')
           store.createSchemaNode(position, label)

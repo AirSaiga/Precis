@@ -273,6 +273,9 @@ export function buildV2ProjectView(nodes: CustomNode[]): ProjectViewV2 {
   const nodeStates: Record<string, { hidden?: boolean; expanded?: boolean }> = {}
   const schemaIdByNodeId = buildSchemaIdByNodeId(nodes)
   for (const node of nodes) {
+    // 约束坞是纯 UI 派生节点（dockSync 从约束状态全量派生，重载后自动重建），
+    // 写入 view.json 只会积累死键，跳过
+    if (node.type === 'constraintDock') continue
     // schema/jsonSchema 节点在 reload 后 ID 会变成 schema ID，
     // 因此保存视图时用 schema ID 作为 key，确保 reload 时能正确恢复位置
     const key = schemaIdByNodeId[node.id] || node.id

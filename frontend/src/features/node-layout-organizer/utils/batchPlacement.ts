@@ -69,6 +69,54 @@ export function layoutBatchAsColumn(
   return positions
 }
 
+/** 栅格布局选项 */
+export interface GridLayoutOptions {
+  /** 每列最大条目数，填满后换下一列 */
+  rowsPerColumn: number
+  /** 列间距（上一列最宽条目右缘 → 下一列左缘） */
+  columnGap: number
+  /** 同列相邻条目的行间距 */
+  rowGap: number
+}
+
+/**
+ * 栅格布局：按列填充，每列至多 rowsPerColumn 个条目，填满后换下一列。
+ * 列内自上而下按各条目实际高度 + rowGap 递进；列 x 按该列最宽条目 + columnGap
+ * 累进。保持输入顺序（行优先填充：第 i 项 → col = floor(i/rows), row = i%rows）。
+ *
+ * 用于批量导入约束的默认排布——单列直排在多约束场景会拉出数倍视口高度的
+ * 长条（22 项 ≈ 3500px），栅格把纵向高度压回约一屏、横向按列展开。
+ *
+ * @returns id → 位置
+ */
+export function layoutBatchAsGrid(
+  items: ReadonlyArray<ColumnLayoutItem>,
+  origin: { x: number; y: number },
+  options: GridLayoutOptions
+): Map<string, { x: number; y: number }> {
+  const positions = new Map<string, { x: number; y: number }>()
+  const { rowsPerColumn, columnGap, rowGap } = options
+
+  // 按列分组（保持输入顺序）
+  const columns: ColumnLayoutItem[][] = []
+  for (let i = 0; i < items.length; i += rowsPerColumn) {
+    columns.push(items.slice(i, i + rowsPerColumn))
+  }
+
+  let cursorX = origin.x
+  for (const column of columns) {
+    let cursorY = origin.y
+    let columnMaxWidth = 0
+    for (const item of column) {
+      positions.set(item.id, { x: cursorX, y: cursorY })
+      cursorY += item.height + rowGap
+      columnMaxWidth = Math.max(columnMaxWidth, item.width)
+    }
+    cursorX += columnMaxWidth + columnGap
+  }
+  return positions
+}
+
 /** 计算一批已放置条目的联合包围盒；空批次返回 null */
 export function computeItemsBounds(items: ReadonlyArray<PlacedItem>): RectBounds | null {
   if (items.length === 0) return null

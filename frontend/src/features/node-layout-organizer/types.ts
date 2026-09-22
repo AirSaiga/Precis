@@ -124,6 +124,30 @@ export interface OrganizeOptions {
   animateDuration: number
   gap: number
   margin: number
+  /** 整理完成后是否自动取景。手动整理默认开；自动整理（编辑过程中后台触发）应关，避免视口频跳 */
+  fitViewAfter?: boolean
+  /**
+   * 家族内约束区分节维度：
+   * - 'column'（默认）列亲和——每节对应一个 Schema 列，节内混合各约束类型，
+   *   按列序排列；无列引用/columnId 失效的约束沉底为"表级"节
+   * - 'type' 按约束类型分节（历史行为）
+   */
+  constraintGrouping?: 'column' | 'type'
+}
+
+/**
+ * 成员节点的目标 Schema 列信息（列亲和分节用）。
+ *
+ * 由策略层从 node.data.sourceRef.columnId（精确）与 column/sourceColumn
+ * 列名回退解析得出；无法解析的成员不入表，布局层归入表级节。
+ */
+export interface MemberColumnTarget {
+  /** 目标列 id（Schema 列表条目的 id） */
+  columnId: string
+  /** 目标列显示名（列节标题） */
+  columnName: string
+  /** 目标列在 Schema 列表中的序号（0-based） */
+  columnIndex: number
 }
 
 /**
@@ -158,6 +182,8 @@ export interface LayoutContext {
   nodeDataById: Map<string, CustomNode>
   connections: ConnectionInfo[]
   gap: number
+  /** 家族内约束区分节维度（缺省 'column' 列亲和） */
+  constraintGrouping?: 'column' | 'type'
 }
 
 /**

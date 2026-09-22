@@ -241,6 +241,48 @@ describe('LayoutCalculator - schema family wiring (classifyNodes 回归)', () =>
     const unique = new Set(positions.values().map((p) => `${p.x},${p.y}`))
     expect(unique.size).toBe(4)
   })
+
+  it('threads constraintGrouping option: default column affinity vs legacy type grouping', () => {
+    // 列亲和是默认行为（quickOrganize 走默认即列亲和），type 为旧行为回归
+    const schemaId = 'node-s1'
+    const nodes: CustomNode[] = [
+      makeNode(schemaId, 'schema', { columns: [{ id: 'col-a', columnName: 'email' }] }),
+      makeNode('node-cn-nn', 'notNullConstraint', {
+        parent: schemaId,
+        sourceRef: { nodeId: schemaId, columnId: 'col-a' },
+      }),
+      makeNode('node-cn-rg', 'rangeConstraint', {
+        parent: schemaId,
+        sourceRef: { nodeId: schemaId, columnId: 'col-a' },
+      }),
+    ]
+
+    const columnCalc = new LayoutCalculator(
+      nodes,
+      [],
+      { width: 2000, height: 1000 },
+      { ...DEFAULT_ORGANIZE_OPTIONS }
+    )
+    columnCalc.calculate()
+    const columnSubNames = columnCalc
+      .getGroups()
+      .filter((g) => g.parentId === `fam-${schemaId}`)
+      .map((g) => g.name)
+    expect(columnSubNames).toEqual(['email'])
+
+    const typeCalc = new LayoutCalculator(
+      nodes,
+      [],
+      { width: 2000, height: 1000 },
+      { ...DEFAULT_ORGANIZE_OPTIONS, constraintGrouping: 'type' }
+    )
+    typeCalc.calculate()
+    const typeSubNames = typeCalc
+      .getGroups()
+      .filter((g) => g.parentId === `fam-${schemaId}`)
+      .map((g) => g.name)
+    expect(typeSubNames.sort()).toEqual(['区间约束', '非空约束'].sort())
+  })
 })
 
 // ============================================================================
@@ -433,6 +475,88 @@ describe('LayoutCalculator - 整理后不重叠（DEF-14 回归）', () => {
           minNetGap
         )
       }
+    }
+  })
+
+  /** 列亲和场景：6 列 Schema，多列挂混合类型约束（每列 2-3 个）+ 2 个表级约束。
+   * 矮视口 + 行对齐下拉（COLUMN_ALIGN_MAX_SLACK_PX）同时生效，验证不重叠不变量 */
+  function buildColumnAffinityNodes(withDimensions: boolean): CustomNode[] {
+    const measured = (w: number, h: number) =>
+      withDimensions ? { width: w, height: h } : undefined
+    const columns = ['c0', 'c1', 'c2', 'c3', 'c4', 'c5'].map((id, i) => ({
+      id,
+      columnName: `col_${i}`,
+    }))
+    const columnConstraints = [
+      { col: 'c0', types: ['notNullConstraint', 'uniqueConstraint'] },
+      { col: 'c2', types: ['rangeConstraint', 'charsetConstraint', 'dateLogicConstraint'] },
+      { col: 'c4', types: ['allowedValuesConstraint', 'conditionalConstraint'] },
+      { col: 'c5', types: ['scriptedConstraint'] },
+    ]
+    let seq = 0
+    const constraintNodes = columnConstraints.flatMap(({ col, types }) =>
+      types.map((type) => {
+        const id = `cn-${seq++}`
+        return makeNode(
+          id,
+          type,
+          { parent: 'schema-1', sourceRef: { nodeId: 'schema-1', columnId: col } },
+          { x: 0, y: 0 },
+          measured(180, 120)
+        )
+      })
+    )
+    return [
+      makeNode(
+        'schema-1',
+        'schema',
+        { width: 400, height: 420, columns },
+        { x: 0, y: 0 },
+        measured(400, 420)
+      ),
+      ...constraintNodes,
+      // 表级约束（无列引用）：ForeignKey / Composite 沉底
+      makeNode(
+        'fk-1',
+        'foreignKeyConstraint',
+        { parent: 'schema-1' },
+        { x: 0, y: 0 },
+        measured(200, 140)
+      ),
+      makeNode(
+        'cp-1',
+        'compositeConstraint',
+        { parent: 'schema-1' },
+        { x: 0, y: 0 },
+        measured(200, 140)
+      ),
+    ]
+  }
+
+  it('列亲和模式（行对齐下拉生效）：整理后节点两两不相交（DEF-14 不变量）', () => {
+    for (const withDimensions of [true, false]) {
+      const nodes = buildColumnAffinityNodes(withDimensions)
+      const calc = new LayoutCalculator(nodes, [], CANVAS, {
+        ...DEFAULT_ORGANIZE_OPTIONS,
+      })
+      const positions = calc.calculate()
+
+      const rects: Array<{ id: string } & Rect> = []
+      for (const node of nodes) {
+        const pos = positions.get(node.id)
+        expect(pos, `节点 ${node.id} 应有布局位置`).toBeDefined()
+        const dim = node.dimensions ?? getFallbackDimension(node.type ?? '')
+        rects.push({ id: node.id, x: pos!.x, y: pos!.y, width: dim.width, height: dim.height })
+      }
+      expectNoOverlaps(rects)
+
+      // 列节 + 表级节分组框完整：每个约束恰好归属一个 sub 分组
+      const subGroups = calc.getGroups().filter((g) => g.parentId === 'fam-schema-1')
+      const constraintIds = nodes.filter((n) => n.type?.endsWith('Constraint')).map((n) => n.id)
+      const groupedIds = subGroups.flatMap((g) => g.nodeIds)
+      expect(groupedIds.sort()).toEqual([...constraintIds].sort())
+      expect(subGroups.some((g) => g.name === '表级约束')).toBe(true)
+      expect(subGroups.some((g) => g.name === 'col_0')).toBe(true)
     }
   })
 })

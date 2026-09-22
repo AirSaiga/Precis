@@ -20,12 +20,31 @@ import { setActivePinia, createPinia } from 'pinia'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode } from '@/types/graph'
 import { useCanvasStore } from '@/stores/canvasStore'
+import {
+  fitView as vueFlowFitViewMock,
+  VueFlowApiNotInitializedError,
+} from '@/services/canvas/vueFlowApi'
+import { __testState as graphState } from '@/stores/graphStore'
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
   // canvasStore 经 useGlobalConfirm 间接引入 src/i18n/index.ts，后者顶层调用 createI18n
   createI18n: () => ({ global: { t: (key: string) => key } }),
 }))
+
+// graphStore 以共享响应式替身注入（canvasStore.fitView 的空画布守卫读取 nodes.length，
+// 避免单测拉起整个 graphStore 装配链）
+vi.mock('@/stores/graphStore', async () => {
+  const { reactive } = await import('vue')
+  const state = reactive({ nodes: [] as CustomNode[] })
+  return { useGraphStore: () => state, __testState: state }
+})
+
+// vueFlowApi 仅替换 fitView 为 spy（zoomIn/zoomOut/zoomTo 保留真实静默降级实现）
+vi.mock('@/services/canvas/vueFlowApi', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/services/canvas/vueFlowApi')>()
+  return { ...actual, fitView: vi.fn() }
+})
 
 describe('canvasStore zoom operations', () => {
   beforeEach(() => {
@@ -56,20 +75,6 @@ describe('canvasStore zoom operations', () => {
     expect(store.zoomLevel).toBe(1)
   })
 
-  it('fitView sets zoom to 1', () => {
-    const store = useCanvasStore()
-    store.setZoomLevel(2)
-    store.fitView()
-    expect(store.zoomLevel).toBe(1)
-  })
-
-  it('centerView sets zoom to 1', () => {
-    const store = useCanvasStore()
-    store.setZoomLevel(2)
-    store.centerView()
-    expect(store.zoomLevel).toBe(1)
-  })
-
   it('setZoomLevel clamps to max 5', () => {
     const store = useCanvasStore()
     store.setZoomLevel(10)
@@ -89,6 +94,65 @@ describe('canvasStore zoom operations', () => {
     expect(store.showMinimap).toBe(true)
     store.toggleMinimap()
     expect(store.showMinimap).toBe(false)
+  })
+})
+
+describe('canvasStore fitView / centerView', () => {
+  function makeNode(id: string): CustomNode {
+    return { id, type: 'schema', position: { x: 0, y: 0 }, data: {} } as CustomNode
+  }
+
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.mocked(vueFlowFitViewMock).mockReset()
+    graphState.nodes = []
+  })
+
+  it('vueFlowApi 未初始化时不抛错（静默跳过）', () => {
+    const store = useCanvasStore()
+    graphState.nodes = [makeNode('n1')]
+    vi.mocked(vueFlowFitViewMock).mockImplementation(() => {
+      throw new VueFlowApiNotInitializedError()
+    })
+
+    expect(() => store.fitView()).not.toThrow()
+    expect(() => store.centerView()).not.toThrow()
+  })
+
+  it('画布就绪时转发 vueFlowApi.fitView（瞬时完成 + 安全留白），centerView 同走 fitView', () => {
+    const store = useCanvasStore()
+    graphState.nodes = [makeNode('n1')]
+
+    store.fitView()
+    expect(vueFlowFitViewMock).toHaveBeenCalledTimes(1)
+    expect(vueFlowFitViewMock).toHaveBeenCalledWith({
+      padding: {
+        top: '60px',
+        left: '60px',
+        right: '360px',
+        bottom: '200px',
+      },
+      duration: 0,
+    })
+
+    store.centerView()
+    expect(vueFlowFitViewMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('空画布跳过取景', () => {
+    const store = useCanvasStore()
+    store.fitView()
+    store.centerView()
+    expect(vueFlowFitViewMock).not.toHaveBeenCalled()
+  })
+
+  it('fitView 不再镜像写入 zoomLevel（fitView 后真实缩放未知，镜像只会失真）', () => {
+    const store = useCanvasStore()
+    store.setZoomLevel(2)
+    graphState.nodes = [makeNode('n1')]
+
+    store.fitView()
+    expect(store.zoomLevel).toBe(2)
   })
 })
 

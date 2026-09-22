@@ -20,10 +20,9 @@
  * @description 用户偏好设置状态管理
  *
  * 职责：
- * - 通用设置（语言、主题、启动行为）
+ * - 通用设置（语言、主题、启动行为、自动整理三开关）
  * - 脚本设置（启用状态、权限警告）
  * - 开发设置（团队功能）
- * - 自动整理偏好
  * - localStorage 持久化
  */
 
@@ -37,10 +36,9 @@ import type { GeneralSettings, ScriptSettings, DevSettings } from '@/types/setti
  * 用户偏好设置 Store 工厂函数
  *
  * 职责：
- * - 通用设置（语言、主题、启动行为）
+ * - 通用设置（语言、主题、启动行为、自动整理三开关）
  * - 脚本设置（启用状态、权限警告）
  * - 开发设置（团队功能）
- * - 自动整理偏好（节点添加/删除/连线变更时是否自动整理布局）
  * - localStorage 持久化（深度 watch 自动保存）
  */
 export const useSettingsPreferencesStore = defineStore('settingsPreferences', () => {
@@ -49,12 +47,6 @@ export const useSettingsPreferencesStore = defineStore('settingsPreferences', ()
   const generalSettings = ref<GeneralSettings>(loadGeneralSettings())
   const scriptSettings = ref<ScriptSettings>(loadScriptSettings())
   const devSettings = ref<DevSettings>(loadDevSettings())
-
-  // ===== 自动整理偏好 =====
-  // 控制画布节点在添加/删除/连线变更时是否自动触发布局整理
-  const autoOrganizeOnNodeAdd = ref(false)
-  const autoOrganizeOnNodeDelete = ref(false)
-  const autoOrganizeOnConnectionChange = ref(false)
 
   // ===== 开发模式 =====
   // 通过 Vite 环境变量判断，生产环境始终为 false
@@ -248,7 +240,8 @@ export const useSettingsPreferencesStore = defineStore('settingsPreferences', ()
   /**
    * Store 对外暴露的响应式状态、计算属性与操作方法
    *
-   * 状态：generalSettings / scriptSettings / devSettings / autoOrganizeOnNodeAdd / autoOrganizeOnNodeDelete / autoOrganizeOnConnectionChange
+   * 状态：generalSettings / scriptSettings / devSettings
+   * （自动整理三开关已并入 generalSettings，经 watch 深度持久化，不再单独暴露）
    * 计算属性：isDevMode / isScriptEnabled / isScriptAdminOnly / teamFeaturesEnabled
    * 方法：updateGeneralSettings / enableScript / disableScript / setScriptRequireAdmin / markWarningShown / toggleTeamFeatures
    */
@@ -256,9 +249,6 @@ export const useSettingsPreferencesStore = defineStore('settingsPreferences', ()
     generalSettings,
     scriptSettings,
     devSettings,
-    autoOrganizeOnNodeAdd,
-    autoOrganizeOnNodeDelete,
-    autoOrganizeOnConnectionChange,
     isDevMode,
     isScriptEnabled,
     isScriptAdminOnly,

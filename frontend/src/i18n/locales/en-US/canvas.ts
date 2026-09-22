@@ -36,6 +36,22 @@ const canvas = {
     toggleLeft: 'Toggle Left Panel',
     toggleRight: 'Toggle Right Panel',
   },
+  // Canvas view modes + node type filter (bottom-left CanvasControls)
+  viewFilter: {
+    panorama: 'Panorama',
+    focus: 'Focus',
+    errorsOnly: 'Issues only',
+    focusHint: 'Focus mode: select a node first, then click to focus its neighborhood',
+    typeFilter: 'Filter by node type',
+    groups: {
+      schema: 'Schema',
+      source: 'Data Sources',
+      transform: 'Transforms',
+      constraint: 'Constraints',
+      regex: 'Regex',
+      other: 'Other',
+    },
+  },
   // [Added] NodeCanvas related
   nodeCanvas: {
     headerChangedRegenerate:

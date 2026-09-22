@@ -90,6 +90,7 @@ limitations under the License.
            - 视口框遮罩用半透明 accent 覆盖 base.css 的默认遮罩（styles.css 内）
            - pannable/zoomable：支持在小地图上拖动平移视口、滚轮缩放，位置对应更直观 -->
       <MiniMap
+        v-if="canvasStore.showMinimap"
         :node-class-name="miniMapNodeClassName"
         :node-border-radius="2"
         :node-stroke-width="1"
@@ -216,8 +217,10 @@ limitations under the License.
   // Store & Composables 导入
   // ========================================
   import { useGraphStore } from '@/stores/graphStore'
+  import { useCanvasStore } from '@/stores/canvasStore'
   import { useNodeOrganizer } from '@/features/node-layout-organizer/composables/useNodeOrganizer'
   import { useCanvasLoadAdaptation } from '@/features/node-layout-organizer/composables/useCanvasLoadAdaptation'
+  import { useAutoOrganize } from '@/features/node-layout-organizer/composables/useAutoOrganize'
   import { useNodeTypeRegistry } from '@/composables/canvas/useNodeTypeRegistry'
   import { useCanvasConnectionWatcher } from '@/composables/canvas/useCanvasConnectionWatcher'
   import { initVueFlowApi, resetVueFlowApi } from '@/services/canvas/vueFlowApi'
@@ -249,6 +252,8 @@ limitations under the License.
 
   const { nodeTypes, edgeTypes } = useNodeTypeRegistry()
   const store = useGraphStore()
+  // 画布门面 Store：小地图显隐（Ctrl+Alt+M 经 canvasStore.toggleMinimap 切换）
+  const canvasStore = useCanvasStore()
   const { t } = useI18n()
   const nodeOrganizer = useNodeOrganizer()
   const zoneGroups = nodeOrganizer.groups
@@ -261,6 +266,11 @@ limitations under the License.
   // 加载适配：项目/工作区首次加载完成后自动 fitView 一次 + 修复零位置/堆叠节点。
   // 触发与守卫逻辑见该组合式函数头部注释（Tab 来回切换/undo/增量操作不触发）。
   useCanvasLoadAdaptation()
+  // 自动布局整理：按通用设置三开关（节点添加/删除/连线变化）防抖触发整理。
+  // 必须在 VueFlow 宿主组件 setup 内实例化（useNodeOrganizer 内部 useVueFlow()
+  // 依赖 provide/inject）；实例化即按持久化设置启动，并与上方加载适配互斥
+  // （加载完成信号取消待执行的整理，避免双重布局/视口突跳）。
+  useAutoOrganize()
   const {
     viewport,
     setViewport,
@@ -464,8 +474,18 @@ limitations under the License.
     canvasViewportStore.setViewport({ x: v.x, y: v.y, zoom: v.zoom })
   })
 
+  /**
+   * 快速整理请求（命令面板等画布外入口经 eventBus 委托）。
+   * nodeOrganizer 的 useVueFlow() 依赖本组件的 provide/inject 链，
+   * 画布外直接调用会命中断连的新 store，故统一转发到宿主内实例。
+   */
+  const handleRequestQuickOrganize = () => {
+    void nodeOrganizer.quickOrganize()
+  }
+
   onMounted(() => {
     eventBus.on('inspection-import-and-focus', handleInspectionImportAndFocus)
+    eventBus.on('request-quick-organize', handleRequestQuickOrganize)
     // 交互态监听：capture 捕获 wrapper 内任何来源的按下（pane 平移/节点拖拽/框选），
     // wheel 触发缩放交互；mouseup 必然跟随按下，用短延迟收敛交互窗口
     flowWrapper.value?.addEventListener('mousedown', markCanvasInteracting, { capture: true })
@@ -490,6 +510,7 @@ limitations under the License.
   })
   onBeforeUnmount(() => {
     eventBus.off('inspection-import-and-focus', handleInspectionImportAndFocus)
+    eventBus.off('request-quick-organize', handleRequestQuickOrganize)
     // 交互态监听清理（无条件移除，与挂载解耦——异步未完成的交互窗口也不能泄漏）
     flowWrapper.value?.removeEventListener('mousedown', markCanvasInteracting, { capture: true })
     flowWrapper.value?.removeEventListener('wheel', markCanvasInteracting, { capture: true })

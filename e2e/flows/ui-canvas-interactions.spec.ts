@@ -203,6 +203,19 @@ async function dragSchemaToCanvas(
 }
 
 test.describe('画布真实 UI 交互', () => {
+  /**
+   * 约束坞聚合时代适配：导入的约束卡片数超过阈值时会被坞聚合隐藏
+   * （Vue Flow 对 hidden 节点不渲染，DOM 级断言会看不到卡片与其边）。
+   * 点击坞标题栏「展开全部」恢复卡片可见后再做 DOM 级断言；坞不存在则跳过。
+   */
+  async function expandDockIfPresent(page: import('@playwright/test').Page) {
+    const btn = page.locator('.vue-flow__node[data-id^="constraint-dock-"] .dock-expand-all')
+    if (await btn.isVisible().catch(() => false)) {
+      await btn.click()
+      await page.waitForTimeout(600)
+    }
+  }
+
   test.beforeEach(async ({ projectPage, testProjectPath }) => {
     // 每个测试从干净状态开始：打开项目、并清理之前可能残留的 view.json
     const viewPath = path.join(testProjectPath, VIEW_FILE)
@@ -293,6 +306,8 @@ test.describe('画布真实 UI 交互', () => {
       await page.waitForTimeout(800)
       expect(await constraintLocator.count()).toBe(first)
     }).toPass({ timeout: 20000 })
+    // 聚合适配：卡片默认被坞聚合隐藏（仅选中卡豁免），展开全部后以真实总数为基线
+    await expandDockIfPresent(page)
     const constraintCountBefore = await constraintLocator.count()
 
     // 记录删除前的 schema 节点，便于删除后断言其消失
@@ -356,6 +371,8 @@ test.describe('画布真实 UI 交互', () => {
     // （内嵌约束物化同样会产生 NotNull/Unique/Range/AllowedValues，这里用独立约束独有的类型
     //   DateLogic/Charset/Conditional 来区分“全部导入”与“只导 Schema”。）
     await page.waitForTimeout(1500) // 等待连带约束异步创建
+    // 聚合适配：卡片数超过阈值时被坞聚合隐藏，展开全部后卡片浮出再断言
+    await expandDockIfPresent(page)
     const independentConstraintNode = page.locator(
       '.vue-flow__node-dateLogicConstraint, .vue-flow__node-charsetConstraint, .vue-flow__node-conditionalConstraint'
     )

@@ -28,8 +28,8 @@
 
 import type { CustomNode } from '@/types/graph'
 
-/** 项目根节点不算业务节点（每个项目打开后必然存在，不构成"开始建模"） */
-const NON_BUSINESS_NODE_TYPES = new Set<string>(['projectRoot'])
+/** 非业务节点类型：项目根 + 派生视图节点（约束坞），不构成"开始建模" */
+const NON_BUSINESS_NODE_TYPES = new Set<string>(['projectRoot', 'constraintDock'])
 
 /**
  * 判断节点列表中是否含有业务节点（即画布是否"非空"）。

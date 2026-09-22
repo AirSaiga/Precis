@@ -56,8 +56,8 @@ const DATA_SOURCE_TYPES = new Set(['sourcePreview', 'jsonSourcePreview'])
 /** 数据源连接的下游目标类型 */
 const SCHEMA_TYPES = new Set(['schema', 'jsonSchema'])
 
-/** 需要跳过的边类型标识 */
-const SKIP_EDGE_KINDS = new Set(['fkDisplay'])
+/** 需要跳过的边类型标识（展示边不参与 parent/children 等关系状态维护） */
+const SKIP_EDGE_KINDS = new Set(['fkDisplay', 'dockDisplay'])
 
 // ============================================================================
 // 辅助函数

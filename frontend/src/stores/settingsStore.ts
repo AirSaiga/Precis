@@ -27,6 +27,7 @@
  * 所有类型和常量继续从本文件导出以保持向后兼容。
  */
 
+import { computed } from 'vue'
 import { defineStore, storeToRefs } from 'pinia'
 import { useSettingsNavStore } from './settingsNavStore'
 import { useSettingsPreferencesStore } from './settingsPreferencesStore'
@@ -93,13 +94,20 @@ export const useSettingsStore = defineStore('settings', () => {
     generalSettings,
     scriptSettings,
     devSettings,
-    autoOrganizeOnNodeAdd,
-    autoOrganizeOnNodeDelete,
-    autoOrganizeOnConnectionChange,
     isScriptEnabled,
     isScriptAdminOnly,
     teamFeaturesEnabled,
   } = storeToRefs(prefStore)
+
+  // 自动整理三开关：已并入 generalSettings 持久化（localStorage），
+  // 门面以只读 computed 视图暴露，保持既有 `settingsStore.autoOrganizeOnXxx` API 不变
+  const autoOrganizeOnNodeAdd = computed(() => prefStore.generalSettings.autoOrganizeOnNodeAdd)
+  const autoOrganizeOnNodeDelete = computed(
+    () => prefStore.generalSettings.autoOrganizeOnNodeDelete
+  )
+  const autoOrganizeOnConnectionChange = computed(
+    () => prefStore.generalSettings.autoOrganizeOnConnectionChange
+  )
 
   // isDevMode 是 getter（非 state），直接取引用即可，无需 storeToRefs
   const isDevMode = prefStore.isDevMode

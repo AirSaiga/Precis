@@ -75,11 +75,14 @@ const COLUMN_KEEP_KEYS = new Set<string>(['id', 'columnName', 'dataType', 'name'
 /**
  * 判断节点是否为应排除的结构性容器/根节点。
  *
- * projectRoot、各类 Set/Root 节点不承载业务语义，对"画布上有哪些表/约束"的判断无价值。
+ * projectRoot、各类 Set/Root 节点不承载业务语义，对"画布上有哪些表/约束"的判断无价值；
+ * constraintDock 是约束坞派生视图节点（内容由 dockSync 从约束派生），进快照只会
+ * 与约束节点信息冗余，一并排除。
  */
 function isStructuralNode(nodeType: string | undefined): boolean {
   if (!nodeType) return true
   if (nodeType === 'projectRoot') return true
+  if (nodeType === 'constraintDock') return true
   // 集合容器通配符匹配（Set 节点已删除，保留通配符以兼容未来可能的容器类型）
   return nodeType.endsWith('SetNode') || nodeType.endsWith('SetRootNode')
 }

@@ -182,7 +182,11 @@ export function useNodeOrganizer() {
       // MiniMap、检查器浮层覆盖处），节点上的按钮会被浮层拦截 hit-test 而
       // 点不到。与加载适配共用 SAFE_FITVIEW_PADDING；瞬时完成不留动画窗口，
       // 避免慢环境下取景动画与用户交互重叠导致落点漂移。
-      fitView({ padding: { ...SAFE_FITVIEW_PADDING }, duration: 0 })
+      // 自动整理（编辑中后台触发）传 fitViewAfter: false 关闭取景——每次编辑
+      // 都重设视口会造成视口频跳。
+      if (mergedOptions.fitViewAfter !== false) {
+        fitView({ padding: { ...SAFE_FITVIEW_PADDING }, duration: 0 })
+      }
 
       const endTime = performance.now()
       lastOrganizeTime.value = Date.now()

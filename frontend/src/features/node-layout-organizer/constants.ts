@@ -31,30 +31,14 @@ export const DEFAULT_ORGANIZE_OPTIONS: OrganizeOptions = {
   animateDuration: 400,
   gap: 30,
   margin: 40,
+  fitViewAfter: true,
+  constraintGrouping: 'column',
 }
 
-/**
- * 自动取景的安全留白（整理/加载适配共用）。
- * 不对称 px 留白：右下角 MiniMap 悬浮在画布内、右侧检查器面板展开会使画布
- * 收窄、底部状态栏覆盖画布下缘——取景时让出这些区域，否则取景后节点贴边
- * 落在浮层之下点不到（按钮类元素被状态栏拦截 hit-test）。
- *
- * SAFE_FITVIEW_PADDING_PX 是数值单一事实源（布局算法估算可用区域时用），
- * SAFE_FITVIEW_PADDING 是传给 fitView 的 CSS px 形式，两者必须同步。
- */
-export const SAFE_FITVIEW_PADDING_PX = {
-  top: 60,
-  left: 60,
-  right: 360,
-  bottom: 200,
-} as const
-
-export const SAFE_FITVIEW_PADDING = {
-  top: `${SAFE_FITVIEW_PADDING_PX.top}px`,
-  left: `${SAFE_FITVIEW_PADDING_PX.left}px`,
-  right: `${SAFE_FITVIEW_PADDING_PX.right}px`,
-  bottom: `${SAFE_FITVIEW_PADDING_PX.bottom}px`,
-} as const
+// 安全取景留白常量已上移至中立位置 services/canvas/fitViewPadding.ts
+// （canvasStore 等 store/服务层也依赖它，store → feature 是反向依赖）。
+// 此处 re-export 保持 feature 内外的既有导入路径不变。
+export { SAFE_FITVIEW_PADDING_PX, SAFE_FITVIEW_PADDING } from '@/services/canvas/fitViewPadding'
 
 /**
  * 节点尺寸常量（无实测尺寸时的兜底估算，高度宁可高估——
@@ -103,7 +87,27 @@ export const LAYOUT_CONSTANTS = {
    * 造成相邻节点边缘重叠。现在全链路只允许一次对齐，统一用本常量。
    */
   GRID_SIZE: 20,
+  /**
+   * 列亲和分节（constraintGrouping: 'column'）的行对齐下拉余量上限。
+   *
+   * 列节顶部向"该列在 Schema 节点中的估算行顶"对齐是尽力而为（best-effort）：
+   * 列节高度（≥130px）远大于估算行高，对齐只在目标行顶超过当前落点游标的
+   * 有限范围内生效；超出此余量不再下拉，避免节间出现大段空白、家族被拉高
+   * 后超出 k 列选择阶段（measureSection 不感知对齐）的尺寸预估。
+   */
+  COLUMN_ALIGN_MAX_SLACK_PX: 120,
 }
+
+/**
+ * 列亲和分节的节标题。
+ *
+ * 列节标题直接用列名（不再复用按类型命名的 NODE_TYPE_NAMES——列节内
+ * 类型混合，类型名标题不再适用）；表级节用固定标题。
+ */
+export const COLUMN_GROUPING_LABELS = {
+  /** 表级约束节标题（无列引用 / columnId 失效的约束沉底于此） */
+  TABLE_LEVEL_NAME: '表级约束',
+} as const
 
 /**
  * 节点类型显示名称
@@ -184,3 +188,16 @@ export const NODE_TYPE_COLORS: Record<string, string> = {
   dateLogicConstraint: '#FFA726',
   compositeConstraint: '#78909C',
 }
+
+/**
+ * 列亲和分节的节配色。
+ *
+ * 列节内约束类型混合，按类型着色不再适用：统一用约束类主色
+ * （NODE_TYPE_COLORS.constraint）表达"约束分组"语义，表级节用中性灰区分。
+ */
+export const COLUMN_GROUPING_COLORS = {
+  /** 列节 */
+  COLUMN: NODE_TYPE_COLORS.constraint || '#FF9800',
+  /** 表级节 */
+  TABLE_LEVEL: '#9e9e9e',
+} as const

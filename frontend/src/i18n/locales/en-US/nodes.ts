@@ -490,6 +490,23 @@ const customNodes = {
     title: 'Constraint Dashboard',
     empty: 'No constraints available',
   },
+  constraintDockNode: {
+    title: 'Constraint Dock',
+    empty: 'No constraints',
+    errorCount: '{count} errors',
+    expand: 'Expand row details',
+    collapse: 'Collapse row details',
+    expandAll: 'Expand all',
+    collapseAll: 'Collapse',
+    tableLevel: 'Table-level',
+    embeddedHint: 'Embedded constraint (configured on schema column)',
+    status: {
+      idle: 'Not validated',
+      pass: 'Pass',
+      error: 'Fail',
+      missing: 'Config missing',
+    },
+  },
   constraintRules: {
     title: 'Constraint Rules',
     rules: 'Rules',

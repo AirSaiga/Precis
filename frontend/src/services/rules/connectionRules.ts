@@ -175,6 +175,26 @@ export const connectionRules: ConnectionRule[] = [
       validationMode: 'loose',
     },
   },
+  // 展示边（先例：foreign-key-display）——由 dockSync 聚合器生命周期管理，
+  // 表达"该列有约束"的视觉连接；不可由用户手工创建（坞 target handle
+  // 不可见且 pointer-events:none），声明 loose + allowMultiple 仅为满足
+  // "任何进入 store.edges 的连接都须有规则"的画布纪律
+  {
+    id: 'schema-to-dock-display',
+    name: 'Schema to Constraint Dock (Display)',
+    source: {
+      nodeTypes: ['schema', 'jsonSchema'],
+      handles: ['source-right-{columnId}'],
+    },
+    target: {
+      nodeTypes: ['constraintDock'],
+      handles: ['target-dock'],
+    },
+    config: {
+      allowMultiple: true,
+      validationMode: 'loose',
+    },
+  },
   // ========== Manual Data 节点连接规则 ==========
   {
     id: 'schema-column-to-manual-data',

@@ -205,6 +205,7 @@ limitations under the License.
   import { getBaseCommands } from '@/features/keyboard/commands/baseCommands'
   import { getCanvasCommands } from '@/features/keyboard/commands/canvasCommands'
   import { getHelpCommands } from '@/features/keyboard/commands/helpCommands'
+  import { getPaletteShortcutCommands } from '@/features/keyboard/commands/paletteCommands'
   import { useShortcutStore } from '@/features/keyboard/stores/shortcutStore'
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 
@@ -217,7 +218,12 @@ limitations under the License.
   const capturedShortcut = ref<Shortcut | null>(null)
 
   const allCommands = computed<Command[]>(() => {
-    const list = [...getBaseCommands(), ...getCanvasCommands(), ...getHelpCommands()]
+    const list = [
+      ...getBaseCommands(),
+      ...getCanvasCommands(),
+      ...getHelpCommands(),
+      ...getPaletteShortcutCommands(),
+    ]
     const map = new Map<string, Command>()
     for (const cmd of list) {
       if (!map.has(cmd.id)) {

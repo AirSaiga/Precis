@@ -23,6 +23,7 @@ limitations under the License.
   - 启动时自动加载最近项目
   - 语言设置
   - 主题设置
+  - 画布自动整理（节点添加/删除/连线变化三个独立开关）
 -->
 
 <template>
@@ -85,6 +86,70 @@ limitations under the License.
         </div>
       </div>
     </div>
+
+    <!-- 画布自动整理 -->
+    <div class="settings-section">
+      <div class="settings-section__header">
+        <div class="settings-section__title">{{ t('settings.general.canvas.title') }}</div>
+      </div>
+      <div class="settings-row">
+        <div class="settings-row__label">
+          {{ t('settings.general.canvas.autoOrganizeOnNodeAdd.label') }}
+        </div>
+        <div class="settings-row__desc">
+          {{ t('settings.general.canvas.autoOrganizeOnNodeAdd.desc') }}
+        </div>
+        <div class="settings-row__control">
+          <label class="ui-switch ui-switch--compact">
+            <input
+              v-model="localSettings.autoOrganizeOnNodeAdd"
+              type="checkbox"
+              class="ui-switch__input"
+              @change="handleChange"
+            />
+            <span class="ui-switch__track"></span>
+          </label>
+        </div>
+      </div>
+      <div class="settings-row">
+        <div class="settings-row__label">
+          {{ t('settings.general.canvas.autoOrganizeOnNodeDelete.label') }}
+        </div>
+        <div class="settings-row__desc">
+          {{ t('settings.general.canvas.autoOrganizeOnNodeDelete.desc') }}
+        </div>
+        <div class="settings-row__control">
+          <label class="ui-switch ui-switch--compact">
+            <input
+              v-model="localSettings.autoOrganizeOnNodeDelete"
+              type="checkbox"
+              class="ui-switch__input"
+              @change="handleChange"
+            />
+            <span class="ui-switch__track"></span>
+          </label>
+        </div>
+      </div>
+      <div class="settings-row">
+        <div class="settings-row__label">
+          {{ t('settings.general.canvas.autoOrganizeOnConnectionChange.label') }}
+        </div>
+        <div class="settings-row__desc">
+          {{ t('settings.general.canvas.autoOrganizeOnConnectionChange.desc') }}
+        </div>
+        <div class="settings-row__control">
+          <label class="ui-switch ui-switch--compact">
+            <input
+              v-model="localSettings.autoOrganizeOnConnectionChange"
+              type="checkbox"
+              class="ui-switch__input"
+              @change="handleChange"
+            />
+            <span class="ui-switch__track"></span>
+          </label>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -102,6 +167,9 @@ limitations under the License.
     loadRecentProjectOnStartup: settingsStore.generalSettings.loadRecentProjectOnStartup,
     language: settingsStore.generalSettings.language,
     theme: settingsStore.generalSettings.theme,
+    autoOrganizeOnNodeAdd: settingsStore.generalSettings.autoOrganizeOnNodeAdd,
+    autoOrganizeOnNodeDelete: settingsStore.generalSettings.autoOrganizeOnNodeDelete,
+    autoOrganizeOnConnectionChange: settingsStore.generalSettings.autoOrganizeOnConnectionChange,
   })
 
   watch(

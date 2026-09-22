@@ -22,11 +22,14 @@
  * 功能概述：
  * - 单个 Schema 家族内部的流式布局计算
  * - 节点分类、边界计算、维度回退
+ * - 约束区分节：列亲和（默认，按目标列分节）与按类型分节（历史行为）
  * - 按列对齐约束节点
  */
-import type { SubGroup, ConnectionInfo } from '../types'
+import type { SubGroup, ConnectionInfo, MemberColumnTarget } from '../types'
 import { NodeCategory, NODE_TYPE_TO_CATEGORY } from '../types'
 import {
+  COLUMN_GROUPING_COLORS,
+  COLUMN_GROUPING_LABELS,
   GROUP_COLORS,
   LAYOUT_CONSTANTS,
   NODE_DIMENSIONS,
@@ -69,6 +72,139 @@ export function groupByType(
     result.get(type)!.push(id)
   }
   return result
+}
+
+/**
+ * 估算 Schema 列行顶相对节点顶部的偏移（header 高 + index × 行高）。
+ *
+ * 布局是纯计算层没有 DOM，行高由 Schema 节点高度与列数估算：
+ * header 按 30% 高度封顶 120px 估计，剩余高度均摊到各列行。
+ * 仅用于列节顶部的尽力对齐，不要求精确。
+ */
+export function estimateColumnRowOffset(
+  columnIndex: number,
+  schemaHeight: number,
+  columnCount: number
+): number {
+  const header = Math.min(schemaHeight * 0.3, 120)
+  const rowHeight = (schemaHeight - header) / Math.max(1, columnCount)
+  return header + columnIndex * rowHeight
+}
+
+/** 约束区分节方案（列亲和与类型分节共用的节描述） */
+export interface ConstraintSectionPlan {
+  /** SubGroup id 后缀与 nodeType 字段值（类型节=类型名；列节=col-<columnId>；表级=tableLevel） */
+  key: string
+  /** 节标题：类型节=类型显示名；列节=列名；表级=固定标题 */
+  label: string
+  color: string
+  nodeIds: string[]
+  /** 节排序值（列节=列序；类型节=成员最小列序；表级恒沉底） */
+  order: number
+  /** 列节行对齐目标（相对 Schema 节点顶部的偏移）；表级/类型节无 */
+  alignOffsetY?: number
+}
+
+/**
+ * 生成约束区分节方案。
+ *
+ * - grouping 'column'（列亲和）：每个被引用的 Schema 列一节（节内类型混合，
+ *   按类型显示名做次级稳定排序），节序=列序；无列引用或 columnId 失效的
+ *   约束（含 ForeignKey/Composite 等表级约束）沉底为一个"表级"节。
+ *   家族无 Schema 列信息（伪家族、无 columns 的 Schema）时回退类型分节，
+ *   保持伪家族历史行为不变。
+ * - grouping 'type'：按约束类型分节（历史行为）。
+ *
+ * 输入 constraints 应已由调用方完成语义排序；本函数只负责分节与节内排序。
+ */
+export function planConstraintSections(params: {
+  constraints: string[]
+  nodeTypeById: Map<string, string>
+  grouping: 'column' | 'type'
+  /** 成员 → 目标列信息；未提供时列亲和不可用（回退类型分节） */
+  columnTargetById?: Map<string, MemberColumnTarget>
+  /** Schema 节点尺寸（行对齐估算用）；伪家族无 Schema 传 null */
+  schemaDim: { width: number; height: number } | null
+  /** Schema 列总数；缺省按目标列最大序号 +1 估算 */
+  schemaColumnCount?: number
+}): ConstraintSectionPlan[] {
+  const { constraints, nodeTypeById, columnTargetById } = params
+  const sortIndexOf = (id: string): number =>
+    columnTargetById?.get(id)?.columnIndex ?? Number.MAX_SAFE_INTEGER
+
+  const plans: ConstraintSectionPlan[] = []
+
+  const maxTargetIndex = columnTargetById
+    ? Math.max(-1, ...Array.from(columnTargetById.values(), (t) => t.columnIndex))
+    : -1
+  const columnCount = params.schemaColumnCount ?? maxTargetIndex + 1
+  const schemaDim = params.schemaDim
+
+  if (params.grouping !== 'column' || !schemaDim || columnCount <= 0 || !columnTargetById) {
+    for (const [type, ids] of groupByType(constraints, nodeTypeById)) {
+      plans.push({
+        key: type,
+        label: NODE_TYPE_NAMES[type] || type,
+        color: NODE_TYPE_COLORS[type] || '#ccc',
+        nodeIds: ids,
+        order: Math.min(...ids.map(sortIndexOf)),
+      })
+    }
+    return plans
+  }
+
+  const byColumn = new Map<string, { target: MemberColumnTarget; ids: string[] }>()
+  const tableLevel: string[] = []
+  for (const id of constraints) {
+    const target = columnTargetById.get(id)
+    if (!target) {
+      tableLevel.push(id)
+      continue
+    }
+    const bucket = byColumn.get(target.columnId) ?? { target, ids: [] }
+    bucket.ids.push(id)
+    byColumn.set(target.columnId, bucket)
+  }
+
+  const buckets = Array.from(byColumn.values()).sort(
+    (a, b) =>
+      a.target.columnIndex - b.target.columnIndex ||
+      a.target.columnId.localeCompare(b.target.columnId)
+  )
+  for (const bucket of buckets) {
+    // 节内次级稳定排序：同列各类型相邻聚拢。按类型标识符（ASCII）排序而非
+    // 本地化显示名——显示名 localeCompare 在 zh/en collation 下顺序可能相反，
+    // 布局需保证跨环境确定性；同类型内按 id 兜底稳定
+    const typeOf = (id: string): string => nodeTypeById.get(id) || 'unknown'
+    const ids = bucket.ids.slice().sort((a, b) => {
+      const ta = typeOf(a)
+      const tb = typeOf(b)
+      if (ta !== tb) return ta < tb ? -1 : 1
+      return a.localeCompare(b)
+    })
+    plans.push({
+      key: `col-${bucket.target.columnId}`,
+      label: bucket.target.columnName,
+      color: COLUMN_GROUPING_COLORS.COLUMN,
+      nodeIds: ids,
+      order: bucket.target.columnIndex,
+      alignOffsetY: estimateColumnRowOffset(
+        bucket.target.columnIndex,
+        schemaDim.height,
+        columnCount
+      ),
+    })
+  }
+  if (tableLevel.length > 0) {
+    plans.push({
+      key: 'tableLevel',
+      label: COLUMN_GROUPING_LABELS.TABLE_LEVEL_NAME,
+      color: COLUMN_GROUPING_COLORS.TABLE_LEVEL,
+      nodeIds: tableLevel,
+      order: Number.MAX_SAFE_INTEGER,
+    })
+  }
+  return plans
 }
 
 /**
@@ -195,8 +331,12 @@ export function layoutFamily(params: {
   edges: ConnectionInfo[]
   /** 画布高度（水平模式下用于按视口适配度选择右侧列数；缺省按 900 估算） */
   canvasHeight?: number
-  /** 成员节点 → Schema 列序号（越小越靠前）。缺省视为无语义顺序，按 UUID 序兜底 */
-  memberSortIndexById?: Map<string, number>
+  /** 成员节点 → 目标 Schema 列信息（列亲和分节 + 语义排序）。缺省视为无列信息，按 UUID 序兜底 */
+  memberColumnTargetById?: Map<string, MemberColumnTarget>
+  /** Schema 列总数（列行对齐估算用；缺省按目标列最大序号 +1 估算） */
+  schemaColumnCount?: number
+  /** 家族内约束区分节维度：'column' 列亲和（默认）| 'type' 按类型（历史行为） */
+  constraintGrouping?: 'column' | 'type'
 }): {
   localPositions: Map<string, { x: number; y: number }>
   subGroups: SubGroup[]
@@ -240,7 +380,7 @@ export function layoutFamily(params: {
   // 约束/正则/Others 优先按 Schema 列序排列（与左侧 Schema 字段自上而下的顺序呼应），
   // 无列序信息时回退 UUID 序，保持历史行为
   const sortIndexOf = (id: string): number =>
-    params.memberSortIndexById?.get(id) ?? Number.MAX_SAFE_INTEGER
+    params.memberColumnTargetById?.get(id)?.columnIndex ?? Number.MAX_SAFE_INTEGER
   const semanticOrder = (a: string, b: string): number =>
     sortIndexOf(a) - sortIndexOf(b) || a.localeCompare(b)
   regexNodes.sort(semanticOrder)
@@ -254,6 +394,20 @@ export function layoutFamily(params: {
     700,
     Math.min(1200, canvasWidth - LAYOUT_CONSTANTS.CANVAS_PADDING * 2)
   )
+
+  // 约束区分节方案：列亲和（默认）或按类型（历史行为），两种布局模式共用
+  const schemaDim =
+    schemaNodeId !== null
+      ? nodeDimensions.get(schemaNodeId) || getFallbackDimension('schema')
+      : null
+  const constraintPlans = planConstraintSections({
+    constraints,
+    nodeTypeById,
+    grouping: params.constraintGrouping ?? 'column',
+    columnTargetById: params.memberColumnTargetById,
+    schemaDim,
+    schemaColumnCount: params.schemaColumnCount,
+  })
 
   if (layoutMode === 'vertical') {
     let y = familyPadding
@@ -302,9 +456,8 @@ export function layoutFamily(params: {
       'regex'
     )
 
-    const constraintGroups = groupByType(constraints, nodeTypeById)
-    for (const [type, ids] of constraintGroups) {
-      placeSection(ids, NODE_TYPE_NAMES[type] || type, NODE_TYPE_COLORS[type] || '#ccc', type)
+    for (const plan of constraintPlans) {
+      placeSection(plan.nodeIds, plan.label, plan.color, plan.key)
     }
 
     placeSection(others, 'Others', '#9e9e9e', 'others')
@@ -329,43 +482,53 @@ export function layoutFamily(params: {
       localPositions.set(schemaNodeId, { x: schemaX, y: schemaY })
     }
 
-    const schemaDim = schemaNodeId
+    const schemaSize = schemaNodeId
       ? nodeDimensions.get(schemaNodeId) || getFallbackDimension('schema')
       : { width: 0, height: 0 }
-    const rightStartX = schemaX + schemaDim.width + gap
+    const rightStartX = schemaX + schemaSize.width + gap
 
-    // 3. 右侧区块：约束按类型分节，正则与 Others 各成一节。
-    //    节与节之间按最小 Schema 列序稳定排序（无列序信息时保持构造顺序，与历史行为一致）
+    // 3. 右侧区块：约束按列亲和分节（默认；列节=Schema 列，表级沉底）或按类型分节，
+    //    正则与 Others 各成一节。节与节之间按最小 Schema 列序稳定排序
+    //    （无列序信息时保持构造顺序，与历史行为一致）
     type RightSection = {
       nodeType: string
       ids: string[]
       label: string
       color: string
       order: number
+      /** 列节行对齐目标（家族局部 y = schemaY + 列行偏移）；表级/类型节无 */
+      alignY?: number
     }
-    const buildSection = (
-      nodeType: string,
-      ids: string[],
-      order: number,
-      color?: string
-    ): RightSection => ({
-      nodeType,
-      ids,
-      label: NODE_TYPE_NAMES[nodeType] || nodeType,
-      color: color || NODE_TYPE_COLORS[nodeType] || '#ccc',
-      order,
-    })
 
-    const sections: RightSection[] = []
-    for (const [type, ids] of groupByType(constraints, nodeTypeById)) {
-      sections.push(buildSection(type, ids, Math.min(...ids.map(sortIndexOf))))
-    }
+    const sections: RightSection[] = constraintPlans.map((plan) => ({
+      nodeType: plan.key,
+      ids: plan.nodeIds,
+      label: plan.label,
+      color: plan.color,
+      order: plan.order,
+      alignY:
+        plan.alignOffsetY !== undefined && schemaNodeId !== null
+          ? schemaY + plan.alignOffsetY
+          : undefined,
+    }))
     if (regexNodes.length > 0) {
-      sections.push(buildSection('regex', regexNodes, Math.min(...regexNodes.map(sortIndexOf))))
+      sections.push({
+        nodeType: 'regex',
+        ids: regexNodes,
+        label: NODE_TYPE_NAMES.regex || 'regex',
+        color: NODE_TYPE_COLORS.regex || '#ccc',
+        order: Math.min(...regexNodes.map(sortIndexOf)),
+      })
     }
     if (others.length > 0) {
       // Others 恒排最后
-      sections.push(buildSection('others', others, Number.MAX_SAFE_INTEGER, '#9e9e9e'))
+      sections.push({
+        nodeType: 'others',
+        ids: others,
+        label: 'Others',
+        color: '#9e9e9e',
+        order: Number.MAX_SAFE_INTEGER,
+      })
     }
     sections.sort((a, b) => a.order - b.order)
 
@@ -469,7 +632,17 @@ export function layoutFamily(params: {
           let y = familyPadding
           for (const s of col.sections) {
             const { h } = measureSection(s.ids)
-            const bandTop = y
+            // 列节行对齐：节带顶向该列在 Schema 中的估算行顶尽力下拉。
+            // 只下拉不上提（bandTop ≥ 游标，保证节间不重叠），且下拉量不超过
+            // COLUMN_ALIGN_MAX_SLACK_PX——行高估算远小于节高，深列的行顶会
+            // 落在游标下方远处，无界下拉会在节间拉开大段空白。
+            let bandTop = y
+            if (s.alignY !== undefined) {
+              bandTop = Math.min(
+                Math.max(y, s.alignY),
+                y + LAYOUT_CONSTANTS.COLUMN_ALIGN_MAX_SLACK_PX
+              )
+            }
             let subX = colStartX
             let secY = bandTop
             let secColStartY = secY

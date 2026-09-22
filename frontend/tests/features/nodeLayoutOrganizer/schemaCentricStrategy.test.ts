@@ -238,4 +238,106 @@ describe('SchemaCentricStrategy - calculate', () => {
     const result = strategy.calculate(makeClassification(nodes), [], ctx)
     expect(result.positions.get('node-cn-a')!.y).toBeLessThan(result.positions.get('node-cn-b')!.y)
   })
+
+  it('groups multi-type constraints of one column into a single column sub-group (列亲和)', () => {
+    // 同列 email 挂 notNull + range 两种约束 → 同一列节（标题=列名），不再按类型拆散
+    const nodes: CustomNode[] = [
+      makeNode('node-s1', 'schema', {
+        columns: [
+          { id: 'col-a', columnName: 'email' },
+          { id: 'col-b', columnName: 'age' },
+        ],
+      }),
+      makeNode('node-cn-nn', 'notNullConstraint', {
+        parent: 'node-s1',
+        sourceRef: { nodeId: 'node-s1', columnId: 'col-a' },
+      }),
+      makeNode('node-cn-rg', 'rangeConstraint', {
+        parent: 'node-s1',
+        sourceRef: { nodeId: 'node-s1', columnId: 'col-a' },
+      }),
+      makeNode('node-cn-uk', 'uniqueConstraint', {
+        parent: 'node-s1',
+        sourceRef: { nodeId: 'node-s1', columnId: 'col-b' },
+      }),
+    ]
+    const strategy = new SchemaCentricStrategy()
+    const ctx = makeContext(nodes)
+    ctx.canvasHeight = 3000
+    const result = strategy.calculate(makeClassification(nodes), [], ctx)
+
+    const emailGroup = result.groups.find((g) => g.name === 'email')
+    expect(emailGroup).toBeDefined()
+    expect(emailGroup!.nodeIds).toContain('node-cn-nn')
+    expect(emailGroup!.nodeIds).toContain('node-cn-rg')
+    expect(emailGroup!.nodeIds).not.toContain('node-cn-uk')
+
+    const ageGroup = result.groups.find((g) => g.name === 'age')
+    expect(ageGroup).toBeDefined()
+    expect(ageGroup!.nodeIds).toEqual(['node-cn-uk'])
+
+    // 节序=列序：email 节在 age 节之上
+    expect(emailGroup!.y).toBeLessThan(ageGroup!.y)
+  })
+
+  it('sinks stale-columnId constraints into the 表级约束 group', () => {
+    // columnId 指向已删除列且列名也不匹配 → 无法解析 → 归入表级节沉底
+    const nodes: CustomNode[] = [
+      makeNode('node-s1', 'schema', {
+        columns: [{ id: 'col-a', columnName: 'name' }],
+      }),
+      makeNode('node-cn-ok', 'notNullConstraint', {
+        parent: 'node-s1',
+        sourceRef: { nodeId: 'node-s1', columnId: 'col-a' },
+      }),
+      makeNode('node-cn-gone', 'uniqueConstraint', {
+        parent: 'node-s1',
+        sourceRef: { nodeId: 'node-s1', columnId: 'col-deleted' },
+      }),
+      makeNode('node-cn-fk', 'foreignKeyConstraint', { parent: 'node-s1' }),
+    ]
+    const strategy = new SchemaCentricStrategy()
+    const ctx = makeContext(nodes)
+    ctx.canvasHeight = 3000
+    const result = strategy.calculate(makeClassification(nodes), [], ctx)
+
+    const tableGroup = result.groups.find((g) => g.name === '表级约束')
+    expect(tableGroup).toBeDefined()
+    expect(tableGroup!.nodeIds).toContain('node-cn-gone')
+    expect(tableGroup!.nodeIds).toContain('node-cn-fk')
+
+    const nameGroup = result.groups.find((g) => g.name === 'name')
+    expect(nameGroup).toBeDefined()
+    // 表级节沉底：其顶在列节之下
+    expect(tableGroup!.y).toBeGreaterThan(nameGroup!.y)
+  })
+
+  it("constraintGrouping 'type' keeps per-type sub-groups via context option", () => {
+    const nodes: CustomNode[] = [
+      makeNode('node-s1', 'schema', {
+        columns: [
+          { id: 'col-a', columnName: 'email' },
+          { id: 'col-b', columnName: 'age' },
+        ],
+      }),
+      makeNode('node-cn-nn', 'notNullConstraint', {
+        parent: 'node-s1',
+        sourceRef: { nodeId: 'node-s1', columnId: 'col-a' },
+      }),
+      makeNode('node-cn-rg', 'rangeConstraint', {
+        parent: 'node-s1',
+        sourceRef: { nodeId: 'node-s1', columnId: 'col-a' },
+      }),
+    ]
+    const strategy = new SchemaCentricStrategy()
+    const ctx = makeContext(nodes)
+    ctx.canvasHeight = 3000
+    ctx.constraintGrouping = 'type'
+    const result = strategy.calculate(makeClassification(nodes), [], ctx)
+
+    const subNames = result.groups.filter((g) => g.parentId === 'fam-node-s1').map((g) => g.name)
+    expect(subNames.sort()).toEqual(['区间约束', '非空约束'].sort())
+    // 不再出现列名节
+    expect(subNames).not.toContain('email')
+  })
 })

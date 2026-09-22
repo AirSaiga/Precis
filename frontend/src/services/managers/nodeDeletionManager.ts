@@ -44,6 +44,7 @@ import {
   getConstraintKindByNodeType,
   isConstraintNodeType,
 } from '@/services/constraints/validationRegistry'
+import { constraintDockNodeId } from '@/stores/graphStore/modules/factories/dockFactory'
 // 模块顶层调用 composable，避免在 class 方法体内调用（违反 Vue composable 规范）。
 // useGlobalConfirm 仅操作模块级 ref，无 inject/provide 依赖，模块顶层调用是安全的。
 const { showConfirm: _showConfirm } = useGlobalConfirm()
@@ -186,7 +187,14 @@ export class NodeDeletionManager {
       })
       .map((n) => n.id)
 
-    await this.graphStore.deleteNodes([...childConstraintIds, nodeId])
+    // 约束坞：确定性 id 派生（constraintDockNodeId），O(1) 查找；
+    // 坞随宿主 schema 一并进本次批量删除（快照成对，撤销一次恢复全部）
+    const dockId = constraintDockNodeId(nodeId)
+    const cascadeIds = this.graphStore.nodes.some((n) => n.id === dockId)
+      ? [...childConstraintIds, dockId, nodeId]
+      : [...childConstraintIds, nodeId]
+
+    await this.graphStore.deleteNodes(cascadeIds)
   }
 
   private async deleteSourcePreviewNode(nodeId: string): Promise<void> {

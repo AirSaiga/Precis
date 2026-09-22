@@ -41,6 +41,7 @@ import TemplateInstanceNode from '@/components/nodes/template/TemplateInstanceNo
 import PatternToolboxNode from '@/components/nodes/patterns/PatternToolboxNode.vue'
 import PatternNode from '@/components/nodes/patterns/PatternNode.vue'
 import ConstraintDashboardNode from '@/components/nodes/constraints/ConstraintDashboardNode.vue'
+import ConstraintDockNode from '@/components/nodes/constraints/ConstraintDockNode.vue'
 import { constraintNodeRegistry } from '@/services/registry/constraintNodeRegistry'
 import { registerConstraintNodeLibrary } from '@/components/nodes/constraintRules/ConstraintNodeLibrary'
 
@@ -70,6 +71,7 @@ export function useNodeTypeRegistry() {
     patternToolbox: shell(PatternToolboxNode, 'PatternToolboxNodeShell'),
     pattern: shell(PatternNode, 'PatternNodeShell'),
     constraintDashboard: shell(ConstraintDashboardNode, 'ConstraintDashboardNodeShell'),
+    constraintDock: shell(ConstraintDockNode, 'ConstraintDockNodeShell'),
     schema: shell(SchemaNode, 'SchemaNodeShell'),
     sourcePreview: shell(SourcePreviewNode, 'SourcePreviewNodeShell'),
     jsonSourcePreview: shell(JsonSourcePreviewNode, 'JsonSourcePreviewNodeShell'),

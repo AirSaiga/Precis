@@ -90,6 +90,12 @@ export interface GeneralSettings {
   language: 'zh-CN' | 'en-US'
   /** 主题模式 */
   theme: 'light' | 'dark' | 'system' | 'liquid'
+  /** 新增节点后是否自动整理画布布局 */
+  autoOrganizeOnNodeAdd: boolean
+  /** 删除节点后是否自动整理画布布局 */
+  autoOrganizeOnNodeDelete: boolean
+  /** 连线变化后是否自动整理画布布局 */
+  autoOrganizeOnConnectionChange: boolean
 }
 
 /**
@@ -218,11 +224,14 @@ export const defaultScriptSettings: ScriptSettings = {
   lastWarningTimestamp: null,
 }
 
-/** 通用设置默认值 */
+/** 通用设置默认值（自动整理三开关默认关闭，需用户主动开启） */
 export const defaultGeneralSettings: GeneralSettings = {
   loadRecentProjectOnStartup: true,
   language: 'zh-CN',
   theme: 'system',
+  autoOrganizeOnNodeAdd: false,
+  autoOrganizeOnNodeDelete: false,
+  autoOrganizeOnConnectionChange: false,
 }
 
 /** 开发设置默认值 */

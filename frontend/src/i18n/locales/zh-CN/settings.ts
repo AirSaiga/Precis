@@ -71,6 +71,21 @@ const settings = {
         liquid: 'Liquid（次世代）',
       },
     },
+    canvas: {
+      title: '画布自动整理',
+      autoOrganizeOnNodeAdd: {
+        label: '添加节点时自动整理',
+        desc: '新增节点后自动重排画布布局',
+      },
+      autoOrganizeOnNodeDelete: {
+        label: '删除节点时自动整理',
+        desc: '删除节点后自动重排画布布局',
+      },
+      autoOrganizeOnConnectionChange: {
+        label: '连线变化时自动整理',
+        desc: '连接或断开连线后自动重排画布布局',
+      },
+    },
   },
   projectInfo: {
     tab: '项目信息',

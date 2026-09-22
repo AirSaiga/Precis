@@ -100,6 +100,16 @@
   pointer-events: none;
 }
 
+:deep(.vue-flow__edge.dock-display-edge) {
+  /**
+   * 约束坞展示边（schema 列 → 坞）：仅视觉提示"该列有约束"，
+   * 不承载可操作语义，不拦截鼠标（同 fk-display-edge 做法）。
+   * 弱视觉（细虚线 + 低透明度）由 dockSync 建边时的内联 style 提供，
+   * 此处只关交互；无 dash 流动/呼吸动画，刻意弱于 FK 展示边与数据边。
+   */
+  pointer-events: none;
+}
+
 :deep(.vue-flow__edge.fk-display-edge path) {
   /**
    * 外键"展示边"的识别度设计：
@@ -221,6 +231,11 @@
 /* 约束：按类型取 node-tokens 的约束专用色 */
 :deep(.minimap-node--constraint) {
   fill: var(--node-type-constraint);
+}
+
+/* 约束坞：派生视图节点，取 ui-info 与业务约束色（= ui-accent）区分 */
+:deep(.minimap-node--constraintDock) {
+  fill: var(--ui-info);
 }
 
 :deep(.minimap-node--notNullConstraint) {

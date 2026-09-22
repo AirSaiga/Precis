@@ -30,6 +30,7 @@ const shortcuts = {
     history: '历史',
     project: '项目',
     help: '帮助',
+    palette: '面板',
   },
 
   // 命令名称
@@ -79,6 +80,9 @@ const shortcuts = {
     // 帮助命令
     showShortcuts: '显示快捷键',
     showHelp: '显示帮助',
+
+    // 面板命令
+    openCommandPalette: '打开命令面板',
   },
 
   // 操作反馈消息
@@ -120,6 +124,7 @@ const shortcuts = {
     schemaOnly: '仅支持 Schema 节点',
     noColumnsToValidate: '当前 Schema 没有列定义',
     validationNoConstraints: '没有连接的约束',
+    validationNotExecuted: '未执行校验：缺少数据源',
     validationAllPassed: '校验全部通过',
     validationCompleted: '校验完成',
     validationFailed: '校验失败',

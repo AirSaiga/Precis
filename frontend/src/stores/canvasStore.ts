@@ -37,12 +37,17 @@ import { defineStore, storeToRefs } from 'pinia'
 import type { CustomNode } from '@/types/graph'
 import type { Edge } from '@vue-flow/core'
 import { useCanvasTabStore } from './canvasTabStore'
+import { useGraphStore } from './graphStore'
 // 视口缩放统一走 Vue Flow（d3-zoom）真实 API；画布未挂载时内部静默降级
 import {
   zoomIn as vueFlowZoomIn,
   zoomOut as vueFlowZoomOut,
   zoomTo as vueFlowZoomTo,
+  fitView as vueFlowFitView,
+  VueFlowApiNotInitializedError,
 } from '@/services/canvas/vueFlowApi'
+// fitView 安全留白常量位于服务层中立位置（store 不得反向依赖 feature）
+import { SAFE_FITVIEW_PADDING } from '@/services/canvas/fitViewPadding'
 
 /** 工作区数据类型（从 canvasTabStore.CanvasTab 重导出） */
 export type { CanvasTab as Workspace } from './canvasTabStore'
@@ -163,13 +168,29 @@ export const useCanvasStore = defineStore('canvas', () => {
   }
 
   /**
-   * 适应画布视图
+   * 适应画布视图（框住全部节点）
    *
-   * 当前为简化实现，等同于重置缩放为 100%。
-   * 未来可扩展为根据画布内容自动计算最佳缩放和偏移。
+   * 走 Vue Flow 的 fitView 真实 API：duration: 0 瞬时完成（不留动画窗口，
+   * 慢环境下取景动画会与用户画布交互重叠导致落点漂移）；安全留白避开
+   * MiniMap / 检查器 / 状态栏浮层（见 SAFE_FITVIEW_PADDING 注释）。
+   *
+   * - 空画布跳过（fitView 无意义且可能视口跳变）
+   * - Vue Flow 未挂载（IDE ↔ Agent 模式切换重建窗口期）抛
+   *   VueFlowApiNotInitializedError，此处静默跳过不报错——快捷键在该
+   *   窗口期仍可能触发（参照 canvasOps.ts 的既有降级模式）
+   * - 不再镜像写入 zoomLevel：fitView 后真实缩放由 Vue Flow 内部维护，
+   *   store 侧拿不到 viewport，镜像值只会失真
    */
   function fitView() {
-    zoomLevel.value = 1
+    if (useGraphStore().nodes.length === 0) return
+    try {
+      vueFlowFitView({ padding: { ...SAFE_FITVIEW_PADDING }, duration: 0 })
+    } catch (error) {
+      if (error instanceof VueFlowApiNotInitializedError) {
+        return
+      }
+      throw error
+    }
   }
 
   /**
@@ -184,11 +205,11 @@ export const useCanvasStore = defineStore('canvas', () => {
   /**
    * 将画布视图居中
    *
-   * 当前为简化实现，等同于重置缩放为 100%。
-   * 未来可扩展为计算画布内容边界框并居中显示。
+   * Vue Flow 无"只居中不变焦"的单发 API，与 fitView 同义：框住全部内容
+   * 即同时完成居中与变焦（含安全留白与空画布/未挂载守卫）。
    */
   function centerView() {
-    zoomLevel.value = 1
+    fitView()
   }
 
   /**

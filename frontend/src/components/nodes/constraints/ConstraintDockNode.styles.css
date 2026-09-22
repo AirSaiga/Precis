@@ -1,0 +1,293 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright 2026 Precis Team
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
+/* 约束坞：Schema 右侧 200px 紧凑坞。宽固定；高度由组件按 Schema 实测高度对齐。
+   状态色语义与 ConstraintNodeLayout.styles.css 一致：pass 绿 / error 红 / missing 橙 / idle 灰。 */
+.constraint-dock-node {
+  width: 200px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--node-bg, #1e1e1e);
+  border: 1px solid var(--node-border, #3c3c3c);
+  border-radius: var(--node-radius-lg, 10px);
+  box-shadow: var(--node-shadow-sm);
+  overflow: hidden;
+  --dock-status-pass: var(--ui-success, #34d399);
+  --dock-status-error: #f44336;
+  --dock-status-missing: #ff9800;
+  --dock-status-idle: var(--ui-text-muted, #858585);
+}
+
+/* ===== 标题栏 ===== */
+.dock-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: var(--node-header-gradient-primary);
+  border-bottom: 1px solid var(--node-divider-color, #333);
+  min-height: 30px;
+}
+
+.dock-title {
+  font-size: var(--node-muted-size, 11px);
+  font-weight: var(--node-title-weight, 600);
+  color: var(--node-muted-color, #858585);
+  white-space: nowrap;
+}
+
+.dock-schema-name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--node-text-size, 12px);
+  font-weight: var(--node-title-weight, 600);
+  color: var(--node-title-color, #cccccc);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dock-count {
+  font-size: var(--node-badge-font-size-sm, 10px);
+  font-weight: var(--node-badge-font-weight, 700);
+  color: var(--node-muted-color, #858585);
+  border: 1px solid var(--node-border, #3c3c3c);
+  background: var(--node-bg, #1e1e1e);
+  border-radius: var(--node-badge-radius-full, 999px);
+  padding: 1px 6px;
+}
+
+.dock-error-total {
+  font-size: var(--node-badge-font-size-sm, 10px);
+  font-weight: var(--node-badge-font-weight, 700);
+  color: #fff;
+  background: var(--dock-status-error);
+  border-radius: var(--node-badge-radius-full, 999px);
+  padding: 1px 6px;
+}
+
+.dock-toggle {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--node-border, #3c3c3c);
+  border-radius: var(--node-radius-sm, 4px);
+  background: var(--node-btn-bg, #2d2d30);
+  color: var(--node-muted-color, #858585);
+  font-size: 9px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.dock-toggle:hover {
+  color: var(--node-title-color, #cccccc);
+  border-color: var(--node-accent, #007acc);
+}
+
+/* L2 全部展开/收回（文本钮，与 ▼/▲ 行明细钮并列） */
+.dock-expand-all {
+  flex-shrink: 0;
+  height: 18px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--node-border, #3c3c3c);
+  border-radius: var(--node-radius-sm, 4px);
+  background: var(--node-btn-bg, #2d2d30);
+  color: var(--node-muted-color, #858585);
+  font-size: 9px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.dock-expand-all:hover {
+  color: var(--node-title-color, #cccccc);
+  border-color: var(--node-accent, #007acc);
+}
+
+/* 展示边 target handle：几何上承接 schema-to-dock-display 边，视觉隐藏且
+   不响应指针（用户无法手工连到坞；边由 dockSync 全权管理）。
+   双类选择器抬高特异性，压过 Vue Flow 默认 .vue-flow__handle 样式 */
+.constraint-dock-node .dock-target-handle {
+  width: 4px;
+  height: 4px;
+  min-width: 4px;
+  min-height: 4px;
+  border: none;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ===== 行区（绝对定位对齐 Schema 列行） ===== */
+.dock-rows {
+  position: relative;
+  flex: 1;
+  min-height: 40px;
+}
+
+.dock-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--node-muted-size, 11px);
+  color: var(--node-muted-color, #858585);
+}
+
+.dock-row {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 22px;
+  flex-wrap: wrap;
+}
+
+.dock-row.is-table-level .dock-col-name {
+  font-style: italic;
+}
+
+.dock-col-name {
+  flex: 0 0 auto;
+  max-width: 76px;
+  font-size: var(--node-muted-size, 11px);
+  color: var(--node-muted-color, #858585);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dock-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+/* ===== 徽标（L0 纯徽标条密度） ===== */
+.dock-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 18px;
+  min-width: 18px;
+  padding: 0 3px;
+  border-radius: var(--node-radius-sm, 4px);
+  border: 1px solid var(--node-border, #3c3c3c);
+  background: var(--node-bg, #1e1e1e);
+  color: var(--node-text-color, #cccccc);
+  cursor: pointer;
+  position: relative;
+}
+
+.dock-badge:hover {
+  border-color: var(--node-accent, #007acc);
+  box-shadow: var(--node-shadow-sm);
+}
+
+/* 状态左缘色条：与状态点同色语义 */
+.dock-badge.is-pass {
+  border-left: 2px solid var(--dock-status-pass);
+}
+
+.dock-badge.is-error {
+  border-left: 2px solid var(--dock-status-error);
+}
+
+.dock-badge.is-missing {
+  border-left: 2px solid var(--dock-status-missing);
+}
+
+.dock-badge.is-idle {
+  border-left: 2px solid var(--dock-status-idle);
+}
+
+/* 内嵌约束（无画布节点）：描边样式区分 */
+.dock-badge.is-embedded {
+  border-style: dashed;
+}
+
+.dock-badge-count {
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--dock-status-error);
+}
+
+/* ===== 行明细（L1 展开密度） ===== */
+.dock-detail {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  min-height: 20px;
+  padding: 1px 4px;
+  border-radius: var(--node-radius-sm, 4px);
+  border: 1px solid var(--node-border, #3c3c3c);
+  background: var(--node-bg, #1e1e1e);
+  cursor: pointer;
+  color: var(--node-text-color, #cccccc);
+}
+
+.dock-detail:hover {
+  border-color: var(--node-accent, #007acc);
+}
+
+.dock-detail.is-embedded {
+  border-style: dashed;
+}
+
+.dock-detail-label {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--node-muted-size, 11px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--node-title-color, #cccccc);
+}
+
+.dock-detail-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--dock-status-idle);
+}
+
+.dock-detail-dot.dot-pass {
+  background: var(--dock-status-pass);
+}
+
+.dock-detail-dot.dot-error {
+  background: var(--dock-status-error);
+}
+
+.dock-detail-dot.dot-missing {
+  background: var(--dock-status-missing);
+}

@@ -55,21 +55,19 @@ import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
 import {
   computeClearanceShift,
   computeItemsBounds,
-  layoutBatchAsColumn,
+  layoutBatchAsGrid,
   type PlacedItem,
   type RectBounds,
 } from '@/features/node-layout-organizer/utils/batchPlacement'
 import { getDefaultDimension } from '@/features/node-layout-organizer/utils/nodeDimensionHelper'
 export type ProjectResourceKind =
-  | 'schema'
-  | 'constraint'
-  | 'regex'
-  | 'pattern'
-  | 'regex_node'
-  | 'transform'
+  'schema' | 'constraint' | 'regex' | 'pattern' | 'regex_node' | 'transform'
 
 /** 批量导入约束列相对 Schema 落点的水平偏移（沿用既有 +420 视觉惯例） */
 const IMPORT_COLUMN_OFFSET_X = 420
+
+/** 约束批次的栅格行数：每列至多 6 个约束，纵向高度控制在约一屏内 */
+const IMPORT_GRID_ROWS_PER_COLUMN = 6
 
 /** 约束列的行间距（约束节点高约 100 + 60 间距 ≈ 原导入列 160 步进） */
 const IMPORT_COLUMN_ROW_GAP = 60
@@ -78,10 +76,12 @@ const IMPORT_COLUMN_ROW_GAP = 60
 const IMPORT_CLEARANCE_GAP = 40
 
 /**
- * 批量导入后的约束批次列式重排（修复：导入约束列压盖既有节点，如项目根节点）。
+ * 批量导入后的约束批次栅格重排（修复：导入约束列压盖既有节点 + 单列直排
+ * 拉出数倍视口高度的长条，22 项 ≈ 3500px）。
  *
- * 对"本次导入新增的约束类节点"（内嵌物化 + 连带独立约束）统一按列式布局：
+ * 对"本次导入新增的约束类节点"（内嵌物化 + 连带独立约束）统一按栅格布局：
  * - 锚点取 Schema 落点右侧 +420（保持与用户落点的相对关系）
+ * - 每列至多 IMPORT_GRID_ROWS_PER_COLUMN 个，填满换列，横向展开
  * - 计算批次包围盒与"非批次节点"包围盒的碰撞，必要时整体平移到净空区
  * - 位置经 vueFlowApi.updateNode 增量应用，不直接改 node.position
  *
@@ -105,7 +105,11 @@ function relayoutImportedConstraintBatch(
   })
 
   const origin = { x: anchorPosition.x + IMPORT_COLUMN_OFFSET_X, y: anchorPosition.y }
-  const positions = layoutBatchAsColumn(items, origin, IMPORT_COLUMN_ROW_GAP)
+  const positions = layoutBatchAsGrid(items, origin, {
+    rowsPerColumn: IMPORT_GRID_ROWS_PER_COLUMN,
+    columnGap: IMPORT_COLUMN_OFFSET_X,
+    rowGap: IMPORT_COLUMN_ROW_GAP,
+  })
 
   // 避开"非批次节点"（既有节点 + 本次新建的 Schema 等非约束节点）的包围盒
   const obstacleNodes = nodes.value.filter((n) => !positions.has(n.id))

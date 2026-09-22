@@ -51,6 +51,9 @@ import { createTransformFactoryModule } from '../modules/factories/transformFact
 import { createTransformOutputFactoryModule } from '../modules/factories/transformOutputFactory'
 import { createManualDataFactoryModule } from '../modules/factories/manualDataFactory'
 import { createLibraryNodesFactoryModule } from '../modules/factories/libraryNodesFactory'
+import { createDockFactoryModule } from '../modules/factories/dockFactory'
+import { createDockSyncModule } from '../modules/dockSync'
+import { createViewFilterModule } from '../modules/viewFilter'
 import { createMiscFactoryModule } from '../modules/factories/miscFactory'
 import { createJsonSchemaFactoryModule } from '../modules/factories/jsonSchemaFactory'
 import { createTemplateInstanceFactoryModule } from '../modules/factories/templateInstanceFactory'
@@ -172,6 +175,9 @@ export function createGraphStoreAssembly(
       selectedNodeId,
       getEffectiveProjectConfigPath,
     })
+
+  // --- 约束坞（纯 UI 派生节点）---
+  const { ensureConstraintDockForSchema } = createDockFactoryModule({ nodes })
   const { createEmptyTableNode, createEmptyPatternNode, createLogicNode } = createMiscFactoryModule(
     {
       createSchemaNode,
@@ -295,6 +301,29 @@ export function createGraphStoreAssembly(
   const { selectAllNodes, clearSelection, setSelection } = createSelectionModule({
     nodes,
     selectedNodeId,
+    selectedNodeIds,
+  })
+
+  // 视图模式 + 节点类型筛选：只管理自己隐藏的节点（与坞聚合隐藏互不侵犯），
+  // 持久化走 localStorage 按项目配置路径分桶；选中节点将被隐藏时先清空选择
+  const viewFilter = createViewFilterModule({
+    nodes,
+    edges,
+    selectedNodeId,
+    selectedNodeIds,
+    clearSelection,
+    updateNodeData,
+    getEffectiveProjectConfigPath,
+  })
+
+  // 约束坞同步器：fingerprint watcher 挂 store 生命周期，
+  // 单点覆盖手动连线/AI/导入/模板/undo/删除等全部 mutation 入口；
+  // L2 展开全部/收回动作暴露给坞组件标题栏按钮
+  const { expandDockAll, collapseDockAll } = createDockSyncModule({
+    nodes,
+    edges,
+    updateNodeData,
+    ensureConstraintDockForSchema,
     selectedNodeIds,
   })
 
@@ -471,6 +500,19 @@ export function createGraphStoreAssembly(
 
     clearColumnValidationErrors,
     clearAllValidationErrors,
+
+    expandDockAll,
+    collapseDockAll,
+
+    viewFilterMode: viewFilter.viewMode,
+    viewFilterFocusAnchorId: viewFilter.focusAnchorId,
+    viewFilterErrorsOnly: viewFilter.errorsOnly,
+    viewFilterHiddenGroups: viewFilter.hiddenGroups,
+    setViewFilterMode: viewFilter.setViewMode,
+    toggleViewFilterErrorsOnly: viewFilter.toggleErrorsOnly,
+    setViewFilterGroupHidden: viewFilter.setGroupHidden,
+    resetViewFilter: viewFilter.resetViewFilter,
+    applyViewFilter: viewFilter.applyViewFilter,
 
     createConnection,
     deleteConnection,

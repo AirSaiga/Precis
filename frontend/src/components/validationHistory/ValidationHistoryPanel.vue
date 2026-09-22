@@ -177,6 +177,7 @@ limitations under the License.
     fetchValidationStats,
     deleteValidationRun,
   } from '@/api/validationHistoryApi'
+  import { isProjectNotFound } from '@/api/projectV2Api/shared'
   import type { ValidationRunRecord, ValidationHistoryStats } from '@/types/validationHistory'
 
   const { t } = useI18n()
@@ -267,8 +268,13 @@ limitations under the License.
     } catch (e) {
       logger.error('[ValidationHistoryPanel] 加载失败:', e)
       loadError.value = true
-      // 同步弹 toast，让用户立即感知（原仅 console，用户看不到）
-      toastError(t('validationHistory.loadFailed'))
+      // 404 = 项目根无效（PROJECT_NOT_FOUND）：httpClient 响应拦截器已据此
+      // 广播 project-path-invalid，由 App 层清理并回项目选择页——此时弹
+      // "请检查后端连接"只会误导（后端连接正常），故仅其余错误保留通用提示
+      if (!isProjectNotFound(e)) {
+        // 同步弹 toast，让用户立即感知（原仅 console，用户看不到）
+        toastError(t('validationHistory.loadFailed'))
+      }
     } finally {
       loading.value = false
     }

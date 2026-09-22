@@ -19,13 +19,21 @@ import { describe, it, expect } from 'vitest'
 import {
   getFallbackDimension,
   groupByType,
+  estimateColumnRowOffset,
+  planConstraintSections,
   flowLayout,
   calculateBoundsFromLocal,
   calculateBoundsFromPositions,
   layoutFamily,
 } from '@/features/node-layout-organizer/strategies/familyLayout'
+import type { MemberColumnTarget } from '@/features/node-layout-organizer/types'
 import type { NodeDimension } from '@/features/node-layout-organizer/utils/nodeDimensionHelper'
 import { NODE_DIMENSIONS } from '@/features/node-layout-organizer/constants'
+
+/** 构造成员目标列信息（列亲和测试工厂） */
+function makeTarget(columnId: string, columnName: string, columnIndex: number): MemberColumnTarget {
+  return { columnId, columnName, columnIndex }
+}
 
 describe('getFallbackDimension', () => {
   it('returns schema-specific dimensions for schema', () => {
@@ -87,6 +95,128 @@ describe('groupByType', () => {
   it('returns empty map for empty input', () => {
     const result = groupByType([], new Map())
     expect(result.size).toBe(0)
+  })
+})
+
+describe('estimateColumnRowOffset', () => {
+  it('is monotone in column index and bounded by schema height', () => {
+    const offsets = [0, 1, 2, 3].map((i) => estimateColumnRowOffset(i, 400, 4))
+    for (let i = 1; i < offsets.length; i++) {
+      expect(offsets[i]).toBeGreaterThan(offsets[i - 1]!)
+    }
+    expect(offsets[3]!).toBeLessThanOrEqual(400)
+  })
+
+  it('keeps row height positive for single-column schemas', () => {
+    expect(estimateColumnRowOffset(0, 300, 1)).toBeGreaterThan(0)
+  })
+})
+
+describe('planConstraintSections', () => {
+  const nodeTypeById = new Map<string, string>([
+    ['cn-nn', 'notNullConstraint'],
+    ['cn-rg', 'rangeConstraint'],
+    ['cn-uk', 'uniqueConstraint'],
+    ['cn-fk', 'foreignKeyConstraint'],
+  ])
+  const schemaDim = { width: 360, height: 400 }
+
+  it('column 模式：同列多类型约束合并为同一列节（标题=列名）', () => {
+    const plans = planConstraintSections({
+      constraints: ['cn-nn', 'cn-rg', 'cn-uk'],
+      nodeTypeById,
+      grouping: 'column',
+      columnTargetById: new Map([
+        ['cn-nn', makeTarget('col-a', 'name', 0)],
+        ['cn-rg', makeTarget('col-a', 'name', 0)],
+        ['cn-uk', makeTarget('col-b', 'age', 1)],
+      ]),
+      schemaDim,
+      schemaColumnCount: 2,
+    })
+    expect(plans).toHaveLength(2)
+    expect(plans[0]!.label).toBe('name')
+    expect(plans[0]!.nodeIds).toEqual(['cn-nn', 'cn-rg'])
+    expect(plans[1]!.label).toBe('age')
+    expect(plans[1]!.nodeIds).toEqual(['cn-uk'])
+  })
+
+  it('column 模式：节序=列序，节内按类型标识次级稳定排序', () => {
+    const plans = planConstraintSections({
+      constraints: ['cn-uk', 'cn-nn', 'cn-rg'],
+      nodeTypeById,
+      grouping: 'column',
+      columnTargetById: new Map([
+        ['cn-uk', makeTarget('col-c', 'status', 2)],
+        ['cn-nn', makeTarget('col-a', 'name', 0)],
+        ['cn-rg', makeTarget('col-a', 'name', 0)],
+      ]),
+      schemaDim,
+      schemaColumnCount: 3,
+    })
+    expect(plans.map((p) => p.label)).toEqual(['name', 'status'])
+    // 同列节内按类型标识排序：notNullConstraint < rangeConstraint（ASCII 确定序）
+    expect(plans[0]!.nodeIds).toEqual(['cn-nn', 'cn-rg'])
+  })
+
+  it('column 模式：无列引用与 columnId 失效的约束沉底为单一表级节', () => {
+    const plans = planConstraintSections({
+      constraints: ['cn-nn', 'cn-fk', 'cn-uk'],
+      nodeTypeById,
+      grouping: 'column',
+      // cn-fk 无目标（表级）；cn-uk 有 sourceRef 但解析失败（列已删）→ 同样不入表
+      columnTargetById: new Map([['cn-nn', makeTarget('col-a', 'name', 0)]]),
+      schemaDim,
+      schemaColumnCount: 2,
+    })
+    expect(plans).toHaveLength(2)
+    const tablePlan = plans[1]!
+    expect(tablePlan.key).toBe('tableLevel')
+    expect(tablePlan.label).toBe('表级约束')
+    expect(tablePlan.nodeIds).toEqual(['cn-fk', 'cn-uk'])
+    expect(tablePlan.order).toBe(Number.MAX_SAFE_INTEGER)
+  })
+
+  it('column 模式：列节带行对齐偏移，表级节无', () => {
+    const plans = planConstraintSections({
+      constraints: ['cn-nn', 'cn-fk'],
+      nodeTypeById,
+      grouping: 'column',
+      columnTargetById: new Map([['cn-nn', makeTarget('col-a', 'name', 1)]]),
+      schemaDim,
+      schemaColumnCount: 4,
+    })
+    expect(plans[0]!.alignOffsetY).toBeGreaterThan(0)
+    expect(plans[1]!.alignOffsetY).toBeUndefined()
+  })
+
+  it('column 模式：无 Schema 列信息（伪家族/无 columns）回退类型分节', () => {
+    const plans = planConstraintSections({
+      constraints: ['cn-nn', 'cn-rg'],
+      nodeTypeById,
+      grouping: 'column',
+      schemaDim: null,
+    })
+    expect(plans.map((p) => p.key)).toEqual(['notNullConstraint', 'rangeConstraint'])
+    expect(plans[0]!.label).toBe('非空约束')
+  })
+
+  it('type 模式：保持按类型分节的历史行为（标题=类型名、order=成员最小列序）', () => {
+    const plans = planConstraintSections({
+      constraints: ['cn-nn', 'cn-rg'],
+      nodeTypeById,
+      grouping: 'type',
+      columnTargetById: new Map([
+        ['cn-nn', makeTarget('col-a', 'name', 0)],
+        ['cn-rg', makeTarget('col-b', 'age', 1)],
+      ]),
+      schemaDim,
+      schemaColumnCount: 2,
+    })
+    expect(plans.map((p) => p.key)).toEqual(['notNullConstraint', 'rangeConstraint'])
+    expect(plans[0]!.order).toBe(0)
+    expect(plans[1]!.order).toBe(1)
+    expect(plans.every((p) => p.alignOffsetY === undefined)).toBe(true)
   })
 })
 
@@ -239,7 +369,8 @@ describe('layoutFamily', () => {
     expect(cnPos.y).toBeGreaterThan(schemaPos.y)
   })
 
-  it('creates subGroups for each constraint type in horizontal mode', () => {
+  it('creates subGroups for each constraint type in horizontal mode (no column info fallback)', () => {
+    // 无列信息（未传 memberColumnTargetById）时列亲和回退类型分节（伪家族路径）
     const result = layoutFamily({
       familyId: 'fam1',
       familyName: 'Family 1',
@@ -321,10 +452,10 @@ describe('layoutFamily', () => {
     expect(result.height).toBeGreaterThanOrEqual(300)
   })
 
-  it('orders right-area sections by schema column index when sort index provided', () => {
-    // 列序：name(1) → email(2) → age(3) → status(4)；正则挂 email(2)。
-    // 同类型两节点故意用"字典序与列序相反"的 ID（m9-age > b2-score），
-    // 确保 groupByType 若重排字典序该测试能真实检出。
+  it('orders right-area sections by schema column index when column targets provided', () => {
+    // 列序：name(1) → email(2) → age(3) → status(4) → score(5)；正则挂 email(2)。
+    // 同列两节点故意用"字典序与列序相反"的 ID（m9-age > b2-score），
+    // 确保分组若重排字典序该测试能真实检出。
     // 画布足够高时选 1 列，节顺序直接体现为 y 顺序。
     const dims = new Map<string, NodeDimension>([
       ['schema1', { width: 320, height: 400 }],
@@ -355,22 +486,169 @@ describe('layoutFamily', () => {
       layoutMode: 'horizontal',
       gap: 30,
       edges: [],
-      memberSortIndexById: new Map([
-        ['cn-name', 1],
-        ['cn-email', 2],
-        ['rgx-email', 2],
-        ['m9-age', 3],
-        ['b2-score', 5],
-        ['cn-status', 4],
+      memberColumnTargetById: new Map([
+        ['cn-name', makeTarget('c1', 'name', 1)],
+        ['cn-email', makeTarget('c2', 'email', 2)],
+        ['rgx-email', makeTarget('c2', 'email', 2)],
+        ['m9-age', makeTarget('c3', 'age', 3)],
+        ['b2-score', makeTarget('c5', 'score', 5)],
+        ['cn-status', makeTarget('c4', 'status', 4)],
       ]),
+      schemaColumnCount: 6,
     })
     const y = (id: string) => result.localPositions.get(id)!.y
     expect(y('cn-name')).toBeLessThan(y('cn-email'))
     expect(y('cn-email')).toBeLessThan(y('rgx-email'))
     expect(y('rgx-email')).toBeLessThan(y('m9-age'))
     expect(y('m9-age')).toBeLessThan(y('cn-status'))
-    // 同类型节内也按列序排（age 在 score 前），字典序在此是反着的
-    expect(y('m9-age')).toBeLessThan(y('b2-score'))
+    // 节序=列序：score(5) 在 status(4) 之后，字典序在此是反着的
+    expect(y('cn-status')).toBeLessThan(y('b2-score'))
+  })
+
+  it('groups multi-type constraints of the same column into one sub-group titled with the column name', () => {
+    const dims = new Map<string, NodeDimension>([
+      ['schema1', { width: 320, height: 400 }],
+      ['nn-email', { width: 260, height: 100 }],
+      ['rg-email', { width: 260, height: 100 }],
+      ['uk-email', { width: 260, height: 100 }],
+    ])
+    const result = layoutFamily({
+      familyId: 'fam1',
+      familyName: 'Family 1',
+      schemaNodeId: 'schema1',
+      memberNodeIds: ['nn-email', 'rg-email', 'uk-email'],
+      nodeTypeById: new Map([
+        ['schema1', 'schema'],
+        ['nn-email', 'notNullConstraint'],
+        ['rg-email', 'rangeConstraint'],
+        ['uk-email', 'uniqueConstraint'],
+      ]),
+      nodeDimensions: dims,
+      canvasWidth: 1200,
+      canvasHeight: 3000,
+      layoutMode: 'horizontal',
+      gap: 30,
+      edges: [],
+      memberColumnTargetById: new Map([
+        ['nn-email', makeTarget('c-email', 'email', 0)],
+        ['rg-email', makeTarget('c-email', 'email', 0)],
+        ['uk-email', makeTarget('c-email', 'email', 0)],
+      ]),
+      schemaColumnCount: 1,
+    })
+    // 同列三种类型 → 单个列节，标题=列名，节内按类型标识排序
+    expect(result.subGroups).toHaveLength(1)
+    expect(result.subGroups[0]!.name).toBe('email')
+    expect(result.subGroups[0]!.nodeIds).toEqual(['nn-email', 'rg-email', 'uk-email'])
+    // 同列约束在列内纵向堆叠（同一 x）
+    const xs = new Set(
+      ['nn-email', 'rg-email', 'uk-email'].map((id) => result.localPositions.get(id)!.x)
+    )
+    expect(xs.size).toBe(1)
+  })
+
+  it('sinks table-level and stale-column constraints into the 表级 section below column sections', () => {
+    const dims = new Map<string, NodeDimension>([
+      ['schema1', { width: 320, height: 400 }],
+      ['cn-name', { width: 260, height: 100 }],
+      ['cn-fk', { width: 260, height: 100 }],
+      ['cn-stale', { width: 260, height: 100 }],
+    ])
+    const result = layoutFamily({
+      familyId: 'fam1',
+      familyName: 'Family 1',
+      schemaNodeId: 'schema1',
+      memberNodeIds: ['cn-name', 'cn-fk', 'cn-stale'],
+      nodeTypeById: new Map([
+        ['schema1', 'schema'],
+        ['cn-name', 'notNullConstraint'],
+        ['cn-fk', 'foreignKeyConstraint'],
+        ['cn-stale', 'uniqueConstraint'],
+      ]),
+      nodeDimensions: dims,
+      canvasWidth: 1200,
+      canvasHeight: 3000,
+      layoutMode: 'horizontal',
+      gap: 30,
+      edges: [],
+      // cn-fk（表级）与 cn-stale（columnId 失效）均无目标 → 表级节
+      memberColumnTargetById: new Map([['cn-name', makeTarget('c-name', 'name', 0)]]),
+      schemaColumnCount: 2,
+    })
+    const tableGroup = result.subGroups.find((sg) => sg.name === '表级约束')
+    expect(tableGroup).toBeDefined()
+    expect(tableGroup!.nodeIds).toEqual(['cn-fk', 'cn-stale'])
+    // 沉底：表级节的两个约束都在列节约束之下
+    const y = (id: string) => result.localPositions.get(id)!.y
+    expect(y('cn-fk')).toBeGreaterThan(y('cn-name'))
+    expect(y('cn-stale')).toBeGreaterThan(y('cn-name'))
+  })
+
+  it('aligns the first column section band toward its estimated schema row', () => {
+    // schema 高 400、4 列：第 0 列行顶估算 = header(120) + 0 ≈ 120，
+    // 对齐目标 40 + 120 = 160 > 节带初始游标 40 → 节带被下拉（不超过 slack 120）
+    const dims = new Map<string, NodeDimension>([
+      ['schema1', { width: 320, height: 400 }],
+      ['cn-a', { width: 260, height: 100 }],
+    ])
+    const result = layoutFamily({
+      familyId: 'fam1',
+      familyName: 'Family 1',
+      schemaNodeId: 'schema1',
+      memberNodeIds: ['cn-a'],
+      nodeTypeById: new Map([
+        ['schema1', 'schema'],
+        ['cn-a', 'notNullConstraint'],
+      ]),
+      nodeDimensions: dims,
+      canvasWidth: 1200,
+      canvasHeight: 3000,
+      layoutMode: 'horizontal',
+      gap: 30,
+      edges: [],
+      memberColumnTargetById: new Map([['cn-a', makeTarget('c-a', 'colA', 0)]]),
+      schemaColumnCount: 4,
+    })
+    expect(result.localPositions.get('cn-a')!.y).toBeGreaterThan(40)
+  })
+
+  it("constraintGrouping 'type' keeps legacy type sections when column targets exist", () => {
+    const dims = new Map<string, NodeDimension>([
+      ['schema1', { width: 320, height: 400 }],
+      ['nn-a', { width: 260, height: 100 }],
+      ['rg-a', { width: 260, height: 100 }],
+      ['uk-b', { width: 260, height: 100 }],
+    ])
+    const result = layoutFamily({
+      familyId: 'fam1',
+      familyName: 'Family 1',
+      schemaNodeId: 'schema1',
+      memberNodeIds: ['nn-a', 'rg-a', 'uk-b'],
+      nodeTypeById: new Map([
+        ['schema1', 'schema'],
+        ['nn-a', 'notNullConstraint'],
+        ['rg-a', 'rangeConstraint'],
+        ['uk-b', 'uniqueConstraint'],
+      ]),
+      nodeDimensions: dims,
+      canvasWidth: 1200,
+      canvasHeight: 3000,
+      layoutMode: 'horizontal',
+      gap: 30,
+      edges: [],
+      memberColumnTargetById: new Map([
+        ['nn-a', makeTarget('c-a', 'colA', 0)],
+        ['rg-a', makeTarget('c-a', 'colA', 0)],
+        ['uk-b', makeTarget('c-b', 'colB', 1)],
+      ]),
+      schemaColumnCount: 2,
+      constraintGrouping: 'type',
+    })
+    // 旧行为：按类型分节（同列两约束被拆到各自类型节），标题=类型显示名
+    expect(result.subGroups.map((sg) => sg.name).sort()).toEqual(
+      ['唯一约束', '区间约束', '非空约束'].sort()
+    )
+    expect(result.subGroups.some((sg) => sg.name === 'colA')).toBe(false)
   })
 
   it('keeps legacy section order when no sort index provided', () => {

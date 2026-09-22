@@ -63,6 +63,7 @@ export class LayoutCalculator {
       nodeDataById: new Map(nodes.map((n) => [n.id, n])),
       connections,
       gap: options.gap,
+      constraintGrouping: options.constraintGrouping,
     }
     this.classification = this.classifyNodes(nodes)
     this.groups = []

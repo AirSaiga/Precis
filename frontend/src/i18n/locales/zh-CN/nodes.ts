@@ -207,6 +207,23 @@ const customNodes = {
     title: '约束看板',
     empty: '暂无约束规则',
   },
+  constraintDockNode: {
+    title: '约束坞',
+    empty: '暂无约束',
+    errorCount: '{count} 个错误',
+    expand: '展开行明细',
+    collapse: '收起行明细',
+    expandAll: '展开全部',
+    collapseAll: '收回',
+    tableLevel: '表级',
+    embeddedHint: '内嵌约束（在 Schema 列上配置）',
+    status: {
+      idle: '未校验',
+      pass: '通过',
+      error: '失败',
+      missing: '配置缺失',
+    },
+  },
   projectRootNode: {
     projectStart: '工程起点 - 从下方拖出创建节点',
     summary: {

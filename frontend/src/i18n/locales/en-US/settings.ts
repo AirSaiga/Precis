@@ -73,6 +73,21 @@ const settings = {
         liquid: 'Liquid (Next-gen)',
       },
     },
+    canvas: {
+      title: 'Canvas Auto-Organize',
+      autoOrganizeOnNodeAdd: {
+        label: 'Auto-organize on node add',
+        desc: 'Automatically rearrange the canvas layout after adding a node',
+      },
+      autoOrganizeOnNodeDelete: {
+        label: 'Auto-organize on node delete',
+        desc: 'Automatically rearrange the canvas layout after deleting a node',
+      },
+      autoOrganizeOnConnectionChange: {
+        label: 'Auto-organize on connection change',
+        desc: 'Automatically rearrange the canvas layout after connecting or disconnecting',
+      },
+    },
   },
   projectInfo: {
     tab: 'Project Info',

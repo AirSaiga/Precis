@@ -33,6 +33,7 @@ import type {
   GroupedLayout,
   ZoneGroup,
   SubGroup,
+  MemberColumnTarget,
 } from '../types'
 import { NodeCategory } from '../types'
 import { GROUP_COLORS, LAYOUT_CONSTANTS } from '../constants'
@@ -141,6 +142,11 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
 
     for (const schemaId of familyOrder) {
       const members = familyMembersBySchema.get(schemaId) || []
+      const { targets, columnCount } = this.buildMemberColumnTargets(
+        schemaId,
+        members,
+        nodeDataById
+      )
       const layout = layoutFamily({
         familyId: schemaId,
         familyName: `Schema: ${schemaId}`,
@@ -153,7 +159,9 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
         layoutMode: 'horizontal',
         gap: context.gap,
         edges: context.connections,
-        memberSortIndexById: this.buildMemberSortIndex(schemaId, members, nodeDataById),
+        memberColumnTargetById: targets,
+        schemaColumnCount: columnCount,
+        constraintGrouping: context.constraintGrouping,
       })
       familyLayouts.push({
         familyId: schemaId,
@@ -179,6 +187,9 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
         layoutMode: 'horizontal',
         gap: context.gap,
         edges: context.connections,
+        // 伪家族无 Schema 列信息，列亲和在 layoutFamily 内自动回退类型分节，
+        // 保持共享/未分组伪家族历史行为不变
+        constraintGrouping: context.constraintGrouping,
       })
       familyLayouts.push({
         familyId: fam.id,
@@ -552,10 +563,9 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
     for (const nodeId of nodeIds) {
       if (schemaSet.has(nodeId)) continue
 
-      const nodeData = nodeDataById.get(nodeId)
-      const parentId = (nodeData?.data as unknown as Record<string, unknown>)?.parent as
-        | string
-        | undefined
+      const data = nodeDataById.get(nodeId)?.data
+      const parentId =
+        data && 'parent' in data && typeof data.parent === 'string' ? data.parent : undefined
 
       if (parentId && schemaSet.has(parentId)) {
         assignedSchemaByNode.set(nodeId, parentId)
@@ -578,52 +588,79 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
   }
 
   /**
-   * 构建成员节点 → Schema 列序号的映射，供家族布局按字段顺序排列约束/正则。
+   * 构建成员节点 → 目标 Schema 列信息的映射，供家族布局做列亲和分节与
+   * 按字段顺序排列约束/正则。
    *
    * 优先 sourceRef.columnId 精确匹配 Schema 列；缺失时回退 column/sourceColumn
-   * 列名匹配。无 Schema 列表或成员无列引用时不入表（布局回退 UUID 序）。
+   * 列名匹配（columnId 失效但列还在的场景）。两路都失败的成员（表级约束、
+   * 列已被删）不入表，布局层归入"表级"节沉底。无 Schema 列表时返回空映射
+   * 与 0 列数，布局层回退类型分节（伪家族历史行为）。
    */
-  private buildMemberSortIndex(
+  private buildMemberColumnTargets(
     schemaId: string,
     memberIds: string[],
     nodeDataById: Map<string, CustomNode>
-  ): Map<string, number> {
+  ): { targets: Map<string, MemberColumnTarget>; columnCount: number } {
     const schemaData = nodeDataById.get(schemaId)?.data
-    if (!schemaData || !('columns' in schemaData)) return new Map()
+    if (!schemaData || !('columns' in schemaData)) return { targets: new Map(), columnCount: 0 }
     const columns = schemaData.columns
-    if (!Array.isArray(columns)) return new Map()
+    if (!Array.isArray(columns)) return { targets: new Map(), columnCount: 0 }
 
     const orderById = new Map<string, number>()
     const orderByName = new Map<string, number>()
+    const nameById = new Map<string, string>()
+    const idByIndex = new Map<number, string>()
     columns.forEach((col, index) => {
       // columns 联合中存在 string[] 形态的成员（如部分节点数据），过滤后才保证是列对象
       if (!col || typeof col === 'string') return
-      if (col.id) orderById.set(col.id, index)
+      if (col.id) {
+        orderById.set(col.id, index)
+        nameById.set(col.id, col.columnName)
+        idByIndex.set(index, col.id)
+      }
       if (col.columnName) orderByName.set(col.columnName, index)
     })
 
-    const sortIndexById = new Map<string, number>()
+    const targets = new Map<string, MemberColumnTarget>()
     for (const nodeId of memberIds) {
       const data = nodeDataById.get(nodeId)?.data
       if (!data) continue
+
+      let columnId: string | undefined
+      let columnName: string | undefined
       let index: number | undefined
 
       if ('sourceRef' in data) {
-        const columnId = data.sourceRef?.columnId
-        if (columnId) index = orderById.get(columnId)
+        const refColumnId = data.sourceRef?.columnId
+        if (refColumnId && orderById.has(refColumnId)) {
+          columnId = refColumnId
+          index = orderById.get(refColumnId)
+          columnName = nameById.get(refColumnId)
+        }
       }
 
       if (index === undefined) {
-        let columnName: string | undefined
-        if ('column' in data && typeof data.column === 'string') columnName = data.column
+        let byName: string | undefined
+        if ('column' in data && typeof data.column === 'string') byName = data.column
         else if ('sourceColumn' in data && typeof data.sourceColumn === 'string')
-          columnName = data.sourceColumn
-        if (columnName) index = orderByName.get(columnName)
+          byName = data.sourceColumn
+        if (byName && orderByName.has(byName)) {
+          index = orderByName.get(byName)
+          columnName = byName
+        }
       }
 
-      if (index !== undefined) sortIndexById.set(nodeId, index)
+      if (index === undefined) continue
+      // 分节键归一到列 id：经列名回退解析的成员与经 columnId 精确解析的成员
+      // 指向同一列时必须落入同一个列节，不能因解析路径不同被拆成两节
+      const canonicalId = columnId ?? idByIndex.get(index) ?? `name:${columnName ?? index}`
+      targets.set(nodeId, {
+        columnId: canonicalId,
+        columnName: columnName ?? nameById.get(canonicalId) ?? `#${index + 1}`,
+        columnIndex: index,
+      })
     }
-    return sortIndexById
+    return { targets, columnCount: columns.filter((col) => col && typeof col !== 'string').length }
   }
 
   private layoutRoot(

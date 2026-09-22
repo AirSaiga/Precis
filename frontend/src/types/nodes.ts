@@ -548,6 +548,51 @@ export interface ConstraintDashboardNodeData {
 }
 
 /**
+ * 约束坞单行条目：某一列（或表级）下的一个约束在坞内的展示单元。
+ *
+ * - 独立约束（画布上有节点）以节点 id 标识，可点击徽标聚焦回画布
+ * - 内嵌约束（schema 列内 constraints 字段，无画布节点）以合成 id
+ *   `inline-{columnId}-{kind}` 标识，点击后聚焦宿主 Schema
+ */
+export interface ConstraintDockRow {
+  /** 约束标识：独立约束=节点 id；内嵌=合成 id `inline-{columnId}-{kind}` */
+  constraintId: string
+  /** 约束种类：ConstraintKind（camelCase）或 'inline' 系合成行的具体 kind */
+  kind: string
+  /** 挂靠的 Schema 列 ID；表级约束缺省沉底 */
+  columnId?: string
+  /** 展示标签（约束名 / 内嵌约束的列内描述） */
+  label: string
+  /** 是否内嵌约束（无画布节点） */
+  embedded: boolean
+}
+
+/**
+ * 约束坞节点数据。
+ *
+ * Schema 右侧的紧凑坞节点（纯 UI 派生视图，无 builder/manifest/YAML 持久化），
+ * 按列对齐逐行展示该 Schema 的约束徽标；节点 id 确定性派生为
+ * `constraint-dock-{schemaNodeId}`，由 dockSync 同步器全权维护。
+ */
+export interface ConstraintDockNodeData {
+  /** 宿主 Schema 的显示名（坞标题展示） */
+  configName: string
+  /** 挂靠的 schema / jsonSchema 节点 ID */
+  schemaNodeId: string
+  /** L1 展开态：true=行明细可交互；false=纯徽标条。不持久化，重载重置 */
+  expanded: boolean
+  /**
+   * L2 全部展开态：true=聚合的独立约束卡片全部 un-hide 并栅格落在坞右侧；
+   * false=聚合隐藏。会话态（坞本身不落盘，重载重置为聚合态）。
+   */
+  expandedAll: boolean
+  /** 派生快照：按 Schema 列序排列的约束行，由 dockSync fingerprint watcher 维护 */
+  rows: ConstraintDockRow[]
+  /** 保存状态（派生视图节点恒为 saved，防 hasUnsavedChanges 误判） */
+  saveState?: SchemaSaveState
+}
+
+/**
  * 自定义节点数据联合类型（Discriminated Union）。
  *
  * 该联合类型包含画布上所有可能的节点 data 类型。
@@ -588,6 +633,7 @@ export type CustomNodeData =
   | TemplateInstanceNodeData
   | PatternToolboxNodeData
   | ConstraintDashboardNodeData
+  | ConstraintDockNodeData
 
 /**
  * 定义应用中自定义节点的最终类型。

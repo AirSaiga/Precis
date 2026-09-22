@@ -30,6 +30,7 @@ const shortcuts = {
     history: 'History',
     project: 'Project',
     help: 'Help',
+    palette: 'Palette',
   },
 
   // Command names
@@ -79,6 +80,9 @@ const shortcuts = {
     // Help commands
     showShortcuts: 'Show Shortcuts',
     showHelp: 'Show Help',
+
+    // Palette commands
+    openCommandPalette: 'Open Command Palette',
   },
 
   // Action feedback messages
@@ -120,6 +124,7 @@ const shortcuts = {
     schemaOnly: 'Only Schema nodes are supported',
     noColumnsToValidate: 'Current Schema has no column definitions',
     validationNoConstraints: 'No connected constraints',
+    validationNotExecuted: 'Validation not executed: missing data source',
     validationAllPassed: 'All validations passed',
     validationCompleted: 'Validation completed',
     validationFailed: 'Validation failed',
