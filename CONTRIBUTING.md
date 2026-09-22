@@ -38,3 +38,65 @@ When the project enters the Beta stage (features and interfaces basically stable
 如果你在此期间有任何想法，欢迎通过 Discussions 与我们交流。
 
 If you have any ideas during this period, feel free to exchange with us via Discussions.
+
+---
+
+## 开发参考 / Development Reference
+
+> 以下内容面向本仓库的开发者（含维护者），从 README 迁移而来。
+> The sections below are for developers working on this repo, moved here from the README.
+
+### 技术栈 / Tech Stack
+
+| 层级 Layer | 技术 Technology |
+|------|------|
+| 前端 Frontend | Vue 3 + TypeScript + Vite + Pinia + Vue Flow + Vue I18n |
+| 后端 Backend | Python 3.12+ · FastAPI + Uvicorn + Pydantic + Pandas |
+| 桌面端 Desktop | Electron + electron-builder |
+| 终端 TUI | Rust + ratatui + crossterm + tokio |
+| 测试 Testing | Vitest + pytest + Playwright E2E |
+| 代码质量 Quality | ESLint + Prettier + Ruff + mypy |
+
+架构原则与约定见 [AGENTS.md](AGENTS.md)，实现细节索引见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
+
+Architecture principles & conventions: [AGENTS.md](AGENTS.md); implementation detail index: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+### 开发命令 / Development Commands
+
+| 类别 Category | 命令 Commands |
+|------|------|
+| 代码检查 Lint | `npm run lint:all` · `npm run format:all` |
+| 类型检查 Type Check | `cd frontend && npm run type-check` |
+| 测试 Test | `npm run test:all` · `npm run test:coverage` |
+| E2E | `npm run e2e:install` · `npm run e2e:test`（需先启动后端，如 `npm run dev` / requires a running backend） |
+| 构建 Build | `npm run build:all` · `npm run frontend:build` · `npm run electron:build` |
+
+> **Electron 生产打包 / Production packaging**：安装包内嵌 Python 运行时（python-build-standalone）与全部后端依赖，用户无需自装 Python。详见 [`electron/README.md`](electron/README.md)。
+> The installer bundles a self-contained Python runtime (python-build-standalone) and all backend dependencies — end users do not need to install Python. See [`electron/README.md`](electron/README.md).
+
+### 环境变量 / Environment Variables
+
+根目录 `.env` 由 `.env.example` 复制而来，**默认全部留空即可运行**。
+The root `.env` is copied from `.env.example` — **all defaults work as-is**.
+
+| 变量 Variable | 默认 Default | 说明 Description |
+|------|------|------|
+| `VITE_BACKEND_PORT` | 留空 → 动态分配 / empty → dynamic | 留空时后端端口由 OS 分配（永不冲突），实际端口写入 `backend/.backend-port`；设为 `18000` 即固定端口。When empty, the OS assigns a port (never conflicts); the actual port is written to `backend/.backend-port`. Set `18000` to pin a fixed port. |
+| `VITE_FRONTEND_PORT` | `5173` | 前端 Vite dev server 端口 / Vite dev server port |
+
+> Swagger UI 地址随后端端口：动态端口时请看启动日志；固定 `18000` 时为 `http://127.0.0.1:18000/docs`。
+> The Swagger UI URL follows the backend port: check the startup log for dynamic ports, or use `http://127.0.0.1:18000/docs` when pinned to 18000.
+
+### CLI / TUI 独立打包 / Standalone CLI & TUI Packaging
+
+除桌面应用外，CLI 与 TUI 也可各打成自包含分发包（内置 Python 运行时 + 后端源码，解压即用，无需自装 Python/Rust）。
+Besides the desktop app, the CLI and TUI can each be packaged as self-contained bundles (bundled Python runtime + backend source; extract and run, no Python/Rust install needed).
+
+| 产物 Artifact | Windows | macOS |
+|------|---------|-------|
+| CLI | `npm run build:cli:win` → `backend/dist-win/precis-cli-win-*.zip` | `npm run build:cli:mac` → `backend/dist-mac/precis-cli-mac-*.tar.gz` |
+| TUI | `npm run build:tui:win` → `tui-rust/dist-win/precis-tui-win-*.zip` | `npm run build:tui:mac` → `tui-rust/dist-mac/precis-tui-mac-*.tar.gz` |
+| 一键全打 All-in-one | `npm run build:all:win`（CLI + TUI + GUI） | `npm run build:all:mac`（CLI + TUI + GUI） |
+
+解压后：CLI 运行 `precis.bat` / `./precis`；TUI 运行 `precis-tui.exe` / `./precis-tui`（自动拉起内置后端）。
+After extraction: CLI runs `precis.bat` / `./precis`; TUI runs `precis-tui.exe` / `./precis-tui` (auto-spawns the bundled backend).
