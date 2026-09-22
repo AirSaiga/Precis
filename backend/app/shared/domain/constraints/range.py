@@ -353,12 +353,12 @@ class RangeConstraint(Constraint):
                 op = ">=" if self.boundary_mode == "inclusive" else ">"
                 message = f"区间约束冲突: 值 {value} 不满足 {op} {self.min_value}。"
                 error_code = "RANGE_VALUE_BELOW_MIN"
-                error_params = {"value": str(value), "op": op, "min": self.min_value}
+                error_params = {"value": str(value), "op": op, "min": str(self.min_value)}
             elif self.max_value is not None:
                 op = "<=" if self.boundary_mode == "inclusive" else "<"
                 message = f"区间约束冲突: 值 {value} 不满足 {op} {self.max_value}。"
                 error_code = "RANGE_VALUE_ABOVE_MAX"
-                error_params = {"value": str(value), "op": op, "max": self.max_value}
+                error_params = {"value": str(value), "op": op, "max": str(self.max_value)}
             else:
                 message = f"区间约束冲突: 值 {value} 超出指定范围。"
                 error_code = "RANGE_VALUE_OUT_OF_RANGE"
