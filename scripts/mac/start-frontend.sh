@@ -18,8 +18,9 @@ cd "${PROJECT_ROOT}"
 banner "Precis - Frontend (Dev)"
 require_node || prompt_exit 1
 
-if [ ! -d "${FRONTEND_DIR}/node_modules" ]; then
-    error "frontend/node_modules 缺失。请先运行: scripts/setup.sh 或 npm run install:all"
+# npm workspaces：依赖 hoist 到根 node_modules，frontend 下不再有独立 node_modules
+if [ ! -d "${PROJECT_ROOT}/node_modules" ]; then
+    error "node_modules 缺失。请先运行: scripts/setup.sh 或 npm run install:all"
     prompt_exit 1
 fi
 echo ""

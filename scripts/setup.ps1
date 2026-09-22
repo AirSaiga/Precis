@@ -270,44 +270,18 @@ Write-Host ""
 # ============================================
 Write-Status "安装前端依赖..." "Info"
 
-# 根目录依赖
+# npm workspaces：根 package.json 统一托管 frontend / electron / e2e 依赖，
+# 子包 lockfile 已合并为根单一 package-lock.json，依赖 hoist 到根 node_modules，
+# 一次根目录 npm install 即可装齐全部前端/Electron/e2e 依赖
 if (Test-Path "node_modules") {
-    Write-Status "根目录依赖已安装" "Info"
+    Write-Status "根目录依赖已安装（workspaces 统一安装）" "Info"
 } else {
-    Write-Status "安装根目录依赖..." "Info"
+    Write-Status "安装根目录依赖（含 frontend/electron/e2e workspaces）..." "Info"
     npm install
     if ($LASTEXITCODE -ne 0) {
         Write-Status "根目录依赖安装失败" "Error"
         exit 1
     }
-}
-
-# Frontend 依赖
-if (Test-Path "$FrontendDir\node_modules") {
-    Write-Status "Frontend 依赖已安装" "Info"
-} else {
-    Write-Status "安装 Frontend 依赖..." "Info"
-    Set-Location $FrontendDir
-    npm install
-    if ($LASTEXITCODE -ne 0) {
-        Write-Status "Frontend 依赖安装失败" "Error"
-        exit 1
-    }
-    Set-Location $ProjectRoot
-}
-
-# Electron 依赖
-if (Test-Path "$ElectronDir\node_modules") {
-    Write-Status "Electron 依赖已安装" "Info"
-} else {
-    Write-Status "安装 Electron 依赖..." "Info"
-    Set-Location $ElectronDir
-    npm install
-    if ($LASTEXITCODE -ne 0) {
-        Write-Status "Electron 依赖安装失败" "Error"
-        exit 1
-    }
-    Set-Location $ProjectRoot
 }
 
 Write-Status "所有前端依赖安装完成" "Success"

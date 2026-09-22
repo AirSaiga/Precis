@@ -254,44 +254,18 @@ echo ""
 # ============================================
 info "安装前端依赖..."
 
-# 根目录依赖
+# npm workspaces：根 package.json 统一托管 frontend / electron / e2e 依赖，
+# 子包 lockfile 已合并为根单一 package-lock.json，依赖 hoist 到根 node_modules，
+# 一次根目录 npm install 即可装齐全部前端/Electron/e2e 依赖
 if [ -d "node_modules" ]; then
-    info "根目录依赖已安装"
+    info "根目录依赖已安装（workspaces 统一安装）"
 else
-    info "安装根目录依赖..."
+    info "安装根目录依赖（含 frontend/electron/e2e workspaces）..."
     npm install
     if [ $? -ne 0 ]; then
         error "根目录依赖安装失败"
         exit 1
     fi
-fi
-
-# Frontend 依赖
-if [ -d "$FRONTEND_DIR/node_modules" ]; then
-    info "Frontend 依赖已安装"
-else
-    info "安装 Frontend 依赖..."
-    cd "$FRONTEND_DIR"
-    npm install
-    if [ $? -ne 0 ]; then
-        error "Frontend 依赖安装失败"
-        exit 1
-    fi
-    cd "$PROJECT_ROOT"
-fi
-
-# Electron 依赖
-if [ -d "$ELECTRON_DIR/node_modules" ]; then
-    info "Electron 依赖已安装"
-else
-    info "安装 Electron 依赖..."
-    cd "$ELECTRON_DIR"
-    npm install
-    if [ $? -ne 0 ]; then
-        error "Electron 依赖安装失败"
-        exit 1
-    fi
-    cd "$PROJECT_ROOT"
 fi
 
 success "所有前端依赖安装完成"

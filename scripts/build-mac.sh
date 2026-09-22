@@ -10,17 +10,18 @@ export ELECTRON_MIRROR="https://npmmirror.com/mirrors/electron/"
 # 跳过代码签名（Beta 阶段不需要 Apple 开发者证书）
 export CSC_IDENTITY_AUTO_DISCOVERY=false
 
-# 构建前端
+# 构建前端（npm workspaces：依赖统一在根目录一次安装）
+echo "[build-mac] Installing dependencies (root workspaces)..."
+npm ci
+
 echo "[build-mac] Building frontend..."
 cd frontend
-npm ci
 npm run build-only
 cd ..
 
 # 构建 Electron
 echo "[build-mac] Building electron..."
 cd electron
-npm ci
 npm run build:electron
 
 # 拉取并安装内嵌 Python 运行时与后端依赖

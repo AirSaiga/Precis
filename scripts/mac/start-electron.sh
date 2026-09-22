@@ -24,18 +24,13 @@ ok "环境检查通过"
 echo ""
 
 # 依赖检查(仅 Electron 相关;后端依赖由 start-backend 或 setup 负责)
+# npm workspaces：依赖 hoist 到根 node_modules，electron 下不再有独立 node_modules
 info "检查依赖..."
 if [ ! -d "node_modules" ]; then
     error "根目录 node_modules 缺失。请先运行: scripts/setup.sh 或 npm run install:all"
     prompt_exit 1
 fi
-ok "根目录依赖已安装"
-
-if [ ! -d "${ELECTRON_DIR}/node_modules" ]; then
-    error "Electron 依赖缺失。请先运行: scripts/setup.sh 或 npm run install:all"
-    prompt_exit 1
-fi
-ok "Electron 依赖已安装"
+ok "依赖已安装（workspaces 根目录统一安装）"
 echo ""
 
 # 编译 Electron 主进程 TypeScript（项目 main 指向 dist/main.js，必须先编译）
