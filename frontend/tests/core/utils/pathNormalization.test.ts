@@ -20,8 +20,40 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { encodeConfigPathHeader, normalizePath, toPosixPath } from '@/core/utils/pathNormalization'
+import {
+  encodeConfigPathHeader,
+  normalizePath,
+  resolveRelativePath,
+  toPosixPath,
+} from '@/core/utils/pathNormalization'
 import { normalizeSourceKey, sourceKeyString } from '@/utils/typeHelpers'
+
+describe('normalizePath 的 POSIX 绝对路径前导斜杠（跨平台回归）', () => {
+  // 回归背景：split('/') 把前导 '/' 拆成空段被过滤，'/tmp/x' 曾被相对化成
+  // 'tmp/x'——Linux/macOS（含 CI E2E）上数据源绝对路径以相对形态发往后端 404
+  it('POSIX 绝对路径保留前导斜杠', () => {
+    expect(normalizePath('/tmp/precis-e2e-3417/data/vw_users.csv')).toBe(
+      '/tmp/precis-e2e-3417/data/vw_users.csv'
+    )
+    expect(normalizePath('/home/user/proj/')).toBe('/home/user/proj')
+  })
+
+  it('POSIX 路径的 .. 段消解不越过根', () => {
+    expect(normalizePath('/a/b/../c')).toBe('/a/c')
+    expect(normalizePath('/a/../..')).toBe('/')
+  })
+
+  it('相对路径行为不变（无前导斜杠引入）', () => {
+    expect(normalizePath('relative/dir/file.csv')).toBe('relative/dir/file.csv')
+    expect(normalizePath('./a/b')).toBe('a/b')
+  })
+
+  it('resolveRelativePath 以 POSIX 项目根解析出 POSIX 绝对路径', () => {
+    expect(resolveRelativePath('data/vw_users.csv', '/tmp/precis-e2e-3417')).toBe(
+      '/tmp/precis-e2e-3417/data/vw_users.csv'
+    )
+  })
+})
 
 describe('encodeConfigPathHeader（header 线上安全值契约）', () => {
   it('中文路径转义为纯 ASCII，且可无损还原', () => {

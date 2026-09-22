@@ -69,6 +69,10 @@ export function normalizePath(input: string): string {
   const driveMatch = normalized.match(/^[a-zA-Z]:\//)
   const prefix = driveMatch ? normalized.slice(0, 3).toLowerCase() : ''
   const rest = prefix ? normalized.slice(prefix.length) : normalized
+  // POSIX 绝对路径的前导 '/'：split('/') 会把它拆成空段被下方 filter 丢弃，
+  // 必须先行捕获回填——否则 Linux/macOS 上 '/tmp/x' 被相对化成 'tmp/x'，
+  // 数据源解析出的绝对路径以相对形态发往后端直接 404（CI E2E 实证）
+  const leadingSlash = !prefix && normalized.startsWith('/') ? '/' : ''
   const parts = rest.split('/').filter((p) => p !== '.' && p !== '')
   const resolved: string[] = []
   for (const part of parts) {
@@ -79,7 +83,7 @@ export function normalizePath(input: string): string {
     }
   }
   const joined = resolved.join('/')
-  const result = prefix + joined
+  const result = prefix + leadingSlash + joined
   return result || (normalized.startsWith('/') ? '/' : '')
 }
 
