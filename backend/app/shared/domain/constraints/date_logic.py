@@ -188,6 +188,12 @@ class DateLogicConstraint(Constraint):
                 errors.append(
                     {
                         "error_type": "ConstraintConfigError",
+                        "error_code": "DATE_LOGIC_REF_COLUMN_NOT_FOUND",
+                        "error_params": {
+                            "column": column_value,
+                            "table": self.table,
+                            "boundary": "end" if name_prefix else "start",
+                        },
                         "table": self.table,
                         "column": column_value,
                         "message": f"日期逻辑约束失败: {name_prefix}参考列 '{column_value}' 不在表 '{self.table}' 中。",
@@ -202,6 +208,11 @@ class DateLogicConstraint(Constraint):
                 errors.append(
                     {
                         "error_type": "ConstraintConfigError",
+                        "error_code": "DATE_LOGIC_INVALID_REF_DATE",
+                        "error_params": {
+                            "reference_date": str(date_value),
+                            "boundary": "end" if name_prefix else "start",
+                        },
                         "table": self.table,
                         "message": f"日期逻辑约束失败: 无效的{name_prefix}参考日期 '{date_value}'。",
                     }
@@ -229,6 +240,8 @@ class DateLogicConstraint(Constraint):
             errors.append(
                 {
                     "error_type": "ConstraintConfigError",
+                    "error_code": "DATE_LOGIC_TABLE_NOT_FOUND",
+                    "error_params": {"table": self.table},
                     "table": self.table,
                     "message": f"日期逻辑约束失败: 表 '{self.table}' 不在数据集中。",
                 }
@@ -242,6 +255,8 @@ class DateLogicConstraint(Constraint):
             errors.append(
                 {
                     "error_type": "ConstraintConfigError",
+                    "error_code": "DATE_LOGIC_COLUMN_NOT_FOUND",
+                    "error_params": {"column": self.column, "table": self.table},
                     "table": self.table,
                     "column": self.column,
                     "message": f"日期逻辑约束失败: 列 '{self.column}' 不在表 '{self.table}' 中。",
@@ -269,6 +284,8 @@ class DateLogicConstraint(Constraint):
             errors.append(
                 {
                     "error_type": "ConstraintConfigError",
+                    "error_code": "DATE_LOGIC_UNKNOWN_MODE",
+                    "error_params": {"logic_mode": str(self.logic_mode)},
                     "table": self.table,
                     "column": self.column,
                     "message": (
@@ -296,6 +313,8 @@ class DateLogicConstraint(Constraint):
             errors.append(
                 {
                     "error_type": "DateLogicError",
+                    "error_code": "DATE_LOGIC_INVALID_DATE_VALUE",
+                    "error_params": {"value": str(raw[idx]), "column": source_column},
                     "table": self.table,
                     "row_index": int(idx),
                     "column": source_column,
@@ -336,6 +355,8 @@ class DateLogicConstraint(Constraint):
                 errors.append(
                     {
                         "error_type": "ConstraintConfigError",
+                        "error_code": "DATE_LOGIC_RANGE_BOUNDARY_MISMATCH",
+                        "error_params": {},
                         "table": self.table,
                         "column": self.column,
                         "message": "日期逻辑约束失败: range 模式必须同时指定起点和终点，且两者类型一致（同为固定日期或同为列引用）。",
@@ -356,6 +377,8 @@ class DateLogicConstraint(Constraint):
                 errors.append(
                     {
                         "error_type": "ConstraintConfigError",
+                        "error_code": "DATE_LOGIC_RANGE_MISSING_END",
+                        "error_params": {},
                         "table": self.table,
                         "column": self.column,
                         "message": "日期逻辑约束失败: range 模式必须指定终点（reference_date_end 或 reference_column_end）。",
@@ -401,6 +424,12 @@ class DateLogicConstraint(Constraint):
                 errors.append(
                     {
                         "error_type": "DateLogicError",
+                        "error_code": "DATE_LOGIC_RANGE_VIOLATION",
+                        "error_params": {
+                            "value": str(val),
+                            "start": str(start_val),
+                            "end": str(end_val),
+                        },
                         "table": self.table,
                         "row_index": int(idx),
                         "column": self.column,
@@ -414,6 +443,8 @@ class DateLogicConstraint(Constraint):
                 errors.append(
                     {
                         "error_type": "ConstraintConfigError",
+                        "error_code": "DATE_LOGIC_MISSING_REFERENCE",
+                        "error_params": {},
                         "table": self.table,
                         "message": "日期逻辑约束失败: 比较模式必须指定 reference_column 或 reference_date。",
                     }
@@ -466,6 +497,8 @@ class DateLogicConstraint(Constraint):
                 errors.append(
                     {
                         "error_type": "ConstraintConfigError",
+                        "error_code": "DATE_LOGIC_UNSUPPORTED_OP",
+                        "error_params": {"compare_op": str(cmp_op), "valid_ops": "gt/gte/lt/lte/eq/range"},
                         "table": self.table,
                         "column": self.column,
                         "message": f"日期逻辑约束失败: 不支持比较操作符 '{cmp_op}'，支持的操作符为 gt/gte/lt/lte/eq/range。",
@@ -481,6 +514,8 @@ class DateLogicConstraint(Constraint):
                 errors.append(
                     {
                         "error_type": "DateLogicError",
+                        "error_code": "DATE_LOGIC_COMPARE_VIOLATION",
+                        "error_params": {"value": str(val), "op": cmp_op, "reference": str(ref_val)},
                         "table": self.table,
                         "row_index": int(idx),
                         "column": self.column,
@@ -514,6 +549,8 @@ class DateLogicConstraint(Constraint):
                 errors.append(
                     {
                         "error_type": "ConstraintConfigError",
+                        "error_code": "DATE_LOGIC_INVALID_REF_DATE",
+                        "error_params": {"reference_date": str(self.reference_date)},
                         "table": self.table,
                         "message": "日期计算模式失败: 无效的参考日期。",
                     }
@@ -544,6 +581,11 @@ class DateLogicConstraint(Constraint):
                         errors.append(
                             {
                                 "error_type": "ConstraintConfigError",
+                                "error_code": "DATE_LOGIC_UNSUPPORTED_OP",
+                                "error_params": {
+                                    "compare_op": str(self.compare_op),
+                                    "valid_ops": "gt/gte/lt/lte/eq",
+                                },
                                 "table": self.table,
                                 "column": self.column,
                                 "message": (
@@ -573,6 +615,13 @@ class DateLogicConstraint(Constraint):
                         errors.append(
                             {
                                 "error_type": "DateLogicError",
+                                "error_code": "DATE_LOGIC_AGE_VIOLATION",
+                                "error_params": {
+                                    "value": str(val),
+                                    "age": int(age),
+                                    "op": op,
+                                    "target": target_age,
+                                },
                                 "table": self.table,
                                 "row_index": int(idx),
                                 "column": self.column,
@@ -584,6 +633,8 @@ class DateLogicConstraint(Constraint):
                     errors.append(
                         {
                             "error_type": "ConstraintConfigError",
+                            "error_code": "DATE_LOGIC_TARGET_NOT_NUMERIC",
+                            "error_params": {"target_value": str(self.target_value), "detail": str(e)},
                             "table": self.table,
                             "column": self.column,
                             "message": f"日期计算模式的目标值「{self.target_value}」无法转换为数字（{str(e)}），请检查约束配置",
@@ -595,6 +646,8 @@ class DateLogicConstraint(Constraint):
                 errors.append(
                     {
                         "error_type": "ConstraintConfigError",
+                        "error_code": "DATE_LOGIC_MISSING_TARGET",
+                        "error_params": {"calculation_type": "age"},
                         "table": self.table,
                         "column": self.column,
                         "message": "日期计算模式配置错误: calculation_type=age 必须指定 target_value。",
@@ -607,6 +660,12 @@ class DateLogicConstraint(Constraint):
                 errors.append(
                     {
                         "error_type": "ConstraintConfigError",
+                        "error_code": "DATE_LOGIC_REF_COLUMN_NOT_FOUND",
+                        "error_params": {
+                            "column": self.target_column,
+                            "table": self.table,
+                            "boundary": "start",
+                        },
                         "table": self.table,
                         "column": self.target_column,
                         "message": f"日期计算模式失败: 参考列 '{self.target_column}' 不在表 '{self.table}' 中。",
@@ -641,6 +700,11 @@ class DateLogicConstraint(Constraint):
                             errors.append(
                                 {
                                     "error_type": "ConstraintConfigError",
+                                    "error_code": "DATE_LOGIC_UNSUPPORTED_OP",
+                                    "error_params": {
+                                        "compare_op": str(self.compare_op),
+                                        "valid_ops": "gt/gte/lt/lte/eq",
+                                    },
                                     "table": self.table,
                                     "column": self.column,
                                     "message": (
@@ -675,6 +739,14 @@ class DateLogicConstraint(Constraint):
                             errors.append(
                                 {
                                     "error_type": "DateLogicError",
+                                    "error_code": "DATE_LOGIC_DAYS_DIFF_VIOLATION",
+                                    "error_params": {
+                                        "value": str(val),
+                                        "reference": str(ref_val),
+                                        "op": op,
+                                        "expected": expected_diff,
+                                        "actual": round(float(actual), 2),
+                                    },
                                     "table": self.table,
                                     "row_index": int(idx),
                                     "column": self.column,
@@ -686,6 +758,8 @@ class DateLogicConstraint(Constraint):
                         errors.append(
                             {
                                 "error_type": "ConstraintConfigError",
+                                "error_code": "DATE_LOGIC_TARGET_NOT_NUMERIC",
+                                "error_params": {"target_value": str(self.target_value), "detail": str(e)},
                                 "table": self.table,
                                 "column": self.column,
                                 "message": f"target_value 转换失败: '{self.target_value}' 无法用作天数差目标值 - {str(e)}",
@@ -696,6 +770,8 @@ class DateLogicConstraint(Constraint):
                     errors.append(
                         {
                             "error_type": "ConstraintConfigError",
+                            "error_code": "DATE_LOGIC_MISSING_TARGET",
+                            "error_params": {"calculation_type": "days_diff"},
                             "table": self.table,
                             "column": self.column,
                             "message": "日期计算模式配置错误: calculation_type=days_diff 必须指定 target_value。",
@@ -707,6 +783,8 @@ class DateLogicConstraint(Constraint):
                 errors.append(
                     {
                         "error_type": "ConstraintConfigError",
+                        "error_code": "DATE_LOGIC_MISSING_TARGET_COLUMN",
+                        "error_params": {"calculation_type": "days_diff"},
                         "table": self.table,
                         "column": self.column,
                         "message": "日期计算模式配置错误: calculation_type=days_diff 必须指定 target_column（参考列）。",
@@ -719,6 +797,8 @@ class DateLogicConstraint(Constraint):
             errors.append(
                 {
                     "error_type": "ConstraintConfigError",
+                    "error_code": "DATE_LOGIC_UNKNOWN_CALCULATION_TYPE",
+                    "error_params": {"calculation_type": str(self.calculation_type)},
                     "table": self.table,
                     "column": self.column,
                     "message": (

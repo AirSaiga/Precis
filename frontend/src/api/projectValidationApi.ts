@@ -62,6 +62,10 @@ export interface FullValidationErrorItem {
   source_path?: string | null
   source_file?: string | null
   source_sheet?: string | null
+  /** 稳定错误码（UPPER_SNAKE），前端映射 validation.codes.<CODE> 按当前语言渲染 */
+  error_code?: string | null
+  /** 错误码对应的插值参数（JSON 标量） */
+  error_params?: Record<string, unknown> | null
 }
 
 /**

@@ -137,6 +137,8 @@ class NotNullConstraint(Constraint):
             errors.append(
                 {
                     "error_type": "ConstraintConfigError",
+                    "error_code": "NOT_NULL_TABLE_NOT_FOUND",
+                    "error_params": {"table": self.table},
                     "table": self.table,
                     "column": self.column,
                     "message": f"非空约束失败: 表 '{self.table}' 不在数据集中。",
@@ -151,6 +153,8 @@ class NotNullConstraint(Constraint):
             errors.append(
                 {
                     "error_type": "ConstraintConfigError",
+                    "error_code": "NOT_NULL_COLUMN_NOT_FOUND",
+                    "error_params": {"column": self.column, "table": self.table},
                     "table": self.table,
                     "column": self.column,
                     "message": f"非空约束失败: 列 '{self.column}' 在表 '{self.table}' 中不存在。",
@@ -174,6 +178,8 @@ class NotNullConstraint(Constraint):
             errors.append(
                 {
                     "error_type": "NotNullViolation",
+                    "error_code": "NOT_NULL_VALUE_EMPTY",
+                    "error_params": {"column": self.column},
                     "table": self.table,
                     "row_index": row_index,
                     "column": self.column,

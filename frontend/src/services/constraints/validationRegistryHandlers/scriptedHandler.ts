@@ -20,7 +20,14 @@
  * @description 脚本约束验证处理器
  */
 
-import { defaultReset, register, requireSource, toResult } from '../validationRegistryCore'
+import {
+  clientNoticeResult,
+  defaultReset,
+  register,
+  requestFailureResult,
+  requireSource,
+  toResult,
+} from '../validationRegistryCore'
 import { validateInline, validateScripted } from '@/api/validationApi'
 
 register({
@@ -32,13 +39,11 @@ register({
     if (ctx.inlineRows && ctx.inlineRows.length > 0) {
       const inlineScript = String(nodeData.script || '').trim()
       if (!inlineScript) {
-        return {
-          status: 'idle',
-          validationErrors: [
-            '\u8BF7\u5148\u914D\u7F6E\u811A\u672C\u540E\u518D\u8FDB\u884C\u6821\u9A8C',
-          ],
-          lastValidation: undefined,
-        }
+        return clientNoticeResult(
+          'idle',
+          'SCRIPTED_NO_SCRIPT',
+          '\u8BF7\u5148\u914D\u7F6E\u811A\u672C\u540E\u518D\u8FDB\u884C\u6821\u9A8C'
+        )
       }
       const response = await validateInline({
         validation_type: 'scripted',
@@ -53,11 +58,10 @@ register({
         allow_unsafe_eval: true,
       })
       if (!response.success || !response.data) {
-        return {
-          status: 'error',
-          validationErrors: [String(response.error || '\u811A\u672C\u6821\u9A8C\u5931\u8D25')],
-          lastValidation: undefined,
-        }
+        return requestFailureResult(
+          'scripted',
+          String(response.error || '\u811A\u672C\u6821\u9A8C\u5931\u8D25')
+        )
       }
       return toResult(
         response.data.error_rows || [],
@@ -67,13 +71,11 @@ register({
     }
     const script = String(nodeData.script || '').trim()
     if (!script) {
-      return {
-        status: 'idle',
-        validationErrors: [
-          '\u8BF7\u5148\u914D\u7F6E\u811A\u672C\u540E\u518D\u8FDB\u884C\u6821\u9A8C',
-        ],
-        lastValidation: undefined,
-      }
+      return clientNoticeResult(
+        'idle',
+        'SCRIPTED_NO_SCRIPT',
+        '\u8BF7\u5148\u914D\u7F6E\u811A\u672C\u540E\u518D\u8FDB\u884C\u6821\u9A8C'
+      )
     }
     const response = await validateScripted({
       validation_type: 'scripted',
@@ -92,11 +94,10 @@ register({
       allow_unsafe_eval: true,
     })
     if (!response.success || !response.data) {
-      return {
-        status: 'error',
-        validationErrors: [String(response.error || '\u811A\u672C\u6821\u9A8C\u5931\u8D25')],
-        lastValidation: undefined,
-      }
+      return requestFailureResult(
+        'scripted',
+        String(response.error || '\u811A\u672C\u6821\u9A8C\u5931\u8D25')
+      )
     }
     return toResult(
       response.data.error_rows || [],

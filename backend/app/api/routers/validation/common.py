@@ -189,11 +189,14 @@ def execute_dataframe_validation(
     )
 
     # 将原始错误行列表转换为标准化的 ValidationErrorRow 对象列表
+    # error_code/error_params 透传给前端，供按当前语言渲染错误文案
     error_rows = [
         ValidationErrorRow(
             row_index=err.get("row_index", 0),
             cell_value=str(err.get("cell_value", "")),
             error_message=err.get("error_message"),
+            error_code=err.get("error_code"),
+            error_params=err.get("error_params"),
         )
         for err in result.error_rows
     ]

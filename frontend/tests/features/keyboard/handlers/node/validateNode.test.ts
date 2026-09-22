@@ -18,9 +18,13 @@
 /**
  * @fileoverview Ctrl+Enter 校验选中 Schema 的误报红线回归测试
  *
- * 场景一（根因修复）：V2 导入的 Schema 只写 sourceFilePath/localPath 不写
- * sourceFile（sourceFile 仅数据源连线场景写入的展示名），修复前 requireSource
- * 把这类约束全部判为 idle，校验实际未发生却 toast"校验全部通过"。
+ * 前置契约：画布校验仅在 Schema 与数据源节点真实连线时执行——V2 导入/
+ * 历史连接残留的缓存路径（sourceFilePath/localPath）不作为校验依据。
+ *
+ * 场景一（requireSource 回归）：连线后的 V2 导入 Schema 只写
+ * sourceFilePath/localPath 不写 sourceFile（sourceFile 仅数据源连线场景写入的
+ * 展示名），修复前 requireSource 把这类约束全部判为 idle，校验实际未发生却
+ * toast"校验全部通过"。
  *
  * 场景二（误报修复）：校验收集器能从连线的数据源节点解析出路径、但 Schema
  * 节点自身无路径（ctx 无 sourceFilePath）时全部约束 idle——修复前 summary
@@ -124,6 +128,25 @@ function makeConstraintEdge() {
   }
 }
 
+// 工厂：画布连线的数据源节点 + 数据源→Schema 边（画布校验的前置条件）
+function makeSourcePreviewNode() {
+  return {
+    id: 'sp-1',
+    type: 'sourcePreview',
+    position: { x: -200, y: 0 },
+    data: { localPath: 'D:/proj/data/users.csv', sourceName: 'users.csv' },
+  }
+}
+
+function makeSourceEdge() {
+  return {
+    id: 'e-source-schema',
+    source: 'sp-1',
+    target: 'schema-1',
+    targetHandle: 'target-left',
+  }
+}
+
 function resetGraph(nodes: any[], edges: any[]) {
   graphState.nodes = nodes
   graphState.edges = edges
@@ -136,7 +159,7 @@ describe('validateSelectedNode - V2 导入 Schema 校验链路', () => {
     vi.clearAllMocks()
   })
 
-  it('V2 导入的 Schema（仅 sourceFilePath，无 sourceFile）真实执行校验并按结果报通过', async () => {
+  it('V2 导入的 Schema（仅 sourceFilePath，无 sourceFile）连线后真实执行校验并按结果报通过', async () => {
     vi.mocked(apiValidateNotNull).mockResolvedValue({
       success: true,
       validation_type: 'not_null',
@@ -151,7 +174,11 @@ describe('validateSelectedNode - V2 导入 Schema 校验链路', () => {
       error: null,
     } as any)
 
-    resetGraph([makeV2ImportedSchemaNode(), makeNotNullConstraintNode()], [makeConstraintEdge()])
+    // 画布校验前置条件：数据源已连线（无连线时缓存路径不触发校验）
+    resetGraph(
+      [makeV2ImportedSchemaNode(), makeSourcePreviewNode(), makeNotNullConstraintNode()],
+      [makeSourceEdge(), makeConstraintEdge()]
+    )
 
     const result = await validateSelectedNode()
 
@@ -263,7 +290,7 @@ describe('validateSelectedNode - V2 导入 Schema 校验链路', () => {
       error: null,
     } as any)
 
-    // 混合场景：同一 V2 导入 Schema 下，notNull 真实通过（valid），
+    // 混合场景：同一已连线的 V2 导入 Schema 下，notNull 真实通过（valid），
     // 外键约束因目标表无可用数据返回 missing（skipped，校验未执行）
     const v2Schema = makeV2ImportedSchemaNode()
     v2Schema.data.columns = [
@@ -287,8 +314,9 @@ describe('validateSelectedNode - V2 导入 Schema 校验链路', () => {
     }
 
     resetGraph(
-      [v2Schema, targetSchema, makeNotNullConstraintNode(), fkConstraint],
+      [v2Schema, makeSourcePreviewNode(), targetSchema, makeNotNullConstraintNode(), fkConstraint],
       [
+        makeSourceEdge(),
         makeConstraintEdge(),
         {
           id: 'e-schema1-fk',

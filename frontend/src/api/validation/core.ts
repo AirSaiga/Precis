@@ -122,8 +122,12 @@ export interface ValidationErrorRow {
   row_index: number
   /** 单元格值，导致错误的单元格内容 */
   cell_value: string
-  /** 错误消息，详细的错误描述信息 */
+  /** 错误消息，详细的错误描述信息（后端默认语言兜底文案） */
   error_message?: string
+  /** 稳定错误码（UPPER_SNAKE），前端映射为 validation.codes.<CODE> i18n key 按当前语言渲染 */
+  error_code?: string
+  /** 错误码对应的插值参数（如 { column: 'Total' }），供 t(key, params) 插值 */
+  error_params?: Record<string, unknown>
 }
 
 /**

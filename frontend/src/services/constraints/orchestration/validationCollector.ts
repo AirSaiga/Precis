@@ -49,15 +49,19 @@ export interface SchemaNodeSourceInfo {
 }
 
 /**
- * 获取指定 SchemaNode 关联的数据源信息
+ * 获取指定 SchemaNode 关联的数据源信息（画布校验的"是否已连接数据源"单一事实源）
  *
- * 该函数查找指向指定 SchemaNode 的输入边，
- * 从中提取数据源文件路径、工作表名称、表头行号等信息。
+ * 仅认可画布上的真实连接（两种等价形态）：
+ * 1. Schema 节点 data.sourceNodeId 指向现存的 sourcePreview/jsonSourcePreview 节点；
+ * 2. 存在 数据源节点 → Schema 的入边（兼容旧连接方式，manualData 亦合法）。
+ *
+ * 未连接时一律返回 null——Schema 缓存的 sourceFilePath/localPath（V2 导入/
+ * 历史连接写入，供保存 round-trip 与后端 CLI 校验使用）不作为画布校验依据。
  *
  * @param schemaNodeId - SchemaNode 的节点 ID
  * @param nodes - 图中所有节点的数组
  * @param edges - 图中所有边的数组
- * @returns 数据源信息对象，如果未找到连接则返回 null
+ * @returns 数据源信息对象，未连接数据源时返回 null
  */
 export function getSchemaNodeSourceInfo(
   schemaNodeId: string,
@@ -68,13 +72,6 @@ export function getSchemaNodeSourceInfo(
     (n) => n.id === schemaNodeId && (n.type === 'schema' || n.type === 'jsonSchema')
   )
   const schemaData = schemaNode?.data as Record<string, unknown>
-
-  const schemaLocalPath = schemaData?.localPath as string | undefined
-  const schemaSourceFilePath = schemaData?.sourceFilePath as string | undefined
-  const schemaSheetName = schemaData?.sheetName as string | undefined
-  const schemaHeaderRow = schemaData?.headerRow as number | undefined
-  const schemaSourceMode = schemaData?.sourceMode as 'localfile' | undefined
-  const schemaSourceFile = schemaData?.sourceFile as string | undefined
   const schemaSourceNodeId = schemaData?.sourceNodeId as string | undefined
 
   // 通过 SourcePreview 节点查找数据源（兼容 sourceNodeId 引用与入边两种连接方式）
@@ -87,9 +84,7 @@ export function getSchemaNodeSourceInfo(
         (n.type === 'sourcePreview' || n.type === 'jsonSourcePreview')
     )
     // Bug 2.1 防护：sourceNodeId 指向的节点已不存在（被删除或边已断开）时，
-    // 不应回退到 Schema 缓存路径——否则会基于 stale 数据继续校验。
-    // 但若 sourceNodeId 本身不存在（V2 导入的内联数据源，路径直接写入 Schema），
-    // 则保留对缓存路径的信任。
+    // 不回退到 Schema 缓存路径——否则会基于 stale 数据继续校验。
   }
 
   if (!sourcePreviewNode && !schemaSourceNodeId) {
@@ -125,19 +120,10 @@ export function getSchemaNodeSourceInfo(
     }
 
     if (!incomingSource) {
-      // 既无 sourceNodeId 也无入边：可能是 V2 导入的内联数据源，直接使用 Schema 缓存路径
-      const hasInlineCachedPath = !!(schemaLocalPath || schemaSourceFilePath)
-      if (hasInlineCachedPath) {
-        return {
-          sourceFilePath: schemaSourceFilePath || schemaLocalPath || '',
-          sourceFile: schemaSourceFile || '',
-          sheetName: schemaSheetName,
-          sourceNodeId: schemaSourceNodeId,
-          headerRow: schemaHeaderRow,
-          sourceMode: schemaSourceMode || 'localfile',
-          localPath: schemaLocalPath,
-        }
-      }
+      // 既无 sourceNodeId 也无入边：Schema 在画布上未连接任何数据源，返回 null（不校验）。
+      // V2 导入/历史连接残留的缓存路径（sourceFilePath/localPath，用于保存 round-trip 与
+      // 后端 CLI 校验）不作为画布校验依据——否则"无源"Schema 会基于 stale 路径产生
+      // 幽灵 pass/fail（数据误判红线）。画布校验的唯一前置条件是真实连线。
       return null
     }
 

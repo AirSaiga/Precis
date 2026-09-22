@@ -172,6 +172,8 @@ class CompositeValidator(BaseValidator):
                         "row_index": 0,
                         "cell_value": None,
                         "error_message": f"子约束 {sub_label} 执行异常: {e}",
+                        "error_code": "COMPOSITE_SUB_CONSTRAINT_ERROR",
+                        "error_params": {"sub_type": str(sub_label), "detail": str(e)},
                     }
                 )
 
@@ -184,6 +186,8 @@ class CompositeValidator(BaseValidator):
                     "error_message": (
                         f"复合约束包含不支持的子约束类型: {', '.join(unknown_types)};这些子约束未执行校验。"
                     ),
+                    "error_code": "COMPOSITE_UNKNOWN_SUB_TYPE",
+                    "error_params": {"unknown_types": ", ".join(unknown_types)},
                 }
             ]
             return self._format_errors(config_errors, len(df), time.time() - start_time)
@@ -209,6 +213,8 @@ class CompositeValidator(BaseValidator):
                         "error_message": (
                             f"复合约束（logic=any）要求至少一个子约束通过，但全部 {processed_count} 个子约束均失败"
                         ),
+                        "error_code": "COMPOSITE_ANY_ALL_FAILED",
+                        "error_params": {"total": processed_count},
                     }
                 ]
 
@@ -222,6 +228,8 @@ class CompositeValidator(BaseValidator):
                         "error_message": (
                             f"复合约束（logic=none）要求全部子约束失败，但有 {passed_count} 个子约束通过"
                         ),
+                        "error_code": "COMPOSITE_NONE_HAS_PASSED",
+                        "error_params": {"passed": passed_count},
                     }
                 ]
 

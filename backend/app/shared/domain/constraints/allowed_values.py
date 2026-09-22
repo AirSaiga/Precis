@@ -141,6 +141,8 @@ class AllowedValuesConstraint(Constraint):
             errors.append(
                 {
                     "error_type": "ConstraintConfigError",
+                    "error_code": "ALLOWED_VALUES_TABLE_NOT_FOUND",
+                    "error_params": {"table": self.table},
                     "table": self.table,
                     "column": self.column,
                     "message": f"允许值约束失败: 表 '{self.table}' 不在数据集中。",
@@ -155,6 +157,8 @@ class AllowedValuesConstraint(Constraint):
             errors.append(
                 {
                     "error_type": "ConstraintConfigError",
+                    "error_code": "ALLOWED_VALUES_COLUMN_NOT_FOUND",
+                    "error_params": {"column": self.column, "table": self.table},
                     "table": self.table,
                     "column": self.column,
                     "message": f"允许值约束失败: 列 '{self.column}' 在表 '{self.table}' 中不存在。",
@@ -194,6 +198,8 @@ class AllowedValuesConstraint(Constraint):
             row_index = int(index) if index is not None else 0
             error: dict[str, Any] = {
                 "error_type": "AllowedValuesViolation",
+                "error_code": "ALLOWED_VALUES_NOT_PERMITTED",
+                "error_params": {"value": str(value), "allowed": str(self.allowed_values)},
                 "table": self.table,
                 "row_index": row_index,
                 "column": self.column,

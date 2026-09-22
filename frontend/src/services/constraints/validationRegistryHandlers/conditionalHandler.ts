@@ -20,7 +20,14 @@
  * @description 条件约束验证处理器
  */
 
-import { defaultReset, register, requireSource, toResult } from '../validationRegistryCore'
+import {
+  clientNoticeResult,
+  defaultReset,
+  register,
+  requestFailureResult,
+  requireSource,
+  toResult,
+} from '../validationRegistryCore'
 import { validateConditional, validateInline } from '@/api/validationApi'
 import type { ConditionalValidationRequest } from '@/api/validation/core'
 
@@ -45,13 +52,11 @@ register({
         !!(nodeData.ifRef as Record<string, unknown> | undefined)?.columnId
       const skipIf = !!nodeData.skipIfCondition
       if (!hasIf && !skipIf) {
-        return {
-          status: 'idle',
-          validationErrors: [
-            '\u672A\u914D\u7F6E IF \u6761\u4EF6\uFF0C\u8BF7\u8FDE\u63A5 IF \u5217\u6216\u542F\u7528\u201C\u65E0\u6761\u4EF6\u89E6\u53D1\u201D',
-          ],
-          lastValidation: undefined,
-        }
+        return clientNoticeResult(
+          'idle',
+          'CONDITIONAL_IF_NOT_CONFIGURED',
+          '\u672A\u914D\u7F6E IF \u6761\u4EF6\uFF0C\u8BF7\u8FDE\u63A5 IF \u5217\u6216\u542F\u7528\u201C\u65E0\u6761\u4EF6\u89E6\u53D1\u201D'
+        )
       }
       const validationConfig: Record<string, unknown> = {
         if_logic: (nodeData.ifLogic as 'and' | 'or' | undefined) || 'and',
@@ -99,13 +104,10 @@ register({
         validation_config: validationConfig,
       })
       if (!response.success || !response.data) {
-        return {
-          status: 'error',
-          validationErrors: [
-            String(response.error || '\u6761\u4EF6\u7EA6\u675F\u6821\u9A8C\u5931\u8D25'),
-          ],
-          lastValidation: undefined,
-        }
+        return requestFailureResult(
+          'conditional',
+          String(response.error || '\u6761\u4EF6\u7EA6\u675F\u6821\u9A8C\u5931\u8D25')
+        )
       }
       return toResult(
         response.data.error_rows || [],
@@ -127,13 +129,11 @@ register({
     // 与 inline 分支对齐：启用"无条件触发"（skipIf）时不要求配置 IF 条件，
     // 后端对"if_conditions 为空且未设置 if_column"走无条件模式（对所有行校验 THEN）
     if (!hasIf && !skipIf) {
-      return {
-        status: 'idle',
-        validationErrors: [
-          '\u672A\u914D\u7F6E IF \u6761\u4EF6\uFF0C\u8BF7\u8FDE\u63A5 IF \u5217\u6216\u542F\u7528\u201C\u65E0\u6761\u4EF6\u89E6\u53D1\u201D',
-        ],
-        lastValidation: undefined,
-      }
+      return clientNoticeResult(
+        'idle',
+        'CONDITIONAL_IF_NOT_CONFIGURED',
+        '\u672A\u914D\u7F6E IF \u6761\u4EF6\uFF0C\u8BF7\u8FDE\u63A5 IF \u5217\u6216\u542F\u7528\u201C\u65E0\u6761\u4EF6\u89E6\u53D1\u201D'
+      )
     }
     type ColumnLike = { id?: string; columnName?: string }
     const schemaColumns = (((ctx.schemaNode.data || {}) as Record<string, unknown>).columns ||
@@ -142,11 +142,11 @@ register({
       (c) => c.id === (nodeData.thenRef as Record<string, unknown>)?.columnId
     )?.columnName
     if (!thenColumnName) {
-      return {
-        status: 'missing',
-        validationErrors: ['IF/THEN \u5217\u4E0D\u5B58\u5728\u6216\u5DF2\u5220\u9664'],
-        lastValidation: undefined,
-      }
+      return clientNoticeResult(
+        'missing',
+        'CONDITIONAL_IF_THEN_COLUMN_MISSING',
+        'IF/THEN \u5217\u4E0D\u5B58\u5728\u6216\u5DF2\u5220\u9664'
+      )
     }
     const validationConfig: NonNullable<ConditionalValidationRequest['validation_config']> = {
       if_logic: (nodeData.ifLogic as 'and' | 'or' | undefined) || 'and',
@@ -187,11 +187,11 @@ register({
         })
         .filter((c) => !!c.if_column) as IfCondition[]
       if (normalizedIf.length === 0) {
-        return {
-          status: 'missing',
-          validationErrors: ['IF/THEN \u5217\u4E0D\u5B58\u5728\u6216\u5DF2\u5220\u9664'],
-          lastValidation: undefined,
-        }
+        return clientNoticeResult(
+          'missing',
+          'CONDITIONAL_IF_THEN_COLUMN_MISSING',
+          'IF/THEN \u5217\u4E0D\u5B58\u5728\u6216\u5DF2\u5220\u9664'
+        )
       }
       validationConfig.if_conditions = normalizedIf
       validationConfig.if_column = normalizedIf[0]?.if_column
@@ -210,13 +210,10 @@ register({
       validation_config: validationConfig,
     })
     if (!response.success || !response.data) {
-      return {
-        status: 'error',
-        validationErrors: [
-          String(response.error || '\u6761\u4EF6\u7EA6\u675F\u6821\u9A8C\u5931\u8D25'),
-        ],
-        lastValidation: undefined,
-      }
+      return requestFailureResult(
+        'conditional',
+        String(response.error || '\u6761\u4EF6\u7EA6\u675F\u6821\u9A8C\u5931\u8D25')
+      )
     }
     return toResult(
       response.data.error_rows || [],

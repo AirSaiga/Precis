@@ -26,7 +26,12 @@
 
 import { describe, it, expect } from 'vitest'
 import type { Node, Edge } from '@vue-flow/core'
-import { requireSource } from '@/services/constraints/validationHelpers'
+import {
+  requireSource,
+  requestFailureResult,
+  clientNoticeResult,
+  toResult,
+} from '@/services/constraints/validationHelpers'
 import type { ConstraintValidationContext } from '@/services/constraints/types'
 
 function makeNode(overrides: Partial<Node> = {}): Node {
@@ -98,5 +103,88 @@ describe('requireSource - 数据源闸门', () => {
   it('空 inlineRows 数组不视为行内数据源', () => {
     const ctx = makeCtx({ inlineRows: [] })
     expect(requireSource(ctx)!.status).toBe('idle')
+  })
+})
+
+describe('toResult - 错误行 → 结果（含 i18n localizedErrors）', () => {
+  it('带 error_code 的错误行映射为 validation.codes.<CODE>，行号转为 1-based', () => {
+    const result = toResult(
+      [
+        {
+          row_index: 0,
+          cell_value: '150',
+          error_message: '区间约束冲突: 值 150 不在范围 [0, 100] 内。',
+          error_code: 'RANGE_VALUE_OUT_OF_RANGE',
+          error_params: { value: '150', bounds: '[0, 100]' },
+        },
+      ],
+      3,
+      '值超出区间范围'
+    )
+    expect(result.status).toBe('error')
+    expect(result.validationErrors).toEqual([
+      '第 1 行: 区间约束冲突: 值 150 不在范围 [0, 100] 内。',
+    ])
+    expect(result.localizedErrors).toEqual([
+      {
+        key: 'validation.codes.RANGE_VALUE_OUT_OF_RANGE',
+        fallback: '区间约束冲突: 值 150 不在范围 [0, 100] 内。',
+        params: { value: '150', bounds: '[0, 100]' },
+        row: 1,
+      },
+    ])
+    expect(result.lastValidation).toEqual({ totalRows: 3, errorCount: 1, matchCount: 2 })
+  })
+
+  it('无 error_code（旧后端）：key 置空、fallback 用后端 message', () => {
+    const result = toResult([{ row_index: 2, cell_value: 'x', error_message: '旧消息' }], 5, '兜底')
+    expect(result.localizedErrors![0]).toEqual({
+      key: '',
+      fallback: '旧消息',
+      row: 3,
+    })
+  })
+
+  it('error_message 缺失：回退 handler 类型级兜底文案', () => {
+    const result = toResult([{ row_index: 1, cell_value: '' }], 2, '值超出区间范围')
+    expect(result.validationErrors[0]).toBe('第 2 行: 值超出区间范围')
+    expect(result.localizedErrors![0].fallback).toBe('值超出区间范围')
+  })
+
+  it('零错误行：pass 状态、localizedErrors 为空数组', () => {
+    const result = toResult([], 10, '兜底')
+    expect(result.status).toBe('pass')
+    expect(result.localizedErrors).toEqual([])
+    expect(result.lastValidation).toEqual({ totalRows: 10, errorCount: 0, matchCount: 10 })
+  })
+
+  it('errorRows 非数组（后端异常载荷）：按零错误处理', () => {
+    const result = toResult(undefined, 4, '兜底')
+    expect(result.status).toBe('pass')
+    expect(result.validationErrors).toEqual([])
+  })
+})
+
+describe('requestFailureResult / clientNoticeResult - key 化结果构建', () => {
+  it('requestFailureResult：按约束种类生成 requestFailed key，detail 携带原始错误', () => {
+    const result = requestFailureResult('range', '未找到列: Total')
+    expect(result.status).toBe('error')
+    expect(result.validationErrors).toEqual(['未找到列: Total'])
+    expect(result.localizedErrors).toEqual([
+      {
+        key: 'validation.range.requestFailed',
+        fallback: '未找到列: Total',
+        params: { detail: '未找到列: Total' },
+      },
+    ])
+    expect(result.lastValidation).toBeUndefined()
+  })
+
+  it('clientNoticeResult：客户端前置校验消息映射为 validation.codes.<CODE>', () => {
+    const result = clientNoticeResult('idle', 'FK_TARGET_NOT_SELECTED', '请选择目标列后再进行校验')
+    expect(result.status).toBe('idle')
+    expect(result.localizedErrors).toEqual([
+      { key: 'validation.codes.FK_TARGET_NOT_SELECTED', fallback: '请选择目标列后再进行校验' },
+    ])
   })
 })

@@ -19,7 +19,10 @@ limitations under the License.
   import { ref } from 'vue'
   import { useI18n } from 'vue-i18n'
   import type { ValidationReportErrorRow } from '@/services/validationReportViewModel'
-  import { validationErrorTypeLabel } from '@/services/validationReportViewModel'
+  import {
+    localizedErrorText,
+    validationErrorTypeLabel,
+  } from '@/services/validationReportViewModel'
 
   interface Props {
     groupName: string
@@ -80,7 +83,7 @@ limitations under the License.
               validationErrorTypeLabel(t, error.check_type || error.error_type)
             }}</span>
           </div>
-          <p class="fv-error-msg">{{ error.display_message }}</p>
+          <p class="fv-error-msg">{{ localizedErrorText(t, error) }}</p>
           <p v-if="error.suggestion" class="fv-error-suggestion">
             {{ t('common.fullValidation.result.suggestion') }}: {{ error.suggestion }}
           </p>

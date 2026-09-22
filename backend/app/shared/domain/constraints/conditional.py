@@ -352,6 +352,8 @@ class ConditionalConstraint(Constraint):
             errors.append(
                 {
                     "error_type": "ConstraintConfigError",
+                    "error_code": "CONDITIONAL_TABLE_NOT_FOUND",
+                    "error_params": {"table": self.table},
                     "table": self.table,
                     "column": self.then_column,
                     "message": f"条件约束失败: 表 '{self.table}' 不在数据集中。",
@@ -366,6 +368,8 @@ class ConditionalConstraint(Constraint):
             errors.append(
                 {
                     "error_type": "ConstraintConfigError",
+                    "error_code": "CONDITIONAL_COLUMN_NOT_FOUND",
+                    "error_params": {"column": self.then_column, "table": self.table},
                     "table": self.table,
                     "column": self.then_column,
                     "message": f"条件约束失败: 列 '{self.then_column}' 不在表 '{self.table}' 中。",
@@ -382,6 +386,8 @@ class ConditionalConstraint(Constraint):
                 errors.append(
                     {
                         "error_type": "ConstraintConfigError",
+                        "error_code": "CONDITIONAL_REF_COLUMN_NOT_FOUND",
+                        "error_params": {"column": ref_col, "table": self.table},
                         "table": self.table,
                         "column": ref_col,
                         "message": f"条件约束失败: 引用列 '{ref_col}' 不在表 '{self.table}' 中。",
@@ -406,6 +412,13 @@ class ConditionalConstraint(Constraint):
                         errors.append(
                             {
                                 "error_type": "ConstraintConfigError",
+                                "error_code": "CONDITIONAL_THEN_THRESHOLD_NOT_NUMERIC",
+                                "error_params": {
+                                    "operator": _then_op,
+                                    "threshold": str(_then_threshold),
+                                    "column": self.then_column,
+                                    "table": self.table,
+                                },
                                 "table": self.table,
                                 "column": self.then_column,
                                 "message": (
@@ -494,6 +507,8 @@ class ConditionalConstraint(Constraint):
                 errors.append(
                     {
                         "error_type": "ConstraintConfigError",
+                        "error_code": "CONDITIONAL_UNKNOWN_IF_LOGIC",
+                        "error_params": {"if_logic": self.if_logic},
                         "table": self.table,
                         "message": f"条件约束失败: 未知的 if_logic '{self.if_logic}'，支持的值为: and, or。",
                     }
@@ -506,6 +521,8 @@ class ConditionalConstraint(Constraint):
                 errors.append(
                     {
                         "error_type": "ConstraintConfigError",
+                        "error_code": "CONDITIONAL_IF_COLUMN_NOT_FOUND",
+                        "error_params": {"column": missing, "table": self.table},
                         "table": self.table,
                         "column": missing,
                         "message": f"条件约束失败: 列 '{missing}' 不在表 '{self.table}' 中。",
@@ -516,6 +533,8 @@ class ConditionalConstraint(Constraint):
                 errors.append(
                     {
                         "error_type": "ConstraintConfigError",
+                        "error_code": "CONDITIONAL_INVALID_IF_CONDITION",
+                        "error_params": {"detail": str(e)},
                         "table": self.table,
                         "message": f"条件约束失败: {e}",
                     }
@@ -540,6 +559,8 @@ class ConditionalConstraint(Constraint):
                 errors.append(
                     {
                         "error_type": "ConstraintConfigError",
+                        "error_code": "CONDITIONAL_IF_COLUMN_NOT_FOUND",
+                        "error_params": {"column": self.if_column, "table": self.table},
                         "table": self.table,
                         "column": self.if_column,
                         "message": f"条件约束失败: 列 '{self.if_column}' 不在表 '{self.table}' 中。",
@@ -552,6 +573,8 @@ class ConditionalConstraint(Constraint):
                 errors.append(
                     {
                         "error_type": "ConstraintConfigError",
+                        "error_code": "CONDITIONAL_IF_VALUE_MISSING",
+                        "error_params": {"if_column": self.if_column},
                         "table": self.table,
                         "column": self.if_column,
                         "message": (
@@ -580,6 +603,8 @@ class ConditionalConstraint(Constraint):
                 errors.append(
                     {
                         "error_type": "Timeout",
+                        "error_code": "CONDITIONAL_TIMEOUT",
+                        "error_params": {"processed": i, "total": len(triggered_dict)},
                         "stage": "constraint",
                         "table": self.table,
                         "message": (
@@ -619,6 +644,12 @@ class ConditionalConstraint(Constraint):
                 errors.append(
                     {
                         "error_type": "ConditionalViolation",
+                        "error_code": "CONDITIONAL_THEN_VIOLATION",
+                        "error_params": {
+                            "column": self.then_column,
+                            "value": str(value_to_check),
+                            "condition": self._condition_str,
+                        },
                         "table": self.table,
                         "row_index": row_index,
                         "value": {**if_value_payload, self.then_column: value_to_check},

@@ -210,6 +210,8 @@ class ForeignKeyConstraints(Constraint):
             errors.append(
                 {
                     "error_type": "ConstraintConfigError",
+                    "error_code": "FK_TABLE_NOT_FOUND",
+                    "error_params": {"from_table": self.from_table, "to_table": self.to_table},
                     "table": self.from_table,
                     "column": self.from_column,
                     "message": f"外键约束失败: 表 '{self.from_table}' 或 '{self.to_table}' 不在提供的数据集中。",
@@ -225,6 +227,8 @@ class ForeignKeyConstraints(Constraint):
             errors.append(
                 {
                     "error_type": "ConstraintConfigError",
+                    "error_code": "FK_COLUMN_NOT_FOUND",
+                    "error_params": {"from_column": self.from_column, "to_column": self.to_column},
                     "table": self.from_table,
                     "column": self.from_column,
                     "message": f"外键约束失败: 列 '{self.from_column}' 或 '{self.to_column}' 在其对应的表中不存在。",
@@ -250,6 +254,14 @@ class ForeignKeyConstraints(Constraint):
             errors.append(
                 {
                     "error_type": "ForeignKeyViolation",
+                    "error_code": "FK_VIOLATION",
+                    "error_params": {
+                        "value": str(key_to_check),
+                        "from_table": self.from_table,
+                        "from_column": self.from_column,
+                        "to_table": self.to_table,
+                        "to_column": self.to_column,
+                    },
                     "table": self.from_table,
                     "row_index": row_index,
                     "column": self.from_column,

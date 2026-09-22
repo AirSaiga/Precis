@@ -41,6 +41,8 @@ import type {
 } from '@/api/projectValidationApi'
 import type { TranslateFn } from '@/core/i18n/renderText'
 import { renderText } from '@/core/i18n/renderText'
+import type { RowLocalizedMessage } from '@/services/i18n/localizedMessage'
+import { renderLocalizedMessage } from '@/services/i18n/localizedMessage'
 
 export interface ValidationReportErrorRow extends FullValidationErrorItem {
   key: string
@@ -49,6 +51,11 @@ export interface ValidationReportErrorRow extends FullValidationErrorItem {
   normalized_stage: string
   display_message: string
   suggestion: string | null
+  /**
+   * key 化错误（i18n 治理）：error_code → validation.codes.<CODE>，行号走 validation.rowError 前缀。
+   * 渲染端优先用它经 renderLocalizedMessage 按当前语言渲染；缺省回退 display_message 原文。
+   */
+  localizedIssue?: RowLocalizedMessage
 }
 
 export interface ValidationReportPassedRow extends ValidationPassedItem {
@@ -106,6 +113,16 @@ export function validationErrorTypeLabel(t: TranslateFn, code: string | null | u
   return renderText(t, `validation.errorTypes.${code}`, code)
 }
 
+/**
+ * 渲染单条报告错误的展示文案（i18n 治理）。
+ *
+ * 优先用 key 化的 localizedIssue（error_code → validation.codes.<CODE>，随 locale 切换），
+ * 未登记错误码的旧数据回退 display_message 原文。
+ */
+export function localizedErrorText(t: TranslateFn, row: ValidationReportErrorRow): string {
+  return row.localizedIssue ? renderLocalizedMessage(t, row.localizedIssue) : row.display_message
+}
+
 const SUGGESTION_SPLIT_RE = /(?:\s|^)[\s：:]*(?:建议|Suggestion)\s*[:：]\s*/i
 
 function splitMessageAndSuggestion(message: string): { body: string; suggestion: string | null } {
@@ -130,6 +147,23 @@ export function formatValidationReportMessage(message: string, table?: string | 
     )
   }
   return message
+}
+
+/**
+ * 从全量校验错误项构建 key 化错误（i18n 治理）。
+ *
+ * error_code 存在时映射为 validation.codes.<CODE>（行级错误带 1-based row，
+ * 渲染时组合 validation.rowError 行前缀）；无错误码返回 undefined，渲染端回退原文。
+ */
+function buildLocalizedIssue(item: FullValidationErrorItem): RowLocalizedMessage | undefined {
+  if (!item.error_code) return undefined
+  return {
+    key: `validation.codes.${item.error_code}`,
+    fallback: item.message,
+    params: item.error_params ?? undefined,
+    // row_index 为 0-based；展示统一 1-based（与 location 列的 rowLabel 口径一致）
+    row: item.row_index === null || item.row_index === undefined ? undefined : item.row_index + 1,
+  }
 }
 
 export function createValidationReportViewModel(
@@ -161,6 +195,7 @@ export function createValidationReportViewModel(
       normalized_stage: normalizeValidationStage(item.stage),
       display_message: truncateLongIds(body),
       suggestion: suggestion ? truncateLongIds(suggestion) : null,
+      localizedIssue: buildLocalizedIssue(item),
     }
   })
 

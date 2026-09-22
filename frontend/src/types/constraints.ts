@@ -15,6 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import type { RowLocalizedMessage } from '@/services/i18n/localizedMessage'
+
 /**
  * @file constraints.ts
  * @description 约束节点相关类型定义
@@ -72,8 +75,14 @@ export interface BaseConstraintNodeData {
   configName?: string
   /** 约束名称，用于对接后端或导出配置 */
   constraintName?: string
-  /** 校验错误信息列表，用于 UI 展示与导出 */
+  /** 校验错误信息列表（字符串形式，历史字段），用于列级聚合等字符串消费方 */
   validationErrors?: string[]
+  /**
+   * 校验错误（key 化形式，i18n 治理）。UI 渲染优先读本字段（随 locale 切换），
+   * 缺省时回退 validationErrors。error_code → validation.codes.<CODE>，
+   * 行级错误带 row（渲染 validation.rowError 行前缀）。运行时状态，不持久化到 V2 YAML。
+   */
+  localizedErrors?: RowLocalizedMessage[]
   /** 源字段的稳定引用（节点 ID + 列 ID），避免名称变更导致关联丢失 */
   sourceRef?: {
     /** Schema 节点 ID */

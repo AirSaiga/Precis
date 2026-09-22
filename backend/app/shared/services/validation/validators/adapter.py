@@ -40,9 +40,22 @@ from app.shared.domain.constraints.base import Constraint
 from ..types import ValidationResult
 from .base import BaseValidator
 
-PreCheckFn = Callable[[pd.DataFrame, str, dict], str | None]
+PreCheckFn = Callable[[pd.DataFrame, str, dict], "PreCheckError | None"]
 KwargsBuilderFn = Callable[[str, dict], dict[str, Any]]
 DatasetsBuilderFn = Callable[[pd.DataFrame, str, dict], dict[str, pd.DataFrame]]
+
+
+class PreCheckError(dict):
+    """预检失败的结构化错误。
+
+    - error_code: 稳定错误码（UPPER_SNAKE），供前端映射 i18n key
+    - error_params: 插值参数（JSON 标量），供前端渲染
+    - message: 中文兜底文案（保持后端日志/原始行为）
+    """
+
+    @staticmethod
+    def of(error_code: str, error_params: dict, message: str) -> PreCheckError:
+        return PreCheckError(error_code=error_code, error_params=error_params, message=message)
 
 
 class ConstraintAdapter(BaseValidator):
@@ -102,13 +115,21 @@ class ConstraintAdapter(BaseValidator):
         start_time = time.time()
 
         for check in self.pre_checks:
-            error_msg = check(df, column, kwargs)
-            if error_msg:
+            check_err = check(df, column, kwargs)
+            if check_err:
                 return ValidationResult(
                     is_valid=False,
                     error_count=1,
                     total_rows=len(df),
-                    error_rows=[{"row_index": 0, "cell_value": None, "error_message": error_msg}],
+                    error_rows=[
+                        {
+                            "row_index": 0,
+                            "cell_value": None,
+                            "error_message": check_err["message"],
+                            "error_code": check_err["error_code"],
+                            "error_params": check_err.get("error_params", {}),
+                        }
+                    ],
                     validation_time=f"{time.time() - start_time:.3f}s",
                 )
 
@@ -150,33 +171,33 @@ class ConstraintAdapter(BaseValidator):
 
 
 class PreCheck:
-    """内置预检工厂方法"""
+    """内置预检工厂方法（返回结构化错误：错误码 + 插值参数 + 中文兜底文案）"""
 
     @staticmethod
     def column_exists() -> PreCheckFn:
-        def check(df: pd.DataFrame, column: str, kwargs: dict) -> str | None:
+        def check(df: pd.DataFrame, column: str, kwargs: dict) -> PreCheckError | None:
             if column not in df.columns:
-                return f"列 '{column}' 不存在"
+                return PreCheckError.of("COLUMN_NOT_FOUND", {"column": column}, f"列 '{column}' 不存在")
             return None
 
         return check
 
     @staticmethod
     def param_required(*keys: str) -> PreCheckFn:
-        def check(df: pd.DataFrame, column: str, kwargs: dict) -> str | None:
+        def check(df: pd.DataFrame, column: str, kwargs: dict) -> PreCheckError | None:
             for key in keys:
                 if not kwargs.get(key):
-                    return f"参数 '{key}' 不能为空"
+                    return PreCheckError.of("PARAM_REQUIRED", {"param": key}, f"参数 '{key}' 不能为空")
             return None
 
         return check
 
     @staticmethod
     def param_required_any(*key_groups: tuple[str, ...]) -> PreCheckFn:
-        def check(df: pd.DataFrame, column: str, kwargs: dict) -> str | None:
+        def check(df: pd.DataFrame, column: str, kwargs: dict) -> PreCheckError | None:
             for group in key_groups:
                 if any(kwargs.get(k) for k in group):
                     return None
-            return "校验配置不完整"
+            return PreCheckError.of("CONFIG_INCOMPLETE", {}, "校验配置不完整")
 
         return check

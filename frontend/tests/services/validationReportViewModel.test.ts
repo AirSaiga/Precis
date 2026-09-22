@@ -158,6 +158,61 @@ describe('createValidationReportViewModel', () => {
     expect(vm.allCount).toBe(1)
   })
 
+  it('带 error_code 的错误项构建 localizedIssue（行号转 1-based）', () => {
+    const data: any = {
+      success: false,
+      summary: {
+        files_total: 1,
+        files_loaded: 1,
+        tables_loaded: 1,
+        loading_error_count: 0,
+        format_error_count: 0,
+        constraint_error_count: 1,
+        total_error_count: 1,
+        duration_ms: 100,
+      },
+      errors: [
+        {
+          stage: 'constraint',
+          error_type: 'RangeViolation',
+          check_type: 'Range',
+          message: '区间约束失败: 数据格式不合规',
+          error_code: 'RANGE_COLUMN_NOT_NUMERIC',
+          error_params: { column: 'Total' },
+          row_index: 0,
+        },
+      ],
+    }
+
+    const vm = createValidationReportViewModel(data, defaultOptions)
+    expect(vm.errors[0].localizedIssue).toEqual({
+      key: 'validation.codes.RANGE_COLUMN_NOT_NUMERIC',
+      fallback: '区间约束失败: 数据格式不合规',
+      params: { column: 'Total' },
+      row: 1,
+    })
+  })
+
+  it('无 error_code 的错误项 localizedIssue 为 undefined（渲染回退原文）', () => {
+    const data: any = {
+      success: false,
+      summary: {
+        files_total: 0,
+        files_loaded: 0,
+        tables_loaded: 0,
+        loading_error_count: 1,
+        format_error_count: 0,
+        constraint_error_count: 0,
+        total_error_count: 1,
+        duration_ms: 100,
+      },
+      errors: [{ stage: 'loading', error_type: 'FileNotFound', message: '文件不存在' }],
+    }
+
+    const vm = createValidationReportViewModel(data, defaultOptions)
+    expect(vm.errors[0].localizedIssue).toBeUndefined()
+  })
+
   it('passed_items 转换为 passed 行', () => {
     const data: any = {
       success: true,

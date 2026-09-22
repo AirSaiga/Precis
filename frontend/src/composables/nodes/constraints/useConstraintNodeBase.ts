@@ -33,6 +33,7 @@ import type { ComputedRef, Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useGraphStore } from '@/stores/graphStore'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
+import { renderLocalizedMessage } from '@/services/i18n/localizedMessage'
 import type { BaseConstraintNodeData } from '@/types/constraints'
 
 export interface ConstraintNodeBaseOptions<TData extends BaseConstraintNodeData> {
@@ -77,6 +78,13 @@ export function useConstraintNodeBase<TData extends BaseConstraintNodeData>(
 
   const displayErrors = computed(() => {
     if (validationStatus.value === 'missing') return []
+    // i18n：优先渲染 key 化的 localizedErrors（经 renderLocalizedMessage 随 locale 切换），
+    // 无 key 化数据时回退 validationErrors 原始字符串（旧数据/未迁移来源兜底）
+    if (props.data.localizedErrors?.length) {
+      return props.data.localizedErrors
+        .filter((issue) => !!issue)
+        .map((issue) => renderLocalizedMessage(t, issue))
+    }
     return (props.data.validationErrors || []).filter((msg): msg is string => !!msg)
   })
 

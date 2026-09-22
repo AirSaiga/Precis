@@ -19,8 +19,9 @@
  * @fileoverview validationCollector 纯函数单元测试
  *
  * 测试 getSchemaNodeSourceInfo 的各种场景：
- * - Schema 节点自带路径信息
- * - 通过 SourcePreview 节点查找
+ * - 未连接数据源时缓存路径不作为校验依据（防幽灵 pass/fail）
+ * - 通过 sourceNodeId 引用查找 SourcePreview
+ * - 通过数据源入边查找（含多数据源优先级）
  * - 无匹配时返回 null
  */
 
@@ -98,30 +99,32 @@ function makeEdges() {
 }
 
 describe('validationCollector - getSchemaNodeSourceInfo', () => {
-  describe('Schema 节点自带路径', () => {
-    it('从 schema 节点的 sourceFilePath 获取信息', () => {
+  describe('未连接数据源时缓存路径不作为校验依据', () => {
+    it('Schema 缓存了 sourceFilePath 但无 sourceNodeId/入边 → 返回 null（防幽灵校验）', () => {
       const result = getSchemaNodeSourceInfo('schema-1', makeNodes(), [])
-      expect(result).toBeTruthy()
-      expect(result!.sourceFilePath).toBe('/data/users.csv')
-      expect(result!.sourceFile).toBe('users.csv')
-      expect(result!.sheetName).toBe('Sheet1')
-      expect(result!.headerRow).toBe(0)
-      expect(result!.sourceMode).toBe('localfile')
-      expect(result!.localPath).toBe('/data/users.csv')
+      expect(result).toBeNull()
     })
 
-    it('从 localPath 获取信息（无 sourceFilePath）', () => {
+    it('Schema 仅缓存 localPath（无 sourceFilePath）同样返回 null', () => {
       const nodes = makeNodes()
       nodes[0].data.sourceFilePath = undefined
       const result = getSchemaNodeSourceInfo('schema-1', nodes, [])
-      expect(result).toBeTruthy()
-      expect(result!.sourceFilePath).toBe('/data/users.csv')
+      expect(result).toBeNull()
     })
 
-    it('jsonSchema 类型也支持', () => {
+    it('jsonSchema 类型缓存路径同样不作为校验依据', () => {
       const result = getSchemaNodeSourceInfo('schema-json', makeNodes(), [])
+      expect(result).toBeNull()
+    })
+
+    it('连接 sourcePreview 后缓存场景恢复校验（sourceNodeId 引用）', () => {
+      const nodes = makeNodes()
+      const schema1 = nodes.find((n) => n.id === 'schema-1')
+      schema1.data.sourceNodeId = 'preview-1'
+      const result = getSchemaNodeSourceInfo('schema-1', nodes, [])
       expect(result).toBeTruthy()
-      expect(result!.sourceFilePath).toBe('/data/config.json')
+      expect(result!.sourceFilePath).toBe('/data/orders.csv')
+      expect(result!.sourceNodeId).toBe('preview-1')
     })
   })
 
@@ -193,14 +196,13 @@ describe('validationCollector - getSchemaNodeSourceInfo', () => {
       expect(result).toBeNull()
     })
 
-    // Bug 2.1 对照：无 sourceNodeId 的 V2 内联数据源（路径直接写入 Schema）应信任缓存路径
-    it('无 sourceNodeId + 缓存路径（V2 内联）→ 返回缓存路径（保留原行为）', () => {
+    // 无 sourceNodeId + 缓存路径（V2 内联）→ 画布未连接，返回 null（防幽灵 pass/fail）
+    it('无 sourceNodeId + 缓存路径（V2 内联）→ 返回 null（画布未连接不校验）', () => {
       const nodes = makeNodes()
       const schema1 = nodes.find((n) => n.id === 'schema-1')
       schema1.data.sourceNodeId = undefined
       const result = getSchemaNodeSourceInfo('schema-1', nodes, [])
-      expect(result).toBeTruthy()
-      expect(result!.sourceFilePath).toBe('/data/users.csv')
+      expect(result).toBeNull()
     })
   })
 

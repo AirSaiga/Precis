@@ -20,7 +20,14 @@
  * @description 允许值约束验证处理器
  */
 
-import { defaultReset, register, requireSource, toResult } from '../validationRegistryCore'
+import {
+  clientNoticeResult,
+  defaultReset,
+  register,
+  requestFailureResult,
+  requireSource,
+  toResult,
+} from '../validationRegistryCore'
 import { validateAllowedValues, validateInline } from '@/api/validationApi'
 
 register({
@@ -33,13 +40,11 @@ register({
       .map((v) => String(v).trim())
       .filter((v) => !!v && v !== '...')
     if (allowedValues.length === 0) {
-      return {
-        status: 'idle',
-        validationErrors: [
-          '\u8BF7\u5148\u914D\u7F6E\u5141\u8BB8\u503C\u5217\u8868\u540E\u518D\u8FDB\u884C\u6821\u9A8C',
-        ],
-        lastValidation: undefined,
-      }
+      return clientNoticeResult(
+        'idle',
+        'ALLOWED_VALUES_EMPTY',
+        '\u8BF7\u5148\u914D\u7F6E\u5141\u8BB8\u503C\u5217\u8868\u540E\u518D\u8FDB\u884C\u6821\u9A8C'
+      )
     }
 
     if (ctx.inlineRows && ctx.inlineRows.length > 0) {
@@ -52,13 +57,10 @@ register({
         validation_config: { allowed_values: allowedValues },
       })
       if (!response.success || !response.data) {
-        return {
-          status: 'error',
-          validationErrors: [
-            String(response.error || '\u5141\u8BB8\u503C\u6821\u9A8C\u5931\u8D25'),
-          ],
-          lastValidation: undefined,
-        }
+        return requestFailureResult(
+          'allowedValues',
+          String(response.error || '\u5141\u8BB8\u503C\u6821\u9A8C\u5931\u8D25')
+        )
       }
       return toResult(
         response.data.error_rows || [],
@@ -80,11 +82,10 @@ register({
       record_path: ctx.recordPath,
     })
     if (!response.success || !response.data) {
-      return {
-        status: 'error',
-        validationErrors: [String(response.error || '\u5141\u8BB8\u503C\u6821\u9A8C\u5931\u8D25')],
-        lastValidation: undefined,
-      }
+      return requestFailureResult(
+        'allowedValues',
+        String(response.error || '\u5141\u8BB8\u503C\u6821\u9A8C\u5931\u8D25')
+      )
     }
     return toResult(
       response.data.error_rows || [],

@@ -149,6 +149,8 @@ class CharsetConstraint(Constraint):
             errors.append(
                 {
                     "error_type": "ConstraintConfigError",
+                    "error_code": "CHARSET_TABLE_NOT_FOUND",
+                    "error_params": {"table": self.table},
                     "table": self.table,
                     "column": self.column,
                     "message": f"字符集约束失败: 表 '{self.table}' 不在数据集中。",
@@ -163,6 +165,8 @@ class CharsetConstraint(Constraint):
             errors.append(
                 {
                     "error_type": "ConstraintConfigError",
+                    "error_code": "CHARSET_COLUMN_NOT_FOUND",
+                    "error_params": {"column": self.column, "table": self.table},
                     "table": self.table,
                     "column": self.column,
                     "message": f"字符集约束失败: 列 '{self.column}' 在表 '{self.table}' 中不存在。",
@@ -186,6 +190,11 @@ class CharsetConstraint(Constraint):
             errors.append(
                 {
                     "error_type": "ConstraintConfigError",
+                    "error_code": "CHARSET_INVALID_MODE",
+                    "error_params": {
+                        "charset_mode": self.charset_mode,
+                        "valid_modes": ", ".join(sorted(valid_modes)),
+                    },
                     "table": self.table,
                     "column": self.column,
                     "message": (
@@ -216,6 +225,12 @@ class CharsetConstraint(Constraint):
                 errors.append(
                     {
                         "error_type": "CharsetViolation",
+                        "error_code": "CHARSET_INVALID_CHARACTER",
+                        "error_params": {
+                            "value": cell_value_str,
+                            "charset_mode": self.charset_mode,
+                            "charset_name": charset_name,
+                        },
                         "table": self.table,
                         "row_index": int(index) if index is not None else 0,
                         "column": self.column,

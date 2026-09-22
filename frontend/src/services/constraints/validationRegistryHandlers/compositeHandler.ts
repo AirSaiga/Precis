@@ -20,7 +20,8 @@
  * @description 复合约束验证处理器（结果聚合器）
  */
 
-import { defaultReset, register } from '../validationRegistryCore'
+import { clientNoticeResult, defaultReset, register } from '../validationRegistryCore'
+import type { RowLocalizedMessage } from '@/services/i18n/localizedMessage'
 
 function isConstraintNodeType(type: string | undefined): boolean {
   if (!type) return false
@@ -49,13 +50,11 @@ register({
     }
 
     if (targetIds.length === 0) {
-      return {
-        status: 'idle',
-        validationErrors: [
-          '\u8BF7\u5728\u5C5E\u6027\u9762\u677F\u4E2D\u9009\u62E9\u8981\u805A\u5408\u7684\u7EA6\u675F\u8282\u70B9',
-        ],
-        lastValidation: undefined,
-      }
+      return clientNoticeResult(
+        'idle',
+        'COMPOSITE_NO_SUB_CONSTRAINTS',
+        '\u8BF7\u5728\u5C5E\u6027\u9762\u677F\u4E2D\u9009\u62E9\u8981\u805A\u5408\u7684\u7EA6\u675F\u8282\u70B9'
+      )
     }
 
     const subResults: Array<{
@@ -73,24 +72,23 @@ register({
         (targetData.validationStatus as 'idle' | 'pass' | 'error' | 'missing') || 'idle'
       const errors = (targetData.validationErrors || []) as string[]
       const lastValidation = targetData.lastValidation as
-        | { totalRows: number; errorCount: number; matchCount: number }
-        | undefined
+        { totalRows: number; errorCount: number; matchCount: number } | undefined
 
       subResults.push({ status, errors, lastValidation })
     }
 
     if (subResults.length === 0) {
-      return {
-        status: 'missing',
-        validationErrors: [
-          '\u672A\u627E\u5230\u6709\u6548\u7684\u805A\u5408\u7EA6\u675F\u8282\u70B9',
-        ],
-        lastValidation: undefined,
-      }
+      return clientNoticeResult(
+        'missing',
+        'COMPOSITE_NO_VALID_SUB_CONSTRAINTS',
+        '\u672A\u627E\u5230\u6709\u6548\u7684\u805A\u5408\u7EA6\u675F\u8282\u70B9'
+      )
     }
 
     let finalStatus: 'pass' | 'error' | 'missing' = 'pass'
     const finalErrors: string[] = []
+    // 与 finalErrors 平行的 key 化消息（i18n 治理）；子约束透传的原始错误串无法 key 化，不进此数组
+    const finalLocalizedErrors: RowLocalizedMessage[] = []
     let totalRows = 0
     let totalErrorCount = 0
 
@@ -100,13 +98,18 @@ register({
       const idleCount = subResults.filter((s) => s.status === 'idle').length
       if (idleCount > 0) {
         finalStatus = 'missing'
-        finalErrors.push(
-          `\u6709 ${idleCount} \u4E2A\u7EA6\u675F\u5C1A\u672A\u6267\u884C\uFF0C\u8BF7\u5148\u6267\u884C\u4E0A\u6E38\u7EA6\u675F\u6821\u9A8C`
-        )
+        const idleMsg = `\u6709 ${idleCount} \u4E2A\u7EA6\u675F\u5C1A\u672A\u6267\u884C\uFF0C\u8BF7\u5148\u6267\u884C\u4E0A\u6E38\u7EA6\u675F\u6821\u9A8C`
+        finalErrors.push(idleMsg)
+        finalLocalizedErrors.push({
+          key: 'validation.codes.COMPOSITE_SUB_CONSTRAINTS_IDLE',
+          fallback: idleMsg,
+          params: { count: idleCount },
+        })
       }
       for (const s of subResults) {
         if (s.status === 'error') {
           finalStatus = 'error'
+          // 子约束的历史错误串原样透传，无稳定 key，不生成 localizedErrors
           finalErrors.push(...s.errors)
           totalErrorCount += s.lastValidation?.errorCount || s.errors.length
         }
@@ -122,12 +125,22 @@ register({
 
       if (idleCount === subResults.length) {
         finalStatus = 'missing'
-        finalErrors.push('\u6240\u6709\u7EA6\u675F\u5C1A\u672A\u6267\u884C')
+        const allIdleMsg = '\u6240\u6709\u7EA6\u675F\u5C1A\u672A\u6267\u884C'
+        finalErrors.push(allIdleMsg)
+        finalLocalizedErrors.push({
+          key: 'validation.codes.COMPOSITE_ALL_IDLE',
+          fallback: allIdleMsg,
+        })
       } else if (passedCount === 0) {
         finalStatus = 'error'
-        finalErrors.push(
-          `\u590D\u5408\u7EA6\u675F\uFF08logic=any\uFF09\u8981\u6C42\u81F3\u5C11\u4E00\u4E2A\u5B50\u7EA6\u675F\u901A\u8FC7\uFF0C\u4F46\u5168\u90E8 ${subResults.length} \u4E2A\u5B50\u7EA6\u675F\u5747\u5931\u8D25`
-        )
+        const anyFailedMsg = `\u590D\u5408\u7EA6\u675F\uFF08logic=any\uFF09\u8981\u6C42\u81F3\u5C11\u4E00\u4E2A\u5B50\u7EA6\u675F\u901A\u8FC7\uFF0C\u4F46\u5168\u90E8 ${subResults.length} \u4E2A\u5B50\u7EA6\u675F\u5747\u5931\u8D25`
+        finalErrors.push(anyFailedMsg)
+        finalLocalizedErrors.push({
+          key: 'validation.codes.COMPOSITE_ANY_ALL_FAILED',
+          fallback: anyFailedMsg,
+          // 与后端 composite.py 同码同参：COMPOSITE_ANY_ALL_FAILED { total }
+          params: { total: subResults.length },
+        })
         totalErrorCount = subResults.reduce(
           (sum, s) => sum + (s.lastValidation?.errorCount || s.errors.length),
           0
@@ -141,12 +154,22 @@ register({
 
       if (idleCount === subResults.length) {
         finalStatus = 'missing'
-        finalErrors.push('\u6240\u6709\u7EA6\u675F\u5C1A\u672A\u6267\u884C')
+        const allIdleMsg = '\u6240\u6709\u7EA6\u675F\u5C1A\u672A\u6267\u884C'
+        finalErrors.push(allIdleMsg)
+        finalLocalizedErrors.push({
+          key: 'validation.codes.COMPOSITE_ALL_IDLE',
+          fallback: allIdleMsg,
+        })
       } else if (failedCount < subResults.length - idleCount) {
         finalStatus = 'error'
-        finalErrors.push(
-          `\u590D\u5408\u7EA6\u675F\uFF08logic=none\uFF09\u8981\u6C42\u5168\u90E8\u5B50\u7EA6\u675F\u5931\u8D25\uFF0C\u4F46\u6709 ${subResults.length - failedCount - idleCount} \u4E2A\u5B50\u7EA6\u675F\u901A\u8FC7`
-        )
+        const nonePassedMsg = `\u590D\u5408\u7EA6\u675F\uFF08logic=none\uFF09\u8981\u6C42\u5168\u90E8\u5B50\u7EA6\u675F\u5931\u8D25\uFF0C\u4F46\u6709 ${subResults.length - failedCount - idleCount} \u4E2A\u5B50\u7EA6\u675F\u901A\u8FC7`
+        finalErrors.push(nonePassedMsg)
+        finalLocalizedErrors.push({
+          // 与后端 composite.py 同码同参：COMPOSITE_NONE_HAS_PASSED { passed }
+          key: 'validation.codes.COMPOSITE_NONE_HAS_PASSED',
+          fallback: nonePassedMsg,
+          params: { passed: subResults.length - failedCount - idleCount },
+        })
         totalErrorCount = subResults.reduce(
           (sum, s) => sum + (s.lastValidation?.errorCount || s.errors.length),
           0
@@ -159,6 +182,7 @@ register({
     return {
       status: finalStatus,
       validationErrors: finalErrors,
+      localizedErrors: finalLocalizedErrors,
       lastValidation: {
         totalRows,
         errorCount: totalErrorCount,

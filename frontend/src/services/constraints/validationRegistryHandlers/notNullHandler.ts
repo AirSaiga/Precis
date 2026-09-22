@@ -24,7 +24,7 @@ import { defaultReset, register, requireSource, toResult } from '../validationRe
 import { validateInline } from '@/api/validationApi'
 import { validateNotNull } from '../validators/notNull'
 import { loc } from '@/services/i18n/localizedMessage'
-import type { LocalizedMessage } from '@/services/i18n/localizedMessage'
+import type { RowLocalizedMessage } from '@/services/i18n/localizedMessage'
 
 register({
   kind: 'notNull',
@@ -45,7 +45,7 @@ register({
         return {
           status: 'error',
           validationErrors: [errMsg],
-          localizedErrors: [loc('validation.notNull.requestFailed', errMsg)],
+          localizedErrors: [loc('validation.notNull.requestFailed', errMsg, { detail: errMsg })],
           lastValidation: undefined,
         }
       }
@@ -75,7 +75,7 @@ register({
       return {
         status: 'error',
         validationErrors: [errMsg],
-        localizedErrors: [loc('validation.notNull.requestFailed', errMsg)],
+        localizedErrors: [loc('validation.notNull.requestFailed', errMsg, { detail: errMsg })],
         lastValidation: undefined,
       }
     }
@@ -84,16 +84,12 @@ register({
       validationErrors: result.errors.map(
         (err) => `\u7B2C ${err.row + 1} \u884C: \u503C\u4E0D\u80FD\u4E3A\u7A7A`
       ),
-      localizedErrors: result.errors.map(
-        (err): LocalizedMessage =>
-          loc(
-            'validation.notNull.rowEmpty',
-            `\u7B2C ${err.row + 1} \u884C: \u503C\u4E0D\u80FD\u4E3A\u7A7A`,
-            {
-              row: err.row + 1,
-            }
-          )
-      ),
+      localizedErrors: result.errors.map((err): RowLocalizedMessage => ({
+        key: 'validation.codes.NOT_NULL_VALUE_EMPTY',
+        fallback: '\u503C\u4E0D\u80FD\u4E3A\u7A7A',
+        params: { column: ctx.columnName },
+        row: err.row + 1,
+      })),
       lastValidation: {
         totalRows: result.totalRows,
         errorCount: result.errorCount,

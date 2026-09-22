@@ -58,6 +58,7 @@ export function syncConstraintNodeResult(params: {
     sourceRef: { nodeId: schemaNode.id, columnId },
     validationStatus: result.status,
     validationErrors: result.validationErrors,
+    localizedErrors: result.localizedErrors,
     lastValidation: result.lastValidation,
   })
 }
@@ -82,6 +83,7 @@ export function syncInlineConstraintNodeResult(params: {
     sourceRef: { nodeId: sourceNode.id, columnId: '0' },
     validationStatus: result.status,
     validationErrors: result.validationErrors,
+    localizedErrors: result.localizedErrors,
     lastValidation: result.lastValidation,
   })
 }

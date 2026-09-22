@@ -210,6 +210,8 @@ class RangeConstraint(Constraint):
             errors.append(
                 {
                     "error_type": "ConstraintConfigError",
+                    "error_code": "RANGE_NO_BOUNDS",
+                    "error_params": {},
                     "table": self.table,
                     "column": self.column,
                     "message": "区间约束失败: 未配置边界（min_value / max_value 至少其一）。",
@@ -222,6 +224,8 @@ class RangeConstraint(Constraint):
             errors.append(
                 {
                     "error_type": "ConstraintConfigError",
+                    "error_code": "RANGE_TABLE_NOT_FOUND",
+                    "error_params": {"table": self.table},
                     "table": self.table,
                     "column": self.column,
                     "message": f"区间约束失败: 表 '{self.table}' 不在数据集中。",
@@ -236,6 +240,8 @@ class RangeConstraint(Constraint):
             errors.append(
                 {
                     "error_type": "ConstraintConfigError",
+                    "error_code": "RANGE_COLUMN_NOT_FOUND",
+                    "error_params": {"column": self.column, "table": self.table},
                     "table": self.table,
                     "column": self.column,
                     "message": f"区间约束失败: 列 '{self.column}' 在表 '{self.table}' 中不存在。",
@@ -250,6 +256,8 @@ class RangeConstraint(Constraint):
             errors.append(
                 {
                     "error_type": "ConstraintConfigError",
+                    "error_code": "RANGE_COLUMN_NOT_NUMERIC",
+                    "error_params": {"column": self.column},
                     "table": self.table,
                     "column": self.column,
                     "message": (
@@ -330,6 +338,8 @@ class RangeConstraint(Constraint):
             row_index = int(index) if index is not None else 0
 
             # 根据配置生成对应的错误消息
+            # error_code/error_params 为稳定错误码与插值参数，供前端 i18n 按当前语言渲染
+            # （message 保留中文兜底，供 CLI/契约输出）。params 值须 JSON 标量安全（数据值 str 化）。
             if self.min_value is not None and self.max_value is not None:
                 boundary_desc = (
                     f"[{self.min_value}, {self.max_value}]"
@@ -337,18 +347,28 @@ class RangeConstraint(Constraint):
                     else f"({self.min_value}, {self.max_value})"
                 )
                 message = f"区间约束冲突: 值 {value} 不在范围 {boundary_desc} 内。"
+                error_code = "RANGE_VALUE_OUT_OF_RANGE"
+                error_params = {"value": str(value), "bounds": boundary_desc}
             elif self.min_value is not None:
                 op = ">=" if self.boundary_mode == "inclusive" else ">"
                 message = f"区间约束冲突: 值 {value} 不满足 {op} {self.min_value}。"
+                error_code = "RANGE_VALUE_BELOW_MIN"
+                error_params = {"value": str(value), "op": op, "min": self.min_value}
             elif self.max_value is not None:
                 op = "<=" if self.boundary_mode == "inclusive" else "<"
                 message = f"区间约束冲突: 值 {value} 不满足 {op} {self.max_value}。"
+                error_code = "RANGE_VALUE_ABOVE_MAX"
+                error_params = {"value": str(value), "op": op, "max": self.max_value}
             else:
                 message = f"区间约束冲突: 值 {value} 超出指定范围。"
+                error_code = "RANGE_VALUE_OUT_OF_RANGE"
+                error_params = {"value": str(value)}
 
             errors.append(
                 {
                     "error_type": "RangeViolation",
+                    "error_code": error_code,
+                    "error_params": error_params,
                     "table": self.table,
                     "row_index": row_index,
                     "column": self.column,

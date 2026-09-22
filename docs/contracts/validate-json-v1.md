@@ -62,6 +62,8 @@ JSON 文档结构。消费方（Kimi Code 插件、CI、其他 agent harness）�
 | `cell_value` | `any (JSON) \| null` | 违规单元格原始值；numpy 标量归一为 Python 原生类型，NaN/Inf 转字符串 |
 | `error_message` | `str \| null` | 人类可读错误消息（中文）；消息中的表标识为显示名（表 ID 已在后处理替换），悬空引用（表已不存在）保留 ID 供定位 |
 | `suggestion` | `str \| null` | 可选修复建议：值与允许值词法相近时提示"是否应为 X"（AllowedValues，difflib 语义相近不冒进）、形似 Y-M-D 但月/日取值非法时指出超范围字段；生成器无法给出建议时为 `null`（v1 增补字段，只增） |
+| `error_code` | `str \| null` | 稳定机器错误码（UPPER_SNAKE，如 `RANGE_COLUMN_NOT_NUMERIC`），供 GUI 前端映射 i18n key 按当前语言渲染；CLI 消费方一般不需要（v1 增补字段，只增） |
+| `error_params` | `object \| null` | `error_code` 对应的插值参数（JSON 标量，数据值已字符串化），如 `{"column": "Total"}`；无码错误为 `null`（v1 增补字段，只增） |
 
 ### `loading_warnings[i]`
 

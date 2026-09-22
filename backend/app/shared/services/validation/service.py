@@ -73,7 +73,7 @@ from app.shared.domain.constraints.regex import RegexConstraint
 from app.shared.domain.constraints.scripted import ScriptedConstraint
 from app.shared.domain.constraints.unique import UniqueConstraint
 
-from .validators.adapter import ConstraintAdapter, PreCheck
+from .validators.adapter import ConstraintAdapter, PreCheck, PreCheckError
 from .validators.base import BaseValidator
 from .validators.composite import CompositeValidator
 from .validators.date_logic import DateLogicValidator
@@ -198,7 +198,13 @@ class UnifiedValidationService:
                 error_count=1,
                 total_rows=len(df),
                 error_rows=[
-                    {"row_index": 0, "cell_value": None, "error_message": f"不支持的校验类型: {validation_type}"}
+                    {
+                        "row_index": 0,
+                        "cell_value": None,
+                        "error_message": f"不支持的校验类型: {validation_type}",
+                        "error_code": "VALIDATION_UNSUPPORTED_TYPE",
+                        "error_params": {"validation_type": validation_type},
+                    }
                 ],
                 validation_time="0.000s",
             )
@@ -227,6 +233,8 @@ def _not_null_formatter(err: dict) -> dict:
         "row_index": err.get("row_index"),
         "cell_value": None,
         "error_message": err.get("message"),
+        "error_code": err.get("error_code"),
+        "error_params": err.get("error_params"),
     }
 
 
@@ -250,13 +258,13 @@ def _conditional_kwargs_builder(column: str, kwargs: dict) -> dict:
     }
 
 
-def _conditional_pre_check(df: pd.DataFrame, column: str, kwargs: dict) -> str | None:
+def _conditional_pre_check(df: pd.DataFrame, column: str, kwargs: dict) -> PreCheckError | None:
     then_condition = kwargs.get("then_condition") or kwargs.get("then_condition_config")
     if not then_condition:
-        return "条件校验配置不完整"
+        return PreCheckError.of("CONDITIONAL_CONFIG_INCOMPLETE", {}, "条件校验配置不完整")
     if_conditions = kwargs.get("if_conditions") or []
     if not if_conditions and not kwargs.get("if_column"):
-        return "条件校验配置不完整"
+        return PreCheckError.of("CONDITIONAL_CONFIG_INCOMPLETE", {}, "条件校验配置不完整")
     return None
 
 
@@ -265,6 +273,8 @@ def _conditional_error_formatter(err: dict) -> dict:
         "row_index": err.get("row_index"),
         "cell_value": err.get("value"),
         "error_message": err.get("message"),
+        "error_code": err.get("error_code"),
+        "error_params": err.get("error_params"),
     }
 
 
@@ -283,16 +293,24 @@ def _fk_datasets_builder(df: pd.DataFrame, column: str, kwargs: dict) -> dict:
     return {"temp": df, "target": target_df}
 
 
-def _fk_pre_check(df: pd.DataFrame, column: str, kwargs: dict) -> str | None:
+def _fk_pre_check(df: pd.DataFrame, column: str, kwargs: dict) -> PreCheckError | None:
     if not kwargs.get("target_table") or not kwargs.get("target_column"):
-        return "外键校验缺少目标表或目标列配置"
+        return PreCheckError.of(
+            "FK_MISSING_TARGET_CONFIG",
+            {},
+            "外键校验缺少目标表或目标列配置",
+        )
     # target_values 缺失（键不存在或为 None）属于配置不完整：若按空目标表处理，
     # 所有行都会被误报为外键冲突（数据错误），误导用户去修数据而非修配置。
     # 注意区分：显式传入空列表 [] 是合法语义（目标表确认为空 → 全部冲突）。
     if kwargs.get("target_values") is None:
-        return "外键校验缺少目标值列表（target_values）"
+        return PreCheckError.of(
+            "FK_MISSING_TARGET_VALUES",
+            {},
+            "外键校验缺少目标值列表（target_values）",
+        )
     if column not in df.columns:
-        return f"列 '{column}' 不存在"
+        return PreCheckError.of("COLUMN_NOT_FOUND", {"column": column}, f"列 '{column}' 不存在")
     return None
 
 
@@ -317,6 +335,8 @@ def _scripted_error_formatter(err: dict) -> dict:
         "row_index": row_index,
         "cell_value": str(err.get("value", "")),
         "error_message": err.get("message", ""),
+        "error_code": err.get("error_code"),
+        "error_params": err.get("error_params"),
     }
 
 

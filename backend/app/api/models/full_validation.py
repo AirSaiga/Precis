@@ -438,6 +438,12 @@ class FullValidationErrorItem(BaseModel):
     source_sheet: str | None = Field(
         default=None, description="配置文件内定义的 Excel Sheet 名（可选）"
     )  # schema 配置中 source.sheet 定义的 Excel 工作表名称，可选
+    error_code: str | None = Field(
+        default=None, description="稳定错误码（UPPER_SNAKE），供前端映射 i18n key 按当前语言渲染"
+    )  # 与 message 同时给出：message 为后端默认语言的兜底文案
+    error_params: dict | None = Field(
+        default=None, description="错误码对应的插值参数（JSON 标量），如 {column: 'Total'}"
+    )  # 供前端 t(key, params) 插值
 
 
 class ValidationPassedItem(BaseModel):

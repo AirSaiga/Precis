@@ -132,6 +132,8 @@ class BaseValidator(ABC):
                         "row_index": 0,
                         "cell_value": None,
                         "error_message": f"\u6821\u9a8c\u6267\u884c\u5931\u8d25: {str(e)}",
+                        "error_code": "VALIDATION_EXECUTION_FAILED",
+                        "error_params": {"detail": str(e)},
                     }
                 ],
                 validation_time="0.000s",
@@ -211,8 +213,9 @@ class BaseValidator(ABC):
                     "cell_value": err.get("value"),
                     "error_message": err.get("message"),
                 }
-                # 透传 table/column/error_type 上下文
-                for extra_key in ("table", "column", "error_type"):
+                # 透传 table/column/error_type/error_code/error_params 上下文
+                # （error_code/error_params 供前端 i18n 按当前语言渲染）
+                for extra_key in ("table", "column", "error_type", "error_code", "error_params"):
                     if extra_key in err:
                         formatted_err[extra_key] = err[extra_key]
                 formatted_errors.append(formatted_err)
@@ -285,8 +288,9 @@ class BaseValidator(ABC):
                 "cell_value": cell_value,
                 "error_message": err.get("message", err.get("error_message")),
             }
-            # 透传 table/column/error_type 上下文（对跨表约束如 ForeignKey 至关重要）
-            for extra_key in ("table", "column", "error_type"):
+            # 透传 table/column/error_type/error_code/error_params 上下文（对跨表约束如 ForeignKey 至关重要；
+            # error_code/error_params 供前端 i18n 按当前语言渲染）
+            for extra_key in ("table", "column", "error_type", "error_code", "error_params"):
                 if extra_key in err:
                     formatted_err[extra_key] = err[extra_key]
             formatted_errors.append(formatted_err)

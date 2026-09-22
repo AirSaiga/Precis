@@ -45,6 +45,7 @@ import { logger } from '@/core/utils/logger'
 import { validateRegexNodesForSchema } from '@/services/regex/regexValidationHandler'
 
 import { isConstraintNodeType } from './constraintMeta'
+import { getSchemaNodeSourceInfo } from './orchestration/validationCollector'
 import {
   rebuildAllColumnErrors,
   syncColumnErrorsForSourceRef,
@@ -366,6 +367,12 @@ export async function validateConstraintNodeById(
   if (sourceNode.type === 'schema' || sourceNode.type === 'jsonSchema') {
     const edge = edges.find((e) => e.target === constraintNodeId && e.source === sourceRef.nodeId)
     if (!edge) return 'no-connection'
+
+    // 数据源闸门：Schema 必须在画布上真实连接了数据源（sourceNodeId 引用或数据源入边）。
+    // V2 导入/历史连接残留的 Schema 缓存路径不作为校验依据——否则"无源"Schema 的
+    // 约束节点会基于 stale 路径产生幽灵 pass/fail（数据误判红线）。
+    const schemaSourceInfo = getSchemaNodeSourceInfo(sourceRef.nodeId, nodes, edges)
+    if (!schemaSourceInfo) return 'no-connection'
 
     await validateConstraintNode({
       schemaNode: sourceNode,

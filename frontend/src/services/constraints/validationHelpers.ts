@@ -25,7 +25,14 @@
 
 import type { Node } from '@vue-flow/core'
 
-import type { ConstraintValidationContext, ConstraintValidationResult } from './types'
+import type { RowLocalizedMessage } from '@/services/i18n/localizedMessage'
+import { loc, rowIssueFromBackendError } from '@/services/i18n/localizedMessage'
+
+import type {
+  ConstraintKind,
+  ConstraintValidationContext,
+  ConstraintValidationResult,
+} from './types'
 import { extractJsonTargetValues } from '@/utils/nodes/json/columnFinder'
 
 /**
@@ -38,6 +45,7 @@ export const defaultReset = (nodeData: Record<string, unknown>) => ({
   ...nodeData,
   validationStatus: 'idle',
   validationErrors: [],
+  localizedErrors: [],
   lastValidation: undefined,
 })
 
@@ -47,6 +55,9 @@ export const defaultReset = (nodeData: Record<string, unknown>) => ({
  * @param errorRows - 后端 API 返回的错误行数组
  * @param totalRows - 总行数
  * @param fallbackMessage - 错误行缺少 message 时的兜底文案
+ *
+ * i18n：同时产出 key 化的 localizedErrors（error_code → validation.codes.<CODE>，
+ * 行号走 validation.rowError 行前缀）与历史 validationErrors 字符串（兜底/聚合用）。
  */
 export const toResult = (
   errorRows: unknown[] | undefined,
@@ -55,15 +66,29 @@ export const toResult = (
 ): ConstraintValidationResult => {
   const rows = Array.isArray(errorRows) ? errorRows : []
   const errorCount = rows.length
-  const messages = rows.map((err) => {
-    const errRec = err as Record<string, unknown>
+  const messages: string[] = []
+  const localizedErrors: RowLocalizedMessage[] = []
+  for (const err of rows) {
+    const errRec = (err ?? {}) as Record<string, unknown>
     const row = typeof errRec?.row_index === 'number' ? (errRec.row_index as number) + 1 : '-'
     const msg = (errRec?.error_message as string) || fallbackMessage
-    return `第 ${row} 行: ${msg}`
-  })
+    messages.push(`第 ${row} 行: ${msg}`)
+    localizedErrors.push(
+      rowIssueFromBackendError(
+        errRec as {
+          row_index?: number
+          error_code?: string
+          error_params?: Record<string, unknown>
+          error_message?: string
+        },
+        fallbackMessage
+      )
+    )
+  }
   return {
     status: errorCount > 0 ? 'error' : 'pass',
     validationErrors: messages,
+    localizedErrors,
     lastValidation: {
       totalRows,
       errorCount,
@@ -96,6 +121,48 @@ export const requireSource = (
   }
   return null
 }
+
+/**
+ * 校验请求失败（后端业务失败 success:false / 请求异常）的标准错误结果。
+ *
+ * i18n：文案 key 按约束种类区分（validation.<kind>.requestFailed），后端原始错误串
+ * 经 detail 参数携带展示；validationErrors 保留原文兜底（供列级聚合等字符串消费方）。
+ *
+ * @param kind  约束种类（决定 requestFailed 文案命名空间）
+ * @param detail 后端返回的错误串（已含兜底，不可为空）
+ */
+export const requestFailureResult = (
+  kind: ConstraintKind,
+  detail: string
+): ConstraintValidationResult => ({
+  status: 'error',
+  validationErrors: [detail],
+  localizedErrors: [loc(`validation.${kind}.requestFailed`, detail, { detail })],
+  lastValidation: undefined,
+})
+
+/**
+ * 客户端前置校验消息（未发请求即返回的 idle/missing/error 提示）的 key 化结果。
+ *
+ * i18n：code 映射为 validation.codes.<CODE>（与后端错误码同一命名空间），
+ * fallback 为原中文文案保证无 key 时总有显示。
+ *
+ * @param status  结果状态（idle 提示不进错误列表展示，missing/error 会展示）
+ * @param code    稳定错误码（UPPER_SNAKE，前端语言包按码提供双语文案）
+ * @param fallback 原中文兜底文案
+ * @param params  插值参数（可选）
+ */
+export const clientNoticeResult = (
+  status: 'error' | 'idle' | 'missing',
+  code: string,
+  fallback: string,
+  params?: Record<string, unknown>
+): ConstraintValidationResult => ({
+  status,
+  validationErrors: [fallback],
+  localizedErrors: [{ key: `validation.codes.${code}`, fallback, params }],
+  lastValidation: undefined,
+})
 
 /**
  * 提取目标 Schema 节点指定列的全部唯一值（用于外键参照完整性检查）

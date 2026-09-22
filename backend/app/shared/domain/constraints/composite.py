@@ -138,6 +138,8 @@ class CompositeConstraint(Constraint):
                 final_errors = [
                     {
                         "error_type": "CompositeConstraint",
+                        "error_code": "COMPOSITE_ANY_ALL_FAILED",
+                        "error_params": {"total": len(sub_results)},
                         "message": (
                             f"复合约束（logic=any）要求至少一个子约束通过，但全部 {len(sub_results)} 个子约束均失败"
                         ),
@@ -151,6 +153,8 @@ class CompositeConstraint(Constraint):
                 final_errors = [
                     {
                         "error_type": "CompositeConstraint",
+                        "error_code": "COMPOSITE_NONE_HAS_PASSED",
+                        "error_params": {"passed": passed_count},
                         "message": (f"复合约束（logic=none）要求全部子约束失败，但有 {passed_count} 个子约束通过"),
                         "table": self.table,
                     }

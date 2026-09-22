@@ -167,6 +167,8 @@ class ScriptedConstraint(Constraint):
             errors.append(
                 {
                     "error_type": "PermissionError",
+                    "error_code": "SCRIPTED_PERMISSION_DENIED",
+                    "error_params": {"name": self.name},
                     "table": self.table,
                     "message": f"脚本约束「{self.name}」已跳过：项目设置中的『允许执行脚本 eval』尚未开启。",
                 }
@@ -178,6 +180,8 @@ class ScriptedConstraint(Constraint):
             errors.append(
                 {
                     "error_type": "ConstraintConfigError",
+                    "error_code": "SCRIPTED_TABLE_NOT_FOUND",
+                    "error_params": {"table": self.table},
                     "table": self.table,
                     "column": self.column,
                     "message": f"脚本约束失败: 表 '{self.table}' 不在数据集中。",
@@ -207,6 +211,8 @@ class ScriptedConstraint(Constraint):
                 errors.append(
                     {
                         "error_type": "Timeout",
+                        "error_code": "SCRIPTED_TIMEOUT",
+                        "error_params": {"name": self.name, "processed": i, "remaining": len(df) - i},
                         "stage": "constraint",
                         "table": self.table,
                         "message": (f"脚本约束 '{self.name}' 执行超时,已在第 {i} 行中断,剩余 {len(df) - i} 行未校验。"),
@@ -237,6 +243,8 @@ class ScriptedConstraint(Constraint):
                     errors.append(
                         {
                             "error_type": "ScriptCheckDefinitionError",
+                            "error_code": "SCRIPTED_NON_BOOL_RESULT",
+                            "error_params": {"name": self.name, "result_type": type(result).__name__},
                             "table": self.table,
                             "row_index": int(row_index),
                             "message": f"规则 '{self.name}' 的表达式没有返回布尔值(True/False),而是返回了 {type(result).__name__}。",
@@ -249,6 +257,8 @@ class ScriptedConstraint(Constraint):
                     errors.append(
                         {
                             "error_type": "BusinessLogicViolation",
+                            "error_code": "SCRIPTED_VIOLATION",
+                            "error_params": {"name": self.name},
                             "table": self.table,
                             "row_index": int(row_index),
                             "value": f"整行数据: {row_dict}",
@@ -266,6 +276,8 @@ class ScriptedConstraint(Constraint):
                 errors.append(
                     {
                         "error_type": "ScriptCheckExecutionError",
+                        "error_code": "SCRIPTED_EXECUTION_ERROR",
+                        "error_params": {"name": self.name, "detail": str(e)},
                         "table": self.table,
                         "row_index": int(row_index),
                         "message": f"执行规则 '{self.name}' 时发生错误，请检查表达式语法或数据类型。",

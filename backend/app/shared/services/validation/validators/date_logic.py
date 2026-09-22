@@ -107,7 +107,15 @@ class DateLogicValidator(BaseValidator):
                 is_valid=False,
                 error_count=1,
                 total_rows=len(df),
-                error_rows=[{"row_index": 0, "cell_value": None, "error_message": f"列 '{column}' 不存在"}],
+                error_rows=[
+                    {
+                        "row_index": 0,
+                        "cell_value": None,
+                        "error_message": f"列 '{column}' 不存在",
+                        "error_code": "COLUMN_NOT_FOUND",
+                        "error_params": {"column": column},
+                    }
+                ],
                 validation_time=f"{time.time() - start_time:.3f}s",
             )
 
@@ -118,7 +126,13 @@ class DateLogicValidator(BaseValidator):
                 error_count=1,
                 total_rows=len(df),
                 error_rows=[
-                    {"row_index": 0, "cell_value": None, "error_message": f"参考列 '{reference_column}' 不存在"}
+                    {
+                        "row_index": 0,
+                        "cell_value": None,
+                        "error_message": f"参考列 '{reference_column}' 不存在",
+                        "error_code": "DATE_LOGIC_REF_COLUMN_NOT_FOUND",
+                        "error_params": {"column": reference_column, "boundary": "start"},
+                    }
                 ],
                 validation_time=f"{time.time() - start_time:.3f}s",
             )
@@ -130,7 +144,13 @@ class DateLogicValidator(BaseValidator):
                 error_count=1,
                 total_rows=len(df),
                 error_rows=[
-                    {"row_index": 0, "cell_value": None, "error_message": f"终点参考列 '{reference_column_end}' 不存在"}
+                    {
+                        "row_index": 0,
+                        "cell_value": None,
+                        "error_message": f"终点参考列 '{reference_column_end}' 不存在",
+                        "error_code": "DATE_LOGIC_REF_COLUMN_NOT_FOUND",
+                        "error_params": {"column": reference_column_end, "boundary": "end"},
+                    }
                 ],
                 validation_time=f"{time.time() - start_time:.3f}s",
             )
@@ -142,7 +162,13 @@ class DateLogicValidator(BaseValidator):
                 error_count=1,
                 total_rows=len(df),
                 error_rows=[
-                    {"row_index": 0, "cell_value": None, "error_message": f"不支持的日期逻辑模式: {logic_mode}"}
+                    {
+                        "row_index": 0,
+                        "cell_value": None,
+                        "error_message": f"不支持的日期逻辑模式: {logic_mode}",
+                        "error_code": "DATE_LOGIC_UNKNOWN_MODE",
+                        "error_params": {"logic_mode": str(logic_mode)},
+                    }
                 ],
                 validation_time=f"{time.time() - start_time:.3f}s",
             )
@@ -165,6 +191,8 @@ class DateLogicValidator(BaseValidator):
                             "row_index": 0,
                             "cell_value": None,
                             "error_message": f"无效的目标{type_name}值: {target_value}，应为数值",
+                            "error_code": "DATE_LOGIC_TARGET_NOT_NUMERIC",
+                            "error_params": {"target_value": str(target_value)},
                         }
                     ],
                     validation_time=f"{time.time() - start_time:.3f}s",
@@ -177,7 +205,13 @@ class DateLogicValidator(BaseValidator):
                 error_count=1,
                 total_rows=len(df),
                 error_rows=[
-                    {"row_index": 0, "cell_value": None, "error_message": f"无效的参考日期格式: {reference_date}"}
+                    {
+                        "row_index": 0,
+                        "cell_value": None,
+                        "error_message": f"无效的参考日期格式: {reference_date}",
+                        "error_code": "DATE_LOGIC_INVALID_REF_DATE",
+                        "error_params": {"reference_date": str(reference_date), "boundary": "start"},
+                    }
                 ],
                 validation_time=f"{time.time() - start_time:.3f}s",
             )
@@ -193,6 +227,8 @@ class DateLogicValidator(BaseValidator):
                         "row_index": 0,
                         "cell_value": None,
                         "error_message": f"无效的终点参考日期格式: {reference_date_end}",
+                        "error_code": "DATE_LOGIC_INVALID_REF_DATE",
+                        "error_params": {"reference_date": str(reference_date_end), "boundary": "end"},
                     }
                 ],
                 validation_time=f"{time.time() - start_time:.3f}s",
@@ -220,7 +256,13 @@ class DateLogicValidator(BaseValidator):
         # 未解析的即为无法解析的日期
         unparseable_idx = str_series.index[~parsed_mask]
         unparseable_errors = [
-            {"row_index": idx, "value": str(series[idx]), "message": f"无法解析日期: {series[idx]}"}
+            {
+                "row_index": idx,
+                "value": str(series[idx]),
+                "message": f"无法解析日期: {series[idx]}",
+                "error_code": "DATE_LOGIC_INVALID_DATE_VALUE",
+                "error_params": {"value": str(series[idx]), "column": column},
+            }
             for idx in unparseable_idx
         ]
 

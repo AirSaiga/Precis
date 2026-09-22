@@ -150,6 +150,9 @@ class FullValidationResponseBuilder:
                     source_path=err.get("source_path"),
                     source_file=err.get("source_file"),
                     source_sheet=err.get("source_sheet"),
+                    # i18n：稳定错误码 + 插值参数透传，message 保留兜底文案
+                    error_code=err.get("error_code"),
+                    error_params=err.get("error_params"),
                 )
             )
 

@@ -444,6 +444,8 @@ AI 聊天（agent 模式）经 `frontend_instruction` SSE 事件驱动前端 `se
 
 服务层/校验器返回的本地化消息统一用 `LocalizedMessage`（`services/i18n/localizedMessage.ts`），UI 层用 `core/i18n/renderText.ts` 的 `renderText(t, key, fallback, params)` 解析：有 key 走 `t(key, params)`，否则回退 fallback。禁止在服务/校验层直接 `new Error('中文')` 后让 UI 原样展示——应返回 `LocalizedMessage` 由 UI 层按当前语言渲染。
 
+**校验错误码约定**（后端 → 前端 i18n）：约束校验器（`backend/app/shared/domain/constraints/`）的每条错误除中文 `message` 兜底外必须携带稳定 `error_code`（UPPER_SNAKE）与 `error_params`（JSON 标量插值参数）。前端按 **`validation.codes.<ERROR_CODE>`** 动态取用语言包文案（行级错误组合 `validation.rowError` 行前缀，经 `renderLocalizedMessage` 渲染、随 locale 切换），未登记码自动回退 `message` 原文——**新增错误码须同步补 zh-CN/en-US 两份 `validation.codes.*` 条目**，参数名与后端 `error_params` 键一致。
+
 ---
 
 ## features/ 目录规范

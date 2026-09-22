@@ -20,7 +20,13 @@
  * @description 区间约束验证处理器
  */
 
-import { defaultReset, register, requireSource, toResult } from '../validationRegistryCore'
+import {
+  defaultReset,
+  register,
+  requestFailureResult,
+  requireSource,
+  toResult,
+} from '../validationRegistryCore'
 import { validateInline, validateRange } from '@/api/validationApi'
 
 register({
@@ -45,11 +51,10 @@ register({
         },
       })
       if (!response.success || !response.data) {
-        return {
-          status: 'error',
-          validationErrors: [String(response.error || '\u533A\u95F4\u6821\u9A8C\u5931\u8D25')],
-          lastValidation: undefined,
-        }
+        return requestFailureResult(
+          'range',
+          String(response.error || '\u533A\u95F4\u6821\u9A8C\u5931\u8D25')
+        )
       }
       return toResult(
         response.data.error_rows || [],
@@ -76,11 +81,10 @@ register({
       },
     })
     if (!response.success || !response.data) {
-      return {
-        status: 'error',
-        validationErrors: [String(response.error || '\u533A\u95F4\u6821\u9A8C\u5931\u8D25')],
-        lastValidation: undefined,
-      }
+      return requestFailureResult(
+        'range',
+        String(response.error || '\u533A\u95F4\u6821\u9A8C\u5931\u8D25')
+      )
     }
     return toResult(
       response.data.error_rows || [],

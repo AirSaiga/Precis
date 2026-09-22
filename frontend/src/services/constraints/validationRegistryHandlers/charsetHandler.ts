@@ -20,7 +20,13 @@
  * @description 字符集约束验证处理器
  */
 
-import { defaultReset, register, requireSource, toResult } from '../validationRegistryCore'
+import {
+  defaultReset,
+  register,
+  requestFailureResult,
+  requireSource,
+  toResult,
+} from '../validationRegistryCore'
 import { validateCharset, validateInline } from '@/api/validationApi'
 
 register({
@@ -42,13 +48,10 @@ register({
         },
       })
       if (!response.success || !response.data) {
-        return {
-          status: 'error',
-          validationErrors: [
-            String(response.error || '\u5B57\u7B26\u96C6\u6821\u9A8C\u5931\u8D25'),
-          ],
-          lastValidation: undefined,
-        }
+        return requestFailureResult(
+          'charset',
+          String(response.error || '\u5B57\u7B26\u96C6\u6821\u9A8C\u5931\u8D25')
+        )
       }
       return toResult(
         response.data.error_rows || [],
@@ -72,11 +75,10 @@ register({
       },
     })
     if (!response.success || !response.data) {
-      return {
-        status: 'error',
-        validationErrors: [String(response.error || '\u5B57\u7B26\u96C6\u6821\u9A8C\u5931\u8D25')],
-        lastValidation: undefined,
-      }
+      return requestFailureResult(
+        'charset',
+        String(response.error || '\u5B57\u7B26\u96C6\u6821\u9A8C\u5931\u8D25')
+      )
     }
     return toResult(
       response.data.error_rows || [],

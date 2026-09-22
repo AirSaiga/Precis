@@ -116,13 +116,139 @@ const validation = {
   notNull: {
     valueEmpty: '值不能为空',
     rowEmpty: '第 {row} 行: 值不能为空',
-    requestFailed: '非空校验失败',
+    requestFailed: '非空校验请求失败：{detail}',
   },
   // 唯一约束
   unique: {
     valueNotUnique: '值必须唯一',
     rowNotUnique: '第 {row} 行: 值必须唯一',
-    requestFailed: '唯一性校验失败',
+    requestFailed: '唯一性校验请求失败：{detail}',
+  },
+  // 行级错误行前缀（renderLocalizedMessage 组合：行号 + 正文），正文经各自 key 渲染
+  rowError: '第 {row} 行: {message}',
+  // 其余约束种类的"校验请求失败"文案（后端业务失败 success:false，detail 携带后端原始错误串）
+  range: { requestFailed: '区间校验请求失败：{detail}' },
+  foreignKey: { requestFailed: '外键校验请求失败：{detail}' },
+  allowedValues: { requestFailed: '允许值校验请求失败：{detail}' },
+  conditional: { requestFailed: '条件约束校验请求失败：{detail}' },
+  scripted: { requestFailed: '脚本约束校验请求失败：{detail}' },
+  charset: { requestFailed: '字符集校验请求失败：{detail}' },
+  dateLogic: { requestFailed: '日期逻辑校验请求失败：{detail}' },
+  composite: { requestFailed: '组合约束校验请求失败：{detail}' },
+  // 稳定错误码 → 用户可读文案（后端 error_code / 客户端前置校验共用命名空间）。
+  // 前端经 validation.codes.<CODE> 动态取用，未登记码自动回退后端 message 原文。
+  codes: {
+    // —— 通用 / 预检 ——
+    COLUMN_NOT_FOUND: "列 '{column}' 不存在",
+    PARAM_REQUIRED: "参数 '{param}' 不能为空",
+    CONFIG_INCOMPLETE: '校验配置不完整',
+    VALIDATION_UNSUPPORTED_TYPE: '不支持的校验类型: {validation_type}',
+    VALIDATION_EXECUTION_FAILED: '校验执行失败: {detail}',
+    // —— 区间 Range ——
+    RANGE_NO_BOUNDS: '未配置边界（min/max 至少填其一）',
+    RANGE_TABLE_NOT_FOUND: "表 '{table}' 不在数据集中",
+    RANGE_COLUMN_NOT_FOUND: "列 '{column}' 在表 '{table}' 中不存在",
+    RANGE_COLUMN_NOT_NUMERIC:
+      "列 '{column}' 不是数值类型。非数值字段不能使用区间校验（不会做字符串到数值的隐式转换）",
+    RANGE_VALUE_OUT_OF_RANGE: '值 {value} 不在范围 {bounds} 内',
+    RANGE_VALUE_BELOW_MIN: '值 {value} 不满足 {op} {min}',
+    RANGE_VALUE_ABOVE_MAX: '值 {value} 不满足 {op} {max}',
+    // —— 非空 NotNull ——
+    NOT_NULL_TABLE_NOT_FOUND: "表 '{table}' 不在数据集中",
+    NOT_NULL_COLUMN_NOT_FOUND: "列 '{column}' 在表 '{table}' 中不存在",
+    NOT_NULL_VALUE_EMPTY: '值不能为空',
+    // —— 唯一 Unique ——
+    UNIQUE_TABLE_NOT_FOUND: "表 '{table}' 不在数据集中",
+    UNIQUE_CONFIG_NO_COLUMNS: '未指定任何校验列',
+    UNIQUE_COLUMN_NOT_FOUND: "列 '{column}' 在表 '{table}' 中不存在",
+    UNIQUE_VALUE_DUPLICATED: "值 '{value}' 在列 '{columns}' 中重复",
+    // —— 字符集 Charset ——
+    CHARSET_TABLE_NOT_FOUND: "表 '{table}' 不在数据集中",
+    CHARSET_COLUMN_NOT_FOUND: "列 '{column}' 在表 '{table}' 中不存在",
+    CHARSET_INVALID_MODE: "未知的字符集模式 '{charset_mode}'，支持的模式为: {valid_modes}",
+    CHARSET_INVALID_CHARACTER: "值 '{value}' 包含不符合{charset_name}字符集的字符",
+    // —— 正则 Regex ——
+    REGEX_TABLE_NOT_FOUND: "表 '{table}' 不在数据集中",
+    REGEX_COLUMN_NOT_FOUND: "列 '{column}' 在表 '{table}' 中不存在",
+    REGEX_PATTERN_EMPTY: 'pattern 为空，未提供正则表达式',
+    REGEX_INVALID_MATCH_MODE: "未知的匹配模式 '{match_mode}'，支持的值为: {valid_modes}",
+    REGEX_VIOLATION: "值 '{value}' 不符合正则表达式模式",
+    REGEX_EXECUTION_ERROR: '校验出错: {value}（{error_detail}）',
+    REGEX_PATTERN_SYNTAX_ERROR: '正则表达式语法错误: {pattern}（{error_detail}）',
+    // —— 允许值 AllowedValues ——
+    ALLOWED_VALUES_TABLE_NOT_FOUND: "表 '{table}' 不在数据集中",
+    ALLOWED_VALUES_COLUMN_NOT_FOUND: "列 '{column}' 在表 '{table}' 中不存在",
+    ALLOWED_VALUES_NOT_PERMITTED: "值 '{value}' 不在允许列表 {allowed} 中",
+    ALLOWED_VALUES_EMPTY: '请先配置允许值列表后再进行校验',
+    // —— 条件 Conditional ——
+    CONDITIONAL_TABLE_NOT_FOUND: "表 '{table}' 不在数据集中",
+    CONDITIONAL_COLUMN_NOT_FOUND: "列 '{column}' 在表 '{table}' 中不存在",
+    CONDITIONAL_REF_COLUMN_NOT_FOUND: "参考列 '{column}' 在表 '{table}' 中不存在",
+    CONDITIONAL_THEN_THRESHOLD_NOT_NUMERIC:
+      "THEN 条件操作符 '{operator}' 的阈值必须为数值，实际: '{threshold}'；日期比较请使用日期逻辑约束",
+    CONDITIONAL_UNKNOWN_IF_LOGIC: "未知的 IF 逻辑 '{if_logic}'",
+    CONDITIONAL_IF_COLUMN_NOT_FOUND: "IF 列 '{column}' 在表 '{table}' 中不存在",
+    CONDITIONAL_INVALID_IF_CONDITION: 'IF 条件无效: {detail}',
+    CONDITIONAL_IF_VALUE_MISSING: "未配置 IF 列 '{if_column}' 的比较值",
+    CONDITIONAL_TIMEOUT: '条件校验超时，已处理 {processed}/{total} 行',
+    CONDITIONAL_THEN_VIOLATION:
+      "条件满足时，列 '{column}' 的值 '{value}' 不满足要求（{condition}）",
+    CONDITIONAL_IF_NOT_CONFIGURED: '未配置 IF 条件，请连接 IF 列或启用"无条件触发"',
+    CONDITIONAL_IF_THEN_COLUMN_MISSING: 'IF/THEN 列不存在或已删除',
+    // —— 外键 ForeignKey ——
+    FK_TABLE_NOT_FOUND: "表 '{table}' 不在数据集中",
+    FK_COLUMN_NOT_FOUND: "列 '{column}' 在表 '{table}' 中不存在",
+    FK_VIOLATION: "值 '{value}' 在目标表 '{to_table}' 的列 '{to_column}' 中不存在",
+    FK_TARGET_NOT_SELECTED: '请选择目标列后再进行校验',
+    FK_TARGET_UNAVAILABLE: '目标表缺少可用数据源或目标列不存在，无法提取参照值',
+    // —— 脚本 Scripted ——
+    SCRIPTED_PERMISSION_DENIED:
+      '脚本约束「{name}」已跳过：项目设置中的『允许执行脚本（eval）』尚未开启',
+    SCRIPTED_TABLE_NOT_FOUND: "表 '{table}' 不在数据集中",
+    SCRIPTED_TIMEOUT:
+      "脚本约束 '{name}' 执行超时，已处理 {processed} 行，剩余 {remaining} 行未校验",
+    SCRIPTED_NON_BOOL_RESULT:
+      "规则 '{name}' 的表达式没有返回布尔值（True/False），而是返回了 {result_type}",
+    SCRIPTED_VIOLATION: "业务逻辑检查失败: '{name}'",
+    SCRIPTED_EXECUTION_ERROR:
+      "执行规则 '{name}' 时发生错误，请检查表达式语法或数据类型（{detail}）",
+    SCRIPTED_NO_SCRIPT: '请先配置脚本后再进行校验',
+    // —— 日期逻辑 DateLogic ——
+    DATE_LOGIC_TABLE_NOT_FOUND: "表 '{table}' 不在数据集中",
+    DATE_LOGIC_COLUMN_NOT_FOUND: "列 '{column}' 在表 '{table}' 中不存在",
+    DATE_LOGIC_REF_COLUMN_NOT_FOUND: "参考列 '{column}' 不存在",
+    DATE_LOGIC_INVALID_REF_DATE: "无效的参考日期 '{reference_date}'",
+    DATE_LOGIC_UNKNOWN_MODE: "未知的 logic_mode '{logic_mode}'，支持的模式为: compare, calculation",
+    DATE_LOGIC_INVALID_DATE_VALUE: "值 '{value}' 无法解析为日期",
+    DATE_LOGIC_RANGE_BOUNDARY_MISMATCH:
+      'range 模式必须同时指定起点和终点，且两者类型一致（同为固定日期或同为列引用）',
+    DATE_LOGIC_RANGE_MISSING_END:
+      'range 模式必须指定终点（reference_date_end 或 reference_column_end）',
+    DATE_LOGIC_RANGE_VIOLATION: '日期 {value} 不在 [{start}, {end}] 范围内',
+    DATE_LOGIC_MISSING_REFERENCE: '比较模式必须指定 reference_column 或 reference_date',
+    DATE_LOGIC_UNSUPPORTED_OP: "不支持比较操作符 '{compare_op}'，支持的操作符为 {valid_ops}",
+    DATE_LOGIC_COMPARE_VIOLATION: '日期 {value} 应该 {op} {reference}',
+    DATE_LOGIC_AGE_VIOLATION: '年龄检查失败: {value}（年龄 {age}）不满足 {op} {target}',
+    DATE_LOGIC_TARGET_NOT_NUMERIC:
+      '目标值「{target_value}」无法转换为数字，请检查约束配置（{detail}）',
+    DATE_LOGIC_MISSING_TARGET: 'calculation_type={calculation_type} 必须指定 target_value',
+    DATE_LOGIC_MISSING_TARGET_COLUMN: 'calculation_type=days_diff 必须指定 target_column（参考列）',
+    DATE_LOGIC_UNKNOWN_CALCULATION_TYPE:
+      "未知的 calculation_type '{calculation_type}'，支持的类型为: age, days_diff",
+    DATE_LOGIC_DAYS_DIFF_VIOLATION:
+      '天数差与目标不符: {value} vs {reference}，要求 {op} {expected} 天，实际 {actual} 天',
+    // —— 组合 Composite ——
+    COMPOSITE_ANY_ALL_FAILED:
+      '组合约束（logic=any）要求至少一个子约束通过，但全部 {total} 个子约束均失败',
+    COMPOSITE_NONE_HAS_PASSED:
+      '组合约束（logic=none）要求全部子约束失败，但有 {passed} 个子约束通过',
+    COMPOSITE_SUB_CONSTRAINT_ERROR: '子约束 {sub_type} 执行异常: {detail}',
+    COMPOSITE_UNKNOWN_SUB_TYPE:
+      '组合约束包含不支持的子约束类型: {unknown_types}；这些子约束未执行校验',
+    COMPOSITE_NO_SUB_CONSTRAINTS: '请在属性面板中选择要聚合的约束节点',
+    COMPOSITE_NO_VALID_SUB_CONSTRAINTS: '未找到有效的聚合约束节点',
+    COMPOSITE_SUB_CONSTRAINTS_IDLE: '有 {count} 个约束尚未执行，请先执行上游约束校验',
+    COMPOSITE_ALL_IDLE: '所有约束尚未执行',
   },
   // JSON Schema 列定义校验
   column: {

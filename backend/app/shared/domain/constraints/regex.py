@@ -108,6 +108,8 @@ class RegexConstraint(Constraint):
             errors.append(
                 {
                     "error_type": "ConstraintConfigError",
+                    "error_code": "REGEX_TABLE_NOT_FOUND",
+                    "error_params": {"table": self.table},
                     "table": self.table,
                     "column": self.column,
                     "message": f"正则约束失败: 表 '{self.table}' 不在数据集中。",
@@ -119,6 +121,8 @@ class RegexConstraint(Constraint):
             errors.append(
                 {
                     "error_type": "ConstraintConfigError",
+                    "error_code": "REGEX_COLUMN_NOT_FOUND",
+                    "error_params": {"column": self.column, "table": self.table},
                     "table": self.table,
                     "column": self.column,
                     "message": f"正则约束失败: 列 '{self.column}' 在表 '{self.table}' 中不存在。",
@@ -130,6 +134,8 @@ class RegexConstraint(Constraint):
             errors.append(
                 {
                     "error_type": "ConstraintConfigError",
+                    "error_code": "REGEX_PATTERN_EMPTY",
+                    "error_params": {},
                     "table": self.table,
                     "column": self.column,
                     "message": "正则约束失败: pattern 为空，未提供正则表达式。",
@@ -144,6 +150,8 @@ class RegexConstraint(Constraint):
             errors.append(
                 {
                     "error_type": "ConstraintConfigError",
+                    "error_code": "REGEX_INVALID_MATCH_MODE",
+                    "error_params": {"match_mode": self.match_mode, "valid_modes": "full, search"},
                     "table": self.table,
                     "column": self.column,
                     "message": f"正则约束配置错误: 未知的 match_mode '{self.match_mode}'，支持的值为: full, search。",
@@ -177,6 +185,8 @@ class RegexConstraint(Constraint):
                             {
                                 # 与其他 9 种约束的 <Type>Violation 命名风格保持一致
                                 "error_type": "RegexViolation",
+                                "error_code": "REGEX_VIOLATION",
+                                "error_params": {"value": cell_value_str, "pattern": self.pattern},
                                 "row_index": row_index,
                                 "column": self.column,
                                 "value": cell_value_str,
@@ -188,6 +198,8 @@ class RegexConstraint(Constraint):
                         {
                             # 命名风格对照 scripted 的 ScriptCheckExecutionError
                             "error_type": "RegexExecutionError",
+                            "error_code": "REGEX_EXECUTION_ERROR",
+                            "error_params": {"value": cell_value_str, "error_detail": f"{type(e).__name__}: {e}"},
                             "row_index": row_index,
                             "column": self.column,
                             "value": cell_value_str,
@@ -200,6 +212,8 @@ class RegexConstraint(Constraint):
                 {
                     # 正则语法错误属于配置问题，与其他约束的配置错误条目一致
                     "error_type": "ConstraintConfigError",
+                    "error_code": "REGEX_PATTERN_SYNTAX_ERROR",
+                    "error_params": {"pattern": self.pattern, "error_detail": str(e)},
                     "row_index": 0,
                     "column": self.column,
                     "value": None,

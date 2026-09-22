@@ -496,7 +496,7 @@ limitations under the License.
                     </div>
                     <div class="col-type">{{ validationErrorTypeLabel(t, e.type_label) }}</div>
                     <div class="col-msg">
-                      <p class="msg-body">{{ e.display_message }}</p>
+                      <p class="msg-body">{{ localizedErrorText(t, e) }}</p>
                       <p v-if="e.suggestion" class="msg-suggestion">
                         <span class="msg-suggestion-label">
                           {{ t('common.fullValidation.result.suggestion') }}:
@@ -598,6 +598,7 @@ limitations under the License.
   import {
     createValidationReportViewModel,
     formatValidationReportMessage,
+    localizedErrorText,
     truncateLongIds,
     validationErrorTypeLabel,
   } from '@/services/validationReportViewModel'

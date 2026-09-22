@@ -22,10 +22,12 @@
 
 import type { Node } from '@vue-flow/core'
 import {
+  clientNoticeResult,
   defaultReset,
   getTargetValues,
   register,
   registerTargetRefResolver,
+  requestFailureResult,
   requireSource,
   toResult,
 } from '../validationRegistryCore'
@@ -72,26 +74,22 @@ register({
     }
 
     if (!targetNodeId || !targetColumn) {
-      return {
-        status: 'idle',
-        validationErrors: [
-          '\u8BF7\u9009\u62E9\u76EE\u6807\u5217\u540E\u518D\u8FDB\u884C\u6821\u9A8C',
-        ],
-        lastValidation: undefined,
-      }
+      return clientNoticeResult(
+        'idle',
+        'FK_TARGET_NOT_SELECTED',
+        '\u8BF7\u9009\u62E9\u76EE\u6807\u5217\u540E\u518D\u8FDB\u884C\u6821\u9A8C'
+      )
     }
     const targetNode = (
       (ctx as unknown as Record<string, unknown>).nodes as Node[] | undefined
     )?.find((n: Node) => n.id === targetNodeId)
     const targetValues = getTargetValues(targetNode, targetColumn, ctx.nodes)
     if (targetValues.length === 0) {
-      return {
-        status: 'missing',
-        validationErrors: [
-          '\u76EE\u6807\u8868\u7F3A\u5C11\u53EF\u7528\u6570\u636E\u6E90\u6216\u76EE\u6807\u5217\u4E0D\u5B58\u5728\uFF0C\u65E0\u6CD5\u63D0\u53D6\u53C2\u7167\u503C',
-        ],
-        lastValidation: undefined,
-      }
+      return clientNoticeResult(
+        'missing',
+        'FK_TARGET_UNAVAILABLE',
+        '\u76EE\u6807\u8868\u7F3A\u5C11\u53EF\u7528\u6570\u636E\u6E90\u6216\u76EE\u6807\u5217\u4E0D\u5B58\u5728\uFF0C\u65E0\u6CD5\u63D0\u53D6\u53C2\u7167\u503C'
+      )
     }
     const targetTable =
       (((targetNode?.data || {}) as Record<string, unknown>)?.tableName as string) ||
@@ -112,11 +110,10 @@ register({
         },
       })
       if (!response.success || !response.data) {
-        return {
-          status: 'error',
-          validationErrors: [String(response.error || '\u5916\u952E\u6821\u9A8C\u5931\u8D25')],
-          lastValidation: undefined,
-        }
+        return requestFailureResult(
+          'foreignKey',
+          String(response.error || '\u5916\u952E\u6821\u9A8C\u5931\u8D25')
+        )
       }
       const rows = response.data.error_rows || []
       const filtered = nodeData.allowNull
@@ -149,11 +146,10 @@ register({
       },
     })
     if (!response.success || !response.data) {
-      return {
-        status: 'error',
-        validationErrors: [String(response.error || '\u5916\u952E\u6821\u9A8C\u5931\u8D25')],
-        lastValidation: undefined,
-      }
+      return requestFailureResult(
+        'foreignKey',
+        String(response.error || '\u5916\u952E\u6821\u9A8C\u5931\u8D25')
+      )
     }
     const rows = response.data.error_rows || []
     const filtered = nodeData.allowNull

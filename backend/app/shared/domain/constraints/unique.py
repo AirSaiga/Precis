@@ -160,6 +160,8 @@ class UniqueConstraint(Constraint):
             errors.append(
                 {
                     "error_type": "ConstraintConfigError",
+                    "error_code": "UNIQUE_TABLE_NOT_FOUND",
+                    "error_params": {"table": self.table},
                     "table": self.table,
                     "column": self.columns[0] if self.columns else None,
                     "message": f"唯一约束失败: 表 '{self.table}' 不在提供的数据集中。",
@@ -174,6 +176,8 @@ class UniqueConstraint(Constraint):
             errors.append(
                 {
                     "error_type": "ConstraintConfigError",
+                    "error_code": "UNIQUE_CONFIG_NO_COLUMNS",
+                    "error_params": {},
                     "table": self.table,
                     "column": None,
                     "message": "唯一约束配置错误: 未指定任何列。",
@@ -187,6 +191,8 @@ class UniqueConstraint(Constraint):
                 errors.append(
                     {
                         "error_type": "ConstraintConfigError",
+                        "error_code": "UNIQUE_COLUMN_NOT_FOUND",
+                        "error_params": {"column": col, "table": self.table},
                         "table": self.table,
                         "column": col,
                         "message": f"唯一约束失败: 列 '{col}' 在表 '{self.table}' 中不存在。",
@@ -222,6 +228,8 @@ class UniqueConstraint(Constraint):
             errors.append(
                 {
                     "error_type": "UniqueViolation",
+                    "error_code": "UNIQUE_VALUE_DUPLICATED",
+                    "error_params": {"value": str(value), "columns": ", ".join(self.columns)},
                     "table": self.table,
                     "row_index": row_index,
                     "columns": self.columns,

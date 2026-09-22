@@ -20,7 +20,13 @@
  * @description 日期逻辑约束验证处理器
  */
 
-import { defaultReset, register, requireSource, toResult } from '../validationRegistryCore'
+import {
+  defaultReset,
+  register,
+  requestFailureResult,
+  requireSource,
+  toResult,
+} from '../validationRegistryCore'
 import { validateDateLogic, validateInline } from '@/api/validationApi'
 
 register({
@@ -61,13 +67,10 @@ register({
         validation_config: validationConfig,
       })
       if (!response.success || !response.data) {
-        return {
-          status: 'error',
-          validationErrors: [
-            String(response.error || '\u65E5\u671F\u903B\u8F91\u6821\u9A8C\u5931\u8D25'),
-          ],
-          lastValidation: undefined,
-        }
+        return requestFailureResult(
+          'dateLogic',
+          String(response.error || '\u65E5\u671F\u903B\u8F91\u6821\u9A8C\u5931\u8D25')
+        )
       }
       return toResult(
         response.data.error_rows || [],
@@ -112,13 +115,10 @@ register({
     }
     const response = await validateDateLogic(request)
     if (!response.success || !response.data) {
-      return {
-        status: 'error',
-        validationErrors: [
-          String(response.error || '\u65E5\u671F\u903B\u8F91\u6821\u9A8C\u5931\u8D25'),
-        ],
-        lastValidation: undefined,
-      }
+      return requestFailureResult(
+        'dateLogic',
+        String(response.error || '\u65E5\u671F\u903B\u8F91\u6821\u9A8C\u5931\u8D25')
+      )
     }
     return toResult(
       response.data.error_rows || [],

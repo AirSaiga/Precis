@@ -28,6 +28,7 @@
  */
 import { useGraphStore } from '@/stores/graphStore'
 import { validateConstraintNode } from '@/services/constraints/validationRegistry'
+import { getSchemaNodeSourceInfo } from '@/services/constraints/orchestration/validationCollector'
 import type { SchemaNodeData } from '@/types/graph'
 import type { TransformOutputNodeData, CustomNode } from '@/types/nodes'
 import type { ConditionalConstraintNodeData } from '@/types/constraints'
@@ -190,7 +191,14 @@ export function useConditionalConnection() {
       const updatedTargetNode = store.nodes.find((n: CustomNode) => n.id === targetNodeId)
       if (createdEdge && updatedTargetNode) {
         // Schema/JsonSchema 源：走后端校验；纯数据源（TransformOutput/ManualData）由 validateConstraintNode 内部分流
+        // 数据源闸门：Schema 须在画布上连接数据源才校验（缓存路径不作为依据，防幽灵 pass/fail）
         if (!isPureDataSource) {
+          const schemaSourceInfo = getSchemaNodeSourceInfo(
+            sourceNode.id,
+            Array.from(store.nodes),
+            Array.from(store.edges)
+          )
+          if (!schemaSourceInfo) return
           await validateConstraintNode({
             schemaNode: sourceNode,
             constraintNode: updatedTargetNode,

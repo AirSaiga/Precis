@@ -32,6 +32,9 @@
  * 这是既有的"先例 B1（code→message）+ 先例 B2（key+fallback+params）"的泛化统一形态。
  */
 
+import type { TranslateFn } from '@/core/i18n/renderText'
+import { renderText } from '@/core/i18n/renderText'
+
 /**
  * key 化的可本地化消息。
  *
@@ -46,6 +49,18 @@ export interface LocalizedMessage {
   fallback: string
   /** 插值参数，如 { row: 3, column: 'name' }，可选 */
   params?: Record<string, unknown>
+}
+
+/**
+ * 带可选行号前缀的本地化校验错误。
+ *
+ * row 提供时渲染为 "第 {row} 行: <正文>"（行前缀 key: validation.rowError），
+ * 正文由 key/fallback/params 渲染——行前缀与正文分属两个 key，避免每个错误码
+ * 重复维护行前缀文案。后端错误行的 row_index + error_code/error_params 可直接映射为本结构。
+ */
+export interface RowLocalizedMessage extends LocalizedMessage {
+  /** 1-based 行号；省略表示非行级（配置类）错误，不渲染行前缀 */
+  row?: number
 }
 
 /**
@@ -67,9 +82,60 @@ export function loc(
 }
 
 /**
+ * 渲染一条 RowLocalizedMessage 为展示字符串。
+ *
+ * - 有 row：`t('validation.rowError', { row, message: 正文 })`（zh: "第 {row} 行: {message}"）
+ * - 无 row：仅渲染正文
+ *
+ * 正文经 renderText 解析（key 存在走 t(key, params)，缺失回退 fallback）。
+ * 传响应式 t（useI18n）时结果随 locale 切换自动更新。
+ */
+export function renderLocalizedMessage(t: TranslateFn, message: RowLocalizedMessage): string {
+  const body = renderText(t, message.key, message.fallback, message.params)
+  if (message.row === undefined) return body
+  return renderText(t, 'validation.rowError', `第 {row} 行: {message}`, {
+    row: message.row,
+    message: body,
+  })
+}
+
+/**
+ * 将后端校验错误行（error_code/error_params/error_message）映射为 RowLocalizedMessage。
+ *
+ * key 约定：`validation.codes.<ERROR_CODE>`——错误码由后端保证稳定，前端语言包按码提供
+ * 双语文案；未登记的码自动回退 error_message 原文（renderText fallback 语义），前端零映射表。
+ *
+ * @param errorRow 后端错误行（含可选 error_code/error_params）
+ * @param fallbackMessage error_message 缺失时的兜底文案（如 handler 定义的类型级提示）
+ */
+export function rowIssueFromBackendError(
+  errorRow: {
+    row_index?: number
+    error_code?: string
+    error_params?: Record<string, unknown>
+    error_message?: string
+  },
+  fallbackMessage: string
+): RowLocalizedMessage {
+  const row = typeof errorRow.row_index === 'number' ? errorRow.row_index + 1 : undefined
+  const message = errorRow.error_message || fallbackMessage
+  if (errorRow.error_code) {
+    return {
+      key: `validation.codes.${errorRow.error_code}`,
+      fallback: message,
+      params: errorRow.error_params,
+      row,
+    }
+  }
+  // 无错误码（旧后端/未知来源）：key 置空，renderText 语义下直接显示 fallback 原文
+  //（不能用占位 key——vue-i18n 对缺失 key 会原样返回 key 路径文本）
+  return { key: '', fallback: message, row }
+}
+
+/**
  * 将 LocalizedMessage 渲染为最终展示字符串。
  *
  * 供无法拿到响应式 t 的调用方使用（导入全局 i18n 实例）。组件内应优先用
  * renderText(useI18n().t, ...)，仅在纯服务/工具上下文用本函数。
  */
-export { renderText } from '@/core/i18n/renderText'
+export { renderText }

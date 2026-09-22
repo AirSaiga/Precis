@@ -23,6 +23,8 @@
 import { defaultReset, register, requireSource, toResult } from '../validationRegistryCore'
 import { validateInline } from '@/api/validationApi'
 import { validateUnique } from '../validators/unique'
+import { loc } from '@/services/i18n/localizedMessage'
+import type { RowLocalizedMessage } from '@/services/i18n/localizedMessage'
 
 register({
   kind: 'unique',
@@ -39,11 +41,11 @@ register({
         column_data_type: ctx.columnDataType,
       })
       if (!response.success || !response.data) {
+        const errMsg = String(response.error || '\u552F\u4E00\u6027\u6821\u9A8C\u5931\u8D25')
         return {
           status: 'error',
-          validationErrors: [
-            String(response.error || '\u552F\u4E00\u6027\u6821\u9A8C\u5931\u8D25'),
-          ],
+          validationErrors: [errMsg],
+          localizedErrors: [loc('validation.unique.requestFailed', errMsg, { detail: errMsg })],
           lastValidation: undefined,
         }
       }
@@ -69,9 +71,11 @@ register({
     // 文件路径模式：后端业务失败（200 + success:false，如数据文件不存在）必须报 error，
     // 不能落入下方"零错误=通过"判定（假通过修复）
     if (result.requestFailed) {
+      const errMsg = result.errorMessage || '\u552F\u4E00\u6027\u6821\u9A8C\u5931\u8D25'
       return {
         status: 'error',
-        validationErrors: [result.errorMessage || '\u552F\u4E00\u6027\u6821\u9A8C\u5931\u8D25'],
+        validationErrors: [errMsg],
+        localizedErrors: [loc('validation.unique.requestFailed', errMsg, { detail: errMsg })],
         lastValidation: undefined,
       }
     }
@@ -80,6 +84,13 @@ register({
       validationErrors: result.errors.map(
         (err) => `\u7B2C ${err.row + 1} \u884C: \u503C '${err.value}' \u91CD\u590D`
       ),
+      // i18n：客户端构建的行级错误用与后端一致的错误码（validation.codes.UNIQUE_VALUE_DUPLICATED）
+      localizedErrors: result.errors.map((err): RowLocalizedMessage => ({
+        key: 'validation.codes.UNIQUE_VALUE_DUPLICATED',
+        fallback: `\u503C '${err.value}' \u91CD\u590D`,
+        params: { value: String(err.value), columns: ctx.columnName },
+        row: err.row + 1,
+      })),
       lastValidation: {
         totalRows: result.totalRows,
         errorCount: result.errorCount,

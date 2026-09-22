@@ -257,6 +257,12 @@ class ValidationErrorRow(BaseModel):
     error_message: str | None = Field(
         None, description="错误信息"
     )  # 校验失败的具体错误描述，如"值不在允许列表中"，可选
+    error_code: str | None = Field(
+        None, description="稳定错误码（UPPER_SNAKE），供前端映射 i18n key 按当前语言渲染"
+    )  # 与 error_message 同时给出：message 为后端默认语言的兜底文案
+    error_params: dict | None = Field(
+        None, description="错误码对应的插值参数（JSON 标量），如 {column: 'Total', row: 1}"
+    )  # 供前端 t(key, params) 插值
 
 
 class ValidationResult(BaseModel):

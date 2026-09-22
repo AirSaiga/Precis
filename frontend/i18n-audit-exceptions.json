@@ -9,6 +9,7 @@
     "constraintTypes.",
     "canvas.viewFilter.groups.",
     "validation.errorTypes.",
+    "validation.codes.",
     "customNodes.transformNode.types.",
     "inspector.transformNode.typeSemantics.",
     "messages.canvas.transformMenu.categories.",

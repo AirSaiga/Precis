@@ -829,18 +829,24 @@ describe('validationExecutors - validateConstraintNodeById (G: 路由 + Bug 3.4)
       type: 'schema',
       data: {
         tableName: 'users',
+        sourceNodeId: 'preview-1',
         columns: [
           { id: 'col-a', columnName: 'A', dataType: 'string', validationErrors: ['stale err'] },
           { id: 'col-b', columnName: 'B', dataType: 'string', validationErrors: [] },
         ],
       },
     }
+    const previewNode = {
+      id: 'preview-1',
+      type: 'sourcePreview',
+      data: { localPath: '/data/users.csv', sourceName: 'users.csv' },
+    }
     const constraintNode = {
       id: 'notnull-1',
       type: 'notNullConstraint',
       data: { sourceRef: { nodeId: 'schema-1', columnId: 'col-b' } },
     }
-    const nodes = [schemaNode, constraintNode]
+    const nodes = [schemaNode, previewNode, constraintNode]
     const edges = [
       {
         id: 'e1',
@@ -862,6 +868,47 @@ describe('validationExecutors - validateConstraintNodeById (G: 路由 + Bug 3.4)
     expect(schemaUpdate).toBeDefined()
     const cols = (schemaUpdate![1] as any).columns
     expect(cols[0].validationErrors).toEqual([]) // stale 错误清除
+  })
+
+  it('schema 未连接数据源（仅缓存路径）时不校验（防幽灵 pass/fail）', async () => {
+    vi.mocked(getHandlerByNodeType).mockReturnValue(makeFakeHandler({ status: 'pass' }))
+    // Schema 残留 V2 导入/历史连接的缓存路径，但画布上无 sourceNodeId 引用、无数据源入边
+    const schemaNode = {
+      id: 'schema-1',
+      type: 'schema',
+      data: {
+        tableName: 'users',
+        sourceFilePath: '/data/stale.csv',
+        localPath: '/data/stale.csv',
+        columns: [{ id: 'col-b', columnName: 'B', dataType: 'string' }],
+      },
+    }
+    const constraintNode = {
+      id: 'notnull-1',
+      type: 'notNullConstraint',
+      data: { sourceRef: { nodeId: 'schema-1', columnId: 'col-b' } },
+    }
+    const edges = [
+      {
+        id: 'e1',
+        source: 'schema-1',
+        target: 'notnull-1',
+        sourceHandle: 'source-right-col-b',
+        targetHandle: 't',
+      },
+    ]
+    const updateNodeData = vi.fn()
+
+    const result = await validateConstraintNodeById(
+      'notnull-1',
+      [schemaNode, constraintNode] as any,
+      edges as any,
+      updateNodeData
+    )
+
+    expect(result).toBe('no-connection')
+    expect(getHandlerByNodeType).not.toHaveBeenCalled()
+    expect(updateNodeData).not.toHaveBeenCalled()
   })
 
   it('约束节点无 sourceRef 时安全返回', async () => {
