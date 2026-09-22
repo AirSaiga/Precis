@@ -19,7 +19,7 @@
  * 发布控制台（release-gui）页面自动化测试
  *
  * 分层策略：
- * 1. 真实服务集成 —— beforeAll spawn `node scripts/release-gui.mjs`，跑导航/外观/真实任务生命周期
+ * 1. 真实服务集成 —— beforeAll spawn `node scripts/release/release-gui.mjs`，跑导航/外观/真实任务生命周期
  * 2. Mock 状态渲染 —— 用 route 拦截 /api/state 与 /api/events 注入确定性夹具，
  *    覆盖各种数据形态（draft/prerelease/版本漂移/错误文案/空态）
  * 3. 交互流验证 —— 发布弹窗解锁与请求负载捕获（/api/run 拦截，绝不真实发布）
@@ -33,7 +33,7 @@ import path from 'node:path'
 /** 探测仓库根（避免 import.meta 在 Playwright CJS 转换下不可用） */
 function findRepoRoot(): string {
   const candidates = [process.cwd(), path.resolve(process.cwd(), '..'), path.resolve(process.cwd(), '..', '..')]
-  return candidates.find((d) => fs.existsSync(path.join(d, 'scripts', 'release-gui.mjs'))) || process.cwd()
+  return candidates.find((d) => fs.existsSync(path.join(d, 'scripts', 'release', 'release-gui.mjs'))) || process.cwd()
 }
 
 const ROOT = findRepoRoot()
@@ -55,7 +55,7 @@ const BASE = `http://127.0.0.1:${PORT}`
 let serverProc: ReturnType<typeof spawn> | null = null
 
 test.beforeAll(async () => {
-  serverProc = spawn(`node scripts/release-gui.mjs --port ${PORT} --no-open`, {
+  serverProc = spawn(`node scripts/release/release-gui.mjs --port ${PORT} --no-open`, {
     shell: true,
     cwd: ROOT,
     stdio: 'ignore',

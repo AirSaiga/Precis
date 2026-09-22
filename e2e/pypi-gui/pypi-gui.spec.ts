@@ -19,7 +19,7 @@
  * PyPI 管理控制台（pypi-gui）页面自动化测试
  *
  * 分层策略（镜像 release-gui.spec.ts）：
- * 1. 真实服务集成 —— beforeAll spawn `node scripts/pypi-gui.mjs`，验证导航与 /api/state 契约；
+ * 1. 真实服务集成 —— beforeAll spawn `node scripts/release/pypi-gui.mjs`，验证导航与 /api/state 契约；
  *    外部数据源（PyPI/GitHub/pypistats）失败时返回独立 error 字段，测试不依赖外网成功
  * 2. Mock 状态渲染 —— route 拦截 /api/state 注入确定性夹具，覆盖对齐各档、
  *    流水线成败、统计缺失/错误、发布历史标记等形态
@@ -34,7 +34,7 @@ import path from 'node:path'
 /** 探测仓库根（避免 import.meta 在 Playwright CJS 转换下不可用） */
 function findRepoRoot(): string {
   const candidates = [process.cwd(), path.resolve(process.cwd(), '..'), path.resolve(process.cwd(), '..', '..')]
-  return candidates.find((d) => fs.existsSync(path.join(d, 'scripts', 'pypi-gui.mjs'))) || process.cwd()
+  return candidates.find((d) => fs.existsSync(path.join(d, 'scripts', 'release', 'pypi-gui.mjs'))) || process.cwd()
 }
 
 const ROOT = findRepoRoot()
@@ -52,7 +52,7 @@ const BASE = `http://127.0.0.1:${PORT}`
 let serverProc: ReturnType<typeof spawn> | null = null
 
 test.beforeAll(async () => {
-  serverProc = spawn(`node scripts/pypi-gui.mjs --port ${PORT} --no-open`, {
+  serverProc = spawn(`node scripts/release/pypi-gui.mjs --port ${PORT} --no-open`, {
     shell: true,
     cwd: ROOT,
     stdio: 'ignore',

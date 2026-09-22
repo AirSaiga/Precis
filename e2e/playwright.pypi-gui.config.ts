@@ -18,7 +18,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
 /**
- * PyPI 管理控制台（scripts/pypi-gui.html）专属 Playwright 配置
+ * PyPI 管理控制台（scripts/release/pypi-gui.html）专属 Playwright 配置
  *
  * 与 release-gui 配置同构：被测对象是 pypi-gui.mjs 自带的本地服务（无需前端/后端），
  * 由测试在 beforeAll 里自行 spawn（端口 3312），因此本配置不声明 webServer。
