@@ -34,6 +34,8 @@ export interface ValidationResultSummary {
   valid: number
   invalid: number
   errors: number
+  /** 未实际执行（idle/missing：缺数据源等）的约束数 */
+  skipped: number
 }
 
 export async function validateSelectedNode(): Promise<{
@@ -69,12 +71,19 @@ export async function validateSelectedNode(): Promise<{
       (nodeId: string, data: Record<string, unknown>) => graphStore.updateNodeData(nodeId, data)
     )
 
-    const { totalConstraints, validConstraints, invalidConstraints, totalErrors } = result
+    const {
+      totalConstraints,
+      validConstraints,
+      invalidConstraints,
+      totalErrors,
+      skippedConstraints,
+    } = result
     const summary: ValidationResultSummary = {
       total: totalConstraints,
       valid: validConstraints,
       invalid: invalidConstraints,
       errors: totalErrors,
+      skipped: skippedConstraints,
     }
 
     if (totalConstraints === 0) {
@@ -85,8 +94,19 @@ export async function validateSelectedNode(): Promise<{
       }
     }
 
+    // 误报红线：idle/missing 约束不算通过。全部未执行（无数据源等）时
+    // 不得报"校验全部通过"，改用中性提示告知用户校验没有发生
+    if (validConstraints + invalidConstraints === 0) {
+      return {
+        success: true,
+        message: 'shortcuts.feedback.validationNotExecuted',
+        summary,
+      }
+    }
+
+    // 有任何约束被跳过时不报"全部通过"，落入通用"校验完成"
     const messageKey =
-      invalidConstraints === 0
+      invalidConstraints === 0 && skippedConstraints === 0
         ? 'shortcuts.feedback.validationAllPassed'
         : 'shortcuts.feedback.validationCompleted'
 

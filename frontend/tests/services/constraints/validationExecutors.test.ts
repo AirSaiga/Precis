@@ -425,6 +425,7 @@ describe('validationExecutors - validateConstraintNodesForSchema (F: 批量校�
       validConstraints: 0,
       invalidConstraints: 0,
       totalErrors: 0,
+      skippedConstraints: 0,
     })
   })
 
@@ -440,7 +441,7 @@ describe('validationExecutors - validateConstraintNodesForSchema (F: 批量校�
     expect(summary.totalConstraints).toBe(0)
   })
 
-  it('统计 totalProcessed 含 idle/missing 状态（Bug 3.3 口径）', async () => {
+  it('统计 totalProcessed 含 idle/missing 状态（Bug 3.3 口径），idle/missing 单独计入 skipped', async () => {
     // handler 返回 missing 状态：既非 pass 也非 error
     // Bug 3.3 修复前用 totalValid+totalInvalid 会漏计，修复后用 totalProcessed 统计
     vi.mocked(getHandlerByNodeType).mockReturnValue(
@@ -459,10 +460,33 @@ describe('validationExecutors - validateConstraintNodesForSchema (F: 批量校�
       updateNodeData,
     })
 
-    // missing 状态应计入 totalProcessed，但不计入 valid/invalid
+    // missing 状态应计入 totalProcessed，但不计入 valid/invalid，计入 skipped
     expect(summary.totalConstraints).toBe(1)
     expect(summary.validConstraints).toBe(0)
     expect(summary.invalidConstraints).toBe(0)
+    expect(summary.skippedConstraints).toBe(1)
+  })
+
+  it('idle 状态计入 skipped（未执行校验不得混入通过口径）', async () => {
+    vi.mocked(getHandlerByNodeType).mockReturnValue(
+      makeFakeHandler({ status: 'idle', validationErrors: [], lastValidation: undefined })
+    )
+    const schemaNode = makeSchemaWithColumn()
+    const constraintNode = makeConstraintNode()
+    const edge = makeEdgeToConstraint()
+    const nodes = [schemaNode, constraintNode]
+
+    const summary = await validateConstraintNodesForSchema({
+      schemaNodeId: 'schema-1',
+      nodes: nodes as any,
+      edges: [edge] as any,
+      updateNodeData: vi.fn(),
+    })
+
+    expect(summary.totalConstraints).toBe(1)
+    expect(summary.validConstraints).toBe(0)
+    expect(summary.invalidConstraints).toBe(0)
+    expect(summary.skippedConstraints).toBe(1)
   })
 
   it('pass + error 混合时正确统计 valid/invalid/errors', async () => {

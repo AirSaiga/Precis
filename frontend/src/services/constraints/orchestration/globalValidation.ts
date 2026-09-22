@@ -68,7 +68,13 @@ export async function validateAllConstraints(
     logger.debug('ℹ️ SchemaNode 未连接数据源，跳过校验')
     // 防御性重置：清除残留的校验状态，避免幽灵校验结果（Bug 2.2）
     resetDownstreamValidationStatus(schemaNodeId, nodes, edges, updateNodeData)
-    return { totalConstraints: 0, validConstraints: 0, invalidConstraints: 0, totalErrors: 0 }
+    return {
+      totalConstraints: 0,
+      validConstraints: 0,
+      invalidConstraints: 0,
+      totalErrors: 0,
+      skippedConstraints: 0,
+    }
   }
 
   const summary = await validateConstraintNodesForSchema({

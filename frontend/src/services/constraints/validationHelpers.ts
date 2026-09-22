@@ -76,8 +76,11 @@ export const toResult = (
  * 数据源防护检查
  *
  * 所有 handler 首先调用此函数检查数据源是否就绪：
- * - 如果缺少 sourceFile/sourceFilePath 且无 inlineRows，返回 idle 状态（跳过校验）
+ * - 如果缺少 sourceFilePath 且无 inlineRows，返回 idle 状态（跳过校验）
  * - 行内数据源（TransformOutput/ManualData）通过 inlineRows 传递数据，无需文件路径
+ * - 文件路径模式只要求 sourceFilePath：后端按该路径加载数据，sourceFile 仅是
+ *   数据源连线场景写入的展示名（V2 导入的 Schema 只带路径不写展示名），
+ *   不作为闸门条件，否则 V2 导入的约束会全部 idle（数据误判红线）
  *
  * @returns null 表示数据源就绪可继续校验；非 null 表示应直接返回该结果
  */
@@ -88,7 +91,7 @@ export const requireSource = (
   if (ctx.inlineRows && ctx.inlineRows.length > 0) {
     return null
   }
-  if (!ctx.sourceFile || !ctx.sourceFilePath) {
+  if (!ctx.sourceFilePath) {
     return { status: 'idle', validationErrors: [], lastValidation: undefined }
   }
   return null

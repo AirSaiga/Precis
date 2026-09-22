@@ -180,11 +180,9 @@ describe('validationRegistryCore - requireSource', () => {
     expect(requireSource(ctx)).toBeNull()
   })
 
-  it('缺 sourceFile 时返回 idle', () => {
+  it('缺 sourceFile（V2 导入 shape：仅路径）时放行校验——后端按路径加载数据', () => {
     const ctx = { sourceFile: '', sourceFilePath: '/path/test.csv' } as any
-    const result = requireSource(ctx)
-    expect(result).toBeTruthy()
-    expect(result!.status).toBe('idle')
+    expect(requireSource(ctx)).toBeNull()
   })
 })
 

@@ -131,6 +131,8 @@ export interface ValidationSummary {
   validConstraints: number
   invalidConstraints: number
   totalErrors: number
+  /** 未实际执行校验的约束数（idle/missing：缺数据源等）。调用方不得把 skipped 计入"通过" */
+  skippedConstraints: number
 }
 
 /**
@@ -152,6 +154,7 @@ export async function validateConstraintNodesForSchema(params: {
     validConstraints: 0,
     invalidConstraints: 0,
     totalErrors: 0,
+    skippedConstraints: 0,
   }
 
   const schemaNode = nodes.find(
@@ -179,6 +182,9 @@ export async function validateConstraintNodesForSchema(params: {
   // Bug 3.3 修复：按实际处理的约束数统计 totalConstraints，
   // 避免 idle/missing 状态被遗漏（原 totalValid + totalInvalid 口径会少计）
   let totalProcessed = 0
+  // idle/missing 状态：校验实际未执行（缺数据源等），单独统计，
+  // 供调用方区分"全部通过"与"什么都没校验"（误报红线）
+  let totalSkipped = 0
 
   const validateEdgeBatch = async (edgeList: Edge[]) => {
     for (const edge of edgeList) {
@@ -217,6 +223,8 @@ export async function validateConstraintNodesForSchema(params: {
       } else if (result.status === 'error') {
         totalInvalid++
         totalErrorCount += result.lastValidation?.errorCount || result.validationErrors.length
+      } else if (result.status === 'idle' || result.status === 'missing') {
+        totalSkipped++
       }
 
       if (result.validationErrors.length > 0) {
@@ -273,6 +281,7 @@ export async function validateConstraintNodesForSchema(params: {
     validConstraints: totalValid,
     invalidConstraints: totalInvalid,
     totalErrors: totalErrorCount,
+    skippedConstraints: totalSkipped,
   }
 }
 
