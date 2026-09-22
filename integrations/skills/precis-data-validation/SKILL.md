@@ -6,9 +6,9 @@ whenToUse: 用户要求检查/校验 CSV、Excel、JSON 数据质量，或交付
 
 # Precis 数据校验工作流
 
-Precis 是一个数据校验引擎：你为数据文件写一份 V2 YAML 配置（表结构 + 约束规则），
-然后用 `precis validate` 执行校验，得到机器可读的违规清单。本 skill 教你完成
-"读数据 → 写配置 → 执行 → 解读 → 迭代"的完整闭环。
+Precis 是一个数据校验引擎：你为数据文件写一份 V2 YAML 配置（配置格式版本 2，
+内容为表结构 + 约束规则），然后用 `precis validate` 执行校验，得到机器可读的
+违规清单。本 skill 教你完成"读数据 → 写配置 → 执行 → 解读 → 迭代"的完整闭环。
 
 ## 第 0 步：前置检查
 
@@ -24,8 +24,8 @@ Precis 是一个数据校验引擎：你为数据文件写一份 V2 YAML 配置�
 两个都不可用时，告诉用户安装方式后**停止**（不要尝试其他替代方案）：
 
 > Precis CLI 未安装。两种安装方式任选：
-> ① 安装 uv 后免安装运行：`uvx --from precis-cli precis --version`
-> ② pip 安装（要求 Python >= 3.12）：`pip install precis-cli`
+> 1. 安装 uv 后免安装运行：`uvx --from precis-cli precis --version`
+> 2. pip 安装（要求 Python >= 3.12）：`pip install precis-cli`
 > 安装后会获得 `precis` 命令。装好后重新发起校验。
 
 ## 第 1 步：读数据文件，确认落盘位置
@@ -45,7 +45,7 @@ precis infer-schema <数据文件> --output <项目目录>/schemas/<表名>.sche
 ```
 
 推断产出列类型草稿（string/integer/float/decimal/boolean/date；少量脏值
-不会拖垮整列，按主导类型采信）。展示给用户确认后，按业务语义调整
+不会拖垮整列，按数据中的主导类型判定）。展示给用户确认后，按业务语义调整
 （如补 primary_key、金额列改 decimal）。
 
 然后严格按本 skill 目录下 `references/v2-format.md` 的格式速查补齐约束：
@@ -74,7 +74,7 @@ precis validate --manifest <项目目录>/project.precis.yaml --format json
 
 - Windows 下路径含空格时用引号包裹。
 - 大文件（>500MB）会自动分块加载，耗时长属正常，提醒用户耐心等待。
-- **不要**把 `--format json` 用在交互 REPL 里（REPL 中该选项被忽略）。
+- **不要**在交互式命令行（REPL）中使用 `--format json`（该选项在 REPL 中会被忽略）。
 
 ## 第 4 步：按退出码解读
 
@@ -117,7 +117,7 @@ references/v2-format.md 的 settings 一节。
 
 - 不要手改或美化 JSON 输出，只做解析与转述。
 - 不要绕过确认直接写配置文件到用户目录。
-- 不要在交互 REPL 中使用 `--format json`。
+- 不要在交互式命令行（REPL）中使用 `--format json`。
 - **不要替用户开启 `script_security.allow_eval`**——Scripted 约束需要执行
   表达式，属用户显式授权的安全决策；只在用户明确同意时由用户自己修改
   settings，并把风险（脚本执行）讲清楚。默认用其他约束类型替代。

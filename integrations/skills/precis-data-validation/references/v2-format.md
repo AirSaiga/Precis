@@ -1,8 +1,9 @@
 # Precis V2 配置格式速查
 
-> 供 agent 编写配置使用。覆盖全部 10 种约束、schema 内嵌约束、转换节点与常用 settings；
-> 完整规范以后端 `backend/app/shared/` 的类型定义为准（`ConstraintFile`、`TableSchemaFile`、
-> `TransformFile` 等）。格式处于 Alpha 阶段，可能调整。
+> 供 agent 编写配置使用。覆盖全部 10 种约束、schema 内嵌约束、转换节点与常用 settings。
+> 格式处于 Alpha 阶段，可能调整。
+> （面向源码仓库开发者：完整类型定义见 `backend/app/shared/` 下的 `ConstraintFile`、
+> `TableSchemaFile`、`TransformFile` 等。）
 
 ## 目录结构与 ID 规则
 
@@ -56,12 +57,13 @@ settings:
     sandbox_mode: true
 ```
 
-> **Scripted 双钥匙**：Scripted 约束要求 **两把钥匙同时开启** 才执行——
-> ① 项目配置 `settings.script_security.allow_eval: true`；
-> ② 运行 precis 的**进程环境变量** `PRECIS_ALLOW_UNSAFE_EVAL=1`（服务端总开关，
-> 默认关闭）。只开 ① 时 Scripted 约束会逐行报权限错误——这是安全设计而非 bug。
-> 无法控制宿主进程环境变量时，优先用其他约束类型（正则格式校验可参考 golden 集
-> 的 Scripted+`re_match` 变体，但同样受此闸门限制）。
+> **Scripted 双重开关**：Scripted 约束必须**同时满足以下两个条件**才会执行——
+> 1. 项目配置 `settings.script_security.allow_eval: true`；
+> 2. 运行 precis 的**进程环境变量** `PRECIS_ALLOW_UNSAFE_EVAL=1`（服务端总开关，默认关闭）。
+>
+> 只满足条件 1 时，Scripted 约束会逐行报权限错误——这是安全设计而非 bug。
+> 无法控制宿主进程环境变量时，优先用其他约束类型替代（正则格式校验可参照
+> 下文第 9 节 Scripted + `re_match` 的写法，但同样受此限制）。
 
 ## schema 文件（schemas/*.schema.yaml）
 
@@ -317,7 +319,7 @@ params:
 
 - 非空但无法解析的日期会报"日期无效"错误（目标列与参考列同口径）。
 
-### 9. Scripted 脚本约束（需 settings.script_security.allow_eval: true）
+### 9. Scripted 脚本约束（需双重开关，见上文 settings 一节）
 
 ```yaml
 version: 2
@@ -334,7 +336,7 @@ params:
 ```
 
 - `expression` 逐行求值，`value` 为当前单元格值，返回真值表示通过。
-- **双钥匙**：除项目 `allow_eval: true` 外，运行 precis 的进程还需环境变量
+- **双重开关**：除项目 `allow_eval: true` 外，运行 precis 的进程还需环境变量
   `PRECIS_ALLOW_UNSAFE_EVAL=1`（见上文 settings 一节）；只开一边会逐行报权限错误。
   无法控制宿主环境变量时优先用其他约束类型替代。
 
@@ -367,7 +369,7 @@ params:
 
 - `sub_constraints` 每项是完整约束对象（version/id/type/enabled/refs/params），
   **不允许嵌套 Composite**；任一子约束配置非法时整条 Composite 被跳过并在
-  `loading_warnings` 提示（fail-closed，不会静默缺子约束）。
+  `loading_warnings` 提示（fail-closed——宁可整条跳过也不放行，不会静默缺子约束）。
 
 ## 转换节点（transforms/*.transform.yaml，可选）
 
@@ -405,7 +407,7 @@ transforms:
 - **改变行数**：`FilterRows` / `DropDuplicates` / `Aggregate` / `SortRows`——
   转换后约束错误的 `row_index` 与原始文件行号不再一一对应（已知限制，汇报错误行号时注意）。
 - 参数放 `params`（如 `Replace` 的 `old`/`new`、`MapValue` 的映射表），具体键名
-  以后端 `backend/app/shared/domain/transforms/` 各实现为准。
+  以后端实现为准（源码仓库开发者见 `backend/app/shared/domain/transforms/`）。
 
 ## 常见错误与排查
 
@@ -414,5 +416,5 @@ transforms:
 | `loading_warnings` 出现 IdMismatchWarning | manifest 引用的 id 与文件内部 id 不一致 |
 | 报"表不在数据集中" | `refs.table_id` 写的不是 schema 的 `id` |
 | 报"列不存在" | `column_id` 写的不是 schema columns 里的 `id`（要用列 ID，不是随便的列名） |
-| Scripted 约束报权限错误 | 双钥匙缺一：`settings.script_security.allow_eval` 未开启，或进程环境变量 `PRECIS_ALLOW_UNSAFE_EVAL=1` 未设置 |
+| Scripted 约束报权限错误 | 双重开关缺一：`settings.script_security.allow_eval` 未开启，或进程环境变量 `PRECIS_ALLOW_UNSAFE_EVAL=1` 未设置 |
 | 数据文件找不到 | schema `source.path` 相对 manifest 所在目录解析 |

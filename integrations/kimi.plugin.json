@@ -2,6 +2,10 @@
   "name": "precis",
   "version": "0.1.7",
   "description": "Precis data validation workflows for Kimi Code CLI",
+  "keywords": ["data-validation", "csv", "excel", "json", "schema", "constraints"],
+  "author": "Precis Team",
+  "homepage": "https://github.com/AirSaiga/Precis",
+  "license": "Apache-2.0",
   "skills": "./skills/",
   "commands": "./commands/",
   "mcpServers": {
@@ -13,6 +17,9 @@
   },
   "interface": {
     "displayName": "Precis Data Validation",
-    "shortDescription": "Validate CSV/Excel/JSON data against schemas and constraints"
+    "shortDescription": "Validate CSV/Excel/JSON data against schemas and constraints",
+    "longDescription": "Validate CSV/Excel/JSON data against declarative schemas and constraints. The plugin guides the agent to infer schemas, write validation configs, run checks via the precis CLI, and report violations row by row. Requires the precis-cli Python package (pip install precis-cli) or uv.",
+    "developerName": "Precis Team",
+    "websiteURL": "https://github.com/AirSaiga/Precis"
   }
 }

@@ -8,7 +8,7 @@ description: 引导创建 Precis 校验项目（推断 schema + 写约束 + 首�
    都不行给安装指引并停止）。
 2. 向用户确认配置落盘位置（默认建议数据文件旁的 `precis-project/`）。
 3. **先推断再调整**：执行 `precis infer-schema <数据文件> --output <目录>/schemas/<表名>.schema.yaml`
-   生成 schema 草稿（列类型自动推断，含少量脏值时的主导类型采信），
+   生成 schema 草稿（列类型自动推断，含少量脏值时按数据中的主导类型判定），
    展示推断结果给用户确认，再按业务语义调整（如 id 列补 primary_key、
    需要精确金额的列改 decimal）。
 4. 与用户确认需要哪些约束（非空/唯一/枚举/区间/外键等），按 skill 的

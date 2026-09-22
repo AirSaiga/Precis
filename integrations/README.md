@@ -1,35 +1,36 @@
 # Precis Agent Harness 集成（通用）
 
-让任何 agent harness（Kimi Code、Claude Code、ZCode、Cursor 及一切支持
-MCP 或 shell 的 CLI agent）用自然语言完成数据质量校验：推断数据结构、
-生成 V2 校验配置、执行校验、逐条汇报违规、导出报告，迭代直到全部通过。
+让任何 AI agent 宿主程序（下称 harness，即运行 agent 的终端/编辑器环境，如
+Kimi Code、Claude Code、ZCode、Cursor 及一切支持 MCP 或 shell 的 CLI agent）
+用自然语言完成数据质量校验：推断数据结构、生成 V2 校验配置（配置格式版本 2）、
+执行校验、逐条汇报违规、导出报告，迭代直到全部通过。
 
 无需安装或打开 Precis 桌面 GUI。
 
 ## 分层设计（本目录是 harness 中立的共享内容根）
 
 ```
-┌─ L1 CLI 契约（所有 harness 的保底）─────────────────────┐
+┌─ L1 CLI 契约（所有 harness 共用的基础层）────────────────┐
 │  precis 命令 + JSON 输出契约 + 退出码 0/1/2              │
 │  只要有 shell，任何 agent 都能用；也是下两层的地基        │
 ├─ L2 通用 skill（有文件系统 + shell 的 harness）──────────┤
 │  skills/precis-data-validation/：工作流手册 + V2 格式速查 │
-│  纯 markdown + 相对路径引用，无专有语法，随拷随用         │
+│  纯 markdown + 相对路径引用，无专有语法，可直接拷贝使用   │
 ├─ L3 MCP（协议原生的 harness）────────────────────────────┤
 │  precis-mcp stdio server：4 个工具，返回值即 L1 契约      │
 └──────────────────────────────────────────────────────────┘
 ```
 
-- **不分叉**：L2/L3 消费的都是 L1 同一套实现与输出结构（CLI `--format json`、
-  MCP `validate_data`、`--report` 报告三者内容同源）。
+- **单一实现**：L2/L3 共用 L1 的同一套实现与输出结构，不存在第二份分叉实现
+  （CLI `--format json`、MCP `validate_data`、`--report` 报告三者内容同源）。
 - 本目录同时是一个完整的 **Kimi Code 插件包根**（`kimi.plugin.json` 与
   `skills/`、`commands/` 同级），支持整目录/子目录 URL 安装。
 
-## Harness 接入矩阵
+## 宿主程序接入矩阵
 
-| Harness | 接入方式 | 说明 |
+| 宿主程序 | 接入方式 | 说明 |
 |---------|---------|------|
-| **Kimi Code** | 插件包安装（见下） | skill + `/precis:*` 命令 + MCP 三合一 |
+| **Kimi Code** | 插件包安装（见下） | 同时提供 skill、`/precis:*` 命令与 MCP 三种接入 |
 | **Claude Code** | 拷贝 skills + commands（见下） | 同一份 SKILL.md；命令变为 `/precis:validate` 等项目命令 |
 | **ZCode** | 拷贝 skill 或经 MCP | skill 规范兼容；`precis-mcp` 配置见下 |
 | **Cursor / 其他 MCP harness** | MCP 配置 `precis-mcp` | 无需 skill，工具返回结构化 JSON |
@@ -64,7 +65,7 @@ MCP 需要 `pip install "precis-cli[mcp]"`（可选依赖，官方 mcp SDK）。
 ## Kimi Code 安装
 
 ```
-# 本地路径（开发态即装即用；原 integrations/kimi-code/ 路径已上移到 integrations/）
+# 本地路径（开发态即装即用）
 /plugins install /path/to/Precis/integrations
 
 # GitHub URL（四种形式，以 Kimi Code 官方文档为准）
@@ -117,7 +118,7 @@ cp integrations/commands/*.md ~/.claude/commands/precis/
 | `check_config` | 检查配置加载问题（不执行校验） |
 | `describe_constraints` | 列出 10 种约束类型与 refs/params 说明 |
 
-健康自检：`cd backend && python -m scripts.mcp_smoke_test`（模拟 stdio 客户端
+健康自检（仅源码仓库）：`cd backend && python -m scripts.mcp_smoke_test`（模拟 stdio 客户端
 完成 initialize → tools/list → tools/call 全流程）。
 
 > 依赖说明：MCP 协议层使用官方 `mcp` Python SDK（`mcp>=1.30.0,<2`，
@@ -141,7 +142,7 @@ precis validate ... --report <path>.html|.xlsx       # 可分享报告，与 JSO
 
 **JSON 输出**（`--format json` 时 stdout 仅含一个 UTF-8 JSON 文档，
 人类可读输出被抑制；完整契约见
-[`docs/contracts/validate-json-v1.md`](../docs/contracts/validate-json-v1.md)）：
+[validate-json-v1.md](https://github.com/AirSaiga/Precis/blob/main/docs/contracts/validate-json-v1.md)）：
 
 ```json
 {
@@ -196,12 +197,23 @@ precis validate ... --report <path>.html|.xlsx       # 可分享报告，与 JSO
 | 退出码 2 且 stderr 有堆栈 | 工具错误：多为 YAML 语法错误或路径不存在，按 stderr 提示修正 |
 | MCP 工具调用无响应 | 确认装了 `precis-cli[mcp]`；跑 `python -m scripts.mcp_smoke_test` 自检 |
 
+## 卸载与版本兼容
+
+- 卸载：`/plugins remove precis`（仅删除安装记录，插件副本与源文件保留在磁盘上）。
+- 插件版本与 `precis-cli` 版本独立演进：本文档按最新版 CLI 的行为编写，
+  建议保持 CLI 为最新（`pip install -U precis-cli`）；版本不一致时以 CLI 实际行为为准。
+
+## License
+
+Apache-2.0（见本目录 `LICENSE` 文件）。
+
 ## 目录结构
 
 ```
-integrations/                          # 通用 harness 集成根（同时是 Kimi 插件包根）
+integrations/                          # 通用集成根（同时是 Kimi 插件包根）
 ├── kimi.plugin.json                   # Kimi Code 插件 manifest（入口之一）
 ├── marketplace.json                   # Kimi marketplace 上架材料
+├── LICENSE                            # Apache-2.0
 ├── README.md                          # 本文件：通用接入文档
 ├── skills/precis-data-validation/
 │   ├── SKILL.md                       # 通用 skill 工作流手册（无专有语法）
