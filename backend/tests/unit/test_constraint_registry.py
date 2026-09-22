@@ -55,6 +55,12 @@ class TestNormalizeConstraintType:
         assert normalize_constraint_type("unique") == "Unique"
         assert normalize_constraint_type("range") == "Range"
 
+    def test_lower_case_charset_composite(self):
+        # 别名覆盖须 10 种全齐：charset/composite 此前独缺小写别名，
+        # normalize 会原样返回导致下游按"不支持的类型"处理
+        assert normalize_constraint_type("charset") == "Charset"
+        assert normalize_constraint_type("composite") == "Composite"
+
     def test_unknown_type_returns_input(self):
         assert normalize_constraint_type("unknown_type") == "unknown_type"
 

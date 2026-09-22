@@ -100,6 +100,10 @@ CONSTRAINT_TYPE_ALIASES: dict[str, str] = {
     # 日期逻辑约束别名
     "datelogic": "DateLogic",
     "date_logic": "DateLogic",
+    # 字符集约束别名
+    "charset": "Charset",
+    # 复合约束别名
+    "composite": "Composite",
 }
 
 

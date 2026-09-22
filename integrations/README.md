@@ -84,19 +84,23 @@ MCP 需要 `pip install "precis-cli[mcp]"`（可选依赖，官方 mcp SDK）。
 
 ```bash
 # 项目级（仅当前项目可用）
-mkdir -p .claude/skills .claude/commands
+mkdir -p .claude/skills .claude/commands/precis
 cp -r integrations/skills/precis-data-validation .claude/skills/
-cp integrations/commands/*.md .claude/commands/        # 命令变为 /precis:validate 等
+cp integrations/commands/*.md .claude/commands/precis/   # 子目录即命名空间：/precis:validate 等
 
 # 或用户级（所有项目可用）
-mkdir -p ~/.claude/skills ~/.claude/commands
+mkdir -p ~/.claude/skills ~/.claude/commands/precis
 cp -r integrations/skills/precis-data-validation ~/.claude/skills/
-cp integrations/commands/*.md ~/.claude/commands/
+cp integrations/commands/*.md ~/.claude/commands/precis/
 ```
 
-之后自然语言触发（"用 precis 检查这个 CSV"）或使用项目命令。
+之后自然语言触发（"用 precis 检查这个 CSV"）或使用 `/precis:validate` 等项目命令。
 命令文件为 description frontmatter + `$ARGUMENTS` 正文，与 Claude Code
 命令规范兼容。
+
+> 注意：命令必须拷进 `commands/precis/` **子目录**——Claude Code 以子目录名
+> 作命令命名空间；平铺到 `commands/` 得到的是 `/validate`、`/init`、`/report`，
+> 其中 `/init` 会与 Claude Code 内置命令撞名。
 
 ## MCP 直连（Cursor / ZCode / 其他 MCP harness）
 

@@ -346,6 +346,26 @@ class TestCreateConstraint:
         assert error is None
         assert result is not None
 
+    def test_composite_rejects_nested_lowercase(self):
+        """子约束小写 type: composite 经别名归一后命中嵌套守卫（明确错误，而非 pydantic literal_error）。"""
+        cf = ConstraintFile.model_construct(
+            version=2,
+            id="c1",
+            type="Composite",
+            enabled=True,
+            refs={"table_id": "users"},
+            params={
+                "logic": "all",
+                "sub_constraints": [
+                    {"version": 2, "id": "sub1", "type": "composite", "enabled": True, "refs": {}, "params": {}}
+                ],
+            },
+        )
+        result, error = create_constraint(cf, _make_schema_files())
+        assert result is None
+        assert error is not None
+        assert "嵌套 Composite" in error
+
     def test_charset_constraint(self):
         """Charset 约束创建（修复此前走通用路径导致无 table/column 的隐性 bug）。"""
         cf = ConstraintFile(
