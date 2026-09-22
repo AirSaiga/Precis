@@ -377,6 +377,43 @@ test.describe("画布视图模式", () => {
     // 状态类同时出现在节点根 div 与内部状态点上，用 .first() 避开 strict mode。
     // CI 慢环境下校验回写与节点 DOM 渐进入场/重建交叠，状态类可能瞬时缺席
     // （首跑两次 20s "element(s) not found"，本地同树绿）——用 toPass 整段重试
+    // [CI-diag2] 三路同体请求终判：Node 直连 18000 / Node 经 Vite 代理 5173 /
+    // 浏览器上下文内 fetch——一次分流"文件消失 vs 代理层 vs 浏览器栈"
+    {
+      const csv = path.join(isolatedProjectPath, "data", "vw_users.csv");
+      const body = JSON.stringify({
+        validation_type: "not_null",
+        target_column_name: "name",
+        source_file_path: csv,
+        column_data_type: "String",
+      });
+      const headers = { "Content-Type": "application/json" };
+      const direct = await fetch(
+        `${process.env.E2E_BACKEND_URL}/api/latest/validate`,
+        { method: "POST", headers, body },
+      );
+      console.log(
+        `[CI-diag2] Node直连=${direct.status} ${(await direct.text()).slice(0, 100)}`,
+      );
+      const baseUrl = process.env.E2E_BASE_URL || "http://localhost:5173";
+      const viaProxy = await fetch(`${baseUrl}/api/latest/validate`, {
+        method: "POST",
+        headers,
+        body,
+      });
+      console.log(
+        `[CI-diag2] Node经代理=${viaProxy.status} ${(await viaProxy.text()).slice(0, 100)}`,
+      );
+      const inBrowser = await page.evaluate(async (payload) => {
+        const resp = await fetch("/api/latest/validate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: payload,
+        });
+        return `${resp.status} ${(await resp.text()).slice(0, 100)}`;
+      }, body);
+      console.log(`[CI-diag2] 浏览器内fetch=${inBrowser}`);
+    }
     await validateSchemaViaPipeline(page, "vw_users", "vw_users.csv");
     await expect(async () => {
       await expect(
