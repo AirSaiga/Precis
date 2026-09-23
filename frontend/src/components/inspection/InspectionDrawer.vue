@@ -167,6 +167,7 @@ limitations under the License.
   import { useResourceTreeStore } from '@/stores/resourceTreeStore'
   import { eventBus } from '@/core/eventBus'
   import { shellApi } from '@/core/capabilities/shellApi'
+  import { resolveRelativePath } from '@/core/utils/pathNormalization'
   import InspectionSummaryCard from './InspectionSummaryCard.vue'
   import InspectionIssueGroup, { type IssueGroup } from './InspectionIssueGroup.vue'
   import InspectionIgnoredManager from './InspectionIgnoredManager.vue'
@@ -463,18 +464,22 @@ limitations under the License.
   /**
    * 打开本地文件
    *
+   * - 后端自检按契约下发的是相对项目配置目录的路径（如 schemas/xxx.schema.yaml），
+   *   Electron open-file IPC 只接受绝对路径，先拼上项目根转绝对路径
    * - Electron 模式: 通过 shellApi.openInEditor 调用系统编辑器
    * - Web 模式: shellApi 自动降级为复制路径到剪贴板
    */
   async function openFile(path: string): Promise<void> {
+    const configRoot = projectStore.currentPaths?.configPath
+    const target = resolveRelativePath(path, configRoot ?? '') ?? path
     try {
-      const result = await shellApi.openInEditor(path)
+      const result = await shellApi.openInEditor(target)
       if (!result.success) {
         throw new Error(result.error || 'open failed')
       }
     } catch (err) {
       logger.warn('[InspectionDrawer] 打开文件失败，回退到复制路径:', err)
-      await copyToClipboard(path)
+      await copyToClipboard(target)
       toastSuccess(t('inspection.toast.pathCopied'), t('inspection.action.openFile'))
     }
   }
