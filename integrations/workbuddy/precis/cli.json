@@ -1,0 +1,11 @@
+{
+  "runtime": {
+    "type": "python",
+    "version": "3.12"
+  },
+  "init": {
+    "darwin": "python -m pip install precis-cli",
+    "linux": "python -m pip install precis-cli",
+    "win32": "python -m pip install precis-cli"
+  }
+}

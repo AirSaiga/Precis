@@ -218,10 +218,11 @@ integrations/                          # 通用集成根（同时是 Kimi 插件
 ├── skills/precis-data-validation/
 │   ├── SKILL.md                       # 通用 skill 工作流手册（无专有语法）
 │   └── references/v2-format.md        # V2 YAML 格式速查
-└── commands/                          # 通用命令正文（description frontmatter + $ARGUMENTS）
-    ├── validate.md
-    ├── init.md
-    └── report.md
+├── commands/                          # 通用命令正文（description frontmatter + $ARGUMENTS）
+│   ├── validate.md
+│   ├── init.md
+│   └── report.md
+└── workbuddy/                         # 腾讯 WorkBuddy 开放平台上架材料（见该目录 README）
 ```
 
 对应仓库根 `.kimi-plugin/plugin.json`（整仓安装垫片）与后端

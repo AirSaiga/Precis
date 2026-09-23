@@ -1,0 +1,24 @@
+{
+  "name": "Precis 数据校验",
+  "name_zh": "Precis 数据校验",
+  "name_en": "Precis Data Validation",
+  "description": "用自然语言校验 CSV/Excel/JSON 数据质量：自动推断表结构、配置约束规则、逐行报告违规并迭代修复。",
+  "description_zh": "用自然语言校验 CSV/Excel/JSON 数据质量：自动推断表结构、配置约束规则、逐行报告违规并迭代修复。",
+  "description_en": "Validate CSV/Excel/JSON data quality in natural language: infer schemas, configure constraints, report violations row by row, and iterate to a clean pass.",
+  "source": "precis",
+  "type": "cli",
+  "version": "0.1.8",
+  "minWorkbuddyVersion": "5.0.0",
+  "examples_zh": [
+    "帮我检查这个 CSV 文件的数据质量",
+    "校验 orders.xlsx 里的订单金额有没有负数或超出范围的值",
+    "这个客户表交付前帮我验收一下",
+    "检查一下用户表的邮箱列有没有空值和重复"
+  ],
+  "examples_en": [
+    "Check the data quality of this CSV file",
+    "Validate whether any order amounts in orders.xlsx are negative or out of range",
+    "Run an acceptance check on this customer table before delivery",
+    "Check the email column of the users table for nulls and duplicates"
+  ]
+}
