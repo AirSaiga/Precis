@@ -206,6 +206,8 @@ test.describe('报告预览与导出（C1/C3，UI）', () => {
     await expect(modal).toBeVisible({ timeout: 15000 })
     await modal.getByRole('button', { name: /开始校验/ }).click()
 
+    // 资源树拖入的 users 落盘为 saved（非草稿）→ 无保存询问，直接进入运行前检查
+
     const mergeOverlay = page.locator('.merge-confirm-overlay')
     const banner = modal.locator('.fv-status-banner')
     const first = await Promise.race([

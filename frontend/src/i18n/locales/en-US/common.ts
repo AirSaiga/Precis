@@ -437,6 +437,15 @@ const common = {
       successTitle: 'Resources Merged',
       successDesc: 'Added {count} resource ref(s) to project.precis.yaml',
     },
+    saveConfirm: {
+      title: 'Unsaved Canvas Changes',
+      message:
+        'Full validation runs against the project configuration on disk. The canvas has unsaved drafts; save first so validation reflects them.',
+      hint: 'Choose "Validate Without Saving" to run against the last saved configuration; results may differ from the current canvas.',
+      cancel: 'Cancel',
+      runWithoutSave: 'Validate Without Saving',
+      saveAndRun: 'Save & Validate',
+    },
     project: {
       title: 'Project Context',
       configPath: 'Project path (configPath)',

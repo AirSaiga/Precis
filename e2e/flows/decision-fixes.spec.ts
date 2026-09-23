@@ -103,6 +103,11 @@ test.describe('三项决策修复回归', () => {
     await page.locator('.fv-config, [class*="full-validation"], .fv-view')
       .getByRole('button', { name: /开始校验/ }).first().click()
 
+    // 画布有草稿 → 先弹"保存并校验"询问（不再静默保存），确认后保存自动跳过草稿
+    const saveOverlay = page.locator('.save-confirm-overlay')
+    await expect(saveOverlay).toBeVisible({ timeout: 15_000 })
+    await saveOverlay.getByRole('button', { name: /保存并校验/ }).click()
+
     // 校验应执行到终态（执行完成/校验已完成，含发现错误的完成文案）
     await expect(page.getByText(/执行完成|校验已完成/).first()).toBeVisible({ timeout: 30_000 })
     // 不得停留在"校验未执行"，也不得出现保存失败阶段错误（草稿已跳过、保存成功）

@@ -135,12 +135,7 @@ import { deriveValidationAllPass } from '@/utils/validationAllPass'
 
 type ValidationTaskStageKey = 'load-settings' | 'save-project' | 'preflight' | 'execute'
 type ValidationTaskStageStatus =
-  | 'pending'
-  | 'running'
-  | 'success'
-  | 'error'
-  | 'attention'
-  | 'skipped'
+  'pending' | 'running' | 'success' | 'error' | 'attention' | 'skipped'
 
 interface ValidationTaskStageItem {
   key: ValidationTaskStageKey
@@ -198,6 +193,7 @@ export function useValidationTaskRunner() {
   )
   const pendingTaskRequest = ref<ValidationTaskRequest | null>(null)
   const showMergeConfirm = ref(false)
+  const showSaveConfirm = ref(false)
 
   // 执行进度跟踪
   const progress = ref(0)
@@ -736,6 +732,7 @@ export function useValidationTaskRunner() {
    * 运行完整校验任务流程
    *
    * 按顺序执行：加载设置 → 保存项目 → 运行前检查 → 执行校验。
+   * 画布有未保存草稿时，保存前先询问用户（不静默落盘）；
    * 若发现缺失资源且策略为 ask，则暂停等待用户确认。
    */
   async function runTask(): Promise<void> {
@@ -780,6 +777,16 @@ export function useValidationTaskRunner() {
 
       const request = buildTaskRequest()
 
+      // 未保存草稿不静默落盘：先询问用户（保存并校验 / 不保存直接校验 / 取消）。
+      // 全量校验的输入是磁盘配置文件，保存是把画布草稿翻译成 V2 YAML 的必经步骤，
+      // 但保存会改写磁盘文件，必须经用户确认。
+      if (request.preflight_options?.save_before_run && graphStore.hasUnsavedChanges()) {
+        pendingTaskRequest.value = request
+        setStageStatus('save-project', 'attention')
+        showSaveConfirm.value = true
+        return
+      }
+
       if (request.preflight_options?.save_before_run) {
         setStageStatus('save-project', 'running')
         const saved = await graphStore.saveProject()
@@ -793,37 +800,102 @@ export function useValidationTaskRunner() {
         setStageStatus('save-project', 'skipped')
       }
 
-      setStageStatus('preflight', 'running')
-      await refreshPreflight()
-
-      const hasMissingResources =
-        preflightSummary.value.missingConstraintRefs.length > 0 ||
-        preflightSummary.value.missingRegexRefs.length > 0
-
-      if (hasMissingResources) {
-        const strategy = request.preflight_options?.missing_resources_strategy || 'ask'
-        if (strategy === 'ask') {
-          pendingTaskRequest.value = request
-          showMergeConfirm.value = true
-          setStageStatus('preflight', 'attention')
-          return
-        }
-
-        if (strategy === 'merge_then_run') {
-          const merged = await mergeMissingResources()
-          if (!merged) {
-            setStageStatus('preflight', 'error')
-            return
-          }
-        }
-      }
-
-      setStageStatus('preflight', 'success')
-      progress.value = 25
-      await executeTask(request)
+      await continuePipeline(request)
     } finally {
       running.value = false
     }
+  }
+
+  /**
+   * 保存阶段之后的公共流水线：运行前检查（含缺失资源询问）→ 执行校验
+   */
+  async function continuePipeline(request: ValidationTaskRequest): Promise<void> {
+    setStageStatus('preflight', 'running')
+    await refreshPreflight()
+
+    const hasMissingResources =
+      preflightSummary.value.missingConstraintRefs.length > 0 ||
+      preflightSummary.value.missingRegexRefs.length > 0
+
+    if (hasMissingResources) {
+      const strategy = request.preflight_options?.missing_resources_strategy || 'ask'
+      if (strategy === 'ask') {
+        pendingTaskRequest.value = request
+        showMergeConfirm.value = true
+        setStageStatus('preflight', 'attention')
+        return
+      }
+
+      if (strategy === 'merge_then_run') {
+        const merged = await mergeMissingResources()
+        if (!merged) {
+          setStageStatus('preflight', 'error')
+          return
+        }
+      }
+    }
+
+    setStageStatus('preflight', 'success')
+    progress.value = 25
+    await executeTask(request)
+  }
+
+  /**
+   * 用户确认"保存并校验"后继续：先保存草稿，成功后进入校验流水线
+   */
+  async function confirmSaveAndRun(): Promise<void> {
+    showSaveConfirm.value = false
+    errorMessage.value = ''
+    result.value = null
+    running.value = true
+
+    try {
+      const request = pendingTaskRequest.value
+      if (!request) return
+
+      setStageStatus('save-project', 'running')
+      const saved = await graphStore.saveProject()
+      if (!saved) {
+        errorMessage.value = t('common.fullValidation.run.saveFailed')
+        setStageStatus('save-project', 'error')
+        return
+      }
+      setStageStatus('save-project', 'success')
+      await continuePipeline(request)
+    } finally {
+      pendingTaskRequest.value = null
+      running.value = false
+    }
+  }
+
+  /**
+   * 用户选择"不保存直接校验"：跳过保存阶段，按磁盘上次的配置执行（仅本次，不改设置）
+   */
+  async function runWithoutSave(): Promise<void> {
+    showSaveConfirm.value = false
+    errorMessage.value = ''
+    result.value = null
+    running.value = true
+
+    try {
+      const request = pendingTaskRequest.value
+      if (!request) return
+
+      setStageStatus('save-project', 'skipped')
+      await continuePipeline(request)
+    } finally {
+      pendingTaskRequest.value = null
+      running.value = false
+    }
+  }
+
+  /**
+   * 取消保存询问：中止本次校验任务
+   */
+  function cancelSavePrompt(): void {
+    showSaveConfirm.value = false
+    pendingTaskRequest.value = null
+    running.value = false
   }
 
   /**
@@ -920,6 +992,7 @@ export function useValidationTaskRunner() {
     failedPreviewItems,
     resultHighlights,
     showMergeConfirm,
+    showSaveConfirm,
     progress,
     processedStats,
     initializeTask,
@@ -932,6 +1005,9 @@ export function useValidationTaskRunner() {
     confirmMergeAndRun,
     runDirectly,
     cancelMergePrompt,
+    confirmSaveAndRun,
+    runWithoutSave,
+    cancelSavePrompt,
   }
 }
 

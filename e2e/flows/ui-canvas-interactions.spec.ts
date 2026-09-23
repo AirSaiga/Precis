@@ -406,7 +406,8 @@ test.describe('画布真实 UI 交互', () => {
     // 点击“开始校验”
     await modal.getByRole('button', { name: /开始校验/ }).click()
 
-    // 拖入 users（只导 Schema）后，运行前检查可能弹出“发现未合并的资源”询问。
+    // 资源树拖入的 users 落盘为 saved（非草稿）→ 无保存询问，直接进入
+    // 运行前检查。拖入 users（只导 Schema）后，运行前检查可能弹出“发现未合并的资源”询问。
     // 出现则选“直接校验”继续。保存项目阶段耗时数秒，弹窗出现时机晚于点击，
     // 因此用竞速等待（横幅或询问弹窗，先到者先处理）。
     const mergeOverlay = page.locator('.merge-confirm-overlay')

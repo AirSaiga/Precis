@@ -78,6 +78,7 @@ limitations under the License.
     availableTableTargets,
     resultHighlights,
     showMergeConfirm,
+    showSaveConfirm,
     refreshPreflight,
     resetRuntimeOverrides,
     selectTargetType,
@@ -86,6 +87,9 @@ limitations under the License.
     confirmMergeAndRun,
     runDirectly,
     cancelMergePrompt,
+    confirmSaveAndRun,
+    runWithoutSave,
+    cancelSavePrompt,
   } = useValidationTaskRunner()
 
   const showPreview = ref(false)
@@ -188,6 +192,10 @@ limitations under the License.
 
   const handleKeydown = (event: KeyboardEvent) => {
     if (event.key !== 'Escape' || !props.modelValue) return
+    if (showSaveConfirm.value) {
+      cancelSavePrompt()
+      return
+    }
     if (showMergeConfirm.value) {
       cancelMergePrompt()
       return
@@ -629,6 +637,41 @@ limitations under the License.
             </button>
             <button class="ui-btn ui-btn--primary" type="button" @click="confirmMergeAndRun">
               {{ t('common.fullValidation.mergeConstraints.mergeAndValidate') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+
+  <!-- Save Confirm Modal（画布有未保存草稿时先询问，不静默落盘） -->
+  <Teleport to="body">
+    <Transition name="modal-fade">
+      <div v-if="showSaveConfirm" class="save-confirm-overlay">
+        <div class="merge-confirm-modal" role="dialog" aria-modal="true">
+          <div class="merge-confirm-header">
+            <div class="merge-confirm-title">
+              {{ t('common.fullValidation.saveConfirm.title') }}
+            </div>
+            <button class="ui-icon-btn" type="button" @click="cancelSavePrompt">×</button>
+          </div>
+          <div class="merge-confirm-body">
+            <p class="merge-confirm-copy">
+              {{ t('common.fullValidation.saveConfirm.message') }}
+            </p>
+            <p class="merge-confirm-hint">
+              {{ t('common.fullValidation.saveConfirm.hint') }}
+            </p>
+          </div>
+          <div class="merge-confirm-footer">
+            <button class="ui-btn ui-btn--secondary" type="button" @click="cancelSavePrompt">
+              {{ t('common.fullValidation.saveConfirm.cancel') }}
+            </button>
+            <button class="ui-btn ui-btn--ghost" type="button" @click="runWithoutSave">
+              {{ t('common.fullValidation.saveConfirm.runWithoutSave') }}
+            </button>
+            <button class="ui-btn ui-btn--primary" type="button" @click="confirmSaveAndRun">
+              {{ t('common.fullValidation.saveConfirm.saveAndRun') }}
             </button>
           </div>
         </div>

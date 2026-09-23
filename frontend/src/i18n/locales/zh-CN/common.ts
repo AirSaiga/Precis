@@ -425,6 +425,15 @@ const common = {
       successTitle: '资源已合并',
       successDesc: '已将 {count} 个资源引用添加到 project.precis.yaml',
     },
+    saveConfirm: {
+      title: '画布有未保存的修改',
+      message:
+        '全量校验基于磁盘上的项目配置执行。画布当前有未保存的草稿，保存后校验才会反映这些修改。',
+      hint: '选择"不保存直接校验"将按上次保存的配置执行，结果可能与当前画布不一致。',
+      cancel: '取消',
+      runWithoutSave: '不保存直接校验',
+      saveAndRun: '保存并校验',
+    },
     project: {
       title: '工程上下文',
       configPath: '工程路径（configPath）',

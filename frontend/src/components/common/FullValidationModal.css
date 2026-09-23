@@ -452,8 +452,9 @@
   font-family: var(--ui-font-mono);
 }
 
-/* ---- Merge Confirm Modal ---- */
-.merge-confirm-overlay {
+/* ---- Confirm Modal（合并资源确认 / 未保存草稿保存确认共用） ---- */
+.merge-confirm-overlay,
+.save-confirm-overlay {
   position: fixed;
   inset: 0;
   /* 合并确认叠在全量校验模态之上，走二级模态档位 */
