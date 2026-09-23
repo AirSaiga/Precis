@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+- **E2E 修复：view-modes 夹具适配画布校验数据源闸门（CI 红跟进，测试夹具级）**——v0.1.8 把画布约束校验前置条件收紧为 Schema 与数据源真实连线并移除 validationCollector 的"V2 导入内联数据源"缓存路径兜底，但 `view-modes.spec.ts` 的 `validateSchemaViaPipeline` 仍按旧兜底设计（只给 Schema 补 `sourceFile` 即触发校验），闸门直接防御性重置回未校验，Range 违规卡永远等不到 `.status-error`（CI E2E 双跑红，本地复现一致）。夹具现复刻生产 `connectToDataSource` 的连接序列后再走真实校验管线：`vueFlowApi.addNodes` 建 sourcePreview 节点（数据形态对齐 `usePreviewCreation` 产物，`localPath` 指向夹具 CSV 绝对路径）→ 双 rAF 等渲染与 v-model 回写 → `store.createConnection` 建边（`source-output` → `target-left`）→ `updateNodeData` 回写 `sourceNodeId`；落点取现有节点最右 + 600 向右堆叠（生产默认的 schema 左侧 450px 在本夹具两 Schema 间距下会压住另一 Schema 的点击区，首跑实证被 `field-drag-hint` 拦截）。本地连跑 4 次全绿（14.8–15.0s；修复前单跑 1.2m 超时红）。
+
+  **E2E fix: view-modes fixture adapted to the canvas-validation source gate (CI-red follow-up, test-fixture class)** — v0.1.8 tightened canvas constraint validation to require a real schema↔data-source connection and removed validationCollector's "V2-imported inline source" cached-path fallback, but `view-modes.spec.ts`'s `validateSchemaViaPipeline` was built against the old fallback (merely setting `sourceFile` on the schema), so the gate's defensive reset sent every card back to "not validated" and the Range violation card never gained `.status-error` (CI E2E red on both attempts; reproduced locally). The fixture now mirrors the production `connectToDataSource` sequence before invoking the real validation pipeline: create the sourcePreview node via `vueFlowApi.addNodes` (data shaped like `usePreviewCreation`'s output, `localPath` pointing at the fixture CSV's absolute path) → double-rAF wait for rendering and v-model write-back → connect via `store.createConnection` (`source-output` → `target-left`) → write back `sourceNodeId` via `updateNodeData`; nodes are placed at max-existing-x + 600 (stacking rightward) because production's default 450px-left offset overlaps the other schema's click area under this fixture's two-schema spacing (proven by `field-drag-hint` interception on first run). Four consecutive local runs green (14.8–15.0s vs. 1.2m timeout-red before).
+
 ## [0.1.8] - 2026-09-23
 
 ### 2026-09

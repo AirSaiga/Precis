@@ -279,21 +279,29 @@ async function closeInspectionDrawer(page: Page) {
 }
 
 /**
- * 对指定 Schema 执行真实校验管线（validateAllConstraints → 后端 → 状态回写）。
+ * 对指定 Schema 建立真实数据源连线并执行真实校验管线
+ * （建连 → validateAllConstraints → 后端 → 状态回写）。
  *
  * 为什么不经 Ctrl+Enter 快捷键触发：dev server 下 vue-devtools 的 inspector
  * 容器会占据 active pinia，键盘 handler 内的 useGraphStore() 解析到空 store
  * （实证：toast "请先选择节点" 而 store.selectedNodeId 已设置）。故在页面
- * 上下文里显式取主 app 的 pinia graph store，补上 requireSource 需要的
- * sourceFile（正常由数据源连线写入，V2 导入链路不设置），再调真实编排入口。
+ * 上下文里显式取主 app 的 pinia graph store，再调真实编排入口。
+ *
+ * 为什么必须先建数据源连线：画布校验的数据源闸门（2026-09 收紧）只认可
+ * Schema 与数据源的真实连线（sourceNodeId 指向现存 sourcePreview 节点，或
+ * 数据源入边），Schema 缓存的 localPath/sourceFilePath 不再作为校验依据——
+ * 未连线时闸门防御性重置回未校验，卡片永远等不到状态类。此处复刻生产
+ * connectToDataSource 的连接序列：建 sourcePreview 节点（vueFlowApi.addNodes）
+ * → 等渲染 → 建边（store.createConnection，source-output → target-left）
+ * → 回写 sourceNodeId（store.updateNodeData），全部走真实 action。
  */
 async function validateSchemaViaPipeline(
   page: Page,
   schemaId: string,
-  fileName: string,
+  absoluteDataPath: string,
 ) {
   await page.evaluate(
-    async ([sid, fname]) => {
+    async ([sid, absPath]) => {
       const app = (
         document.querySelector("#app") as unknown as {
           __vue_app__?: {
@@ -303,13 +311,106 @@ async function validateSchemaViaPipeline(
           };
         }
       )?.__vue_app__;
+      type CanvasNode = {
+        id: string;
+        type?: string;
+        position: { x: number; y: number };
+        data?: Record<string, unknown>;
+      };
       const graph = app?.config.globalProperties.$pinia?._s?.get("graph") as {
-        nodes: unknown[];
+        nodes: CanvasNode[];
         edges: unknown[];
         updateNodeData: (id: string, data: Record<string, unknown>) => void;
+        createConnection: (
+          sourceNodeId: string,
+          targetNodeId: string,
+          sourceHandle?: string,
+          targetHandle?: string,
+        ) => string | undefined;
       };
       if (!graph) throw new Error("graph store not reachable");
-      graph.updateNodeData(sid as string, { sourceFile: fname });
+
+      // 幂等：sourceNodeId 已指向现存 sourcePreview 节点则直接复用（toPass 重试场景）
+      const schema = graph.nodes.find((n) => n.id === sid);
+      if (!schema) throw new Error(`schema node not found: ${sid}`);
+      const existingSourceId = schema.data?.sourceNodeId as string | undefined;
+      const connected =
+        !!existingSourceId &&
+        graph.nodes.some(
+          (n) => n.id === existingSourceId && n.type === "sourcePreview",
+        );
+
+      if (!connected) {
+        const vf = (await import("/src/services/canvas/vueFlowApi.ts")) as {
+          addNodes: (nodes: unknown[]) => void;
+          updateNodeInternals: (ids: string[]) => void;
+        };
+        const fileName =
+          String(absPath).split(/[\\/]/).pop() || String(absPath);
+        const sourceNodeId = `source-preview-e2e-${sid}`;
+        // 落点：现有全部节点的最右侧 + 600（多次调用自然向右堆叠）。
+        // 不用生产默认的 schema 左侧 450px：本夹具两 Schema 间距下会与
+        // 另一 Schema/卡片重叠，field-drag-hint 拦截 schema 点击（首跑实证）
+        const maxX = Math.max(...graph.nodes.map((n) => n.position.x));
+        const maxY = Math.max(...graph.nodes.map((n) => n.position.y));
+        // 数据形态对齐 usePreviewCreation.createSourcePreviewNode 的产物
+        //（localPath 是闸门判定的关键字段，其余为节点渲染所需最小集）
+        const sourceNode = {
+          id: sourceNodeId,
+          type: "sourcePreview",
+          position: { x: maxX + 600, y: maxY },
+          data: {
+            id: sourceNodeId,
+            label: "数据源预览",
+            sourceName: fileName,
+            fileName,
+            fileType: "CSV",
+            sourceType: "csv",
+            localPath: absPath,
+            data: [],
+            actualRowCount: 0,
+            actualColCount: 0,
+            rowCount: 0,
+            colCount: 0,
+            totalRows: 0,
+            totalCols: 0,
+            previewRowCount: 0,
+            previewColCount: 0,
+            fileSize: 0,
+            lastModified: Date.now(),
+            isPreviewNode: true,
+            createdAt: Date.now(),
+            outputPortConnected: false,
+            headerRow: 0,
+            sourceMode: "localfile",
+          },
+          selected: false,
+          dragging: false,
+        };
+        vf.addNodes([sourceNode]);
+        // 等节点渲染（handle bounds 就绪）且 v-model 回写 store 后再建边/回写引用
+        //（AGENTS.md 时序约定；双 rAF = DOM flush + paint，强于单次 nextTick）
+        await new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        );
+        graph.createConnection(
+          sourceNodeId,
+          sid as string,
+          `${sourceNodeId}-output`,
+          "target-left",
+        );
+        vf.updateNodeInternals([sourceNodeId, sid as string]);
+        // 回写 sourceNodeId 走 Vue Flow 增量更新、nextTick 后才同步 store，
+        // 等一拍再校验，确保闸门能在 graph.nodes 里读到 sourceNodeId
+        graph.updateNodeData(sid as string, {
+          sourceNodeId,
+          sourceFile: fileName,
+        });
+        await new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        );
+      }
+
       const mod =
         (await import("/src/services/constraints/orchestration/globalValidation.ts")) as {
           validateAllConstraints: (
@@ -327,7 +428,7 @@ async function validateSchemaViaPipeline(
           graph.updateNodeData(id, data),
       );
     },
-    [schemaId, fileName],
+    [schemaId, absoluteDataPath],
   );
 }
 
@@ -377,11 +478,17 @@ test.describe("画布视图模式", () => {
     // 状态类同时出现在节点根 div 与内部状态点上，用 .first() 避开 strict mode。
     // CI 慢环境下校验回写与节点 DOM 渐进入场/重建交叠，状态类可能瞬时缺席
     // （首跑两次 20s "element(s) not found"，本地同树绿）——用 toPass 整段重试
-    await validateSchemaViaPipeline(page, "vw_users", "vw_users.csv");
+    await validateSchemaViaPipeline(
+      page,
+      "vw_users",
+      path.join(isolatedProjectPath, "data", "vw_users.csv"),
+    );
     await expect(async () => {
       await expect(
         page
-          .locator(`.vue-flow__node[data-id="${USERS_ERROR_CARD}"] .status-error`)
+          .locator(
+            `.vue-flow__node[data-id="${USERS_ERROR_CARD}"] .status-error`,
+          )
           .first(),
       ).toBeVisible({ timeout: 10_000 });
       await expect(
@@ -390,11 +497,17 @@ test.describe("画布视图模式", () => {
           .first(),
       ).toBeVisible({ timeout: 10_000 });
     }).toPass({ timeout: 60_000 });
-    await validateSchemaViaPipeline(page, "vw_orders", "vw_orders.csv");
+    await validateSchemaViaPipeline(
+      page,
+      "vw_orders",
+      path.join(isolatedProjectPath, "data", "vw_orders.csv"),
+    );
     await expect(async () => {
       await expect(
         page
-          .locator(`.vue-flow__node[data-id="${ORDERS_PASS_CARD}"] .status-pass`)
+          .locator(
+            `.vue-flow__node[data-id="${ORDERS_PASS_CARD}"] .status-pass`,
+          )
           .first(),
       ).toBeVisible({ timeout: 10_000 });
     }).toPass({ timeout: 60_000 });
