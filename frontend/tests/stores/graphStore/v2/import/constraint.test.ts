@@ -27,6 +27,7 @@ vi.mock('@/services/canvas/vueFlowApi', () => ({
 
 vi.mock('@/api/projectV2Api', () => ({
   getV2Constraint: vi.fn(),
+  getV2Schema: vi.fn(),
 }))
 
 vi.mock('@/services/constraints/nodeDataBuilder', () => ({
@@ -38,7 +39,7 @@ vi.mock('@/core/utils/logger', () => ({
 }))
 
 import { addNodes, updateNode } from '@/services/canvas/vueFlowApi'
-import { getV2Constraint } from '@/api/projectV2Api'
+import { getV2Constraint, getV2Schema } from '@/api/projectV2Api'
 import { buildNodeData } from '@/services/constraints/nodeDataBuilder'
 import { logger } from '@/core/utils/logger'
 import { createV2ConstraintImporter } from '@/stores/graphStore/modules/v2/import/constraint'
@@ -88,6 +89,7 @@ describe('createV2ConstraintImporter', () => {
     vi.mocked(addNodes).mockClear()
     vi.mocked(updateNode).mockClear()
     vi.mocked(getV2Constraint).mockClear()
+    vi.mocked(getV2Schema).mockClear()
     vi.mocked(buildNodeData).mockClear()
     mockEnsureEdge.mockClear()
     mockBufferEdge.mockClear()
@@ -239,6 +241,11 @@ describe('createV2ConstraintImporter', () => {
         refs: { table_id: 's1', column_ids: ['col1'] },
         params: {},
       } as any)
+      // Schema 节点顶层列查不到 col1 时，拉取 V2 列树按「全限定名/列 ID」精确解析
+      vi.mocked(getV2Schema).mockResolvedValue({
+        id: 's1',
+        columns: [{ id: 'col1', name: 'email' }],
+      } as any)
 
       vi.mocked(buildNodeData).mockReturnValue({
         nodeData: { configName: 'unique email', saveState: 'saved' },
@@ -253,6 +260,53 @@ describe('createV2ConstraintImporter', () => {
           columnRef: expect.objectContaining({ nodeId: 's1', columnId: 'col1' }),
         })
       )
+    })
+
+    it('嵌套子列列 ID 经 V2 列树解析为全限定名，连线挂顶层祖先 handle', async () => {
+      nodes.value = [
+        makeNode('s1', 'schema', {
+          tableName: 'users',
+          columns: [{ id: 'c-top', columnName: 'top' }],
+        }),
+      ]
+      vi.mocked(getV2Constraint).mockResolvedValue({
+        type: 'NotNull',
+        description: 'nested nn',
+        refs: { table_id: 's1', column_id: 'c-child-email' },
+        params: {},
+      } as any)
+      vi.mocked(getV2Schema).mockResolvedValue({
+        id: 's1',
+        columns: [
+          {
+            id: 'c-customer',
+            name: 'customer',
+            children: [{ id: 'c-child-email', name: 'email' }],
+          },
+        ],
+      } as any)
+
+      vi.mocked(buildNodeData).mockReturnValue({
+        nodeData: { configName: 'nested nn', saveState: 'saved' },
+        edgeDescriptors: [
+          { kind: 'constraint', sourceNodeId: 's1', targetNodeId: 'c1', columnId: 'c-child-email' },
+        ],
+      } as any)
+
+      await importer.importConstraint('c1', { x: 0, y: 0 })
+
+      expect(buildNodeData).toHaveBeenCalledWith(
+        'notNull',
+        expect.objectContaining({
+          columnRef: expect.objectContaining({
+            nodeId: 's1',
+            columnId: 'c-child-email',
+            columnName: 'customer.email',
+          }),
+        })
+      )
+      // 边的 sourceHandle 用顶层祖先列
+      expect(mockEnsureEdge).toHaveBeenCalledWith('s1', 'c1', 'c-customer')
     })
   })
 

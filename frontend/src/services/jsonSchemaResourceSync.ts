@@ -37,7 +37,7 @@ import { materializeV2EmbeddedConstraints } from '@/stores/graphStore/modules/v2
 import { loadIndependentConstraints, loadRegexNodes } from '@/services/schemaResourceSync'
 import { addNodes } from '@/services/canvas/vueFlowApi'
 import { findMatchingJsonSchema } from '@/utils/nodes/json/findMatchingJsonSchema'
-import type { CustomNode, JsonSchemaColumn, JsonSchemaNodeData } from '@/types/nodes'
+import type { CustomNode, JsonSchemaNodeData } from '@/types/nodes'
 
 /**
  * 同步 JSON Schema 关联资源到画布
@@ -79,16 +79,6 @@ export async function syncJsonSchemaResources(schemaNodeId: string): Promise<voi
   // 1. 加载内嵌约束(仅当存在时)
   let embeddedCount = 0
   if (embedded.length > 0) {
-    // 递归构建 columnName -> columnId 映射
-    const colNameToId = new Map<string, string>()
-    const walkNames = (cols: JsonSchemaColumn[]) => {
-      for (const c of cols) {
-        colNameToId.set(c.columnName, c.id)
-        if (c.children) walkNames(c.children)
-      }
-    }
-    walkNames(schemaData.columns || [])
-
     const bufferedEdges: Array<{ tableId: string; constraintId: string; columnId: string }> = []
 
     materializeV2EmbeddedConstraints({
@@ -97,7 +87,8 @@ export async function syncJsonSchemaResources(schemaNodeId: string): Promise<voi
       embeddedConstraints: embedded as Parameters<
         typeof materializeV2EmbeddedConstraints
       >[0]['embeddedConstraints'],
-      colNameToId,
+      // JsonSchema 节点列树：嵌套子列按「父.子」全限定路径精确解析
+      columnTree: schemaData.columns,
       hasNode: (id: string) => store.nodes.some((n) => n.id === id),
       addNode: (node: CustomNode) => addNodes(node),
       addConstraintEdge: (tId: string, cId: string, colId: string) => {

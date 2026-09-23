@@ -194,15 +194,6 @@ export function useJsonSchemaConnectionHandler() {
     if (!schemaNode) return true
 
     const schemaData = schemaNode.data as JsonSchemaNodeData
-    // 递归构建 columnName -> columnId 映射(含嵌套)
-    const colNameToId = new Map<string, string>()
-    const walkNames = (cols: JsonSchemaColumn[]) => {
-      for (const c of cols) {
-        colNameToId.set(c.columnName, c.id)
-        if (c.children) walkNames(c.children)
-      }
-    }
-    walkNames(schemaData.columns || [])
 
     const embedded = Array.isArray(schemaFile.constraints) ? schemaFile.constraints : []
     if (embedded.length > 0) {
@@ -218,7 +209,8 @@ export function useJsonSchemaConnectionHandler() {
         embeddedConstraints: embedded as Parameters<
           typeof materializeV2EmbeddedConstraints
         >[0]['embeddedConstraints'],
-        colNameToId,
+        // JsonSchema 节点列树：嵌套子列按「父.子」全限定路径精确解析
+        columnTree: schemaData.columns,
         hasNode: (id: string) => store.nodes.some((n) => n.id === id),
         addNode: (node: import('@/types/graph').CustomNode) => addNodes(node),
         addConstraintEdge: (tId: string, cId: string, colId: string) => {

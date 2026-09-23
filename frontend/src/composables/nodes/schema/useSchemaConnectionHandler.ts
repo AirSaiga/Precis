@@ -142,9 +142,6 @@ async function tryLoadExistingSchemaConfig(params: {
   if (!schemaNode) return true
 
   const schemaData = schemaNode.data as SchemaNodeData
-  const colNameToId = new Map<string, string>(
-    (schemaData.columns || []).map((c) => [c.columnName, c.id])
-  )
   const embedded = Array.isArray(schemaFile.constraints) ? schemaFile.constraints : []
 
   if (embedded.length > 0) {
@@ -160,7 +157,8 @@ async function tryLoadExistingSchemaConfig(params: {
       embeddedConstraints: embedded as Parameters<
         typeof materializeV2EmbeddedConstraints
       >[0]['embeddedConstraints'],
-      colNameToId,
+      // V2 文件的原始列树：嵌套子列按「父.子」全限定路径精确解析
+      columnTree: schemaFile.columns,
       hasNode: (id: string) => store.nodes.some((n) => n.id === id),
       addNode: (node: import('@/types/graph').CustomNode) => addNodes(node),
       addConstraintEdge: (tId: string, cId: string, colId: string) => {

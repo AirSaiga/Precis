@@ -15,12 +15,14 @@
 # limitations under the License.
 """
 @fileoverview 递归列遍历工具单元测试
-验证 iter_all_columns / build_column_id_to_name_map 能递归处理嵌套 children。
+验证 iter_all_columns / build_column_id_to_name_map / build_qualified_name_to_id_map
+能递归处理嵌套 children。
 """
 
 from app.shared.core.project.schema.types import ColumnSpec
 from app.shared.core.project.schema.types_parts.column_utils import (
     build_column_id_to_name_map,
+    build_qualified_name_to_id_map,
     iter_all_columns,
 )
 
@@ -115,3 +117,52 @@ class TestBuildColumnIdToNameMap:
         col = ColumnSpec.model_construct(name="x", type="string")  # 无 id
         result = build_column_id_to_name_map([col])
         assert result == {}
+
+
+class TestBuildQualifiedNameToIdMap:
+    def test_top_level_uses_bare_name(self):
+        """顶层列键为裸名。"""
+        cols = [ColumnSpec(id="email", name="email", type="string")]
+        assert build_qualified_name_to_id_map(cols) == {"email": "email"}
+
+    def test_nested_children_use_dotted_path(self):
+        """嵌套子列键为「父.子」点分路径,顶层同名不受影响。"""
+        result = build_qualified_name_to_id_map(_make_nested_columns())
+        assert result == {
+            "age": "age",
+            "user": "user",
+            "user.name": "user_name",
+            "user.address": "address",
+            "user.address.city": "address_city",
+            "user.address.zip": "address_zip",
+        }
+
+    def test_duplicate_names_keeps_first(self):
+        """同名键(如两个对象列下都有 name)保留深度优先首个,行为与 id->name 映射一致。"""
+        cols = [
+            ColumnSpec(
+                id="a",
+                name="a",
+                type="object",
+                children=[ColumnSpec(id="a_name", name="name", type="string")],
+            ),
+            ColumnSpec(
+                id="b",
+                name="b",
+                type="object",
+                children=[ColumnSpec(id="b_name", name="name", type="string")],
+            ),
+        ]
+        result = build_qualified_name_to_id_map(cols)
+        assert result["a.name"] == "a_name"
+        assert result["b.name"] == "b_name"
+        # 顶层同名(重名列)保留首个
+        dup = [
+            ColumnSpec(id="x1", name="dup", type="string"),
+            ColumnSpec(id="x2", name="dup", type="string"),
+        ]
+        assert build_qualified_name_to_id_map(dup) == {"dup": "x1"}
+
+    def test_empty_or_none(self):
+        assert build_qualified_name_to_id_map([]) == {}
+        assert build_qualified_name_to_id_map(None) == {}  # type: ignore[arg-type]

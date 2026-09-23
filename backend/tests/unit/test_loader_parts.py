@@ -247,7 +247,8 @@ class TestCollectConstraintsFromSchemas:
         assert cf.refs["from_table_id"] == "orders"
         assert cf.refs["to_table_id"] == "users"
 
-    def test_column_name_not_found_uses_original(self):
+    def test_column_name_not_found_drops_constraint(self):
+        """严格模式:引用不存在的列 → 约束被丢弃(未传 loading_errors 时静默跳过)。"""
         schema_files = {
             "users": TableSchemaFile(
                 version=2,
@@ -258,7 +259,7 @@ class TestCollectConstraintsFromSchemas:
             )
         }
         result = collect_constraints_from_schemas(schema_files)
-        assert result["users_nn_bad"].refs["column_id"] == "nonexistent"
+        assert "users_nn_bad" not in result
 
     def test_params_passed_through(self):
         schema_files = {

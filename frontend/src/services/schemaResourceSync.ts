@@ -255,9 +255,6 @@ async function loadEmbeddedConstraints(
     if (!schemaNode) return 0
 
     const schemaData = schemaNode.data as SchemaNodeData
-    const colNameToId = new Map<string, string>(
-      (schemaData.columns || []).map((c) => [c.columnName, c.id])
-    )
 
     // 缓冲边，等节点渲染后再创建
     const bufferedEdges: Array<{
@@ -272,7 +269,8 @@ async function loadEmbeddedConstraints(
       >[0]['schemaNode'],
       schemaTableName: schemaData.tableName,
       embeddedConstraints: schemaFile.constraints,
-      colNameToId,
+      // V2 文件的原始列树：嵌套子列按「父.子」全限定路径精确解析
+      columnTree: schemaFile.columns,
       hasNode: (id: string) => graphStore.nodes.some((n) => n.id === id),
       addNode: (node) => addNodes(node as unknown as CustomNode),
       addConstraintEdge: (tableId: string, constraintId: string, columnId: string) => {

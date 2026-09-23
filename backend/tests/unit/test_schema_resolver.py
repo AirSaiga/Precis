@@ -113,7 +113,8 @@ class TestResolveIdFromName:
         assert table_id == "users"
         assert column_id == "col_email"
 
-    def test_resolves_column_by_id(self, tmp_path):
+    def test_column_id_passed_as_name_is_rejected(self, tmp_path):
+        """列 ID 传入名称参数不被接受(严格模式:仅裸名/全限定路径),返回 None。"""
         _write_schema(
             tmp_path,
             _make_schema(
@@ -123,7 +124,47 @@ class TestResolveIdFromName:
             ),
         )
         _, column_id = _resolve_id_from_name(str(tmp_path), "users", "col_email")
-        assert column_id == "col_email"
+        assert column_id is None
+
+    def test_resolves_nested_column_by_qualified_path(self, tmp_path):
+        """嵌套子列用「父.子」全限定路径精确解析。"""
+        _write_schema(
+            tmp_path,
+            _make_schema(
+                id="users",
+                name="用户表",
+                columns=[
+                    {
+                        "id": "col_customer",
+                        "name": "customer",
+                        "type": "object",
+                        "children": [{"id": "col_customer_email", "name": "email", "type": "string"}],
+                    },
+                ],
+            ),
+        )
+        _, column_id = _resolve_id_from_name(str(tmp_path), "users", "customer.email")
+        assert column_id == "col_customer_email"
+
+    def test_nested_bare_name_not_recursively_resolved(self, tmp_path):
+        """裸名不做递归猜测:仅嵌套存在的列名解析不出,返回 None。"""
+        _write_schema(
+            tmp_path,
+            _make_schema(
+                id="users",
+                name="用户表",
+                columns=[
+                    {
+                        "id": "col_customer",
+                        "name": "customer",
+                        "type": "object",
+                        "children": [{"id": "col_customer_email", "name": "email", "type": "string"}],
+                    },
+                ],
+            ),
+        )
+        _, column_id = _resolve_id_from_name(str(tmp_path), "users", "email")
+        assert column_id is None
 
     def test_no_match_returns_none(self, tmp_path):
         table_id, column_id = _resolve_id_from_name(str(tmp_path), "nonexistent")

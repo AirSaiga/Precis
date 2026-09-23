@@ -100,18 +100,13 @@ export async function handleSchemaInstruction(instruction: FrontendInstruction):
       const createdSchemaNode = graphStore.nodes.find((n) => n.id === schemaId)
       if (createdSchemaNode) {
         const schemaData = createdSchemaNode.data as Record<string, unknown>
-        const colNameToId = new Map<string, string>(
-          ((schemaData.columns as Array<{ id?: string; columnName?: string }>) || []).map((c) => [
-            c.columnName || '',
-            c.id || '',
-          ])
-        )
         const createdConstraintIds: string[] = []
         materializeV2EmbeddedConstraints({
           schemaNode: createdSchemaNode as CustomNode,
           schemaTableName: String(schemaData.tableName || schemaName),
           embeddedConstraints,
-          colNameToId,
+          // AI spec 的原始列树：嵌套子列按「父.子」全限定路径精确解析
+          columnTree: columns,
           hasNode: (id: string) => graphStore.nodes.some((n) => n.id === id),
           addNode: (node: CustomNode) => {
             guardCanvasOp(() => vueFlowApi.addNodes(node as VueFlowNode))

@@ -165,15 +165,13 @@ export function createV2SchemaImporter(params: {
     schemaFile: TableSchemaFileV2
   ) => {
     const schemaData = schemaNode.data as SchemaNodeData
-    const colNameToId = new Map<string, string>(
-      (schemaData.columns || []).map((c) => [c.columnName, c.id])
-    )
     const embedded = Array.isArray(schemaFile.constraints) ? schemaFile.constraints : []
     materializeV2EmbeddedConstraints({
       schemaNode,
       schemaTableName: schemaData.tableName,
       embeddedConstraints: embedded,
-      colNameToId,
+      // V2 文件的原始列树：嵌套子列按「父.子」全限定路径精确解析
+      columnTree: schemaFile.columns,
       hasNode: (id: string) => nodes.value.some((n) => n.id === id),
       addNode: (node: CustomNode) => {
         // 只走 addNodes 增量 API，禁止手动 spread 追加 nodes.value

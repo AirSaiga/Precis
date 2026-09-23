@@ -268,8 +268,9 @@ def load_project(
         loading_errors,
     )
 
-    # 阶段 3：收集 Schema 中内嵌的约束
-    embedded_constraints = collect_constraints_from_schemas(schema_files)
+    # 阶段 3：收集 Schema 中内嵌的约束（列引用解析不到时结构化报错并丢弃该约束）
+    schema_path_by_id = {ref.id: ref.path for ref in manifest.schemas}
+    embedded_constraints = collect_constraints_from_schemas(schema_files, loading_errors, schema_path_by_id)
     for cid, const in embedded_constraints.items():
         if cid in constraint_files:
             warnings.append(f"约束 ID '{cid}' 同时存在于独立文件和内嵌配置中，内嵌配置优先")
@@ -281,7 +282,6 @@ def load_project(
     # from_table_id（构建时已记录），弃 schema id 前缀猜测——orders 与
     # orders_extra 前缀碰撞时前缀法会把约束指错文件
     constraint_source_files: dict[str, str] = {ref.id: ref.path for ref in manifest.constraints}
-    schema_path_by_id = {ref.id: ref.path for ref in manifest.schemas}
     for embedded_id, embedded_cf in embedded_constraints.items():
         host_schema_id = embedded_cf.refs.get("table_id") or embedded_cf.refs.get("from_table_id")
         host_path = schema_path_by_id.get(host_schema_id) if host_schema_id else None

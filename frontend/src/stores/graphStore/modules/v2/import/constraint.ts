@@ -41,8 +41,12 @@ import {
   getConstraintNodeTypeByV2Type,
 } from '@/services/constraints/validationRegistry'
 import type { BuildInput, EdgeDescriptor } from '@/services/constraints/nodeDataBuilder'
-import { getV2Constraint } from '@/api/projectV2Api'
+import { getV2Constraint, getV2Schema } from '@/api/projectV2Api'
 import { buildNodeData } from '@/services/constraints/nodeDataBuilder'
+import {
+  buildColumnRefResolver,
+  type ResolvedColumnRef,
+} from '@/services/constraints/columnRefResolver'
 import { logger } from '@/core/utils/logger'
 import { addNodes, updateNode } from '@/services/canvas/vueFlowApi'
 /** 从 Schema 节点中查找列名 */
@@ -53,6 +57,34 @@ function resolveColumnName(schemaNode: CustomNode | undefined, columnId: string)
       (x) => (x as { id?: string; columnName?: string }).id === columnId
     )?.columnName || ''
   )
+}
+
+/**
+ * 解析独立约束的列引用：顶层列按 id 在 Schema 节点上直查；
+ * 查不到（可能为嵌套子列）时拉取 V2 列树，按「全限定名 / 列 ID」精确解析出
+ * 真实列 id、全限定显示名与顶层祖先列 id（连线 handle 用）。
+ */
+async function resolveConstraintColumnRef(
+  tableId: string,
+  colId: string,
+  schemaNode: CustomNode | undefined
+): Promise<ResolvedColumnRef | undefined> {
+  const topName = resolveColumnName(schemaNode, colId)
+  if (topName) return { columnId: colId, columnName: topName, rootColumnId: colId }
+  try {
+    const schemaFile = await getV2Schema(tableId)
+    // refs.column_id 是 ID 字段：按列 ID 在列树中直查（含嵌套子列）
+    const resolved = buildColumnRefResolver(schemaFile?.columns).byId(colId)
+    if (!resolved) {
+      logger.warn(`[constraint.ts] 列 ID ${colId} 在 schema ${tableId} 的列树中不存在`)
+    }
+    return resolved
+  } catch (e) {
+    logger.warn(
+      `[constraint.ts] 拉取 schema ${tableId} 列树失败，列引用 ${colId} 无法解析: ${String(e)}`
+    )
+    return undefined
+  }
 }
 
 /** 获取 Schema 的 tableName */
@@ -121,6 +153,22 @@ export function createV2ConstraintImporter(params: {
     // ========================================================================
 
     let buildInput: BuildInput
+
+    // 已解析列引用的 列ID -> 顶层祖先列ID 映射（嵌套子列约束的连线挂到顶层列 handle）
+    const rootColumnIdByRef = new Map<string, string>()
+
+    /** 单列引用解析：顶层直查，嵌套走列树；顺带登记 列ID -> 顶层祖先列ID */
+    const resolveSingleColumnRef = async (
+      refTableId: string,
+      refColId: string,
+      refSchemaNode: CustomNode | undefined
+    ) => {
+      if (!refTableId || !refColId) return undefined
+      const resolved = await resolveConstraintColumnRef(refTableId, refColId, refSchemaNode)
+      if (!resolved) return undefined
+      rootColumnIdByRef.set(resolved.columnId, resolved.rootColumnId)
+      return { nodeId: refTableId, columnId: resolved.columnId, columnName: resolved.columnName }
+    }
 
     if (c.type === 'ForeignKey') {
       // FK 有两个 Schema 引用
@@ -239,14 +287,7 @@ export function createV2ConstraintImporter(params: {
         tableName: resolveTableName(schemaNode),
         nodeId: resourceId,
         nodeType,
-        columnRef:
-          colIds.length > 0 && colIds[0]
-            ? {
-                nodeId: tableId,
-                columnId: colIds[0],
-                columnName: resolveColumnName(schemaNode, colIds[0]),
-              }
-            : undefined,
+        columnRef: await resolveSingleColumnRef(tableId, colIds[0] || '', schemaNode),
         params: cParams,
       }
     } else {
@@ -268,10 +309,7 @@ export function createV2ConstraintImporter(params: {
         tableName: resolveTableName(schemaNode),
         nodeId: resourceId,
         nodeType,
-        columnRef:
-          tableId && colId
-            ? { nodeId: tableId, columnId: colId, columnName: resolveColumnName(schemaNode, colId) }
-            : undefined,
+        columnRef: await resolveSingleColumnRef(tableId, colId, schemaNode),
         params: cParams,
       }
     }
@@ -296,18 +334,30 @@ export function createV2ConstraintImporter(params: {
     await nextTick()
 
     // 创建边
-    applyEdgeDescriptors(result.edgeDescriptors, resourceId)
+    applyEdgeDescriptors(
+      result.edgeDescriptors,
+      resourceId,
+      (columnId) => rootColumnIdByRef.get(columnId) ?? columnId
+    )
 
     selectedNodeId.value = constraintNode.id
     return constraintNode.id
   }
 
-  /** 根据 EdgeDescriptor 列表创建实际的边 */
-  function applyEdgeDescriptors(descriptors: EdgeDescriptor[], _constraintId: string) {
+  /** 根据 EdgeDescriptor 列表创建实际的边（columnIdToRoot 把嵌套子列映射到顶层祖先 handle） */
+  function applyEdgeDescriptors(
+    descriptors: EdgeDescriptor[],
+    _constraintId: string,
+    columnIdToRoot: (columnId: string) => string = (id) => id
+  ) {
     for (const desc of descriptors) {
       if (desc.kind === 'constraint' || desc.kind === 'if') {
         // 普通约束边 / Conditional IF 边
-        ensureSchemaToConstraintEdge(desc.sourceNodeId, desc.targetNodeId, desc.columnId)
+        ensureSchemaToConstraintEdge(
+          desc.sourceNodeId,
+          desc.targetNodeId,
+          columnIdToRoot(desc.columnId)
+        )
       } else if (desc.kind === 'fkDisplay') {
         const extra = desc.extra || {}
         const edgeId = (extra.edgeId as string) || `fk-${desc.sourceNodeId}-${desc.targetNodeId}`

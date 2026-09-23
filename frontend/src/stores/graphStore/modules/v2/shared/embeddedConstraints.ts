@@ -30,8 +30,11 @@
  *
  * 架构设计：
  * - 纯函数设计，接收 schemaNode + 工具函数作为参数
- * - Conditional 的 then_column_id / if_column_id 按列 ID 直通（列 ID 规范，不走名称查找）；
- *   通用单列约束与 FK 的 from_column 等"列名简化写法"仍经 colNameToId 解析
+ * - 名称字段（column / from_column 等）严格解析：顶层裸名 / 嵌套「父.子」全限定路径，
+ *   不接受列 ID、不做递归裸名猜测（columnRefResolver，与后端 embedded_constraints 同一约定）；
+ *   解析不到视为配置错误，跳过该约束（后端同口径报错丢弃）
+ * - ID 字段（then_column_id / if_column_id / column_id）按列 ID 直查
+ * - 嵌套子列约束的连线挂到顶层祖先列的 handle（rootColumnId），节点展示/持久化用全限定名
  * - 使用 hasNode / addNode / addConstraintEdge 回调与外部状态交互
  */
 
@@ -42,6 +45,12 @@ import {
 } from '@/services/constraints/validationRegistry'
 import type { BuildInput } from '@/services/constraints/nodeDataBuilder'
 import { buildNodeData } from '@/services/constraints/nodeDataBuilder'
+import {
+  buildColumnRefResolver,
+  type ColumnRefNode,
+  type ResolvedColumnRef,
+} from '@/services/constraints/columnRefResolver'
+import { logger } from '@/core/utils/logger'
 interface EmbeddedConstraintItem {
   id?: string | number
   type?: string
@@ -80,7 +89,8 @@ export function materializeV2EmbeddedConstraints(params: {
   schemaNode: CustomNode
   schemaTableName: string
   embeddedConstraints: EmbeddedConstraintItem[]
-  colNameToId: Map<string, string>
+  /** 宿主 schema 的列树（V2 文件/AI spec/JsonSchema 节点列），用于精确解析列引用 */
+  columnTree: ColumnRefNode[]
   hasNode: (id: string) => boolean
   addNode: (node: CustomNode) => void
   addConstraintEdge: (tableId: string, constraintId: string, columnId: string) => void
@@ -89,25 +99,23 @@ export function materializeV2EmbeddedConstraints(params: {
     schemaNode,
     schemaTableName,
     embeddedConstraints,
-    colNameToId,
+    columnTree,
     hasNode,
     addNode,
     addConstraintEdge,
   } = params
 
-  // 宿主 schema 列索引：列 ID 规范下 then_column_id/if_column_id 即列 ID，直通不再走名称查找；
-  // colNameToId 仅保留给"列名简化写法"（column/from_column 等）与旧手写格式兜底
-  const schemaColumns =
-    (schemaNode.data as { columns?: Array<{ id: string; columnName: string }> } | undefined)
-      ?.columns || []
-  const schemaColumnIdSet = new Set(schemaColumns.map((c) => c.id))
-  const resolveColumnNameById = (columnId: string): string =>
-    schemaColumns.find((c) => c.id === columnId)?.columnName || ''
-  /** if/then 列引用解析：优先按列 ID 直通（现行格式），未知 ID 再按列名兜底（旧手写格式） */
+  // 名称字段严格解析：顶层裸名 / 嵌套「父.子」全限定路径（与后端 embedded_constraints 同约定）
+  const resolver = buildColumnRefResolver(columnTree)
+  /** 列 ID -> 全限定显示名（未知 ID 返回空串） */
+  const columnNameById = (columnId: string): string => resolver.byId(columnId)?.columnName ?? ''
+  /** 列 ID -> 顶层祖先列 id（连线 handle 用；顶层列即自身） */
+  const rootColumnIdOf = (columnId: string): string =>
+    resolver.byId(columnId)?.rootColumnId ?? columnId
+  /** if/then 列引用解析：ID 字段按列 ID 直查（不接受列名） */
   const resolveRefColumnId = (value: string): string => {
     if (!value) return ''
-    if (schemaColumnIdSet.has(value)) return value
-    return colNameToId.get(value) || ''
+    return resolver.byId(value)?.columnId ?? ''
   }
 
   embeddedConstraints.forEach((item: EmbeddedConstraintItem, idx: number) => {
@@ -122,9 +130,20 @@ export function materializeV2EmbeddedConstraints(params: {
     const basePos = { x: schemaNode.position.x + 420, y: schemaNode.position.y + idx * 160 }
     const kind = getConstraintKindByV2Type(item.type ?? '')
 
-    // 解析列 ID
-    const colName = item.column ? String(item.column) : ''
-    const colId = colName ? colNameToId.get(colName) : undefined
+    // 名称字段严格解析：顶层裸名 / 嵌套「父.子」全限定路径，不接受列 ID。
+    // Conditional 除外：其 column 字段承载 THEN 列 ID（保存契约），属 ID 语义，按 ID 直查
+    const isConditional = item.type === 'Conditional'
+    const colName = !isConditional && item.column ? String(item.column) : ''
+    const resolvedColumn: ResolvedColumnRef | undefined = colName
+      ? resolver.resolve(colName)
+      : undefined
+    if (colName && !resolvedColumn) {
+      // 与后端 embedded_constraints 同口径：解析不到视为配置错误，跳过该约束
+      logger.warn(
+        `[embeddedConstraints] 内嵌约束 ${id} 的列引用 "${colName}" 在 schema ${schemaNode.id} 中无法解析，已跳过（顶层列用裸名，嵌套子列用「父.子」路径）`
+      )
+      return
+    }
 
     // 构建 BuildInput
     let buildInput: BuildInput
@@ -135,8 +154,7 @@ export function materializeV2EmbeddedConstraints(params: {
       const itemParams = (item.params || {}) as Record<string, unknown>
       const itemRefs = (item.refs || itemParams) as Record<string, unknown>
       const ifLogic = String(itemRefs.if_logic || itemParams.if_logic || 'and')
-      // THEN 列：then_column_id 即列 ID，直通；旧格式（无 then_column_id）回退 base.column
-      // （旧保存侧写入的是列 ID，更旧的手写文件可能是列名，均由 resolveRefColumnId 兼容）
+      // THEN 列：then_column_id 即列 ID，按 ID 直查；旧格式（无 then_column_id）回退 base.column（同样按 ID 解析）
       const thenRaw = String(
         itemRefs.then_column_id || itemParams.then_column_id || item.column || ''
       )
@@ -154,7 +172,7 @@ export function materializeV2EmbeddedConstraints(params: {
           value: r?.value,
           values: r?.values as unknown[] | undefined,
           columnId: ifColId,
-          columnName: resolveColumnNameById(ifColId),
+          columnName: columnNameById(ifColId),
         }
       })
 
@@ -172,7 +190,7 @@ export function materializeV2EmbeddedConstraints(params: {
           ? {
               nodeId: schemaNode.id,
               columnId: thenColId,
-              columnName: resolveColumnNameById(thenColId),
+              columnName: columnNameById(thenColId),
             }
           : undefined,
         thenConditionConfig: itemParams.then_condition,
@@ -185,8 +203,15 @@ export function materializeV2EmbeddedConstraints(params: {
       // to_table 为跨表引用，物化入口无其他 schema 节点的访问能力——目标按名保留
       // （targetRef 置空、不建 FK 展示边），需要全量恢复时走独立导入路径（import/constraint.ts）
       const fromColName = item.from_column ? String(item.from_column) : ''
-      const fromColId =
-        colNameToId.get(fromColName) || (schemaColumnIdSet.has(fromColName) ? fromColName : '')
+      const fromResolved = fromColName ? resolver.resolve(fromColName) : undefined
+      if (fromColName && !fromResolved) {
+        // 名称字段严格解析：解析不到视为配置错误，跳过该约束（与后端同口径）
+        logger.warn(
+          `[embeddedConstraints] 内嵌 FK 约束 ${id} 的列引用 "${fromColName}" 在 schema ${schemaNode.id} 中无法解析，已跳过`
+        )
+        return
+      }
+      const fromColId = fromResolved?.columnId ?? ''
       const toTableName = item.to_table ? String(item.to_table) : ''
       const toColName = item.to_column ? String(item.to_column) : ''
 
@@ -199,7 +224,11 @@ export function materializeV2EmbeddedConstraints(params: {
         nodeType,
         embedded: true,
         fkRefs: {
-          source: { nodeId: schemaNode.id, columnId: fromColId, columnName: fromColName },
+          source: {
+            nodeId: schemaNode.id,
+            columnId: fromColId,
+            columnName: fromResolved?.columnName ?? fromColName,
+          },
           target: { nodeId: '', columnId: '', columnName: toColName },
         },
         // builder 从 refs.to_table_name 取目标表显示名
@@ -217,8 +246,12 @@ export function materializeV2EmbeddedConstraints(params: {
         nodeId: id,
         nodeType,
         embedded: true,
-        columnRef: colId
-          ? { nodeId: schemaNode.id, columnId: colId, columnName: colName }
+        columnRef: resolvedColumn
+          ? {
+              nodeId: schemaNode.id,
+              columnId: resolvedColumn.columnId,
+              columnName: resolvedColumn.columnName,
+            }
           : undefined,
         params: item.params as Record<string, unknown> | undefined,
       }
@@ -251,10 +284,10 @@ export function materializeV2EmbeddedConstraints(params: {
       data: result.nodeData as unknown as CustomNode['data'],
     })
 
-    // 创建边
+    // 创建边（嵌套子列约束挂到顶层祖先列的 handle）
     for (const desc of result.edgeDescriptors) {
       if (desc.kind === 'constraint' || desc.kind === 'if') {
-        addConstraintEdge(desc.sourceNodeId, desc.targetNodeId, desc.columnId)
+        addConstraintEdge(desc.sourceNodeId, desc.targetNodeId, rootColumnIdOf(desc.columnId))
       }
     }
   })

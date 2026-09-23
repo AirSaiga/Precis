@@ -105,10 +105,13 @@ def _resolve_id_from_name(
 
     仅返回第一个匹配项，用于自动化流程中的名称到 ID 解析。
 
+    列引用解析约定(与内嵌约束收集一致,严格精确匹配,无任何兜底):
+    顶层列用裸名,嵌套子列用「父.子」点分路径;不接受列 ID。
+
     参数:
         workspace_path: 工作区路径
         table_name: 表名或表 ID
-        column_name: 列名或列 ID（可选）
+        column_name: 列引用(可选): 顶层列名 / 嵌套全限定路径
 
     返回:
         元组 (table_id, column_id)，如果未找到则返回 (None, None)
@@ -121,7 +124,7 @@ def _resolve_id_from_name(
     table_id = matches[0]["id"]
     column_id = None
 
-    # 如果有列名，需要进一步匹配列 ID
+    # 如果有列引用，按「全限定名精确匹配 -> 列 ID 兜底」解析
     if column_name:
         schemas_dir = Path(workspace_path) / "schemas"
         for schema_file in schemas_dir.glob("*.yaml"):
@@ -129,13 +132,36 @@ def _resolve_id_from_name(
                 with open(schema_file, encoding="utf-8") as f:
                     data = yaml.safe_load(f) or {}
                 if data.get("id") == table_id:
-                    for col in data.get("columns", []):
-                        if col.get("name") == column_name or col.get("id") == column_name:
-                            column_id = col.get("id")
-                            break
+                    column_id = _resolve_column_ref(data.get("columns", []), column_name)
                     break
             except Exception:
                 logger.warning(f"解析 Schema 文件失败: {schema_file}", exc_info=True)
                 continue
 
     return table_id, column_id
+
+
+def _resolve_column_ref(columns: list[dict], ref: str) -> str | None:
+    """按列引用精确解析列 ID:仅接受顶层裸名 / 嵌套「父.子」全限定路径,无任何兜底。
+
+    :param columns: schema 文件的顶层列定义列表(原始 dict)
+    :param ref: 列引用字符串
+    :return: 匹配的列 ID,未找到返回 None
+    """
+    name_to_id: dict[str, str] = {}
+
+    def walk(cols: list[dict], parent_path: str) -> None:
+        prefix = f"{parent_path}." if parent_path else ""
+        for col in cols:
+            name = col.get("name")
+            col_id = col.get("id")
+            if name and col_id:
+                key = f"{prefix}{name}"
+                if key not in name_to_id:
+                    name_to_id[key] = col_id
+            children = col.get("children")
+            if children:
+                walk(children, f"{prefix}{name}" if name else parent_path)
+
+    walk(columns or [], "")
+    return name_to_id.get(ref)
