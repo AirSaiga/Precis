@@ -306,6 +306,9 @@ export function useGenerationJob(
     lastElapsedMs.value = null
     elapsedNow.value = Date.now()
     iterations.value = 0
+    // SSE 模式下结果面板的“已优化 X/Y 轮”读此 ref，须与滑杆 options.max_iterations 同步
+    // （旧轮询路径才由 job status 回填，SSE 模式无人更新，会停留在初始值 2）
+    maxIterations.value = options.value.max_iterations
     metrics.value = undefined
     currentPlan.value = undefined
     stopElapsed()
