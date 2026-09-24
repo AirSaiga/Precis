@@ -42,6 +42,10 @@ class ReadProjectArgs(_ToolArgsBase):
     """read_project 无参数（空模型仍可拦截"传了非 dict 入参"的极端情况）。"""
 
 
+class ListDataFilesArgs(_ToolArgsBase):
+    """list_data_files 无参数（扫描范围固定为当前项目目录）。"""
+
+
 class ReadTableArgs(_ToolArgsBase):
     """read_table 入参：table_name 必填，sample_rows 可选。"""
 
@@ -97,6 +101,7 @@ class AskUserArgs(_ToolArgsBase):
 # 未在此注册的工具（如未来新工具）保持原透传行为，向后兼容。
 MODEL_FOR_TOOL: dict[str, type[_ToolArgsBase]] = {
     "read_project": ReadProjectArgs,
+    "list_data_files": ListDataFilesArgs,
     "read_table": ReadTableArgs,
     "read_canvas": ReadCanvasArgs,
     "validate_table": ValidateTableArgs,

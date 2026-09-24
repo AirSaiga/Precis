@@ -91,7 +91,7 @@ class AskUserTool:
             "function": {
                 "name": self.NAME,
                 "description": (
-                    "向用户提问以获取澄清、消歧或缺失信息。仅当无法通过 read_project/read_table/read_canvas "
+                    "向用户提问以获取澄清、消歧或缺失信息。仅当无法通过 read_project/list_data_files/read_table/read_canvas "
                     "自行获取信息、或存在多方案需要用户抉择时调用。能自己查到的不要问。"
                     "返回用户的回答或 skipped=true（用户跳过/超时/环境不支持）。"
                 ),

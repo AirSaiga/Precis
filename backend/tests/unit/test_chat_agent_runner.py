@@ -334,8 +334,10 @@ def test_registry_includes_ask_user_tool():
 
     # ask_user 已注册
     assert "ask_user" in names
-    # 共 6 个工具：read_project/read_table/apply_actions/validate_table/read_canvas/ask_user
-    assert len(definitions) == 6
+    # list_data_files 已注册（数据文件发现）
+    assert "list_data_files" in names
+    # 共 7 个工具：read_project/list_data_files/read_table/apply_actions/validate_table/read_canvas/ask_user
+    assert len(definitions) == 7
 
 
 # =============================================================================

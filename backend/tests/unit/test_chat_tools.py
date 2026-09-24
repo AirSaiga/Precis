@@ -15,8 +15,9 @@
 # limitations under the License.
 """@fileoverview Chat mini-agent 工具单元测试
 
-覆盖 5 个 chat 工具的边界行为：
+覆盖 6 个 chat 工具的边界行为：
 - ReadProjectTool: 项目概览读取
+- ListDataFilesTool: 项目目录数据文件发现（含注册状态标注与截断）
 - ReadTableTool: 表数据采样
 - ApplyActionsTool: 动作执行 + frontend_instructions 旁路累积
 - ValidateTableTool: 数据校验
@@ -37,6 +38,7 @@ import pytest
 
 from app.shared.services.ai.agent.chat_tools import (
     ApplyActionsTool,
+    ListDataFilesTool,
     ReadCanvasTool,
     ReadProjectTool,
     ReadTableTool,
@@ -180,6 +182,112 @@ async def test_read_project_small_project_not_truncated():
     assert ov["truncated_schema_count"] == 0
     assert ov["truncated_constraint_count"] == 0
     assert ov["truncated_column_count"] == 0
+
+
+# =============================================================================
+# ListDataFilesTool 测试（真实 tmp_path 目录树，无 mock——扫描本身就是要测的 IO 行为）
+# =============================================================================
+
+
+def _make_project_tree(tmp_path):
+    """构造带数据文件与配置目录的项目树，返回项目根 Path。
+
+    布局：
+      root/订单明细.csv            未注册（agent 应发现的候选）
+      root/员工信息.xlsx           未注册
+      root/data/访问记录.json      未注册（标准数据子目录）
+      root/schemas/users.schema.yaml  已注册 users 表的 schema（source 指向 data/users.csv）
+      root/data/users.csv          已被 schemas/users.schema.yaml 注册
+      root/notes.txt               非数据扩展名，应被忽略
+      root/.precis/config.json     排除目录内，应被忽略
+    """
+    import yaml
+
+    root = tmp_path / "proj"
+    (root / "data").mkdir(parents=True)
+    (root / "schemas").mkdir()
+    (root / ".precis").mkdir()
+
+    (root / "订单明细.csv").write_text("a,b\n1,2\n", encoding="utf-8")
+    (root / "员工信息.xlsx").write_bytes(b"fake-xlsx")
+    (root / "data" / "访问记录.json").write_text("[]", encoding="utf-8")
+    (root / "data" / "users.csv").write_text("email\na@b.com\n", encoding="utf-8")
+    (root / "notes.txt").write_text("not data", encoding="utf-8")
+    (root / ".precis" / "config.json").write_text("{}", encoding="utf-8")
+    (root / "schemas" / "users.schema.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "version": 2,
+                "id": "users",
+                "name": "用户表",
+                "source": {"mode": "relative_file", "path": "data/users.csv"},
+                "columns": [{"id": "email", "name": "email", "type": "string"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    return root
+
+
+@pytest.mark.asyncio
+async def test_list_data_files_discovers_unregistered_files(tmp_path):
+    """根目录/数据子目录的数据文件被发现，非数据扩展名与排除目录被忽略。"""
+    root = _make_project_tree(tmp_path)
+    tool = ListDataFilesTool(project_path=str(root))
+    result = await tool.run({})
+
+    assert result["success"] is True
+    paths = {f["path"] for f in result["data_files"]}
+    # 白名单扩展名的文件全部发现（含中文文件名、data/ 子目录）
+    assert paths == {"订单明细.csv", "员工信息.xlsx", "data/访问记录.json", "data/users.csv"}
+    # 非数据扩展名与排除目录（.precis）不出现
+    assert "notes.txt" not in paths
+    assert not any(p.startswith(".precis") for p in paths)
+
+
+@pytest.mark.asyncio
+async def test_list_data_files_marks_registered_and_sorts(tmp_path):
+    """被 schema source.path 引用的文件标 registered + registered_by，未注册排前面。"""
+    root = _make_project_tree(tmp_path)
+    tool = ListDataFilesTool(project_path=str(root))
+    result = await tool.run({})
+
+    files = {f["path"]: f for f in result["data_files"]}
+    assert files["data/users.csv"]["registered"] is True
+    assert files["data/users.csv"]["registered_by"] == "用户表"
+    assert files["订单明细.csv"]["registered"] is False
+    assert result["unregistered_count"] == 3
+
+    # 未注册的排前面（待初始化候选优先）
+    assert result["data_files"][0]["registered"] is False
+
+
+@pytest.mark.asyncio
+async def test_list_data_files_no_project_path():
+    """无项目路径时返回失败。"""
+    tool = ListDataFilesTool(project_path="")
+    result = await tool.run({})
+
+    assert result["success"] is False
+    assert "未配置" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_list_data_files_truncates_large_directory(tmp_path):
+    """文件数超上限时只返回前 N 个 + truncated_count，不静默丢弃规模信息。"""
+    from app.shared.services.ai.agent.chat_tools import list_data_files as ldf_module
+
+    root = tmp_path / "many"
+    root.mkdir()
+    for i in range(ldf_module._MAX_FILES + 10):
+        (root / f"t{i}.csv").write_text("a\n1\n", encoding="utf-8")
+
+    tool = ListDataFilesTool(project_path=str(root))
+    result = await tool.run({})
+
+    assert result["success"] is True
+    assert len(result["data_files"]) == ldf_module._MAX_FILES
+    assert result["truncated_count"] == 10
 
 
 # =============================================================================

@@ -15,8 +15,10 @@
 # limitations under the License.
 """Chat mini-agent 专用工具模块
 
-6 个工具构成"查-改-验"核心闭环：
+7 个工具构成"查-改-验"核心闭环：
 - ReadProjectTool:    读取项目概览(查)
+- ListDataFilesTool:  扫描项目目录发现数据文件(查)——read_project 只读已注册
+    配置，本工具补"空项目 + 目录下有裸数据文件"的发现缺口
 - ReadTableTool:      读取表数据样本(查)
 - ApplyActionsTool:   执行配置修改(改)
 - ValidateTableTool:  执行数据校验(验)
@@ -32,6 +34,7 @@
 
 from app.shared.services.ai.agent.chat_tools.apply_actions import ApplyActionsTool
 from app.shared.services.ai.agent.chat_tools.ask_user import AskUserTool
+from app.shared.services.ai.agent.chat_tools.list_data_files import ListDataFilesTool
 from app.shared.services.ai.agent.chat_tools.read_canvas import ReadCanvasTool
 from app.shared.services.ai.agent.chat_tools.read_project import ReadProjectTool
 from app.shared.services.ai.agent.chat_tools.read_table import ReadTableTool
@@ -40,6 +43,7 @@ from app.shared.services.ai.agent.chat_tools.validate_table import ValidateTable
 __all__ = [
     "ApplyActionsTool",
     "AskUserTool",
+    "ListDataFilesTool",
     "ReadCanvasTool",
     "ReadProjectTool",
     "ReadTableTool",

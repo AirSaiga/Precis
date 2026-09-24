@@ -19,7 +19,7 @@ Chat mini-agent 的编排器。在 agent_mode=true 时，
 让 Chat 路径真正跑起 plan→act→observe 工具循环。
 
 核心职责:
-- 组装 5 个 chat 专用工具(read_project/read_table/apply_actions/validate_table/read_canvas)
+- 组装 7 个 chat 专用工具(read_project/list_data_files/read_table/apply_actions/validate_table/read_canvas/ask_user)
 - 构建 chat agent 系统提示词
 - 调用 AgentExecutor 跑工具循环
 - 从循环结果提取 reply + 旁路收集的 frontend_instructions
@@ -41,6 +41,7 @@ from typing import Any
 from app.shared.services.ai.agent.chat_tools import (
     ApplyActionsTool,
     AskUserTool,
+    ListDataFilesTool,
     ReadCanvasTool,
     ReadProjectTool,
     ReadTableTool,
@@ -71,20 +72,30 @@ _READ_ONLY_LABEL_TYPES = READ_ONLY_ACTION_TYPES
 # 系统提示词
 # =============================================================================
 
-# 工具使用指引：定义 LLM 如何使用 5 个工具完成查-改-验闭环
+# 工具使用指引：定义 LLM 如何使用 7 个工具完成查-改-验闭环
 _CHAT_AGENT_TOOL_GUIDE = """## 工具使用指引
 
-你有以下 5 个工具可用。请根据用户需求自主决定调用顺序和次数：
+你有以下 7 个工具可用。请根据用户需求自主决定调用顺序和次数：
 
 ### 1. read_project（查询，无参数）
 读取当前项目的完整概览：所有表结构、约束、转换、正则节点、设置。
 **使用时机**：用户询问"有哪些表"、"某表有哪些约束"、"当前配置"等查询类问题时，先调用此工具。
 
-### 2. read_table（查询，参数: table_name, sample_rows?）
+### 2. list_data_files（查询，无参数）
+扫描项目目录，列出磁盘上所有数据文件（CSV/Excel/JSON 等），并标注每个文件
+是否已被 schema 注册（registered/registered_by）。
+**使用时机**：用户说"根据目录下的文件/表初始化项目或校验配置"、"分析文件夹里的数据"，
+或 read_project 显示项目为空但用户提到了数据文件时，先调用此工具发现文件，
+再为未注册（registered=false）的文件创建 schema（ADD_SCHEMA 的 source.path
+用返回的 path 值）。
+**与 read_project 的关键区别**：read_project 只读已注册到 manifest 的配置；
+list_data_files 看的是磁盘上实际存在的文件——包括还没注册进项目的。
+
+### 3. read_table（查询，参数: table_name, sample_rows?）
 读取指定表的数据样本（前 N 行）和列结构。
 **使用时机**：需要为某列设计约束（如 Range/AllowedValues）时，先看真实数据分布再决定参数。
 
-### 3. apply_actions（修改，参数: actions）
+### 4. apply_actions（修改，参数: actions）
 执行配置修改动作。actions 是动作列表，每个动作含 actionType 和对应 spec。
 **使用时机**：用户明确要求添加/修改/删除约束、表结构、正则、转换或设置时。
 **关键区分**：
@@ -94,11 +105,11 @@ _CHAT_AGENT_TOOL_GUIDE = """## 工具使用指引
   和 resourceId/resourceName）。ADD_TO_CANVAS 不写盘，只把现有配置显示到画布。
 **注意**：纯查询类问题绝不调用此工具。
 
-### 4. validate_table（校验，参数: table_name?）
+### 5. validate_table（校验，参数: table_name?）
 执行数据校验，返回错误数量和列表。不传 table_name 校验所有表。
 **使用时机**：用户要求"校验项目/表"，或在 apply_actions 后想验证改动效果。
 
-### 5. read_canvas（查询，无参数）
+### 6. read_canvas（查询，无参数）
 读取当前**画布上实际显示**的节点列表（Schema、约束、正则、转换等），含各类数量摘要。
 **与 read_project 的关键区别**：read_project 读项目配置文件，read_canvas 读画布快照——
 项目配置里有的表/约束不一定已拖到画布上，两者会不一致。
@@ -120,6 +131,12 @@ _CHAT_AGENT_TOOL_GUIDE = """## 工具使用指引
    - 若画布上没有但配置里有（read_project 确认）→ apply_actions 用 **ADD_TO_CANVAS** 显示
    - 若配置里也没有 → 用 ADD_SCHEMA 等先创建
    - 不要用 read_project 推断画布内容
+5. **初始化类问题**（如"根据目录下的文件初始化校验配置"、"分析文件夹里的数据"）：
+   - 先 list_data_files 发现磁盘上的数据文件（未注册的 registered=false）
+   - 为未注册文件逐个 ADD_SCHEMA（source.path 用返回的 path），列结构按数据文件
+     实际内容设计；创建后可用 read_table 查看真实数据
+   - 再按用户需求设计约束（可先 read_table 看数据分布）
+   - 注意逐批确认规模：文件很多时先列出清单向用户确认范围，不要一次倾倒全部
 
 ## 终止条件
 
@@ -147,6 +164,7 @@ ask_user 用于获取无法自行查到的信息或让用户做决策。**能自
 
 不该问的情况：
 - 能通过 read_project 查到的表/列信息
+- 能通过 list_data_files 查到的项目目录数据文件清单
 - 能通过 read_table 推断的数据特征
 - 答案在 context.selectedNodes 或 canvas 已有信息里
 
@@ -381,7 +399,7 @@ class ChatAgentRunner:
         """
         @methoddesc 创建并注册 chat 工具集
 
-        6 个工具：read_project/read_table/apply_actions/validate_table 注入 project_path，
+        7 个工具：read_project/list_data_files/read_table/apply_actions/validate_table 注入 project_path，
         read_canvas 注入画布节点快照，ask_user 注入交互回调（仅流式路径启用）。
         apply_actions 额外注入 collected_instructions 共享引用 + 当前用户消息（用于意图范围校验）。
         """
@@ -392,6 +410,11 @@ class ChatAgentRunner:
             ReadProjectTool(project_path=self.project_path),
             read_only=True,
             args_model=MODEL_FOR_TOOL.get(ReadProjectTool.NAME),
+        )
+        registry.register_tool(
+            ListDataFilesTool(project_path=self.project_path),
+            read_only=True,
+            args_model=MODEL_FOR_TOOL.get(ListDataFilesTool.NAME),
         )
         registry.register_tool(
             ReadTableTool(project_path=self.project_path),
@@ -445,6 +468,7 @@ class ChatAgentRunner:
     # 工具名到人类可读标签的映射，用于前端展示轨迹
     _TOOL_LABELS = {
         ReadProjectTool.NAME: "读取项目",
+        ListDataFilesTool.NAME: "发现数据文件",
         ReadTableTool.NAME: "查看数据",
         ApplyActionsTool.NAME: "修改配置",
         ValidateTableTool.NAME: "校验数据",
