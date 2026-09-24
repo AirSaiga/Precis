@@ -257,6 +257,7 @@ SYSTEM_PROMPT_JSON_FORMAT = """
 - **只有当用户明确要求"内联约束"、"存在表配置里"时**，才设置 `isInline: true`
 - 如果用户说"删除 XXX 约束"，请使用 DELETE_CONSTRAINT_NODE，且 `isInline` 必须与该约束的实际存储形态一致（内联约束 → true，独立约束 → false）
 - 必须确保 `tableName` 和 `targetColumn` 准确无误
+- **同批动作按当前磁盘状态校验**：修改 Schema 结构（建表/补列）与依赖该结构的约束动作不要放在同一次 actions 里——校验时结构变更尚未生效，约束会整批被"字段不存在"拒绝。先只提交结构变更，成功后再提交约束
 
 ## 内联约束 vs 独立约束
 - **独立约束** (`isInline: false`): 默认选项，生成单独的 .constraint.yaml 文件，适合复杂规则或需要复用的约束

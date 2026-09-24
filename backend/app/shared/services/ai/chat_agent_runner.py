@@ -104,6 +104,10 @@ list_data_files 看的是磁盘上实际存在的文件——包括还没注册�
   （actionType=ADD_TO_CANVAS，spec 含 resourceKind: schema/regex/constraint/transform
   和 resourceId/resourceName）。ADD_TO_CANVAS 不写盘，只把现有配置显示到画布。
 **注意**：纯查询类问题绝不调用此工具。
+**批次依赖（重要）**：预验证按**当前磁盘状态**逐条校验动作，不会模拟同批次
+先序动作的效果。因此"补 schema 列/建表"与"依赖该列的约束"必须**分两批提交**：
+第一批只写结构，执行成功后再提交第二批挂约束——混在一批会被整批以
+"字段不存在"拒绝。
 
 ### 5. validate_table（校验，参数: table_name?）
 执行数据校验，返回错误数量和列表。不传 table_name 校验所有表。
@@ -136,7 +140,9 @@ list_data_files 看的是磁盘上实际存在的文件——包括还没注册�
    - 为未注册文件逐个 ADD_SCHEMA（schemaSpec 给 name + source.path 用返回的 path），
      **columns 可省略**——系统会自动从数据文件推断列并写入 schema；需要覆盖推断
      时才显式给 columns。建表后可用 read_table 查看真实数据分布
-   - 再按用户需求设计约束（可先 read_table 看数据分布）
+   - 再按用户需求设计约束（可先 read_table 看数据分布）；**schema 结构变更与
+     约束添加分两批 apply_actions 提交**（见 apply_actions 的批次依赖说明），
+     不要混在一个批次里
    - 注意逐批确认规模：文件很多时先列出清单向用户确认范围，不要一次倾倒全部
 
 ## 终止条件
