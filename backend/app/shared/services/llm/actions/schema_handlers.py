@@ -39,11 +39,43 @@ from app.shared.core.project.manifest.reader import load_manifest
 from app.shared.core.project.manifest.writer import ensure_schema_ref, save_manifest
 from app.shared.core.project.schema_ref_check import find_schema_references, format_reference_report
 from app.shared.services.llm.yaml_io import FileLock, atomic_write_yaml
+from app.shared.services.schema_inference import infer_schema
 
 logger = logging.getLogger(__name__)
 
 # 数据类型白名单从注册表派生（单一事实源）
 from app.shared.services.llm.actions.registry import DATA_TYPES as VALID_DATA_TYPES
+
+
+def _infer_columns_from_source(source: dict[str, Any], workspace_path: str) -> tuple[list[dict[str, Any]] | None, str]:
+    """从 source.path 指向的数据文件推断列定义。
+
+    LLM 建 schema 常只给表名 + 文件路径（省略 columns），落盘空壳会让后续
+    约束动作全部挂在"字段不存在"预验证上。此兜底复用 schema_inference 的
+    头部采样推断，让"发现文件 → 建表 → 挂约束"的初始化工作流闭环。
+
+    :param source: schema 的 source 配置（含相对项目根的 path）
+    :param workspace_path: 项目根路径
+    :return: (columns, message)。成功时 columns 非空、message 描述推断结果；
+        失败时 columns 为 None、message 携带给 LLM 的修正指引。
+    """
+    rel = str(source.get("path") or "")
+    if not rel:
+        return None, "source.path 为空，无法从数据文件推断列"
+    # 纵深防御：调用方已前置穿越校验，此处再独立拒绝绝对路径/..（防新增调用点漏检）
+    if os.path.isabs(rel) or ".." in rel:
+        return None, f"source.path 不允许绝对路径或目录穿越: {rel}"
+    data_file = Path(workspace_path) / rel
+    if not data_file.is_file():
+        return None, f"source.path 指向的数据文件不存在: {rel}（请用相对项目根的路径，可用 list_data_files 工具确认）"
+    try:
+        draft = infer_schema(data_file, table_id="_infer", table_name="_infer", source_path=rel)
+    except Exception as e:
+        return None, f"从数据文件推断列失败（{rel}）: {e}"
+    cols = draft.get("columns") or []
+    if not cols:
+        return None, f"数据文件无表头或无数据行，无法推断列: {rel}"
+    return cols, f"columns 已从数据文件自动推断（{len(cols)} 列，源自 {rel}）"
 
 
 def _sanitize_resource_id(resource_id: str) -> str:
@@ -96,6 +128,24 @@ def _add_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
     if not schema_name:
         return {"success": False, "message": "Schema 名称不能为空"}
 
+    # source.path 安全校验前置——必须先于列推断（推断要按此路径读文件，
+    # 绝对路径/穿越若晚于此检查会先被推断逻辑当合法路径碰到）
+    if isinstance(source, dict):
+        source_path = str(source.get("path") or "")
+        if source_path and (".." in source_path or os.path.isabs(source_path)):
+            return {"success": False, "message": f"source.path 不允许绝对路径或目录穿越: {source_path}"}
+
+    # 列为空但给了 source.path：从数据文件推断兜底。LLM 常只给表名+路径，
+    # 空壳 schema 会让后续约束动作全部挂在"字段不存在"预验证上；文件读不了
+    # 则直接失败并把修正指引回灌给 LLM（静默建空壳等于把坑留给下一轮）
+    inferred_note = ""
+    if not columns and isinstance(source, dict) and source.get("path"):
+        inferred, note = _infer_columns_from_source(source, workspace_path)
+        if inferred is None:
+            return {"success": False, "message": note}
+        columns = inferred
+        inferred_note = f"；{note}"
+
     workspace = Path(workspace_path)
     schemas_dir = workspace / "schemas"
     schemas_dir.mkdir(parents=True, exist_ok=True)
@@ -138,9 +188,6 @@ def _add_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
     }
 
     if source:
-        source_path = source.get("path", "")
-        if source_path and (".." in source_path or os.path.isabs(source_path)):
-            return {"success": False, "message": f"source.path 不允许绝对路径或目录穿越: {source_path}"}
         schema_data["source"] = source
     try:
         with FileLock(str(schema_file)):
@@ -160,7 +207,7 @@ def _add_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
         return {"success": False, "message": f"更新 manifest 引用失败: {e}"}
 
     logger.info(f"[SchemaHandler] 创建 Schema: {schema_id}")
-    return {"success": True, "message": schema_id}
+    return {"success": True, "message": f"{schema_id}{inferred_note}"}
 
 
 def _update_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
@@ -184,6 +231,28 @@ def _update_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
         with FileLock(str(schema_file)):
             with open(schema_file, encoding="utf-8") as f:
                 schema_data = yaml.safe_load(f) or {}
+
+            # source 安全校验前置（原在末尾）：列推断要按 source.path 读文件，
+            # 穿越/绝对路径必须先于此被拒绝
+            if isinstance(source, dict):
+                source_path = str(source.get("path") or "")
+                if source_path and (".." in source_path or os.path.isabs(source_path)):
+                    return {"success": False, "message": "source.path 不允许绝对路径或目录穿越"}
+
+            # 空壳 schema 修复：未传 columns 但现有列为空且 source 有效（传入的
+            # 或文件里已有的）→ 从数据文件推断回填。推断失败不阻断本次更新
+            # （UPDATE 可能只想改 source；空壳维持原状由其他链路报告）
+            effective_source = source if isinstance(source, dict) else schema_data.get("source")
+            if (
+                columns is None
+                and not schema_data.get("columns")
+                and isinstance(effective_source, dict)
+                and effective_source.get("path")
+            ):
+                inferred, note = _infer_columns_from_source(effective_source, workspace_path)
+                if inferred is not None:
+                    schema_data["columns"] = inferred
+                    logger.info(f"[SchemaHandler] UPDATE_SCHEMA 回填空壳列: {note}")
 
             # 更新列定义
             if columns is not None:
@@ -215,11 +284,8 @@ def _update_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
                         updated_cols.append(col)
                 schema_data["columns"] = updated_cols
 
-            # 更新数据源
+            # 更新数据源（安全校验已前置）
             if source is not None:
-                source_path = source.get("path", "")
-                if source_path and (".." in source_path or os.path.isabs(source_path)):
-                    return {"success": False, "message": "source.path 不允许绝对路径或目录穿越"}
                 schema_data["source"] = source
 
             # §2.10: UPDATE 显式整体替换语义——preserve_format 默认 True 的递归合并

@@ -190,7 +190,19 @@ def _read_head(data_file: Path, sample_rows: int) -> pd.DataFrame:
     suffix = data_file.suffix.lower()
     try:
         if suffix in _CSV_EXTS:
-            return pd.read_csv(data_file, dtype=str, nrows=sample_rows, keep_default_na=True)
+            # 编码回退对齐主加载链路（csv_loader._resolve_encoding：utf-8 → gbk →
+            # latin1）。中文 Windows 导出的 CSV 常为 GBK，硬编码 utf-8 会直接
+            # UnicodeDecodeError，让推断链路（MCP/CLI infer_schema、ADD_SCHEMA
+            # 列推断兜底）对这类文件完全失效
+            last_err: UnicodeDecodeError | None = None
+            for encoding in ("utf-8", "gbk", "latin1"):
+                try:
+                    return pd.read_csv(data_file, dtype=str, nrows=sample_rows, keep_default_na=True, encoding=encoding)
+                except UnicodeDecodeError as e:
+                    last_err = e
+                    continue
+            assert last_err is not None
+            raise last_err
         if suffix in _EXCEL_EXTS:
             # 2026-09-21：Excel 走 nrows 头部截断（此前整体读入后取头部，
             # 大文件在推断场景被全量物化——MCP infer_schema 可被任意数据文件触发）

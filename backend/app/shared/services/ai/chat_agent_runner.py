@@ -133,8 +133,9 @@ list_data_files 看的是磁盘上实际存在的文件——包括还没注册�
    - 不要用 read_project 推断画布内容
 5. **初始化类问题**（如"根据目录下的文件初始化校验配置"、"分析文件夹里的数据"）：
    - 先 list_data_files 发现磁盘上的数据文件（未注册的 registered=false）
-   - 为未注册文件逐个 ADD_SCHEMA（source.path 用返回的 path），列结构按数据文件
-     实际内容设计；创建后可用 read_table 查看真实数据
+   - 为未注册文件逐个 ADD_SCHEMA（schemaSpec 给 name + source.path 用返回的 path），
+     **columns 可省略**——系统会自动从数据文件推断列并写入 schema；需要覆盖推断
+     时才显式给 columns。建表后可用 read_table 查看真实数据分布
    - 再按用户需求设计约束（可先 read_table 看数据分布）
    - 注意逐批确认规模：文件很多时先列出清单向用户确认范围，不要一次倾倒全部
 

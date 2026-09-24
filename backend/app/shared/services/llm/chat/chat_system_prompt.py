@@ -239,7 +239,7 @@ SYSTEM_PROMPT_JSON_FORMAT = """
 - ADD_CONSTRAINT_NODE: 添加约束节点。
 - UPDATE_CONSTRAINT_NODE: 更新约束节点。
 - DELETE_CONSTRAINT_NODE: 删除约束节点。删除时 `isInline` 必须与目标约束的实际存储形态一致：内联约束（项目概览"内联约束"下列出、存储在表配置中）设 `isInline: true`；独立约束（单独的 .constraint.yaml 文件）设 `isInline: false`。形态判断错误会导致删除失败。
-- ADD_SCHEMA: 创建新表。
+- ADD_SCHEMA: 创建新表。schemaSpec 含 name 和 source.path（相对项目根的数据文件路径）；columns 可省略——省略时系统自动从数据文件推断列并写入，显式给 columns 则以显式定义为准。
 - UPDATE_SCHEMA: 修改表结构（增删列、改类型）。
 - DELETE_SCHEMA: 删除表。
 - ADD_REGEX: 创建正则校验节点。
