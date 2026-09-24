@@ -36,6 +36,12 @@ const projectManagement = {
   closeProject: '关闭项目',
   closeWithUnsavedChanges: '关闭项目（未保存更改）',
   loadFailed: '加载项目失败',
+  smartCreate: {
+    title: '该目录还不是 Precis 项目',
+    message: '目录 {path} 缺少 project.precis.yaml 项目清单。\n是否在此目录新建项目「{name}」？',
+    confirm: '在此新建',
+    cancel: '取消',
+  },
   confirmClose: {
     title: '确认关闭',
     message: '当前项目有未保存的更改，确定要关闭吗？',

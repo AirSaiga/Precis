@@ -28,6 +28,12 @@ export interface CreateProjectResponse {
   path: string
 }
 
+export interface CheckProjectResponse {
+  path: string
+  dir_exists: boolean
+  is_project: boolean
+}
+
 export interface CurrentProjectResponse {
   has_current: boolean
   path?: string
@@ -36,6 +42,19 @@ export interface CurrentProjectResponse {
 
 export async function createProject(path: string, name: string): Promise<CreateProjectResponse> {
   const { data } = await apiClient.post<CreateProjectResponse>('/projects/create', { path, name })
+  return data
+}
+
+/**
+ * 只读探测目录是否为 Precis 项目根（GET /projects/check）。
+ *
+ * 端点设计为**永不 404**——空目录/不存在的目录都用布尔字段表达，供智能打开
+ * （useSmartProjectOpen）预判，避免探测请求在浏览器控制台留下 404 红字。
+ */
+export async function checkProject(path: string): Promise<CheckProjectResponse> {
+  const { data } = await apiClient.get<CheckProjectResponse>('/projects/check', {
+    params: { path },
+  })
   return data
 }
 

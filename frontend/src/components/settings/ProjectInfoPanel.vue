@@ -162,11 +162,13 @@ limitations under the License.
   import { getV2Manifest, putV2Manifest } from '@/api/projectV2Api'
   import { dialogApi } from '@/core/capabilities/dialogApi'
   import { appApi } from '@/core/capabilities/appApi'
+  import { deriveProjectName, useSmartProjectOpen } from '@/composables/useSmartProjectOpen'
   const { t } = useI18n()
   const projectStore = useProjectStore()
   const graphStore = useGraphStore()
   const resourceTreeStore = useResourceTreeStore()
   const workspaceStore = useWorkspaceStore()
+  const { probeAndMaybeCreate } = useSmartProjectOpen()
   const { success, warning } = useToast()
 
   // Web 环境无法弹出目录选择对话框（dialogApi.canSelectDirectory=false），
@@ -327,6 +329,17 @@ limitations under the License.
       const currentConfigPath = projectStore.currentPaths?.configPath
       const pathsChanged = configPath !== currentConfigPath
       const wasActive = projectStore.isProjectActive
+
+      // 打开项目智能化：指向缺 manifest 的新目录时引导就地新建（后端落盘脚手架），
+      // 而非 404 死胡同。取消/失败零副作用（探测发生在写入任何状态之前）；
+      // 新建成功后磁盘已有 manifest，与 'exists' 一样继续下方常规加载。
+      if (pathsChanged || !wasActive) {
+        const createName = localProjectName.value.trim() || deriveProjectName(configPath)
+        const outcome = await probeAndMaybeCreate(configPath, createName)
+        if (outcome === 'cancelled' || outcome === 'error') {
+          return
+        }
+      }
 
       await appApi.saveRecentProject({ configPath, dataPath: configPath })
       projectStore.setProjectPaths({ configPath, dataPath: configPath })

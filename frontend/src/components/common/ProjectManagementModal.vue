@@ -209,6 +209,7 @@ limitations under the License.
   import { useCanvasStore } from '@/stores/canvasStore'
   import { useWorkspaceStore } from '@/stores/workspaceStore'
   import { projectStorageService, type ProjectInfo } from '@/services/projectStorage'
+  import { deriveProjectName, useSmartProjectOpen } from '@/composables/useSmartProjectOpen'
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import { useProjectReload } from '@/composables/useProjectReload'
   import { eventBus } from '@/core/eventBus'
@@ -231,6 +232,7 @@ limitations under the License.
   const graphStore = useGraphStore()
   const projectStore = useProjectStore()
   const { showConfirm } = useGlobalConfirm()
+  const { probeAndMaybeCreate } = useSmartProjectOpen()
 
   const recentProjects = ref<ProjectInfo[]>([])
   const webOpenPath = ref('')
@@ -302,38 +304,20 @@ limitations under the License.
     const name = newProjectForm.value.name.trim()
     const path = newProjectForm.value.path.trim()
 
-    // 能力层约定：业务代码禁止直接调用 isElectron()，用 dialogApi 的能力探测属性判断
-    // （canSelectDirectory 仅在 Electron 适配器上为 true，语义与原 isElectron() 等价）
-    if (!dialogApi.canSelectDirectory) {
-      // Web 模式：调用后端创建项目脚手架后再加载
-      try {
-        await createProject(path, name)
-      } catch (e) {
-        // 后端返回 400（manifest 已存在）等，退化为直接加载已有项目
-        logger.warn('createProject 失败，回退为直接加载项目:', e)
-      }
-      await loadProject(path)
-      return
+    // 新建统一走后端脚手架落盘（Electron/Web 同路径，本地后端始终在跑）。
+    // 原 Electron 内存新建（首次保存才落盘）会让磁盘暂无 manifest：打开后所有
+    // 项目级 GET 404，且误触发 httpClient 的「项目路径失效」自愈清理（清
+    // localStorage + 拆根节点），与打开流程互相打架。
+    try {
+      await createProject(path, name)
+    } catch (e) {
+      // 后端返回 400（manifest 已存在）等，退化为直接加载已有项目
+      logger.warn('createProject 失败，回退为直接加载项目:', e)
     }
-
-    graphStore.createProject(name, path)
-    // Electron 新建不落盘（首次保存时才写 manifest），因此不走 loadProjectFromV2，
-    // 但需补齐 projectRoot 节点、资源树事件与工作区初始化——空画布上新建项目时
-    // 这些不会由启动引导代劳
-    graphStore.createProjectRootNode({ x: 80, y: 80 })
-    eventBus.emit('project-applied')
-    await useWorkspaceStore().initialize()
-
-    projectStorageService.addRecentProject({
-      name,
-      path,
-      lastOpened: Date.now(),
-    })
-
-    newProjectForm.value.name = ''
-    newProjectForm.value.path = ''
-
-    handleCloseModal()
+    if (await loadProject(path)) {
+      newProjectForm.value.name = ''
+      newProjectForm.value.path = ''
+    }
   }
 
   async function handleOpenProject(): Promise<void> {
@@ -370,6 +354,16 @@ limitations under the License.
     if ((await confirmDraftsBeforeLoad('load')) === 'cancelled') {
       return false
     }
+
+    // 打开项目智能化（与设置面板共用 useSmartProjectOpen）：目录缺 manifest 时
+    // 弹确认引导就地新建（后端落盘脚手架），"选择项目文件夹/手动输入路径/最近项目"
+    // 三条打开路径统一受益。新建后磁盘已有 manifest，与 'exists' 一样走常规加载
+    const createName = newProjectForm.value.name.trim() || deriveProjectName(projectPath)
+    const outcome = await probeAndMaybeCreate(projectPath, createName)
+    if (outcome === 'cancelled' || outcome === 'error') {
+      return false
+    }
+
     try {
       graphStore.createProject('', projectPath)
 

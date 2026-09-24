@@ -78,3 +78,15 @@ class CloseProjectResponse(BaseModel):
     """关闭项目的响应。"""
 
     success: bool
+
+
+class CheckProjectResponse(BaseModel):
+    """项目探测端点（GET /projects/check）的响应。
+
+    设计约束：对合法输入一律 200，探测结果用布尔字段表达——前端「智能打开」
+    用它预判目录是否为项目根，避免探测请求在浏览器控制台留下 404 红字。
+    """
+
+    path: str
+    dir_exists: bool
+    is_project: bool

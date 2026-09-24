@@ -36,6 +36,13 @@ const projectManagement = {
   closeProject: 'Close Project',
   closeWithUnsavedChanges: 'Close Project (Unsaved Changes)',
   loadFailed: 'Failed to load project',
+  smartCreate: {
+    title: 'Not a Precis Project Yet',
+    message:
+      'Directory {path} has no project.precis.yaml manifest.\nCreate a new project "{name}" here?',
+    confirm: 'Create Here',
+    cancel: 'Cancel',
+  },
   confirmClose: {
     title: 'Confirm Close',
     message: 'The current project has unsaved changes. Are you sure you want to close?',

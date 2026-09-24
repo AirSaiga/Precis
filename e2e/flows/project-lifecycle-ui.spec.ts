@@ -21,6 +21,8 @@
  * - F1: Web 模式经项目管理弹窗新建项目（脚手架目录生成 + 自动打开）
  * - F2: 关闭项目 → 留在空画布 → 经弹窗重新打开
  * - F3: 多工作区内容隔离（工作区 2 为空，工作区 1 节点保留）
+ * - F4: 打开项目智能化——设置面板指向空目录引导就地新建（useSmartProjectOpen）
+ * - F5: 打开项目智能化——弹窗手动路径打开空目录：取消保留现状 / 确认后新建打开
  * - G1: 快捷键命令集——Ctrl+A 全选 / Delete 删除 / Ctrl+Z 撤销 / Ctrl+X 剪切 / Ctrl+V 粘贴 / Ctrl+S 保存
  * - H1: en-US 关键界面无中文残留（导航/工具箱/检查器标题）
  */
@@ -157,6 +159,81 @@ test.describe('项目生命周期（F1-F3）', () => {
     await tabs.nth(0).click()
     await page.waitForTimeout(1200)
     expect(await page.locator('.vue-flow__node').count()).toBe(ws1Count)
+  })
+
+  test('F4: 打开项目智能化——设置面板指向空目录 → 确认后就地新建并打开', async ({ projectPage }) => {
+    const page = projectPage
+    const newDir = fs.mkdtempSync(path.join(os.tmpdir(), 'precis-smartopen-settings-'))
+    const projectName = '智能新建项目'
+
+    // 关闭当前项目进入无项目态（F2 同款路径）
+    await page.keyboard.press('Control+Shift+P')
+    const modal = page.locator('.project-management-modal')
+    await expect(modal).toBeVisible({ timeout: 5000 })
+    await modal.getByRole('button', { name: /关闭项目/ }).first().click()
+    const closeOverlay = page.locator('.global-confirm-overlay')
+    await expect(closeOverlay).toBeVisible({ timeout: 5000 })
+    await closeOverlay.getByRole('button', { name: /关闭项目|确认/ }).first().click()
+    await expect(page.locator('.project-root-node')).toHaveCount(0, { timeout: 10000 })
+
+    // 设置 → 项目信息：先填路径再填名称——路径为空时名称框禁用（!isProjectActive && !localConfigPath）
+    await page.locator('.activity-bar-nav button.settings-btn').click()
+    const settings = page.locator('.settings-overlay')
+    await expect(settings).toBeVisible({ timeout: 5000 })
+    await settings.locator('.nav-item', { hasText: '项目信息' }).first().click()
+    const panel = settings.locator('.settings-page')
+    await expect(panel).toBeVisible({ timeout: 5000 })
+    await panel.getByPlaceholder('请先设置工程路径').fill(newDir.replace(/\\/g, '/'))
+    await panel.getByPlaceholder('输入项目名称').fill(projectName)
+    await panel.getByRole('button', { name: '打开项目' }).click()
+
+    // 智能新建确认框：目录缺 manifest → 「在此新建」
+    const smartOverlay = page.locator('.global-confirm-overlay')
+    await expect(smartOverlay).toBeVisible({ timeout: 10000 })
+    await expect(smartOverlay.getByText('该目录还不是 Precis 项目')).toBeVisible()
+    await smartOverlay.getByRole('button', { name: '在此新建' }).click()
+
+    // Web 模式：后端脚手架落盘 + 自动加载（此处项目原为关闭态，根节点 0→1 是有效信号）
+    await expect
+      .poll(() => fs.existsSync(path.join(newDir, 'project.precis.yaml')), { timeout: 30000 })
+      .toBe(true)
+    await expect(page.locator('.project-root-node')).toBeVisible({ timeout: 30000 })
+    expect(fs.existsSync(path.join(newDir, 'schemas'))).toBe(true)
+  })
+
+  test('F5: 打开项目智能化——弹窗手动路径指向空目录：取消保留现状，确认后新建打开', async ({
+    projectPage,
+  }) => {
+    const page = projectPage
+    const cancelDir = fs.mkdtempSync(path.join(os.tmpdir(), 'precis-smartopen-cancel-'))
+    const createDir = fs.mkdtempSync(path.join(os.tmpdir(), 'precis-smartopen-create-'))
+
+    await page.keyboard.press('Control+Shift+P')
+    const modal = page.locator('.project-management-modal')
+    await expect(modal).toBeVisible({ timeout: 5000 })
+
+    // 取消分支：确认框点「取消」→ 项目未切换，目录未被写入
+    const webInput = modal.locator('.web-open-project input')
+    await expect(webInput).toBeVisible()
+    await webInput.fill(cancelDir.replace(/\\/g, '/'))
+    await modal.locator('.web-open-project button').click()
+    const smartOverlay = page.locator('.global-confirm-overlay')
+    await expect(smartOverlay).toBeVisible({ timeout: 10000 })
+    await smartOverlay.getByRole('button', { name: '取消' }).click()
+    await expect(smartOverlay).toBeHidden({ timeout: 5000 })
+    expect(fs.existsSync(path.join(cancelDir, 'project.precis.yaml'))).toBe(false)
+
+    // 确认分支：目录名兜底为项目名 → 新建脚手架 + 自动打开。
+    // ⚠ 此处项目处于激活态，旧项目根节点常驻画布——不能以 root 可见作为加载信号，
+    // 改为轮询 manifest 落盘 + 等弹窗自动关闭（loadProject 成功的收尾动作）
+    await webInput.fill(createDir.replace(/\\/g, '/'))
+    await modal.locator('.web-open-project button').click()
+    await expect(smartOverlay).toBeVisible({ timeout: 10000 })
+    await smartOverlay.getByRole('button', { name: '在此新建' }).click()
+    await expect
+      .poll(() => fs.existsSync(path.join(createDir, 'project.precis.yaml')), { timeout: 30000 })
+      .toBe(true)
+    await expect(modal).toBeHidden({ timeout: 30000 })
   })
 })
 
