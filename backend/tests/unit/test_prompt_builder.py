@@ -121,3 +121,23 @@ class TestBuildPrompt:
         # 截断生效：只保留前 N 个文件
         assert "table_0" in prompt
         assert "table_3" not in prompt
+
+
+class TestInlineConstraintGuidance:
+    """提示词必须教会 LLM 内嵌优先的约束存放约定（否则内嵌恒为 0）。"""
+
+    def test_contains_inline_first_rule(self):
+        prompt, _ = build_prompt([], "Test")
+        assert "优先内嵌" in prompt
+        assert "禁止两处重复" in prompt
+
+    def test_schema_example_contains_constraints_array(self):
+        prompt, _ = build_prompt([], "Test")
+        assert '"constraints":' in prompt
+        # 内嵌示例用 column_id 引用列
+        assert '"column_id": "email"' in prompt
+
+    def test_standalone_reserved_for_complex_types(self):
+        prompt, _ = build_prompt([], "Test")
+        assert "Composite" in prompt and "不支持内嵌" in prompt
+        assert "仅用于上述不适合内嵌的类型" in prompt

@@ -167,10 +167,14 @@ def build_prompt(
 
 返回 JSON 配置，包含 schemas、constraints、regex_nodes 三个字段。
 
-Schema 格式（请为每个 schema 提供语义化、唯一的 id，使用小写英文+下划线，如 "users"、"order_items"。该 id 会作为约束和正则节点引用的主键）：
-{"id": "users", "name": "用户表", "source": {"mode": "relative_file", "path": "data/users.xlsx", "header_row": 0}, "columns": [{"id": "email", "name": "邮箱", "type": "string", "primary_key": true, "nullable": false}]}
+约束存放规则（二选一，同一规则禁止两处重复）：
+- 简单列级规则（NotNull / Unique / AllowedValues / Range / Charset / DateLogic / Scripted）优先内嵌在该 schema 的 constraints 数组中；
+- Composite（组合约束）不支持内嵌，必须放顶层 constraints 独立定义；ForeignKey、Conditional 涉及跨表/跨列引用，也建议放顶层独立定义。
 
-Constraint 格式（V2，refs/params 分离，table_id 必须与 schema 的 id 一致）：
+Schema 格式（请为每个 schema 提供语义化、唯一的 id，使用小写英文+下划线，如 "users"、"order_items"。该 id 会作为约束和正则节点引用的主键；constraints 为内嵌约束，column_id 填本 schema 内列的 id）：
+{"id": "users", "name": "用户表", "source": {"mode": "relative_file", "path": "data/users.xlsx", "header_row": 0}, "columns": [{"id": "email", "name": "邮箱", "type": "string", "primary_key": true, "nullable": false}, {"id": "status", "name": "状态", "type": "string"}], "constraints": [{"id": "email_notnull", "type": "NotNull", "column_id": "email"}, {"id": "status_allowed", "type": "AllowedValues", "column_id": "status", "allowed_values": ["active", "inactive"]}]}
+
+独立 Constraint 格式（V2，refs/params 分离，table_id 必须与 schema 的 id 一致；仅用于上述不适合内嵌的类型）：
 {"id": "users_email_notnull", "type": "NotNull", "enabled": true, "refs": {"table_id": "users", "column_id": "email"}, "params": {}}
 
 支持类型：NotNull, Unique(多列联合唯一用 refs.column_ids 列表), AllowedValues(params{allowed_values}), Range(params{min,max,boundary_mode: inclusive/exclusive}), ForeignKey(refs{from_table_id,from_column_id,to_table_id,to_column_id}), Conditional(refs{then_column_id,if_conditions:[{if_column_id,operator,value}],if_logic}+params{then_condition:{operator: not_null/greater_than/less_than/in/eq/neq, value}}), Scripted(params{expression}), Charset(params{charset_mode: ascii/chinese/chinese_mixed}), DateLogic(params{logic_mode: compare/calculation, compare_op, reference_date 或 reference_column, calculation_type: age/days_diff, target_value, target_column}), Composite(params{logic: all/any/none, sub_constraints:[完整子约束对象]}，不允许嵌套)。
@@ -180,11 +184,12 @@ Regex Node 格式：
 
 建议：
 - email/手机号/身份证 → regex_nodes
-- status/gender → AllowedValues
-- 主键 → Unique
-- 非空列 → NotNull
-- 数值列 → Range
-- 纯中文/中英混合列 → Charset
+- status/gender → AllowedValues（内嵌）
+- 主键 → Unique（内嵌）
+- 非空列 → NotNull（内嵌）
+- 数值列 → Range（内嵌）
+- 纯中文/中英混合列 → Charset（内嵌）
+- 组合条件/跨表引用 → Composite/ForeignKey/Conditional（顶层独立）
 
 直接返回 JSON，不要解释。"""
 

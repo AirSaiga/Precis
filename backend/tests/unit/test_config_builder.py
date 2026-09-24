@@ -317,8 +317,8 @@ class TestSchemaGeneration:
                 {
                     "id": "users",
                     "name": "users",
-                    "columns": [],
-                    "constraints": [{"type": "inline", "column": "id"}],
+                    "columns": [{"id": "id", "name": "id", "type": "integer"}],
+                    "constraints": [{"id": "id_notnull", "type": "NotNull", "column_id": "id"}],
                 }
             ]
         }
@@ -331,8 +331,11 @@ class TestSchemaGeneration:
             options=_make_options(),
             existing_config=None,
         )
-        # 无 profiling 数据时使用 LLM 提供的语义化 ID
-        assert len(result["schemas"]["users"]["constraints"]) == 1
+        # 无 profiling 数据时使用 LLM 提供的语义化 ID；内嵌约束规范化为 ConstraintItem 形态
+        items = result["schemas"]["users"]["constraints"]
+        assert len(items) == 1
+        assert items[0]["type"] == "NotNull"
+        assert items[0]["column"] == "id"
 
     def test_skips_non_dict_schema(self):
         llm_result = {"schemas": ["not_a_dict"]}
@@ -744,3 +747,243 @@ class TestRegexNormalization:
             existing_config=None,
         )
         assert result["regex_nodes"] == {}
+
+
+class TestInlineConstraints:
+    """内嵌约束规范化：内嵌优先约定的落地行为。
+
+    内嵌定义统一转为 ConstraintItem 形态（column 承载全限定列名，供加载器
+    按列名精确解析），Composite 降级独立，跨形态语义去重防双重校验。
+    """
+
+    def _users_llm_result(self, inline=None, standalone=None):
+        columns = [
+            {"id": "email", "name": "邮箱", "type": "string"},
+            {"id": "status", "name": "状态", "type": "string"},
+        ]
+        schema = {"id": "users", "name": "users", "columns": columns}
+        if inline is not None:
+            schema["constraints"] = inline
+        llm = {"schemas": [schema]}
+        if standalone is not None:
+            llm["constraints"] = standalone
+        return llm
+
+    def _build(self, llm_result, **option_overrides):
+        return build_config(
+            project_id="p",
+            project_name="P",
+            config_path=None,
+            profiling_data=[],
+            llm_result=llm_result,
+            options=_make_options(**option_overrides),
+            existing_config=None,
+        )
+
+    def test_inline_simplified_form_normalizes_to_constraint_item(self):
+        """简化形态内嵌（column_id 引用）归一为 ConstraintItem，列 id 解析为列名。"""
+        llm = self._users_llm_result(
+            inline=[
+                {"id": "email_notnull", "type": "NotNull", "column_id": "email"},
+                {
+                    "id": "status_allowed",
+                    "type": "AllowedValues",
+                    "column_id": "status",
+                    "allowed_values": ["A", "B"],
+                },
+            ]
+        )
+        result = self._build(llm)
+        schema = result["schemas"]["users"]
+        assert len(schema["constraints"]) == 2
+        first = schema["constraints"][0]
+        assert first["type"] == "NotNull"
+        # 加载器按列名精确解析内嵌引用，column 必须归一为列名而非列 id
+        assert first["column"] == "邮箱"
+        second = schema["constraints"][1]
+        assert second["params"]["allowed_values"] == ["A", "B"]
+        # 内嵌约束不进 manifest 独立引用
+        assert result["manifest"]["constraints"] == []
+
+    def test_inline_refs_form_supported(self):
+        llm = self._users_llm_result(
+            inline=[
+                {
+                    "id": "email_notnull",
+                    "type": "NotNull",
+                    "enabled": True,
+                    "refs": {"table_id": "users", "column_id": "email"},
+                    "params": {},
+                }
+            ]
+        )
+        result = self._build(llm)
+        items = result["schemas"]["users"]["constraints"]
+        assert len(items) == 1
+        assert items[0]["column"] == "邮箱"
+        assert items[0]["type"] == "NotNull"
+
+    def test_inline_range_params_preserved(self):
+        llm = self._users_llm_result(
+            inline=[
+                {
+                    "id": "amount_range",
+                    "type": "Range",
+                    "column_id": "status",
+                    "min": 0,
+                    "max": 100,
+                    "boundary_mode": "inclusive",
+                }
+            ]
+        )
+        result = self._build(llm)
+        item = result["schemas"]["users"]["constraints"][0]
+        assert item["params"]["min"] == 0
+        assert item["params"]["max"] == 100
+        assert item["params"]["boundary_mode"] == "inclusive"
+
+    def test_inline_unique_resolves_all_columns(self):
+        llm = {
+            "schemas": [
+                {
+                    "id": "users",
+                    "name": "users",
+                    "columns": [
+                        {"id": "a", "name": "甲", "type": "string"},
+                        {"id": "b", "name": "乙", "type": "string"},
+                    ],
+                    "constraints": [{"id": "ab_unique", "type": "Unique", "column_ids": ["a", "b"]}],
+                }
+            ]
+        }
+        result = self._build(llm)
+        item = result["schemas"]["users"]["constraints"][0]
+        assert item["columns"] == ["甲", "乙"]
+
+    def test_inline_unknown_column_dropped_with_warning(self):
+        llm = self._users_llm_result(inline=[{"id": "ghost_notnull", "type": "NotNull", "column_id": "ghost"}])
+        result = self._build(llm)
+        assert result["schemas"]["users"]["constraints"] == []
+        assert any("无法解析" in w for w in result["warnings"])
+
+    def test_inline_composite_demoted_to_standalone(self):
+        """Composite 不支持内嵌：自动转为独立约束并告警。"""
+        llm = self._users_llm_result(
+            inline=[
+                {
+                    "id": "combo",
+                    "type": "Composite",
+                    "column_id": "email",
+                    "logic": "all",
+                    "sub_constraints": [{"type": "NotNull", "column_id": "email"}],
+                }
+            ]
+        )
+        result = self._build(llm)
+        assert result["schemas"]["users"]["constraints"] == []
+        assert len(result["constraints"]) == 1
+        standalone = next(iter(result["constraints"].values()))
+        assert standalone["type"] == "Composite"
+        assert standalone["params"]["sub_constraints"]
+        assert any("转为独立" in w for w in result["warnings"])
+
+    def test_duplicate_rule_standalone_and_inline_keeps_standalone(self):
+        """同 (表, 列, 类型) 的独立+内嵌重复：保留独立，丢弃内嵌并告警。"""
+        llm = self._users_llm_result(
+            inline=[{"id": "email_notnull", "type": "NotNull", "column_id": "email"}],
+            standalone=[{"type": "NotNull", "table_id": "users", "column_id": "email"}],
+        )
+        result = self._build(llm)
+        assert result["schemas"]["users"]["constraints"] == []
+        assert len(result["constraints"]) == 1
+        assert any("忽略重复约束" in w for w in result["warnings"])
+
+    def test_inline_foreign_key_resolves_target_columns(self):
+        """内嵌外键：源/目标列按各表列定义归一为列名，to_table 为规范 Schema ID。"""
+        llm = {
+            "schemas": [
+                {
+                    "id": "users",
+                    "name": "users",
+                    "columns": [{"id": "email", "name": "邮箱", "type": "string"}],
+                },
+                {
+                    "id": "orders",
+                    "name": "orders",
+                    "columns": [{"id": "uid", "name": "用户ID", "type": "string"}],
+                    "constraints": [
+                        {
+                            "id": "fk_orders_users",
+                            "type": "ForeignKey",
+                            "from_table_id": "orders",
+                            "from_column_id": "uid",
+                            "to_table_id": "users",
+                            "to_column_id": "email",
+                        }
+                    ],
+                },
+            ]
+        }
+        result = self._build(llm)
+        item = result["schemas"]["orders"]["constraints"][0]
+        assert item["from_column"] == "用户ID"
+        assert item["to_table"] == "users"
+        assert item["to_column"] == "邮箱"
+
+    def test_inline_conditional_keeps_refs_in_params(self):
+        """内嵌条件约束：THEN/IF 引用是列 ID 语义，保留在 params（加载器从 params 提取）。"""
+        llm = self._users_llm_result(
+            inline=[
+                {
+                    "id": "cond",
+                    "type": "Conditional",
+                    "then_column_id": "status",
+                    "if_conditions": [{"if_column_id": "email", "operator": "eq", "value": "a"}],
+                    "if_logic": "and",
+                    "then_condition": {"operator": "not_null"},
+                }
+            ]
+        )
+        result = self._build(llm)
+        item = result["schemas"]["users"]["constraints"][0]
+        assert item["params"]["then_column_id"] == "status"
+        assert item["params"]["if_conditions"] == [{"if_column_id": "email", "operator": "eq", "value": "a"}]
+        assert item["params"]["if_logic"] == "and"
+        assert item["params"]["then_condition"] == {"operator": "not_null"}
+
+    def test_refine_roundtrip_constraint_item_shape_preserved(self):
+        """refine 回流的 ConstraintItem 形态（column 承载列名、参数在 params）不丢参数。"""
+        llm = self._users_llm_result(
+            inline=[
+                {
+                    "id": "status_allowed",
+                    "type": "AllowedValues",
+                    "column": "状态",
+                    "enabled": True,
+                    "params": {"allowed_values": ["A"]},
+                }
+            ]
+        )
+        result = self._build(llm)
+        items = result["schemas"]["users"]["constraints"]
+        assert len(items) == 1
+        assert items[0]["column"] == "状态"
+        assert items[0]["params"]["allowed_values"] == ["A"]
+        assert not any("无法解析" in w for w in result["warnings"])
+
+    def test_generate_constraints_false_skips_inline(self):
+        llm = self._users_llm_result(inline=[{"id": "email_notnull", "type": "NotNull", "column_id": "email"}])
+        result = self._build(llm, generate_constraints=False)
+        assert result["schemas"]["users"]["constraints"] == []
+
+    def test_same_column_type_duplicates_deduped(self):
+        """同列同类型的多条内嵌约束按语义键去重，不产生重复规则。"""
+        llm = self._users_llm_result(
+            inline=[
+                {"id": "s1", "type": "AllowedValues", "column_id": "status", "allowed_values": ["A"]},
+                {"id": "s2", "type": "AllowedValues", "column_id": "status", "allowed_values": ["B"]},
+            ]
+        )
+        result = self._build(llm)
+        assert len(result["schemas"]["users"]["constraints"]) == 1
+        assert any("忽略重复约束" in w for w in result["warnings"])

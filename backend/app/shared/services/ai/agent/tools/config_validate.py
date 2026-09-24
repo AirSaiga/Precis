@@ -164,18 +164,38 @@ class ConfigValidateTool:
         if isinstance(schemas, list):
             schemas = {s.get("id", f"s_{i}"): s for i, s in enumerate(schemas)}
 
-        if not constraints:
+        # 统一规则表：顶层独立约束 + schema 内嵌约束（内嵌形态转换为 refs/params
+        # 后复用同一套类型校验，保证优化轮次指标覆盖全部规则）
+        rules: dict[str, tuple[str, dict[str, Any], dict[str, Any]]] = {}
+        for cid, cdef in constraints.items():
+            if isinstance(cdef, dict):
+                rules[str(cid)] = (
+                    str(cdef.get("type", "")),
+                    dict(cdef.get("refs", {}) or {}),
+                    dict(cdef.get("params", {}) or {}),
+                )
+        for tid, sdoc in schemas.items():
+            if not isinstance(sdoc, dict):
+                continue
+            inline_items = sdoc.get("constraints", []) or []
+            if isinstance(inline_items, dict):
+                inline_items = list(inline_items.values())
+            for i, cdef in enumerate(inline_items):
+                if not isinstance(cdef, dict):
+                    continue
+                converted = self._inline_constraint_to_rule(str(tid), sdoc, cdef, i)
+                if converted is not None:
+                    rules[converted[0]] = (converted[1], converted[2], converted[3])
+
+        if not rules:
             return {"success": True, "total_rules": 0, "passed": 0, "issues": []}
 
         total = 0
         passed = 0
         issues: list[dict[str, Any]] = []
 
-        for cid, cdef in constraints.items():
+        for cid, (ctype, refs, params) in rules.items():
             total += 1
-            ctype = cdef.get("type", "")
-            refs = cdef.get("refs", {})
-            params = cdef.get("params", {})
             table_id = refs.get("table_id", "")
             file_path = self._find_file_path(table_id, schemas)
             if not file_path:
@@ -273,6 +293,49 @@ class ConfigValidateTool:
             "failed": total - passed,
             "issues": issues,
         }
+
+    def _inline_constraint_to_rule(
+        self, table_id: str, schema_doc: dict[str, Any], cdef: dict[str, Any], index: int
+    ) -> tuple[str, str, dict[str, Any], dict[str, Any]] | None:
+        """把 schema 内嵌约束（ConstraintItem 形态）转换为独立规则三元组。
+
+        内嵌形态的 column/from_column/to_column 承载列名或列 id，这里借 schema
+        列定义解析为采样可用的列标识（优先列 id）；Conditional 的 THEN/IF 引用
+        本就是列 ID 语义，直接从 params 提取。解析不出任何引用时返回 None。
+
+        规则 id 与后端加载器约定一致（"{table_id}_{局部id}"），便于问题回溯。
+        """
+        ctype = str(cdef.get("type", ""))
+        if not ctype:
+            return None
+        rule_id = f"{table_id}_{cdef.get('id', f'inline_{index}')}"
+        params = dict(cdef.get("params", {}) or {})
+        refs: dict[str, Any] = {"table_id": table_id}
+
+        def _resolve(schema: dict[str, Any], ref: str) -> str:
+            """列引用（列名或列 id）-> 列 id；schema 无定义时原样返回交给 _get_column 兜底。"""
+            if not ref:
+                return ""
+            for col in schema.get("columns", []) or []:
+                if isinstance(col, dict) and (col.get("name") == ref or col.get("id") == ref):
+                    return str(col.get("id") or ref)
+            return ref
+
+        if ctype == "ForeignKey":
+            refs["from_column_id"] = _resolve(schema_doc, str(cdef.get("from_column", "")))
+            refs["to_table_id"] = str(cdef.get("to_table", ""))
+            refs["to_column_id"] = str(cdef.get("to_column", ""))
+        elif ctype == "Conditional":
+            refs["then_column_id"] = str(params.get("then_column_id") or cdef.get("column") or "")
+            refs["if_conditions"] = params.get("if_conditions", []) or []
+            refs["if_logic"] = params.get("if_logic", "and")
+        elif ctype == "Unique":
+            cols = cdef.get("columns") or ([cdef["column"]] if cdef.get("column") else [])
+            refs["column_ids"] = [_resolve(schema_doc, str(c)) for c in cols]
+        else:
+            refs["column_id"] = _resolve(schema_doc, str(cdef.get("column", "")))
+
+        return (rule_id, ctype, refs, params)
 
     def _validate_constraint(
         self,

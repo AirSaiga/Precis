@@ -531,6 +531,7 @@ class ConfigGenerationService:
 - 移除明显错误的规则
 - 放宽过于严格的规则参数
 - 保留合理的规则
+- schemas 内的 constraints 内嵌数组是配置的一部分：无问题的内嵌约束必须原样保留，仅按问题调整其参数或删除问题规则
 - 直接返回修正后的完整 JSON 配置，包含 schemas、constraints、regex_nodes
 """
 

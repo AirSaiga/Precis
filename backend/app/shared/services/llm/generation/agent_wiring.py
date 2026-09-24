@@ -100,6 +100,7 @@ def build_agent_system_prompt() -> str:
 
 工作原则：
 - 最终必须通过调用 generate_config 工具输出配置，不要直接输出 JSON 文本。
+- 约束优先内嵌在各 schema 的 constraints 数组中（简单列级规则）；Composite/ForeignKey/Conditional 用顶层 constraints 独立定义，同一规则禁止两处重复。
 - 如果数据量小，直接调用 generate_config 生成完整配置。
 - 如果用户开启了 auto_chunking 且数据量大（文件数 > chunk_max_files 或列数 > chunk_max_columns），先调用 plan_chunks，然后按 chunk 多次调用 generate_config，最后用 merge_results 合并，再调用一次 generate_config 输出最终配置。
 - 可选流程：generate_config → validate_config → refine_config → generate_config（最终）。

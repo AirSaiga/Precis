@@ -91,3 +91,93 @@ class TestAllowedValuesMaskAlignment:
         assert result["failed"] == 1
         issue = result["issues"][0]
         assert set(issue["invalid_values"].keys()) == {"BAD1", "BAD2", "BAD3"}
+
+
+class TestInlineConstraintRules:
+    """schema 内嵌约束纳入抽样校验：优化轮次指标必须覆盖内嵌规则。"""
+
+    def _inline_config(self, csv_path: str, inline: list[dict]) -> dict:
+        return {
+            "schemas": {
+                "users": {
+                    "id": "users",
+                    "source": {"path": csv_path},
+                    "columns": [{"id": "status", "name": "状态", "type": "string"}],
+                    "constraints": inline,
+                }
+            },
+            "constraints": {},
+        }
+
+    def test_inline_allowed_values_counted_and_validated(self, tmp_path):
+        """内嵌 AllowedValues 参与规则统计，列名引用解析为列 id。"""
+        df = pd.DataFrame({"status": ["A", None, "BAD1", "BAD2", "A"]})
+        csv_path = _write_csv(tmp_path, df)
+
+        tool = ConfigValidateTool(file_paths=[csv_path], profiling_data=[])
+        result = tool.run(
+            {
+                "config": self._inline_config(
+                    csv_path,
+                    [
+                        {
+                            "id": "status_allowed",
+                            "type": "AllowedValues",
+                            "column": "状态",
+                            "params": {"allowed_values": ["A"]},
+                        }
+                    ],
+                )
+            }
+        )
+
+        assert result["success"] is True
+        assert result["total_rules"] == 1
+        assert result["failed"] == 1
+        issue = result["issues"][0]
+        assert issue["rule_id"] == "users_status_allowed"
+        # 列名 "状态" 经 schema 列定义解析为列 id "status"
+        assert issue["column"] == "status"
+
+    def test_inline_notnull_by_column_id(self, tmp_path):
+        df = pd.DataFrame({"email": ["a@b.com", None, None, None, "x@y.com"]})
+        csv_path = _write_csv(tmp_path, df)
+
+        tool = ConfigValidateTool(file_paths=[csv_path], profiling_data=[])
+        result = tool.run(
+            {
+                "config": self._inline_config(
+                    csv_path,
+                    [{"id": "email_notnull", "type": "NotNull", "column": "email"}],
+                )
+            }
+        )
+
+        assert result["total_rules"] == 1
+        assert result["failed"] == 1
+        assert result["issues"][0]["type"] == "NotNull"
+
+    def test_inline_passing_rule_counts_as_passed(self, tmp_path):
+        df = pd.DataFrame({"status": ["A", "A", "A", "A", "A"]})
+        csv_path = _write_csv(tmp_path, df)
+
+        tool = ConfigValidateTool(file_paths=[csv_path], profiling_data=[])
+        result = tool.run(
+            {
+                "config": self._inline_config(
+                    csv_path,
+                    [
+                        {
+                            "id": "status_allowed",
+                            "type": "AllowedValues",
+                            "column": "status",
+                            "params": {"allowed_values": ["A"]},
+                        }
+                    ],
+                )
+            }
+        )
+
+        assert result["total_rules"] == 1
+        assert result["passed"] == 1
+        assert result["issues"] == []
