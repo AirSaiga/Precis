@@ -515,9 +515,10 @@ def build_config(
         # - Conditional 的 THEN/IF 引用属列 ID 语义，保留在 params（加载器从 params 提取）
         # - Composite 不内嵌（与前端 embeddedSelector 规则一致），降级为独立约束
         for schema_id, raw_list in raw_inline_by_schema.items():
-            schema_doc = schemas.get(schema_id)
-            if not schema_doc:
-                continue
+            # raw_inline_by_schema 的键与 schemas 在同一循环同步写入（见上方
+            # schema 构建段），索引必有值；用 .get 会返回 Any|None，与本函数
+            # 前段已推断为 dict[str, Any] 的 schema_doc 变量类型冲突（mypy 红）
+            schema_doc = schemas[schema_id]
             id_to_name, ref_to_id = _column_reference_maps(schema_doc)
             used_local_ids: set[str] = set()
             for cdef in raw_list:
