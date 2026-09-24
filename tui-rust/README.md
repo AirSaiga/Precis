@@ -4,6 +4,8 @@ Precis 的终端 UI（Terminal User Interface）客户端，使用 **Rust + rata
 
 TUI 是独立于 Electron 桌面端和 Web 前端的**第三种客户端形态**，通过 HTTP 调用 Python 后端（FastAPI），自身不包含业务逻辑——所有数据校验、配置解析、AI 能力都由后端提供。
 
+> **状态（2026-09）：实验性**。TUI 完成度不及 CLI 与 GUI，**不随 GitHub Release 发布**——如需使用请从源码构建（见下），本地打包产物仅自用。源码、测试与版本同步仍随仓库正常维护，恢复发布随时可做。
+
 ## 架构
 
 ```
@@ -72,7 +74,7 @@ cd tui-rust && cargo build --release && ./target/release/precis-tui
 
 ## 打包（自包含分发包）
 
-详见仓库根 [`README.md`](../README.md) 的"CLI / TUI 独立打包"章节。
+详见仓库根 [`CONTRIBUTING.md`](../CONTRIBUTING.md) 的“CLI / TUI 独立打包”章节。产物仅本地自用——TUI 已不随 GitHub Release 发布（见文首状态说明）。
 
 ```bash
 # Windows（产物 tui-rust/dist-win/precis-tui-win-*.zip）

@@ -92,6 +92,9 @@ The root `.env` is copied from `.env.example` — **all defaults work as-is**.
 除桌面应用外，CLI 与 TUI 也可各打成自包含分发包（内置 Python 运行时 + 后端源码，解压即用，无需自装 Python/Rust）。
 Besides the desktop app, the CLI and TUI can each be packaged as self-contained bundles (bundled Python runtime + backend source; extract and run, no Python/Rust install needed).
 
+> **TUI 不随 Release 发布**：TUI 为实验性形态，GitHub Release 资产不再包含 `precis-tui-*` 压缩包（CD 已移除 TUI 构建）；下表 TUI 打包命令仅用于本地自用。Release 资产 = Electron 安装包 + CLI 自包含包（CLI 另经 PyPI 发布 `precis-cli`）。
+> **TUI is not attached to Releases**: the TUI is experimental; GitHub Release assets no longer include `precis-tui-*` bundles (CD no longer builds the TUI). The TUI commands below are for local self-use packaging only. Release assets = Electron installers + self-contained CLI bundles (the CLI is also published to PyPI as `precis-cli`).
+
 | 产物 Artifact | Windows | macOS |
 |------|---------|-------|
 | CLI | `npm run build:cli:win` → `backend/dist-win/precis-cli-win-*.zip` | `npm run build:cli:mac` → `backend/dist-mac/precis-cli-mac-*.tar.gz` |

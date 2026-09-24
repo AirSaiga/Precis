@@ -62,7 +62,7 @@ npm run release -- minor --prerelease alpha.1   # 0.1.0 → 0.2.0-alpha.1
 版本单一事实源是根 `package.json` 的 `version`，发布脚本会同步到 electron/frontend/backend(pyproject)/tui-rust(Cargo) 六处（含 lockfile）。tag 推送后 CD（`.github/workflows/cd.yml`）自动执行：
 
 1. `verify-manifests`：tag 版本与六处 manifest 全等校验，漂移即 fail
-2. 三平台构建（Electron win/mac + CLI + TUI）
+2. 双平台构建（Electron win/mac + CLI；TUI 为实验性形态，已不再随 Release 构建）
 3. Release job：**自动 publish**（非 draft——draft 对 electron-updater 不可见，客户端将检测不到更新）；release notes 取自 CHANGELOG 对应版本分节；含 `-` 后缀的版本自动标记 prerelease
 4. **产物自检闸门**：下载 Release 的 `latest.yml`，逐文件核对资产存在性 + size + sha512 实测一致（历史出过清单引用与实际产物命名漂移导致客户端更新 404）
 

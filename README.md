@@ -29,7 +29,7 @@ Visual DAG Editor · Schema-Aware Validation · Local-First
 
 Precis 是一款面向 Excel/CSV 表格数据的**本地优先**数据质量工具。通过可视化 DAG 画布，把数据校验流程从代码变成拖拽操作——非技术人员也能完成从数据源接入到多维度质量校验的完整链路。数据全程不出本机。
 
-四种入口，按需选择：**Electron 桌面应用**（推荐）、**CLI 命令行**、**TUI 终端界面**、**REST API**。
+三种入口，按需选择：**Electron 桌面应用**（推荐）、**CLI 命令行**、**REST API**；另有实验性的 **TUI 终端界面**（不随 Release 发布，需从源码构建）。
 
 ## 核心特性
 
@@ -107,7 +107,7 @@ cd ..
 npm run electron:dev          # 桌面应用（推荐）：自动拉起后端 + 前端
 npm run dev                   # 开发模式：前后端分离，带热重载
 npm run cli                   # 纯命令行，无需前端
-npm run start:tui             # Rust 终端界面
+npm run start:tui             # Rust 终端界面（实验性，不随 Release 发布）
 ```
 
 > 更多启动方式与脚本说明见 [`scripts/README.md`](scripts/README.md) 与 [`tui-rust/README.md`](tui-rust/README.md)。
@@ -153,7 +153,7 @@ Precis/
 
 Precis is a **local-first** data quality platform for Excel/CSV tabular data. It turns validation workflows from code into drag-and-drop operations on a visual DAG canvas — non-technical users can build complete validation pipelines without writing code. Your data never leaves your machine.
 
-Four entry points: **Electron desktop app** (recommended), **CLI**, **TUI terminal app**, and **REST API**.
+Three entry points: **Electron desktop app** (recommended), **CLI**, and **REST API**; plus an experimental **TUI terminal app** (not attached to Releases — build from source).
 
 ## Core Features
 
@@ -231,7 +231,7 @@ cd ..
 npm run electron:dev          # Desktop app (recommended): auto-spawns backend + frontend
 npm run dev                   # Dev mode: backend + frontend split, with hot reload
 npm run cli                   # CLI only, no frontend needed
-npm run start:tui             # Rust terminal UI
+npm run start:tui             # Rust terminal UI (experimental, not attached to Releases)
 ```
 
 > More launch options and script details: [`scripts/README.md`](scripts/README.md) and [`tui-rust/README.md`](tui-rust/README.md).

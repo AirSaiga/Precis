@@ -381,179 +381,13 @@ jobs:
           packages-dir: backend/dist
 
   # ==========================================================================
-  # 3. TUI（Rust）—— Rust 二进制 + python-runtime 自包含 zip/tar.gz
-  # ==========================================================================
-  build-tui:
-    name: Build TUI (${{ matrix.platform }})
-    runs-on: ${{ matrix.runner }}
-    needs: verify-manifests
-    if: always() && (needs.verify-manifests.result == 'success' || needs.verify-manifests.result == 'skipped')
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: windows-x64
-            runner: windows-latest
-          - platform: macos-arm64
-            runner: macos-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Determine version
-        id: version
-        shell: bash
-        # dispatch 路径顺带 sync（保证包内 backend 版本与产物名一致）；tag 路径 manifest 已同步
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            VERSION="${{ inputs.version }}"
-            node scripts/release.mjs sync "${VERSION}"
-          else
-            VERSION="${{ github.ref_name }}"
-            VERSION="${VERSION#v}"
-          fi
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-
-      - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: tui-rust
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Build Rust binary (release)
-        shell: bash
-        run: |
-          cd tui-rust
-          cargo build --release
-
-      - name: Prepare staging
-        shell: bash
-        run: |
-          mkdir -p staging/precis-tui
-          # 拷贝 Rust 二进制（win .exe / mac 无后缀）
-          if [[ "${{ matrix.platform }}" == "windows-x64" ]]; then
-            cp tui-rust/target/release/precis-tui.exe staging/precis-tui/precis-tui.exe
-          else
-            cp tui-rust/target/release/precis-tui staging/precis-tui/precis-tui
-            chmod +x staging/precis-tui/precis-tui
-          fi
-
-      - name: Fetch python-runtime
-        shell: bash
-        run: |
-          node electron/scripts/fetch-python.js --out staging/precis-tui/python-runtime
-
-      - name: Install backend deps into runtime
-        shell: bash
-        run: |
-          node electron/scripts/install-backend-deps.js \
-            --runtime staging/precis-tui/python-runtime \
-            --requirements backend/requirements.txt
-
-      - name: Copy backend source (Windows)
-        if: matrix.platform == 'windows-x64'
-        shell: pwsh
-        # 用 PowerShell 原生 Copy-Item 递归拷贝，带排除过滤。
-        # 避开 robocopy 的 exit code 陷阱（其成功码 1 会被 pwsh 当失败）。
-        run: |
-          $src = "backend"
-          $dst = "staging/precis-tui/backend"
-          $excludeDirs = @('__pycache__','.mypy_cache','.pytest_cache','.ruff_cache','build','dist','tests','.git')
-          $excludeFiles = @('.coverage','.gitignore')
-          New-Item -ItemType Directory -Path $dst -Force | Out-Null
-          Get-ChildItem -Path $src -Recurse -Force |
-            Where-Object {
-              $rel = $_.FullName.Substring((Resolve-Path $src).Path.Length).TrimStart('\','/')
-              $parts = $rel -split '[\\/]'
-              $hitDir = $false
-              foreach ($p in $parts) { if ($excludeDirs -contains $p) { $hitDir = $true; break } }
-              if ($hitDir) { return $false }
-              if (-not $_.PSIsContainer) {
-                if ($excludeFiles -contains $_.Name) { return $false }
-                if ($_.Extension -eq '.log') { return $false }
-                if ($_.Name -match '\.egg-info$') { return $false }
-              }
-              return $true
-            } |
-            ForEach-Object {
-              $rel = $_.FullName.Substring((Resolve-Path $src).Path.Length).TrimStart('\','/')
-              $target = Join-Path $dst $rel
-              if ($_.PSIsContainer) {
-                New-Item -ItemType Directory -Path $target -Force | Out-Null
-              } else {
-                $parent = Split-Path $target -Parent
-                if (-not (Test-Path $parent)) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
-                Copy-Item $_.FullName $target -Force
-              }
-            }
-          Write-Host "backend source copied to $dst"
-
-      - name: Copy backend source (macOS)
-        if: matrix.platform == 'macos-arm64'
-        shell: bash
-        run: |
-          mkdir -p staging/precis-tui/backend
-          rsync -a \
-            --exclude='__pycache__' \
-            --exclude='.mypy_cache' \
-            --exclude='.pytest_cache' \
-            --exclude='.ruff_cache' \
-            --exclude='.coverage' \
-            --exclude='*.egg-info' \
-            --exclude='build/' \
-            --exclude='dist/' \
-            --exclude='tests/' \
-            --exclude='.git' \
-            --exclude='.gitignore' \
-            --exclude='*.log' \
-            backend/ staging/precis-tui/backend/
-
-      - name: Package (Windows zip)
-        if: matrix.platform == 'windows-x64'
-        shell: bash
-        run: |
-          ARTIFACT="precis-tui-${{ steps.version.outputs.version }}-windows-x64.zip"
-          # 用 PowerShell Compress-Archive（windows runner 必有，7z 不再可靠预装）
-          powershell -NoProfile -Command "Compress-Archive -Path staging/precis-tui/* -DestinationPath '${ARTIFACT}' -CompressionLevel Optimal -Force"
-          echo "Artifact: ${ARTIFACT}"
-          ls -lh "${ARTIFACT}"
-
-      - name: Package (macOS tar.gz)
-        if: matrix.platform == 'macos-arm64'
-        shell: bash
-        run: |
-          cd staging
-          ARTIFACT="precis-tui-${{ steps.version.outputs.version }}-macos-arm64.tar.gz"
-          tar -czf "../${ARTIFACT}" precis-tui
-          cd ..
-          echo "Artifact: ${ARTIFACT}"
-          ls -lh "${ARTIFACT}"
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: precis-tui-${{ matrix.platform }}
-          path: |
-            precis-tui-${{ steps.version.outputs.version }}-windows-x64.zip
-            precis-tui-${{ steps.version.outputs.version }}-macos-arm64.tar.gz
-          retention-days: 5
-          if-no-files-found: error
-
-  # ==========================================================================
-  # 4. Release —— 汇总产物，生成 checksums，自动 publish Release（非 draft：
+  # 3. Release —— 汇总产物，生成 checksums，自动 publish Release（非 draft：
   #    draft 对 electron-updater 不可见，客户端将检测不到更新）+ 产物自检闸门
   # ==========================================================================
   release:
     name: Publish GitHub Release
     runs-on: ubuntu-latest
-    needs: [verify-manifests, build-cli, build-tui, build-electron]
+    needs: [verify-manifests, build-cli, build-electron]
     if: always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
     steps:
       - uses: actions/checkout@v4
@@ -602,7 +436,7 @@ jobs:
         run: |
           cd release-assets
           # 排除 electron-builder 的 blockmap/yml（只给实际产物算 checksum）
-          # CLI/TUI 是 zip/tar.gz；GUI 是 electron-builder 直接 --publish 的，不在此处
+          # CLI 是 zip/tar.gz；GUI 是 electron-builder 直接 --publish 的，不在此处（TUI 已停发，不随 Release 构建）
           find . -type f \( -name "*.zip" -o -name "*.tar.gz" \) -exec sha256sum {} \; > checksums-${{ steps.version.outputs.version }}.txt
           echo "=== Checksums ==="
           cat checksums-${{ steps.version.outputs.version }}.txt
