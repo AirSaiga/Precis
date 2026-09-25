@@ -219,18 +219,31 @@ async def test_runner_modify_path_collects_instructions():
         ],
     }
 
-    # stub 预验证为放行；to_thread 依次返回 dry-run DiffResult（第一次）和写盘结果（第二次）
+    # stub 预验证为放行；to_thread 按"被调函数"分发返回值（而非按调用次序），
+    # 对新增的 to_thread 调用点（上下文窗口探测、写盘后自检）免疫
     dry_run_diff = DiffResult(
         success=True,
         files=[FileDiff(path="schemas/users.schema.yaml", status="modified", diff="fake")],
         frontend_instructions=[fi],
     )
     ok_validation = ValidationResult()
+
+    from app.shared.services.llm.actions.action_processor import process_actions
+    from app.shared.services.llm.actions.diff_compute import compute_action_diff
+
+    async def fake_to_thread(fn, *args, **kwargs):
+        if fn is compute_action_diff:
+            return dry_run_diff
+        if fn is process_actions:
+            return write_result
+        # 其余探测类调用（如 provider.get_context_window）返回一个正常窗口值
+        return 128000
+
     with (
         patch("app.shared.services.ai.agent.chat_tools.apply_actions.ActionValidator") as mock_validator,
         patch(
             "app.shared.services.ai.agent.chat_tools.apply_actions.asyncio.to_thread",
-            side_effect=[dry_run_diff, write_result],
+            side_effect=fake_to_thread,
         ),
     ):
         mock_validator.return_value.validate.return_value = ok_validation
@@ -336,8 +349,10 @@ def test_registry_includes_ask_user_tool():
     assert "ask_user" in names
     # list_data_files 已注册（数据文件发现）
     assert "list_data_files" in names
-    # 共 7 个工具：read_project/list_data_files/read_table/apply_actions/validate_table/read_canvas/ask_user
-    assert len(definitions) == 7
+    # infer_schema 已注册（建表前的确定性 schema 推断）
+    assert "infer_schema" in names
+    # 共 8 个工具：read_project/list_data_files/read_table/infer_schema/apply_actions/validate_table/read_canvas/ask_user
+    assert len(definitions) == 8
 
 
 # =============================================================================

@@ -24,7 +24,9 @@ from __future__ import annotations
 
 from typing import Any
 
-SYSTEM_PROMPT_CORE = """你是一个数据质量和校验规则配置的 AI 助手。
+from app.shared.services.llm.actions.registry import build_constraint_param_docs_text, build_data_type_list_text
+
+SYSTEM_PROMPT_CORE = f"""你是一个数据质量和校验规则配置的 AI 助手。
 用户将提供给他当前选中的表格节点及其字段信息，以及他的自然语言需求。
 你可以帮助用户进行以下操作：
 
@@ -36,7 +38,7 @@ SYSTEM_PROMPT_CORE = """你是一个数据质量和校验规则配置的 AI 助�
 - 创建新表：定义表名和列（名称 + 数据类型）
 - 修改表结构：添加/删除列、修改数据类型
 - 删除表
-支持的数据类型：string, integer, decimal, boolean, datetime, date, time
+支持的数据类型：{build_data_type_list_text()}
 
 ## 3. Regex 操作（正则校验）
 - 创建正则校验节点，支持 full/partial/extract 三种匹配模式
@@ -67,7 +69,7 @@ SYSTEM_PROMPT_CORE = """你是一个数据质量和校验规则配置的 AI 助�
 ## JSON 数据源支持
 本项目支持 JSON、JSONL、NDJSON 格式的数据文件作为数据源。
 JSON 数据源的 schema 配置选项：
-- source.options.format: 指定格式(必填,auto 已废弃)。按 JSON 结构选择:array=顶层数组([{...}]),lines=JSON Lines(每行一个 JSON),object=嵌套对象(需配合 json_path)
+- source.options.format: 指定格式(必填,auto 已废弃)。按 JSON 结构选择:array=顶层数组([{{...}}]),lines=JSON Lines(每行一个 JSON),object=嵌套对象(需配合 json_path)
 - source.options.json_path: JSONPath 提取路径（如 "$.data.items"），用于从嵌套 JSON 中提取数据数组
 - source.options.record_path: 记录路径，用于展平嵌套记录
 
@@ -105,7 +107,8 @@ SYSTEM_PROMPT_JSON_OUTPUT = """
 必须返回 JSON！必须返回 JSON！必须返回 JSON！"""
 
 
-SYSTEM_PROMPT_JSON_FORMAT = """
+SYSTEM_PROMPT_JSON_FORMAT = (
+    """
 ## 输出格式要求
 你必须返回以下 JSON 格式，禁止返回任何其他内容：
 
@@ -220,20 +223,9 @@ SYSTEM_PROMPT_JSON_FORMAT = """
 - constraintSpec.targetColumn: 目标列名（中文或英文）
 
 ## 约束类型与参数说明
-- **NotNull**: 非空约束。参数：无。
-- **Unique**: 唯一约束。单列无需参数；多列联合唯一用 constraintSpec.targetColumns（列名数组，如 ["order_id", "line_no"]）。
-- **AllowedValues**: 允许值约束。参数：`allowedValues` (List[Any])。
-- **Range**: 范围约束。参数：`min` (float/int), `max` (float/int)（至少一个），`boundaryMode` ("inclusive" 闭区间 / "exclusive" 开区间，默认 inclusive)。
-- **Scripted**: 脚本/正则约束。参数：`expression` (str) 或 `pattern` (str, 自动转为正则校验)。
-- **ForeignKey**: 外键约束。参数：`toTableId` (str), `toColumnId` (str)。
-- **Conditional**: 条件约束。参数：`ifConditions` (List), `thenCondition` (Object 或 str，必填)。
-  - `ifConditions` 结构：`[{"ifColumnId": "列名", "operator": "eq/neq/in/not_null/greater_than/less_than", "value": "比较值", "values": 列表(in 时可选)}]`
-  - `thenCondition` 两种形态：DSL 对象 `{"operator": "not_null/greater_than/less_than/in/eq/neq", "value": 比较值, "values": 列表(in 时), "refColumn": "同表参考列(可选，与该列比较)"}`；或字符串（已注册条件函数名，如 "is_not_empty"）。旧字段 thenValue 已废弃，不要再使用。
-- **DateLogic**: 日期逻辑约束。参数：`logicMode` ("compare"/"calculation")。
-  - compare 模式：`compareOp` ("gt/gte/lt/lte/eq/range"), `referenceDate` (str, "YYYY-MM-DD", 固定日期) 或 `referenceColumn` (str, 参考列，二选一)；`compareOp` 为 "range" 时必须同时提供 `referenceDateEnd` 或 `referenceColumnEnd`（与起点同形态）。
-  - calculation 模式：`calculationType` ("age"/"days_diff"), `targetValue` (数值，必填)；days_diff 另需 `targetColumn` (str, 天数差比较的目标列)。
-- **Charset**: 字符集约束。参数：`charsetMode` ("ascii"/"chinese"/"chinese_mixed"，必填——缺省会创建失败而非默认 ascii)。
-- **Composite**: 复合约束（把多条子约束按逻辑聚合为一条，如"非空且唯一"）。参数：`logic` ("all"/"any"/"none"，默认 all), `subConstraints` (List, 必填，每项 {"type": 约束类型, "targetColumn": "列名", "params": {该子约束的参数}})；不允许嵌套 Composite。
+"""
+    + build_constraint_param_docs_text()
+    + """
 
 ## 动作说明
 - ADD_CONSTRAINT_NODE: 添加约束节点。
@@ -359,6 +351,7 @@ SYSTEM_PROMPT_JSON_FORMAT = """
     ]
 }
 """
+)
 
 
 def build_system_prompt(context_data: dict[str, Any]) -> str:

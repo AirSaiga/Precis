@@ -64,7 +64,7 @@ class TestBuildConstraintParams:
 
     def test_scripted_with_pattern(self):
         params = _build_constraint_params("Scripted", {"params": {"pattern": r"^\d+$"}})
-        assert params["expression"].startswith("re.match")
+        assert params["expression"] == f"re_match({r'^\d+$'!r}, str(value))"
 
     def test_date_logic(self):
         params = _build_constraint_params("DateLogic", {"params": {"logicMode": "compare"}})

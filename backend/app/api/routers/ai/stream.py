@@ -27,7 +27,12 @@
 - 取消信号: 内存中 _cancel_events 字典(job_id → asyncio.Event)
 - Last-Event-ID: 仅作为本连接内 journal 回放的起始游标（§2.8）；不支持跨连接断线续传——
   每次请求都新建 job_id 与 journal,重连等价于重新发起会话(真续传需 job 持久化+按 job_id 重连端点,属未来 feature)
-- 资源清理: orchestrator 结束后注销 cancel_event,防止内存泄漏
+- SSE 断开宽限期: 客户端断开不取消后台任务(网络抖动/休眠/组件卸载等瞬断不应软取消
+  整个 job)；任务继续运行至终态事件或挂起确认自然超时,EventJournal 持续落盘。
+  断开仅登记"客户端失联",让等待中的 apply/ask 超时兜底按"连接中断"回灌文案；
+  显式取消走 /jobs/{job_id}/cancel 端点(行为不变)
+- 资源清理: orchestrator 结束后注销 cancel_event,防止内存泄漏——
+  cancel_event 的存续期等于后台 task 生命周期(宽限期内 task 未结束则保留,属在用而非泄漏)
 """
 
 from __future__ import annotations
@@ -67,6 +72,12 @@ _cancel_events_lock = threading.Lock()
 # task 完成后通过 add_done_callback 自动从集合移除
 _background_tasks: set[asyncio.Task[None]] = set()
 
+# 实时事件队列容量上限：journal 是权威全量记录（终止事件携带完整快照兜底），
+# 丢实时帧只影响投递即时性、无正确性影响；而 SSE 断开宽限期内（挂起确认 300s × N +
+# LLM 流式）队列无人消费，无界队列会让 delta/tool 事件持续内存积压。
+# 有界后 orchestrator.emit 的 QueueFull 丢弃守卫被激活：满员丢实时帧、journal 照常落盘
+_EVENT_QUEUE_MAXSIZE = 1000
+
 # journal 存储目录基础(按项目 config_path 分片),复用 AgentJobStorage 的 .precis 约定
 # 实际路径在端点中按 project_path 拼接
 
@@ -87,6 +98,41 @@ def _journal_dir_for(project_path: str | None) -> str:
     if project_path:
         return os.path.join(project_path, ".precis", "stream_jobs")
     return os.path.join(os.path.expanduser("~"), ".precis", "stream_jobs")
+
+
+async def _sse_frames_with_disconnect_grace(
+    job_id: str,
+    journal: EventJournal,
+    last_event_id: int,
+    event_queue: asyncio.Queue[dict[str, Any]],
+) -> AsyncIterator[str]:
+    """@methoddesc SSE 帧生成器（断开宽限期语义）
+
+    与旧实现的差异：客户端断开时不再 cancel_event.set()——瞬断（网络抖动/系统休眠/
+    IDE↔Agent 模式切换卸载组件）不应软取消整个后台任务。任务继续运行至终态事件
+    （completed/error/cancelled）或挂起确认自然超时（300s），期间 EventJournal 持续
+    落盘（重连回放/事后审计的前提），confirm/respond 端点仍可决议挂起交互。
+
+    断开时只做一件事：登记该 job 客户端失联（mark_job_client_gone），使等待中的
+    apply 确认/ask 提问在超时兜底时按"连接中断"（decision=disconnected）而非
+    "用户拒绝/跳过"回灌文案。显式取消走 /jobs/{job_id}/cancel 端点，行为不变。
+    """
+    completed_normally = False
+    try:
+        async for frame in sse_event_stream(
+            journal=journal,
+            last_event_id=last_event_id,
+            event_queue=event_queue,
+        ):
+            yield frame
+        # 流自然耗尽 == 已投递终态事件（sse_event_stream 仅在终态后结束）：
+        # 任务已结束、挂起交互已决议，无需登记失联
+        completed_normally = True
+    finally:
+        # 仅异常终止（客户端断开触发 GeneratorExit/CancelledError、流内部异常）
+        # 才登记失联；正常收尾不登记，避免给每个已完成 job 留下失联残影
+        if not completed_normally:
+            get_global_pending_interaction_store().mark_job_client_gone(job_id)
 
 
 @router.post("/chat/stream", summary="AI 聊天流式接口(SSE)")
@@ -148,8 +194,10 @@ async def chat_stream(
     canvas_nodes = [node.model_dump() for node in request.context.canvasNodes]
     history = [{"role": h.role, "content": h.content} for h in (request.history or [])]
 
-    # 实时事件队列: orchestrator emit 时推入, sse_event_stream 消费
-    event_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+    # 实时事件队列: orchestrator emit 时推入, sse_event_stream 消费。
+    # 有界（_EVENT_QUEUE_MAXSIZE）：宽限期内无人消费时不内存积压，
+    # 满员由 emit 侧丢弃实时帧（journal 仍是权威全量记录）
+    event_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=_EVENT_QUEUE_MAXSIZE)
 
     orchestrator = StreamingOrchestrator(
         job_id=job_id,
@@ -177,21 +225,17 @@ async def chat_stream(
     _background_tasks.add(task)
     task.add_done_callback(_background_tasks.discard)
 
-    # 返回 SSE 流: 先回放 journal(本连接内,自 last_event_id 起), 再实时推送队列
-    async def _sse_generator() -> AsyncIterator[str]:
-        try:
-            async for frame in sse_event_stream(
-                journal=journal,
-                last_event_id=last_event_id,
-                event_queue=event_queue,
-            ):
-                yield frame
-        finally:
-            # 客户端断连时（StreamingResponse 被取消），通知后台 task 停止
-            # 这让 executor 在下一个取消检查点中断，避免后台 task 泄漏
-            cancel_event.set()
-
-    return StreamingResponse(_sse_generator(), media_type="text/event-stream")
+    # 返回 SSE 流: 先回放 journal(本连接内,自 last_event_id 起), 再实时推送队列。
+    # 生成器含断开宽限期语义：断开不取消后台任务（见 _sse_frames_with_disconnect_grace）
+    return StreamingResponse(
+        _sse_frames_with_disconnect_grace(
+            job_id=job_id,
+            journal=journal,
+            last_event_id=last_event_id,
+            event_queue=event_queue,
+        ),
+        media_type="text/event-stream",
+    )
 
 
 @router.post("/jobs/{job_id}/cancel", summary="取消正在运行的 AI job(软取消)")
@@ -234,7 +278,8 @@ async def confirm_apply(job_id: str, request: AiChatConfirmRequest) -> dict[str,
 
     参数:
         job_id: 任务 ID
-        request: 含 decision 字段("confirm" 或 "reject")
+        request: 含 decision 字段("confirm" 或 "reject"；非法值由 Pydantic 校验
+                 返回 422 并回显合法值集合)
 
     返回:
         {"status": "resolved", "decision": "confirm"} 或 404

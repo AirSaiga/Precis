@@ -90,6 +90,41 @@ def test_emit_returns_incrementing_ids(orchestrator: StreamingOrchestrator):
     assert orchestrator.emit("completed", {}) == 3
 
 
+def test_emit_drops_live_frame_when_queue_full_but_journals(tmp_path: Path):
+    """队列满员时 emit 丢弃实时帧：不阻塞、不抛错，journal 仍完整落盘。
+
+    SSE 断开宽限期内队列无人消费（挂起确认 300s × N + LLM 流式），
+    有界队列的丢弃守卫真实可达——journal 是权威全量记录，丢实时帧无正确性影响。
+    """
+    journal = EventJournal(job_id="job_qfull", journal_dir=str(tmp_path))
+    queue: asyncio.Queue = asyncio.Queue(maxsize=1)
+    queue.put_nowait({"id": 0, "event": "delta", "data": {}})  # 占满队列
+    orch = StreamingOrchestrator(job_id="job_qfull", journal=journal, cancel_event=asyncio.Event(), event_queue=queue)
+
+    # 满员后连续 emit：返回正常 id、不抛 QueueFull、不阻塞
+    assert orch.emit("delta", {"text": "a"}) == 1
+    assert orch.emit("tool_call", {"tool": "noop"}) == 2
+
+    # journal 完整记录全部事件（权威全量，重连/终态快照的前提）
+    events = journal.read_all()
+    assert [e[1] for e in events] == ["delta", "tool_call"]
+    # 实时帧被丢弃：队列仍只有占位的 1 条
+    assert queue.qsize() == 1
+    assert queue.get_nowait()["id"] == 0
+
+
+def test_emit_pushes_live_frame_when_queue_has_room(tmp_path: Path):
+    """队列未满时实时帧正常入队（丢弃守卫不影响正常投递路径）。"""
+    journal = EventJournal(job_id="job_qroom", journal_dir=str(tmp_path))
+    queue: asyncio.Queue = asyncio.Queue(maxsize=2)
+    orch = StreamingOrchestrator(job_id="job_qroom", journal=journal, cancel_event=asyncio.Event(), event_queue=queue)
+
+    eid = orch.emit("started", {"job_id": "job_qroom"})
+    assert eid == 1
+    assert queue.qsize() == 1
+    assert queue.get_nowait() == {"id": 1, "event": "started", "data": {"job_id": "job_qroom"}}
+
+
 @pytest.mark.asyncio
 async def test_run_chat_emits_started_delta_completed(orchestrator: StreamingOrchestrator):
     """run_chat 包装 runner,发出 started → delta(逐字) → completed 事件。"""
@@ -292,3 +327,100 @@ async def test_run_chat_bridges_ask_user_events(orchestrator: StreamingOrchestra
     assert req_events[0][2] == request_payload
     assert len(resp_events) == 1
     assert resp_events[0][2] == responded_payload
+
+
+# =============================================================================
+# 终态资源清理测试（SSE 断开宽限期配套：任务到达终态后 controller/登记的回收路径）
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_run_chat_completion_after_disconnect_keeps_journaling_and_cleans_up(tmp_path):
+    """断开宽限期的资源回收：SSE 断开后任务跑完——事件持续落盘、终态清理无残留。
+
+    契约（reviewer 视角）：
+    - 断开不取消任务：runner 正常执行完毕，completed 事件仍写入 journal（续传/审计前提）
+    - 终态清理：job 的失联登记被注销（后续新 controller 不再被误标 disconnected）
+    """
+    import app.shared.services.ai.streaming.pending_interaction_store as store_mod
+    from app.shared.services.ai.streaming.pending_interaction_store import (
+        ConfirmController,
+        get_global_pending_interaction_store,
+    )
+
+    journal = EventJournal(job_id="job_grace_done", journal_dir=str(tmp_path))
+    orch = StreamingOrchestrator(job_id="job_grace_done", journal=journal, cancel_event=asyncio.Event())
+    store = get_global_pending_interaction_store()
+    store.mark_job_client_gone("job_grace_done")
+    try:
+        fake_runner = _make_fake_runner(reply="完成")
+        with patch("app.shared.services.ai.streaming.orchestrator.ChatAgentRunner", return_value=fake_runner):
+            await orch.run_chat(
+                message="测试",
+                history=None,
+                provider=MagicMock(),
+                project_path="/tmp",
+                context_nodes=[],
+            )
+
+        # 断开后任务照常跑完并落盘终态事件
+        events = journal.read_all()
+        assert events[-1][1] == "completed"
+        assert events[-1][2]["reply"] == "完成"
+    finally:
+        store.pop_by_job_prefix("job_grace_done")
+
+    # 终态清理已注销失联登记：新 controller 超时兜底判 timeout（而非 disconnected）
+    monkey_timeout = pytest.MonkeyPatch()
+    try:
+        monkey_timeout.setattr(store_mod, "_APPLY_CONFIRM_TIMEOUT", 0.05)
+        ctrl = ConfirmController(request_id="job_grace_done#apply#9")
+        store.put("job_grace_done#apply#9", ctrl)
+        assert await ctrl.await_outcome() == {"decision": "timeout"}
+    finally:
+        monkey_timeout.undo()
+        store.pop_by_job_prefix("job_grace_done")
+
+
+@pytest.mark.asyncio
+async def test_run_chat_cancellation_resolves_leftover_interactions_as_disconnected(tmp_path):
+    """任务被取消时 finally 兜底唤醒残留交互：apply 记 disconnected（非用户拒绝）。"""
+    from app.shared.services.ai.streaming.pending_interaction_store import (
+        ConfirmController,
+        InteractionController,
+        get_global_pending_interaction_store,
+    )
+
+    journal = EventJournal(job_id="job_cancel_clean", journal_dir=str(tmp_path))
+    orch = StreamingOrchestrator(job_id="job_cancel_clean", journal=journal, cancel_event=asyncio.Event())
+    store = get_global_pending_interaction_store()
+    apply_ctrl = ConfirmController(request_id="job_cancel_clean#apply#1")
+    ask_ctrl = InteractionController(request_id="job_cancel_clean#ask#1")
+    store.put("job_cancel_clean#apply#1", apply_ctrl)
+    store.put("job_cancel_clean#ask#1", ask_ctrl)
+    try:
+        # 模拟后台任务被取消（服务关停/异常）：CancelledError 穿透 except Exception，
+        # finally 兜底清理必须执行（宽限期下僵尸任务/泄漏的防线）
+        fake_runner = _make_fake_runner(side_effect=asyncio.CancelledError())
+        with patch("app.shared.services.ai.streaming.orchestrator.ChatAgentRunner", return_value=fake_runner):
+            with pytest.raises(asyncio.CancelledError):
+                await orch.run_chat(
+                    message="测试",
+                    history=None,
+                    provider=MagicMock(),
+                    project_path="/tmp",
+                    context_nodes=[],
+                )
+
+        # 残留交互已被兜底决议：apply 记 disconnected（任务终止，非用户决策），
+        # ask 记 {skipped, reason: cancelled}——两者文案均不得表述成"用户拒绝/跳过"
+        assert apply_ctrl.is_resolved is True
+        assert apply_ctrl.decision == "disconnected"
+        assert ask_ctrl.is_resolved is True
+        assert ask_ctrl.response == {"skipped": True, "reason": "cancelled"}
+        # store 中该 job 的控制器已弹出（终态清理路径 pop_by_job_prefix）
+        assert store.get("job_cancel_clean#apply#1") is None
+        assert store.get("job_cancel_clean#ask#1") is None
+        assert store.get_all_by_job("job_cancel_clean") == []
+    finally:
+        store.pop_by_job_prefix("job_cancel_clean")

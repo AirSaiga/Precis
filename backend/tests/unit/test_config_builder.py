@@ -20,10 +20,14 @@
 
 from __future__ import annotations
 
+import os
 from types import SimpleNamespace
 
+import pytest
 import yaml
 
+from app.shared.core.data_source.specs.json_source import JSONSourceSpec
+from app.shared.core.project.schema.types_parts.source import SourceSpec
 from app.shared.services.llm.generation.config_builder import build_config
 
 
@@ -285,7 +289,34 @@ class TestSchemaGeneration:
         )
         schema = list(result["schemas"].values())[0]
         source = schema["source"]
-        assert source["options"]["format"] == "auto"
+        # D8：format 必填且 auto 已废弃，.json 默认 array（记录数组开箱即可加载）
+        assert source["options"]["format"] == "array"
+
+    def test_schema_jsonl_source_options(self):
+        """生成器为 .jsonl 产出显式 lines（合法值，不依赖加载链豁免）"""
+        profiling = [_make_profiling("data/events.jsonl", "events")]
+        llm_result = {
+            "schemas": [
+                {
+                    "id": "events",
+                    "name": "events",
+                    "_source_path": "data/events.jsonl",
+                    "columns": [],
+                }
+            ]
+        }
+        result = build_config(
+            project_id="p",
+            project_name="P",
+            config_path=None,
+            profiling_data=profiling,
+            llm_result=llm_result,
+            options=_make_options(),
+            existing_config=None,
+        )
+        schema = list(result["schemas"].values())[0]
+        source = schema["source"]
+        assert source["options"]["format"] == "lines"
 
     def test_schema_with_sheet_name(self):
         profiling = [_make_profiling("data/users.xlsx", "users", sheet_name="Sheet1")]
@@ -987,3 +1018,142 @@ class TestInlineConstraints:
         result = self._build(llm)
         assert len(result["schemas"]["users"]["constraints"]) == 1
         assert any("忽略重复约束" in w for w in result["warnings"])
+
+
+class TestJsonSourceFormatContract:
+    """JSON 数据源 format 取值契约：D8 必填、auto 已废弃，生成器只能产出合法显式值。
+
+    审计实证：生成器曾写死 format=auto，加载链（JSONSourceSpec 校验器 / 解析器注册表）
+    硬拒该值，导致 AI 生成的项目第一次校验就报加载错误。
+    """
+
+    @pytest.fixture
+    def json_source_options(self):
+        """构造含 .json 与 .jsonl 数据源的生成结果，返回 {相对路径: source options}。"""
+        profiling = [
+            _make_profiling("data/data.json", "records"),
+            _make_profiling("data/events.jsonl", "events"),
+        ]
+        llm_result = {
+            "schemas": [
+                {"id": "records", "name": "records", "_source_path": "data/data.json", "columns": []},
+                {"id": "events", "name": "events", "_source_path": "data/events.jsonl", "columns": []},
+            ]
+        }
+        result = build_config(
+            project_id="p",
+            project_name="P",
+            config_path=None,
+            profiling_data=profiling,
+            llm_result=llm_result,
+            options=_make_options(),
+            existing_config=None,
+        )
+        # config_path=None 时生成器回退为 basename 相对路径，此处同样以 basename 为键
+        return {os.path.basename(s["source"]["path"]): s["source"]["options"] for s in result["schemas"].values()}
+
+    def test_generated_format_values_are_legal(self, json_source_options):
+        """生成值为合法显式 format：.json=array（记录数组），.jsonl=lines（不依赖加载链豁免）"""
+        assert json_source_options["data.json"]["format"] == "array"
+        assert json_source_options["events.jsonl"]["format"] == "lines"
+
+    def test_generated_format_passes_json_source_spec_validation(self, json_source_options):
+        """生成值能通过 JSONSourceSpec 真实校验路径（auto 会被 model_validator 硬拒）"""
+        for path, options in json_source_options.items():
+            spec = JSONSourceSpec(path=path, format=options["format"])
+            assert spec.format == options["format"]
+
+    def test_generated_options_parse_as_json_options_through_source_spec(self, json_source_options):
+        """生成 options 经 schema 层 SourceSpec 联合类型解析落在 JSONOptions 分支且 format 透传
+
+        联合类型对分支外字段默认忽略：非法 format 会被误解析为 CSVOptions 并静默丢掉
+        format，下游只能靠加载器默认值兜底；该用例守住"生成的值必须落在 JSONOptions
+        分支"这一契约。
+        """
+        expected = {"data.json": "array", "events.jsonl": "lines"}
+        for path, options in json_source_options.items():
+            parsed = SourceSpec(mode="relative_file", path=path, options=options)
+            assert type(parsed.options).__name__ == "JSONOptions"
+            assert parsed.to_loader_config().get("format") == expected[path]
+
+    def test_llm_source_without_options_gets_legal_json_format(self):
+        """LLM 自带 source（提示词示例不含 options）同样补齐合法 format，不绕过 D8 契约
+
+        生成链路提示词的 schema 示例 source 只有 mode/path/header_row，LLM 照抄时
+        .json 源会缺失 options.format，首次校验即报加载错误——该分支也必须补齐。
+        """
+        profiling = [_make_profiling("data/data.json", "records")]
+        llm_result = {
+            "schemas": [
+                {
+                    "id": "records",
+                    "name": "records",
+                    "_source_path": "data/data.json",
+                    "source": {"mode": "relative_file", "path": "data/data.json", "header_row": 0},
+                    "columns": [],
+                }
+            ]
+        }
+        result = build_config(
+            project_id="p",
+            project_name="P",
+            config_path=None,
+            profiling_data=profiling,
+            llm_result=llm_result,
+            options=_make_options(),
+            existing_config=None,
+        )
+        source = list(result["schemas"].values())[0]["source"]
+        # LLM source 原样生效（path 保留），options 被补齐为合法 format
+        assert source["path"] == "data/data.json"
+        assert source["options"]["format"] == "array"
+        parsed = SourceSpec(mode="relative_file", path=source["path"], options=source["options"])
+        assert type(parsed.options).__name__ == "JSONOptions"
+        assert parsed.to_loader_config().get("format") == "array"
+
+    def test_llm_source_with_deprecated_format_corrected(self):
+        """LLM 自带 source 给出废弃值 auto 时纠正：.json→array、.jsonl→lines"""
+        profiling = [
+            _make_profiling("data/data.json", "records"),
+            _make_profiling("data/events.jsonl", "events"),
+        ]
+        llm_result = {
+            "schemas": [
+                {
+                    "id": "records",
+                    "name": "records",
+                    "_source_path": "data/data.json",
+                    "source": {
+                        "mode": "relative_file",
+                        "path": "data/data.json",
+                        "header_row": 0,
+                        "options": {"format": "auto"},
+                    },
+                    "columns": [],
+                },
+                {
+                    "id": "events",
+                    "name": "events",
+                    "_source_path": "data/events.jsonl",
+                    "source": {
+                        "mode": "relative_file",
+                        "path": "data/events.jsonl",
+                        "header_row": 0,
+                        "options": {"format": "auto"},
+                    },
+                    "columns": [],
+                },
+            ]
+        }
+        result = build_config(
+            project_id="p",
+            project_name="P",
+            config_path=None,
+            profiling_data=profiling,
+            llm_result=llm_result,
+            options=_make_options(),
+            existing_config=None,
+        )
+        by_id = result["schemas"]
+        assert by_id["records"]["source"]["options"]["format"] == "array"
+        assert by_id["events"]["source"]["options"]["format"] == "lines"

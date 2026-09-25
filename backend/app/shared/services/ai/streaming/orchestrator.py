@@ -93,6 +93,10 @@ class StreamingOrchestrator:
     def emit(self, event: str, data: dict[str, Any]) -> int:
         """@methoddesc 追加一个事件到 journal（并推给队列，若有）。
 
+        队列有界（stream 层 maxsize）：满员丢弃实时帧、不阻塞不抛错——
+        journal 是权威全量记录，实时帧只影响投递即时性；此路径在 SSE 断开
+        宽限期内（队列无人消费）真实可达。
+
         参数:
             event: 事件类型
             data: 事件数据
@@ -212,18 +216,20 @@ class StreamingOrchestrator:
             self.emit(EVENT_ERROR, {"message": f"Agent 执行失败: {e}", "code": "RUNNER_ERROR"})
             return
         finally:
-            # 兜底清理：拒绝该 job 下所有未决议的 apply 控制器（每次 apply 各自独立，可能有多个）
-            # 注意：apply 挂起时 finally 不可达（await 未返回），由 await_decision 超时兜底
+            # 兜底清理：唤醒该 job 下所有未决议的控制器（每次 apply 各自独立，可能有多个）
+            # 注意：apply 挂起时 finally 不可达（await 未返回），由 await_outcome 超时兜底；
+            # 此处覆盖的是任务被外部取消/协程中断等异常路径的残留控制器
             pending_store = get_global_pending_interaction_store()
             for controller in pending_store.pop_by_job_prefix(self.job_id):
                 if not controller.is_resolved:
                     # store 同时持有 apply（ConfirmController）和 ask（InteractionController），
-                    # 两类 resolve 签名不同：apply 接 str（confirm/reject），ask 接 dict。
+                    # 两类 resolve 签名不同：apply 记 disconnected（任务终止非用户决策），
+                    # ask 记 {skipped, reason: cancelled}，文案均不得表述成"用户拒绝/跳过"
                     if isinstance(controller, ConfirmController):
                         logger.warning(
-                            f"run_chat finally 兜底 resolve reject (job={self.job_id}, apply={controller.request_id})"
+                            f"run_chat finally 兜底 resolve disconnected (job={self.job_id}, apply={controller.request_id})"
                         )
-                        await controller.resolve("reject")
+                        await controller.resolve_disconnected()
                     elif isinstance(controller, InteractionController):
                         logger.warning(
                             f"run_chat finally 兜底 resolve skip (job={self.job_id}, ask={controller.request_id})"

@@ -185,7 +185,8 @@ class OpenAIProvider(BaseProvider):
 
         统一输出契约:
         - delta 文本 → StreamChunk(type="delta", text=...)
-        - tool_calls（分片累积， finish_reason="tool_calls" 时） → StreamChunk(type="tool_calls", tool_calls=[...原始格式]）
+        - tool_calls（分片累积， finish_reason="tool_calls" 时一次性产出；兼容端点以 stop
+          收尾时流耗尽后兜底补发） → StreamChunk(type="tool_calls", tool_calls=[...原始格式]）
 
         重试策略（与 chat 对齐）：
         - 网络错误（APIConnectionError）或限流/服务端错误（429/500/502/503）触发指数退避重试，最多 _MAX_RETRIES 次。
@@ -235,6 +236,24 @@ class OpenAIProvider(BaseProvider):
 
                 # tool_calls 分片累积器: {index: {"id":"", "name":"", "arguments":""}}
                 tc_acc: dict[int, dict[str, str]] = {}
+
+                def _tool_calls_chunk() -> StreamChunk:
+                    """把已累积的 tool_calls 组装为统一输出单元（OpenAI 原始格式）。"""
+                    return StreamChunk(
+                        type="tool_calls",
+                        tool_calls=[
+                            {
+                                "id": v["id"],
+                                "type": "function",
+                                "function": {
+                                    "name": v["name"],
+                                    "arguments": v["arguments"],
+                                },
+                            }
+                            for v in tc_acc.values()
+                        ],
+                    )
+
                 async for chunk in stream:
                     if not chunk.choices:
                         continue
@@ -259,22 +278,18 @@ class OpenAIProvider(BaseProvider):
                     # 3. finish_reason="tool_calls" → 一次性 yield 完整 tool_calls（OpenAI 原始格式）
                     if choice.finish_reason == "tool_calls":
                         yielded_any = True
-                        yield StreamChunk(
-                            type="tool_calls",
-                            tool_calls=[
-                                {
-                                    "id": v["id"],
-                                    "type": "function",
-                                    "function": {
-                                        "name": v["name"],
-                                        "arguments": v["arguments"],
-                                    },
-                                }
-                                for v in tc_acc.values()
-                            ],
-                        )
+                        yield _tool_calls_chunk()
                         tc_acc.clear()
                     # finish_reason="stop" → 流自然结束（循环结束），无需特殊处理
+
+                # 3.5 流耗尽兜底：不少 OpenAI 兼容端点（vLLM、部分国内网关）以 "stop"
+                # 收尾或不发 finish_reason="tool_calls"，已累积的 tool_calls 若不补发会被
+                # 静默丢弃——executor 误判本轮无工具调用，动作意图无痕迹消失。
+                # 已按 finish_reason 发过时 tc_acc 已被 clear，非空即"尚未下发"，不会重复。
+                if tc_acc:
+                    yielded_any = True
+                    yield _tool_calls_chunk()
+                    tc_acc.clear()
                 # 流正常耗尽，返回
                 return
             except (APIConnectionError, APIStatusError) as e:

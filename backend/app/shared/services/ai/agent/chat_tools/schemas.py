@@ -63,6 +63,13 @@ class ValidateTableArgs(_ToolArgsBase):
     table_name: str | None = Field(default=None, description="要校验的表名；不传则校验所有表")
 
 
+class InferSchemaArgs(_ToolArgsBase):
+    """infer_schema 入参：file_path 必填（项目相对路径），table_name 可选。"""
+
+    file_path: str = Field(..., description="数据文件相对项目根的路径（list_data_files 返回的 path 值）")
+    table_name: str | None = Field(default=None, description="表显示名；不传则取文件名去扩展名")
+
+
 class ApplyActionsArgs(_ToolArgsBase):
     """apply_actions 入参：actions 必填（非空数组）。
 
@@ -104,6 +111,7 @@ MODEL_FOR_TOOL: dict[str, type[_ToolArgsBase]] = {
     "list_data_files": ListDataFilesArgs,
     "read_table": ReadTableArgs,
     "read_canvas": ReadCanvasArgs,
+    "infer_schema": InferSchemaArgs,
     "validate_table": ValidateTableArgs,
     "apply_actions": ApplyActionsArgs,
     "ask_user": AskUserArgs,

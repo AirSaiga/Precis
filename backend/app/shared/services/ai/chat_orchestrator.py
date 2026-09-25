@@ -80,7 +80,9 @@ class ChatOptions:
 
     # 对话相关
     history: list[dict[str, str]] = field(default_factory=list)
-    max_history_tokens: int = 120000
+    # 历史 token 预算。None（缺省）时按 provider 实际上下文窗口自适应推导
+    # （小窗口收缩、大窗口封顶 120000、探测失败回退默认）；显式传入则尊重调用方预算
+    max_history_tokens: int | None = None
     temperature: float = 0.1
 
     # 交互相关（CLI 使用）
@@ -103,6 +105,11 @@ class ChatOptions:
     apply_callbacks: ApplyCallbacks | None = None
     ask_callbacks: AskCallbacks | None = None
     dry_run_enabled: bool = False
+    # Agent 模式流式回调注入（CLI 终端渲染用）：编排器创建 runner 后、run 前经
+    # runner.configure_callbacks(**...) 透传（on_chunk/on_turn/on_tool_call/on_tool_result）。
+    # GUI 流式路径直接持有 runner 自行配置，不走此字段；缺省 None 时 runner 无流式回调，
+    # 行为与原先完全一致。
+    agent_stream_callbacks: dict[str, Any] | None = None
 
 
 @dataclass
@@ -158,7 +165,7 @@ class AIChatOrchestrator:
 
         完整处理流程：
         1. 构建上下文数据和系统提示词
-        2. 组装消息列表（含历史截断）
+        2. 组装消息列表（含历史截断；预算缺省时按 provider 上下文窗口自适应推导）
         3. 调用 LLM 获取回复
         4. 解析响应中的 reply 和 actions
         5. 更新对话历史
@@ -191,15 +198,7 @@ class AIChatOrchestrator:
         context_data = self._build_context_data(message, context_nodes, project_path)
         system_prompt = build_system_prompt(context_data)
 
-        # 步骤 2: 构建消息列表（系统提示 + 截断历史 + 当前用户消息）
-        messages = self._build_messages(
-            system_prompt=system_prompt,
-            history=options.history,
-            user_message=message,
-            max_tokens=options.max_history_tokens,
-        )
-
-        # 步骤 3: 调用 LLM
+        # 步骤 2: 调用 LLM（provider 提前创建，供历史预算推导与请求复用）
         # 直接 await provider.chat()，与 agent 路径（_execute_with_agent / agent/executor.py）对齐。
         # 不再走 ChatLLMService 同步包装层 —— 后者在 async 上下文里会开子线程跑 asyncio.run()，
         # 导致 httpx 连接池清理任务绑定到子线程的临时 loop，loop 关闭后泄漏
@@ -210,6 +209,23 @@ class AIChatOrchestrator:
             from app.shared.services.llm.providers import create
 
             provider = create(self._provider)
+
+            # 步骤 3: 构建消息列表（系统提示 + 截断历史 + 当前用户消息）。
+            # 历史预算：显式指定优先；缺省(None)时按 provider 实际上下文窗口自适应推导，
+            # 与 agent 路径（ChatAgentRunner.run 内同源推导）保持预算来源一致
+            max_history_tokens = options.max_history_tokens
+            if max_history_tokens is None:
+                from app.shared.services.ai.utils import resolve_chat_history_budget
+
+                # legacy 纯文本路径不带工具定义，显式传 0（不按保守常量额外预留）
+                max_history_tokens = await resolve_chat_history_budget(provider, tool_definitions_tokens=0)
+            messages = self._build_messages(
+                system_prompt=system_prompt,
+                history=options.history,
+                user_message=message,
+                max_tokens=max_history_tokens,
+            )
+
             chat_messages = [ChatMessage(role=m["role"], content=m["content"]) for m in messages]
             req = ChatRequest(
                 messages=chat_messages,
@@ -475,6 +491,11 @@ class AIChatOrchestrator:
                 reply="",
                 error=f"AI 服务初始化失败: {e}",
             )
+
+        # CLI 终端流式渲染注入：runner 创建后、run 前透传流式回调
+        # （configure_callbacks 为现成 API；未注入时 runner 内部回调为空，executor 用默认 noop）
+        if options.agent_stream_callbacks:
+            runner.configure_callbacks(**options.agent_stream_callbacks)
 
         run_result = await runner.run(
             message=message,

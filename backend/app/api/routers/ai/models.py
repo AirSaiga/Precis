@@ -39,7 +39,7 @@
         manifest: Optional[dict[str, Any]] = None
 """
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -110,7 +110,9 @@ class AiChatRequest(BaseModel):
 class AiChatConfirmRequest(BaseModel):
     """AI Chat apply_actions 确认/拒绝请求"""
 
-    decision: str = Field(..., description="confirm(确认并落盘)或 reject(拒绝,不落盘)")
+    # Literal 枚举：非法值（如 "yes"/"ok"）由 Pydantic 自动 422 并回显合法值集合，
+    # 不再被静默当作 reject 处理
+    decision: Literal["confirm", "reject"] = Field(..., description="confirm(确认并落盘)或 reject(拒绝,不落盘)")
     apply_id: str | None = Field(
         default=None,
         description="本次 apply 的 ID（{job_id}#{seq}）。为空时回退到该 job 当前唯一挂起项。",

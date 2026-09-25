@@ -15,11 +15,13 @@
 # limitations under the License.
 """Chat mini-agent 专用工具模块
 
-7 个工具构成"查-改-验"核心闭环：
+8 个工具构成"查-改-验"核心闭环：
 - ReadProjectTool:    读取项目概览(查)
 - ListDataFilesTool:  扫描项目目录发现数据文件(查)——read_project 只读已注册
     配置，本工具补"空项目 + 目录下有裸数据文件"的发现缺口
 - ReadTableTool:      读取表数据样本(查)
+- InferSchemaTool:    对数据文件确定性推断 schema 草稿(查)——建表前先推断、
+    再按业务语义微调，压缩 LLM 凭记忆手写列类型的幻觉空间
 - ApplyActionsTool:   执行配置修改(改)
 - ValidateTableTool:  执行数据校验(验)
 - ReadCanvasTool:     读取画布上实际显示的节点快照(查)
@@ -34,6 +36,7 @@
 
 from app.shared.services.ai.agent.chat_tools.apply_actions import ApplyActionsTool
 from app.shared.services.ai.agent.chat_tools.ask_user import AskUserTool
+from app.shared.services.ai.agent.chat_tools.infer_schema import InferSchemaTool
 from app.shared.services.ai.agent.chat_tools.list_data_files import ListDataFilesTool
 from app.shared.services.ai.agent.chat_tools.read_canvas import ReadCanvasTool
 from app.shared.services.ai.agent.chat_tools.read_project import ReadProjectTool
@@ -43,6 +46,7 @@ from app.shared.services.ai.agent.chat_tools.validate_table import ValidateTable
 __all__ = [
     "ApplyActionsTool",
     "AskUserTool",
+    "InferSchemaTool",
     "ListDataFilesTool",
     "ReadCanvasTool",
     "ReadProjectTool",

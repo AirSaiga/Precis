@@ -193,3 +193,92 @@ class TestExecuteValidateProject:
 
         result = execute_validate_project(str(tmp_path))
         assert "NotNullViolation" in result["message"]
+
+
+# =============================================================================
+# Scripted 权限跳过分离测试（防止"权限未开启"被误报为数据违规）
+# =============================================================================
+
+
+def _permission_skip_entry(name: str = "score_check") -> dict:
+    """构造 scripted.py eval 门禁产出的权限跳过条目（引擎真实形状）。"""
+    return {
+        "error_type": "PermissionError",
+        "error_code": "SCRIPTED_PERMISSION_DENIED",
+        "error_params": {"name": name},
+        "table": "users",
+        "message": f"脚本约束「{name}」已跳过：项目设置中的『允许执行脚本 eval』尚未开启。",
+    }
+
+
+class TestScriptedPermissionSkipSeparation:
+    """默认部署（allow_unsafe_eval=False）下，Scripted 约束的权限跳过条目
+    不得计入 error_count——否则 validate_table / apply 写盘自检会把权限提示
+    误报成"发现 N 个违规"。跳过单列到 skipped_scripted*，message 附注。
+    """
+
+    def test_skip_not_counted_alongside_real_violation(self, tmp_path, _mock_executor):
+        """1 条真实违规 + 1 条权限跳过 → error_count=1，跳过单列，message 同时呈现。"""
+        (tmp_path / "project.precis.yaml").write_text("version: 2\n")
+        real_error = {"error_type": "NotNullViolation", "table": "users", "column": "email", "message": "空值"}
+        mock_instance = MagicMock()
+        mock_instance.execute.return_value = {
+            "errors": [real_error, _permission_skip_entry()],
+            "loading_errors": [],
+            "duration_ms": 20,
+        }
+        _mock_executor.return_value = mock_instance
+
+        result = execute_validate_project(str(tmp_path))
+
+        assert result["details"]["error_count"] == 1
+        assert result["details"]["has_errors"] is True
+        # details.errors 只保留真实违规，权限跳过不挤占 20 条详情位
+        assert result["details"]["errors"] == [real_error]
+        assert result["details"]["skipped_scripted_count"] == 1
+        assert len(result["details"]["skipped_scripted"]) == 1
+        # message：违规计数只算 1，跳过以附注呈现（不写成"2 个数据错误"）
+        assert "发现 1 个数据错误" in result["message"]
+        assert "users.email" in result["message"]
+        assert "1 个脚本约束" in result["message"]
+        assert "不计入违规" in result["message"]
+
+    def test_skip_only_reports_pass_with_note(self, tmp_path, _mock_executor):
+        """只有权限跳过、无真实违规 → 校验通过（0 违规），跳过以附注说明。"""
+        (tmp_path / "project.precis.yaml").write_text("version: 2\n")
+        mock_instance = MagicMock()
+        mock_instance.execute.return_value = {
+            "errors": [_permission_skip_entry("check_a"), _permission_skip_entry("check_b")],
+            "loading_errors": [],
+            "duration_ms": 15,
+        }
+        _mock_executor.return_value = mock_instance
+
+        result = execute_validate_project(str(tmp_path))
+
+        assert result["success"] is True
+        assert result["details"]["error_count"] == 0
+        assert result["details"]["has_errors"] is False
+        assert result["details"]["skipped_scripted_count"] == 2
+        assert "数据校验通过" in result["message"]
+        assert "2 个脚本约束" in result["message"]
+        assert "未计入违规" in result["message"]
+        # 不得出现违规措辞
+        assert "个数据错误" not in result["message"]
+
+    def test_skip_keeps_loading_warning_priority(self, tmp_path, _mock_executor):
+        """无违规、有加载警告且有权限跳过 → message 主体仍是加载警告，跳过附注补在后面。"""
+        (tmp_path / "project.precis.yaml").write_text("version: 2\n")
+        mock_instance = MagicMock()
+        mock_instance.execute.return_value = {
+            "errors": [_permission_skip_entry()],
+            "loading_errors": [{"error_type": "SourceNotFound", "table": "orders", "message": "数据文件不存在"}],
+            "duration_ms": 10,
+        }
+        _mock_executor.return_value = mock_instance
+
+        result = execute_validate_project(str(tmp_path))
+
+        assert result["details"]["error_count"] == 0
+        assert "加载警告" in result["message"]
+        assert "1 个脚本约束" in result["message"]

@@ -1115,6 +1115,30 @@ class TestValidateSchemaAction:
         )
         assert any(e.error_type == "invalid_column_type" for e in result.errors)
 
+    def test_add_schema_rejects_datetime_and_time(self, tmp_path):
+        """datetime/time 运行时 TYPE_REGISTRY 不支持，预验证必须拒绝。
+
+        回归守卫：DATA_TYPES 白名单曾漂移多出这两个值，AI 按提示词写盘成功后，
+        校验引擎加载 schema 时对未知类型直接 raise，导致之后每次校验都失败。
+        """
+        validator = ActionValidator(str(tmp_path))
+        for bad_type in ["datetime", "time"]:
+            result = validator.validate(
+                [
+                    {
+                        "actionType": "ADD_SCHEMA",
+                        "schemaSpec": {
+                            "name": "test",
+                            "schemaId": "test",
+                            "columns": [{"name": "c1", "type": bad_type}],
+                        },
+                    }
+                ]
+            )
+            assert any(e.error_type == "invalid_column_type" and bad_type in e.message for e in result.errors), (
+                f"{bad_type} 应被预验证拒绝"
+            )
+
     def test_add_schema_valid(self, tmp_path):
         validator = ActionValidator(str(tmp_path))
         result = validator.validate(

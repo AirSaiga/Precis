@@ -154,6 +154,37 @@ def _constraint_item_to_simplified(item: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+# D8 规范下 JSON format 的全部合法取值（auto 已废弃，加载链硬拒）
+_LEGAL_JSON_FORMATS: tuple[str, ...] = ("array", "lines", "object")
+
+
+def _resolve_source_options(ext: str, existing: dict[str, Any] | None) -> dict[str, Any]:
+    """按文件扩展名补齐/纠正 source.options，保证写出的 schema 永远携带合法 options。
+
+    - 键缺失时按扩展名补默认值：CSV（delimiter/encoding）、Excel（engine）、JSON（format）；
+    - JSON format 仅接受 array/lines/object（D8：auto 已废弃，JSONSourceSpec 校验器与
+      解析器注册表均硬拒）：.jsonl 一律 lines——JSON Lines 文件唯一语义正确值，与加载链
+      按扩展名强制 lines 的豁免结果一致、且不依赖豁免，在无豁免的 load_grouped_sources
+      路径同样可加载；.json 非法或缺失时默认 array——最常见 JSON 数据文件形态是记录
+      数组 [{"id":1},...]，开箱即可加载；显式给出 object 但缺 json_path（无法定位
+      数据数组）时同样回退 array；
+    - 已给出的其余合法键（如 object+json_path）原样保留。
+    """
+    merged: dict[str, Any] = dict(existing) if isinstance(existing, dict) else {}
+    if ext == ".csv":
+        merged.setdefault("delimiter", ",")
+        merged.setdefault("encoding", "utf-8")
+    elif ext in (".xlsx", ".xls"):
+        merged.setdefault("engine", "openpyxl")
+    elif ext in (".json", ".jsonl"):
+        fmt = merged.get("format")
+        if ext == ".jsonl":
+            merged["format"] = "lines"
+        elif fmt not in _LEGAL_JSON_FORMATS or (fmt == "object" and not merged.get("json_path")):
+            merged["format"] = "array"
+    return merged
+
+
 def build_config(
     project_id: str,
     project_name: str,
@@ -426,12 +457,10 @@ def build_config(
                 if profile.get("sheet_name"):
                     source["sheet"] = profile["sheet_name"]
                 ext = os.path.splitext(profile["path"])[1].lower()
-                if ext == ".csv":
-                    source["options"] = {"delimiter": ",", "encoding": "utf-8"}
-                elif ext in [".xlsx", ".xls"]:
-                    source["options"] = {"engine": "openpyxl"}
-                elif ext in [".json", ".jsonl"]:
-                    source["options"] = {"format": "auto"}
+                # 按扩展名写入默认 options（JSON format 的取值依据见 _resolve_source_options）
+                default_options = _resolve_source_options(ext, None)
+                if default_options:
+                    source["options"] = default_options
 
             # 优先复用已有 schema 的 ID（按 source.path + sheet 匹配）
             src_path = source.get("path", "")
@@ -451,13 +480,27 @@ def build_config(
 
             llm_id_to_schema_id[llm_schema_id] = proper_schema_id
 
+            # LLM 自带 source 时原样优先生效，但生成链路提示词示例的 source 不含
+            # options（照抄会让 .json 源缺失 format，首次校验即报加载错误），且可能
+            # 输出 auto 等废弃值——按 source 自身路径扩展名（缺路径回退画像路径）
+            # 补齐/纠正 options 后再采用
+            llm_source = schema_def.get("source")
+            effective_source: dict[str, Any] = source
+            if isinstance(llm_source, dict) and llm_source:
+                effective_source = dict(llm_source)
+                fallback_path = str(source.get("path") or "")
+                eff_ext = os.path.splitext(str(effective_source.get("path") or fallback_path))[1].lower()
+                resolved_options = _resolve_source_options(eff_ext, effective_source.get("options"))
+                if resolved_options:
+                    effective_source["options"] = resolved_options
+
             # 构建标准 schema 格式（constraints 先占位，内嵌约束在全部 schema 的
             # ID 映射与列定义就绪后统一规范化，才能解析列引用/FK 目标表并跨形态去重）
             schema_doc = {
                 "version": 2,
                 "id": proper_schema_id,
                 "name": schema_def.get("name", llm_schema_id),
-                "source": schema_def.get("source", source),
+                "source": effective_source,
                 "columns": schema_def.get("columns", []),
                 "constraints": [],
             }

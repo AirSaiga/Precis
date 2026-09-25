@@ -649,6 +649,40 @@ class TestProcessSchemaAction:
             data = yaml.safe_load(f)
         assert data["columns"][0]["type"] == "string"
 
+    def test_add_schema_with_datetime_time_column_type_fallback(self, tmp_path):
+        """datetime/time 不在数据类型白名单（运行时 TYPE_REGISTRY 不支持），handler 应兜底回退 string。
+
+        回归守卫：白名单漂移期间 AI 按提示词写出 datetime 列，写盘成功后
+        校验引擎加载 schema 时 build_type_from_config 对未知类型直接 raise，
+        形成"建表成功但之后每次校验都炸"的坏配置。
+        """
+        workspace = str(tmp_path)
+        manifest_path = os.path.join(workspace, "project.precis.yaml")
+        with open(manifest_path, "w") as f:
+            import yaml
+
+            yaml.safe_dump({"version": 2, "project": {"id": "p1", "name": "p1"}, "schemas": []}, f)
+
+        for bad_type in ["datetime", "time"]:
+            result = process_schema_action(
+                {
+                    "actionType": "ADD_SCHEMA",
+                    "schemaSpec": {
+                        "name": f"tbl_{bad_type}",
+                        "schemaId": f"tbl_{bad_type}",
+                        "columns": [{"name": "col1", "type": bad_type}],
+                    },
+                },
+                workspace,
+            )
+            assert result["success"] is True
+            schema_file = os.path.join(workspace, "schemas", f"tbl_{bad_type}.schema.yaml")
+            import yaml
+
+            with open(schema_file, encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+            assert data["columns"][0]["type"] == "string", f"{bad_type} 应兜底回退为 string"
+
     def test_add_schema_rejects_traversal_source_path(self, tmp_path):
         result = process_schema_action(
             {

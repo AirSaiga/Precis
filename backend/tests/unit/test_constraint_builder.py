@@ -23,6 +23,24 @@
 """
 
 
+def _eval_in_scripted_sandbox(expression: str, *, value: object, row: dict | None = None) -> object:
+    """在与 ScriptedConstraint.validate 相同装配的沙箱内求值表达式（真实路径，非 mock）。
+
+    镜像 scripted.py 的运行时装配：SAFE_FUNCTIONS 白名单 + re_match(fullmatch 语义)，
+    变量只有 value/row——用于验证生成表达式在真实沙箱可执行且无注入逃逸。
+    """
+    import re
+
+    from simpleeval import SimpleEval
+
+    from app.shared.domain.eval_sandbox import SAFE_FUNCTIONS
+
+    evaluator = SimpleEval(names={"value": value, "row": row or {}})
+    evaluator.functions.update(dict(SAFE_FUNCTIONS))
+    evaluator.functions["re_match"] = lambda p, s: re.fullmatch(p, s) is not None
+    return evaluator.eval(expression)
+
+
 class TestBuildConstraintRefs:
     def test_notnull_refs(self):
         from app.shared.services.llm.constraints.constraint_builder import _build_constraint_refs
@@ -116,27 +134,28 @@ class TestBuildConstraintParams:
 
         params = _build_constraint_params("REGEX", {"params": {"pattern": r"^\d+$"}})
         assert "expression" in params
-        assert "re.match" in params["expression"]
+        # 必须经沙箱白名单函数 re_match（fullmatch）——旧式 "re.match(...)" 在沙箱内
+        # re 未定义，逐行 SCRIPTED_EXECUTION_ERROR；且不得 re.escape（会把元字符当字面量）
+        assert params["expression"] == f"re_match({r'^\d+$'!r}, str(value))"
 
     def test_scripted_pattern_with_single_quote(self) -> None:
-        """回归：pattern 含单引号（re.escape 不转义 '），生成表达式必须可直接编译执行。"""
-        import re
-
+        """回归：pattern 含单引号，生成表达式必须在真实沙箱内可执行且无法逃逸字面量。"""
         from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
 
         params = _build_constraint_params("REGEX", {"params": {"pattern": "o'clock"}})
         compile(params["expression"], "<expr>", "exec")
-        assert eval(params["expression"], {"re": re, "value": "o'clock now"}) is True
+        # 注入防护：引号被 repr 封闭在字符串字面量内，表达式按"字面 pattern"求值
+        assert _eval_in_scripted_sandbox(params["expression"], value="o'clock") is True
+        assert _eval_in_scripted_sandbox(params["expression"], value="o'clock now") is False
 
     def test_scripted_pattern_with_double_quote(self) -> None:
         """回归：pattern 含双引号，repr 字面量同样安全且语义不变。"""
-        import re
-
         from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
 
         params = _build_constraint_params("REGEX", {"params": {"pattern": 'say "hi"'}})
         compile(params["expression"], "<expr>", "exec")
-        assert eval(params["expression"], {"re": re, "value": 'say "hi" there'}) is True
+        assert _eval_in_scripted_sandbox(params["expression"], value='say "hi"') is True
+        assert _eval_in_scripted_sandbox(params["expression"], value='say "hi" there') is False
 
     def test_scripted_with_expression(self):
         from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params

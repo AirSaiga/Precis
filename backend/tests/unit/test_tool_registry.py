@@ -355,3 +355,127 @@ async def test_default_read_only_is_false():
     exits = [r for r in records if r.get("phase") == "exit"]
     # 默认写盘 → 串行 → 不重叠
     assert not _intervals_overlap(exits[0], exits[1]), "未声明 read_only 应默认串行（保守）"
+
+
+# =============================================================================
+# 截断 tool_call JSON 的解析与分发测试
+# =============================================================================
+
+
+def _raw_tool_call(arguments: str) -> dict:
+    """构造 OpenAI 原始格式的 tool_call dict（arguments 为字符串）。"""
+    return {
+        "id": "call_trunc_1",
+        "type": "function",
+        "function": {"name": "apply_actions", "arguments": arguments},
+    }
+
+
+def test_parse_tool_call_truncated_json_marks_truncation():
+    """截断的 arguments JSON（字符串未闭合/括号未闭合）→ 标记 truncated_raw_arguments。"""
+    registry = ToolRegistry()
+    # 流在字符串字面量中间被掐断
+    call = registry.parse_tool_call(_raw_tool_call('{"actions": [{"actionType": "ADD_CONSTRA'))
+
+    assert call.truncated_raw_arguments == '{"actions": [{"actionType": "ADD_CONSTRA'
+    assert call.arguments == {}
+    assert call.name == "apply_actions"
+
+    # 对象未闭合（解析器在末尾期待更多输入）
+    call2 = registry.parse_tool_call(_raw_tool_call('{"table_name": "users", "actions": [1, 2'))
+    assert call2.truncated_raw_arguments is not None
+    assert call2.arguments == {}
+
+
+def test_parse_tool_call_complete_but_invalid_json_keeps_raw_fallback():
+    """完整但非法的 JSON → 维持 {"raw": ...} 降级路径（LLM 自愈），不标记截断。"""
+    registry = ToolRegistry()
+
+    # 尾逗号：结构完整、以 } 收尾
+    call = registry.parse_tool_call(_raw_tool_call('{"table_name": "users",}'))
+    assert call.truncated_raw_arguments is None
+    assert call.arguments == {"raw": '{"table_name": "users",}'}
+
+    # 纯文本（根本不是 JSON）
+    call2 = registry.parse_tool_call(_raw_tool_call("please add a constraint"))
+    assert call2.truncated_raw_arguments is None
+    assert call2.arguments == {"raw": "please add a constraint"}
+
+    # 双大括号：以 } 收尾的完整非法结构
+    call3 = registry.parse_tool_call(_raw_tool_call('{"a": 1}}'))
+    assert call3.truncated_raw_arguments is None
+    assert call3.arguments == {"raw": '{"a": 1}}'}
+
+
+def test_parse_tool_call_valid_json_unaffected():
+    """合法 JSON → 正常解析为 dict，无截断标记（回归保护）。"""
+    registry = ToolRegistry()
+    call = registry.parse_tool_call(_raw_tool_call('{"table_name": "users", "sample_rows": 5}'))
+
+    assert call.truncated_raw_arguments is None
+    assert call.arguments == {"table_name": "users", "sample_rows": 5}
+    assert call.id == "call_trunc_1"
+
+
+@pytest.mark.asyncio
+async def test_execute_truncated_tool_call_short_circuits_with_clear_error():
+    """截断的 tool_call → 不分发 handler，回灌明确的"响应被截断"错误。
+
+    若按 {"raw": ...} 照常分发，有 args_model 的工具会回灌"字段缺失"——
+    误导 LLM 以为漏填字段，实际是响应被截断。
+    """
+    called = False
+
+    def handler(args):  # noqa: ARG001
+        nonlocal called
+        called = True
+        return {"success": True}
+
+    registry = ToolRegistry()
+    registry.register(
+        name="apply_actions",
+        description="d",
+        parameters={"type": "object"},
+        handler=handler,
+        args_model=_SampleArgs,
+    )
+
+    raw = _raw_tool_call('{"name": "users", "actions": [{"actionType": "ADD_CO')
+    call = registry.parse_tool_call(raw)
+    result = await registry.execute(call)
+
+    assert result.success is False
+    assert not called, "截断的 tool_call 不应进入 handler"
+    assert "截断" in (result.error or "")
+    assert "缩小" in (result.error or "")
+
+
+@pytest.mark.asyncio
+async def test_execute_truncated_tool_call_without_args_model_also_blocked():
+    """无 args_model 的工具收到截断 tool_call → 同样短路（不再静默收到垃圾参数）。"""
+    received: dict = {}
+
+    def handler(args):
+        received.update(args)
+        return {"success": True}
+
+    registry = ToolRegistry()
+    registry.register(
+        name="legacy_tool",
+        description="d",
+        parameters={"type": "object"},
+        handler=handler,
+        # 无 args_model
+    )
+
+    raw = {
+        "id": "call_trunc_2",
+        "type": "function",
+        "function": {"name": "legacy_tool", "arguments": '{"table_name": "us'},
+    }
+    call = registry.parse_tool_call(raw)
+    result = await registry.execute(call)
+
+    assert result.success is False
+    assert received == {}, "handler 不应收到任何参数"
+    assert "截断" in (result.error or "")

@@ -48,6 +48,12 @@ def execute_validate_project(workspace_path: str, table_filter: str | list[str] 
     调用后端校验引擎，根据项目清单和数据目录执行全量或指定表的数据校验。
     格式化校验结果，最多显示前 10 个错误。
 
+    Scripted 权限跳过与数据违规分离：默认部署（allow_unsafe_eval=False）下含
+    脚本约束的项目每次都会产出"脚本约束已跳过"的 PermissionError 条目，它描述
+    的是执行权限状态而非数据问题——计入 error_count 会让 validate_table /
+    apply 写盘自检把权限提示误报成"发现 N 个违规"。因此 error_count 只统计
+    真实违规，权限跳过单列在 details.skipped_scripted（*_count）与 message 附注。
+
     参数:
         workspace_path: 项目工作区路径（包含 project.precis.yaml）
         table_filter: 可选的表名过滤，支持单个表名字符串或表名列表
@@ -55,7 +61,8 @@ def execute_validate_project(workspace_path: str, table_filter: str | list[str] 
     返回:
         校验结果字典，包含 success、message、details
         - success=True 表示校验流程执行成功（即使发现数据错误）
-        - details 中包含 error_count、errors 列表等
+        - details 中包含 error_count（仅真实违规）、errors、
+          skipped_scripted_count / skipped_scripted（权限跳过清单）等
 
     示例:
         >>> result = execute_validate_project("/workspace", table_filter="users")
@@ -81,9 +88,22 @@ def execute_validate_project(workspace_path: str, table_filter: str | list[str] 
         executor = ValidationExecutor(manifest_path)
         result = executor.execute(data_dir, options)
 
-        errors = result.get("errors", [])
+        # Scripted 权限跳过分离：引擎侧仅 scripted.py 的 eval 门禁会产出
+        # error_type=PermissionError 的校验条目（文件系统权限问题走 loading_errors/
+        # 异常通道），据此把"权限未开启的跳过"从违规计数中剥出，单列为附加信息。
+        all_errors = result.get("errors", [])
+        skipped_scripted = [e for e in all_errors if e.get("error_type") == "PermissionError"]
+        errors = [e for e in all_errors if e.get("error_type") != "PermissionError"]
         loading_errors = result.get("loading_errors", [])
         duration_ms = result.get("duration_ms", 0)
+
+        # 权限跳过附注（不计入违规；提示开启项目设置后才会真正执行脚本校验）
+        skip_note = ""
+        if skipped_scripted:
+            skip_note = (
+                f"另有 {len(skipped_scripted)} 个脚本约束因未开启『允许执行脚本 eval』被跳过"
+                "（权限提示不计入违规；如需执行脚本校验请在项目设置中开启）"
+            )
 
         # 格式化加载警告（loading_errors 为非致命的加载阶段问题）
         loading_section = ""
@@ -119,6 +139,8 @@ def execute_validate_project(workspace_path: str, table_filter: str | list[str] 
                 error_details.append(f"  ... 还有 {len(errors) - 10} 个错误")
 
             full_message = f"发现 {len(errors)} 个数据错误:\n" + "\n".join(error_details)
+            if skip_note:
+                full_message += "\n" + skip_note
             if loading_section:
                 full_message += "\n" + loading_section
 
@@ -128,8 +150,10 @@ def execute_validate_project(workspace_path: str, table_filter: str | list[str] 
                 "details": {
                     "error_count": len(errors),
                     "duration_ms": duration_ms,
-                    "errors": errors[:20],  # 返回前20个错误详情
+                    "errors": errors[:20],  # 返回前20个错误详情（仅真实违规）
                     "has_errors": True,
+                    "skipped_scripted": skipped_scripted[:20],
+                    "skipped_scripted_count": len(skipped_scripted),
                     "loading_errors": loading_errors[:20],
                     "has_loading_errors": len(loading_errors) > 0,
                     "table_filter": table_filter,
@@ -141,8 +165,16 @@ def execute_validate_project(workspace_path: str, table_filter: str | list[str] 
                 full_message = f"数据校验通过，但存在 {len(loading_errors)} 个加载警告:\n" + "\n".join(
                     loading_section.split("\n")[1:]  # 去掉 "加载警告:" 标题行，改用计数前缀
                 )
+            elif skipped_scripted:
+                # 无违规、只有脚本权限跳过：明确"通过"，跳过单列附注
+                full_message = (
+                    f"数据校验通过（{len(skipped_scripted)} 个脚本约束因未开启"
+                    f"『允许执行脚本 eval』被跳过，未计入违规；耗时 {duration_ms}ms）"
+                )
             else:
                 full_message = f"数据校验通过（耗时 {duration_ms}ms）"
+            if skip_note and loading_section:
+                full_message += "\n" + skip_note
 
             return {
                 "success": True,
@@ -152,6 +184,8 @@ def execute_validate_project(workspace_path: str, table_filter: str | list[str] 
                     "duration_ms": duration_ms,
                     "errors": [],
                     "has_errors": False,
+                    "skipped_scripted": skipped_scripted[:20],
+                    "skipped_scripted_count": len(skipped_scripted),
                     "loading_errors": loading_errors[:20],
                     "has_loading_errors": len(loading_errors) > 0,
                     "table_filter": table_filter,

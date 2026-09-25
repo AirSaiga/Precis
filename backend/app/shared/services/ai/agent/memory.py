@@ -121,6 +121,8 @@ class AgentMemory:
         @methoddesc 获取截断后的消息列表
 
         保留 system prompt 和最近的用户/assistant/tool 消息，不超出 token 预算。
+        截断后做 tool_calls/tool 配对修正，保证送给 provider 的序列不含
+        孤儿 tool 消息或残缺的 tool_calls（OpenAI 兼容 API 对二者直接返回 400）。
         """
         # 计算 system prompt 开销
         system_tokens = self._estimate_tokens(self.system_prompt)
@@ -140,11 +142,51 @@ class AgentMemory:
             total += tokens
 
         selected.reverse()
+        selected = self._repair_tool_pairing(selected)
+
         result: list[dict[str, Any]] = []
         if self.system_prompt:
             result.append({"role": "system", "content": self.system_prompt})
         result.extend(selected)
         return result
+
+    @staticmethod
+    def _repair_tool_pairing(selected: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """修正截断边界的 tool_calls/tool 配对。
+
+        不变量：输出序列中每个 tool 消息都有前面被保留的 assistant(tool_calls)，
+        每个 assistant(tool_calls) 的每个 tool_call id 都有对应的 tool 结果消息。
+        违反任一条，OpenAI 兼容 API 普遍返回 400，多轮会话会"越聊越挂"。
+
+        截断按 token 预算从尾往前选消息、边界不感知配对，两类典型破坏：
+        1. 预算恰好耗尽在 assistant(tool_calls) 与其 tool 结果之间（或结果序列中间）
+           → 选中片段以孤儿 tool 开头（其归属的 assistant 在界外）
+        2. 保留了 assistant(tool_calls) 但对应结果被丢（如截断丢结果、
+           checkpoint 恢复到结果未落盘的中间态）→ 残缺 tool_calls
+
+        前向单遍清洗：先收集界内全部 tool_call_id 应答集，再逐条决定去留——
+        assistant(tool_calls) 的 id 未全部被应答则丢弃该 assistant；
+        tool 消息的 id 不属于任何被保留的 assistant 则丢弃（主人总在工具之前，
+        故遍历到 tool 时其主人的去留已判定）。
+        """
+        answered_ids = {m.get("tool_call_id") for m in selected if m.get("role") == "tool"}
+        kept_call_ids: set[Any] = set()
+        repaired: list[dict[str, Any]] = []
+        for msg in selected:
+            role = msg.get("role")
+            if role == "assistant" and msg.get("tool_calls"):
+                call_ids = {tc.get("id") for tc in msg["tool_calls"]}
+                if call_ids <= answered_ids:
+                    repaired.append(msg)
+                    kept_call_ids |= call_ids
+                # 任一 tool_call 无对应结果 → 丢弃整条 assistant（配对必须完整）
+            elif role == "tool":
+                if msg.get("tool_call_id") in kept_call_ids:
+                    repaired.append(msg)
+                # 孤儿 tool（主人被截掉或被上一分支丢弃）→ 丢弃
+            else:
+                repaired.append(msg)
+        return repaired
 
     def get_turns(self) -> list[AgentTurn]:
         """获取所有 turn 记录。"""

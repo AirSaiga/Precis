@@ -110,9 +110,11 @@ class ValidateTableTool:
 
         # execute_validate_project 返回 {success, message, details}
         # success=True 表示校验流程跑通（不代表数据无错），details 含 error_count
+        # （仅真实违规——Scripted 权限跳过已分离到 skipped_scripted_count，不计入）
         details = result.get("details") or {}
         error_count = details.get("error_count", 0)
         raw_errors = details.get("errors", []) or []
+        skipped_scripted_count = details.get("skipped_scripted_count", 0)
 
         # 截断错误列表，避免 observation 过长
         truncated_errors = raw_errors[:_MAX_ERRORS_IN_OBSERVATION]
@@ -126,6 +128,7 @@ class ValidateTableTool:
             "error_count": error_count,
             "errors": truncated_errors,
             "truncated_error_count": truncated_count,
+            "skipped_scripted_count": skipped_scripted_count,
             "table_filter": table_filter,
             "message": result.get("message", ""),
         }

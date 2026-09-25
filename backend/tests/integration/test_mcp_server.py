@@ -66,7 +66,14 @@ def test_mcp_tool_functions_in_process(tmp_path, monkeypatch):
     from app.mcp_server import tool_describe_constraints, tool_validate_data
 
     describe = tool_describe_constraints()
-    assert {t["type"] for t in describe["types"]} >= {"NotNull", "Unique", "Range", "Composite"}
+    # 类型清单与参数描述均从 actions registry 单一事实源派生（P1-3 收编）
+    from app.shared.services.llm.actions.registry import CONSTRAINT_TYPES
+
+    assert {t["type"] for t in describe["types"]} == set(CONSTRAINT_TYPES)
+    range_entry = next(t for t in describe["types"] if t["type"] == "Range")
+    assert {"min", "max", "boundary_mode"} <= {p["key"] for p in range_entry["params"]}
+    boundary = next(p for p in range_entry["params"] if p["key"] == "boundary_mode")
+    assert [v["value"] for v in boundary["values"]] == ["inclusive", "exclusive"]
 
     manifest = REPO_ROOT / "demo" / "precis-project" / "project.precis.yaml"
     if not manifest.is_file():

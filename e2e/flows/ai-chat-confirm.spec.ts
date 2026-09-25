@@ -47,6 +47,18 @@ test.describe('AI Chat Confirm Endpoint', () => {
     expect(resp.status).toBe(422)
   })
 
+  test('POST /ai/chat/{job_id}/confirm with non-enum decision returns 422', async ({ apiHelper }) => {
+    // decision 是 Literal["confirm","reject"] 枚举："yes"/"ok" 等非法值必须被 422 拒绝
+    //（修复前是自由字符串，非法值被静默当作 reject 处理）
+    const resp = await apiHelper.post('/ai/chat/test_job_123/confirm', { decision: 'yes' })
+    expect(resp.status).toBe(422)
+    const body = await resp.json()
+    // Pydantic 自动回显合法值集合，调用方能自我修正
+    const msg = JSON.stringify(body)
+    expect(msg).toContain('confirm')
+    expect(msg).toContain('reject')
+  })
+
   test('POST /ai/chat/{job_id}/confirm with confirm decision', async ({ apiHelper }) => {
     const resp = await apiHelper.post('/ai/chat/test_job_confirm/confirm', { decision: 'confirm' })
     // 无实际挂起的 job，返回 404

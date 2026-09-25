@@ -26,7 +26,6 @@
 from __future__ import annotations
 
 import logging
-import re
 from typing import Any
 
 from app.shared.services.llm.schema_resolver import _resolve_id_from_name
@@ -212,9 +211,16 @@ def _build_constraint_params(
         pattern = params.get("pattern")
         expression = params.get("expression")
         if pattern and not expression:
-            safe_pattern = re.escape(pattern)
-            # repr 生成自带引号转义的字符串字面量，pattern 含单/双引号均安全
-            expression = f"re.match({safe_pattern!r}, str(value)) is not None"
+            # 非 str pattern（如 LLM 误给数字/布尔）在写盘侧 fail-fast，不留到逐行执行才爆
+            if not isinstance(pattern, str):
+                raise ValueError(f"Scripted 约束 pattern 必须为字符串，实际为 {type(pattern).__name__}: {pattern!r}")
+            # pattern 视为正则，经沙箱白名单函数 re_match（fullmatch 全串匹配，与独立
+            # regex 约束同口径）生成表达式。repr 生成自带引号/反斜杠转义的字符串字面量，
+            # pattern 含单/双引号均无法逃逸出字面量（注入安全，compile 可验证）。
+            # 不做 re.escape、不用 re.match：re.escape 会把 ^\d+$ 等元字符当字面量子串，
+            # 而 "re.match(...)" 在 Scripted 沙箱内 re 未定义（只注册了 re_match），
+            # 逐行报 SCRIPTED_EXECUTION_ERROR——历史缺陷，回归见 test_ai_write_contract
+            expression = f"re_match({pattern!r}, str(value))"
         if not expression:
             # 空表达式不再兜底为 "True"（恒真约束会静默失效还报成功），
             # 抛出让上层按失败上报且不落盘。三个调用方（update_yaml_config 内联/独立分支、

@@ -19,6 +19,7 @@
 功能概述:
 - 估算文本 Token 数量（支持中英文混合）
 - 按 Token 上限截断聊天历史记录
+- 按 Provider 上下文窗口自适应推导聊天历史预算
 - 扫描项目目录生成项目概览（Schema / Constraint 列表）
 
 架构设计:
@@ -29,14 +30,17 @@
 输入示例:
     estimate_tokens("Hello 世界")
     truncate_history_by_tokens(history, "系统提示", max_tokens=120000)
+    await resolve_chat_history_budget(provider)
     get_project_overview("/path/to/project")
 
 输出示例:
     7  # Token 估算值
     [{"role": "user", "content": "..."}]  # 截断后的历史
+    11776  # 自适应推导的历史预算
     {"schemas": [...], "constraints": [...]}  # 项目概览
 """
 
+import asyncio
 import logging
 import re
 from pathlib import Path
@@ -45,6 +49,21 @@ from typing import Any
 import yaml
 
 logger = logging.getLogger(__name__)
+
+# 聊天历史 token 预算的硬上限：与旧版硬编码默认值一致。
+# 探测到大窗口时也不放大（避免预算超出内部估算可靠范围），探测失败时作为回退默认值
+CHAT_HISTORY_BUDGET_CAP = 120000
+
+# 工具定义 token 的保守预留（调用方未显式传入估算时使用）：
+# 8 个 chat 工具的 OpenAI tools JSON（名称/描述/参数 schema）按 estimate_tokens
+# 口径序列化实测约 2.9k token（2026-09 P1 实测；estimate_tokens 对 JSON 标点逐字符
+# 计数，天然比真实 BPE 偏多）。宁可多预留、少算历史，不可挤爆窗口。
+_DEFAULT_TOOL_DEFINITIONS_TOKENS = 3000
+
+# 扣除固定开销（输出预留 + 工具定义）后历史预算的保底下限：低于此值说明窗口已被
+# 系统提示词+工具定义挤占，再收缩会让多轮对话"零历史"——保底并告警，由人工
+# 更换更大窗口的模型或精简工具集（与探测失败回退同款容错语义，不阻断对话）。
+_MIN_HISTORY_BUDGET = 2048
 
 
 def estimate_tokens(text: str) -> int:
@@ -132,6 +151,62 @@ def truncate_history_by_tokens(
         )
 
     return truncated
+
+
+async def resolve_chat_history_budget(provider: Any, tool_definitions_tokens: int | None = None) -> int:
+    """按 Provider 实际上下文窗口自适应推导聊天历史 token 预算。
+
+    聊天路径（orchestrator 旧路径 + chat agent 路径）的预算单一来源：
+    探测 provider 的上下文窗口，经 compute_token_budgets 得到输入预算
+    （保证 输入+输出+余量 <= 窗口），再扣除工具定义估算、封顶 CHAT_HISTORY_BUDGET_CAP。
+
+    预算覆盖"系统提示词 + 工具定义 + 对话历史"三项每轮固定/变动开销：
+    工具定义 token 在本函数内先于历史扣除（agent 路径按 registry.get_definitions()
+    序列化估算传入，legacy 纯文本路径无工具传 0，未传时按保守常量预留）；
+    系统提示词（约 10.6k 字符）与历史由消费方在预算内扣除——AgentMemory.get_messages
+    会先减去 system prompt，legacy 路径的 truncate_history_by_tokens 以 system prompt 起算。
+
+    参数:
+        provider: Provider 实例（BaseProvider 子类，需提供 get_context_window）
+        tool_definitions_tokens: 工具定义的估算 token 数。None 时按保守常量
+            _DEFAULT_TOOL_DEFINITIONS_TOKENS 预留；无工具的调用方显式传 0。
+
+    返回:
+        历史 token 预算。探测失败/不支持/窗口小到无法支撑对话时，
+        回退 CHAT_HISTORY_BUDGET_CAP（与旧版硬编码默认一致，行为不劣于现状）；
+        扣除工具定义后低于 _MIN_HISTORY_BUDGET 时按保底值继续并告警。
+    """
+    # 延迟导入防循环依赖（与 memory.py 引 estimate_tokens 同模式）
+    from app.shared.services.llm.providers.base import compute_token_budgets
+
+    try:
+        # get_context_window 内部可能调 Ollama 的同步 urllib 探测，
+        # 放线程池避免阻塞事件循环（与 generation/migrate 服务同模式）
+        context_window = await asyncio.to_thread(provider.get_context_window)
+        # 输出预算按窗口自适应（小窗减输出、大窗封顶 8000），输入预算为窗口减输出与余量
+        input_budget, _output_budget = compute_token_budgets(int(context_window))
+        # 工具定义与系统提示词同属"每轮固定开销"，先于对话历史从输入预算扣除
+        tools_tokens = (
+            _DEFAULT_TOOL_DEFINITIONS_TOKENS
+            if tool_definitions_tokens is None
+            else max(0, int(tool_definitions_tokens))
+        )
+        history_budget = input_budget - tools_tokens
+        if history_budget < _MIN_HISTORY_BUDGET:
+            # 极端小窗：系统提示词+工具定义已接近或超出窗口。保底继续（多轮对话
+            # 至少保留最近几轮），告警提示人工介入；预算推导失败不应阻断对话本身
+            logger.warning(
+                f"上下文窗口过小：输入预算 {input_budget} 扣除工具定义约 {tools_tokens} token 后仅剩 "
+                f"{history_budget}，已按保底 {_MIN_HISTORY_BUDGET} 继续"
+                "（系统提示词+工具定义已接近或超出窗口，建议更换更大窗口的模型或精简工具集）"
+            )
+            history_budget = _MIN_HISTORY_BUDGET
+        return min(history_budget, CHAT_HISTORY_BUDGET_CAP)
+    except Exception as e:
+        # 窗口探测失败（网络/不支持 get_context_window）或窗口 < MIN_CONTEXT_WINDOW
+        # （compute_token_budgets 抛 ValueError，视为无法支撑自适应）→ 回退默认
+        logger.warning(f"上下文窗口探测失败，聊天历史预算回退默认 {CHAT_HISTORY_BUDGET_CAP}: {e}")
+        return CHAT_HISTORY_BUDGET_CAP
 
 
 def get_project_overview(project_path: str) -> dict[str, Any]:

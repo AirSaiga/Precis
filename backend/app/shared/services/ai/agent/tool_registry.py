@@ -73,6 +73,30 @@ def _format_validation_error(err: ValidationError) -> str:
     return "参数校验失败: " + "; ".join(parts)
 
 
+def _looks_truncated_json(text: str, exc: json.JSONDecodeError) -> bool:
+    """启发式判断 arguments JSON 解析失败是否由"模型响应被截断"导致。
+
+    取舍（不追求完美，宁可漏判不可误判）：
+    - 漏判（真截断被当成"完整但非法"）→ 走既有 {"raw": ...} 自愈路径，LLM 仍可自行纠正
+    - 误判（完整非法 JSON 被当成截断）→ 回灌"请缩小范围重试"，LLM 重发后行为仍收敛
+    判据：
+    1. 字符串字面量未闭合（"Unterminated string"）——流在字符串中间被掐断的典型形态
+    2. 文本不以 }/] 收尾，且解析错误位置之后只剩空白——解析器期待更多输入而文本已耗尽。
+       已带完整收尾括号的非法 JSON（尾逗号、双大括号、乱写键名等）视为"完整但非法"
+    """
+    stripped = text.strip()
+    if not stripped:
+        return False
+    # 判据 1：未闭合的字符串字面量
+    if exc.msg.startswith("Unterminated string"):
+        return True
+    # 判据 2 的前置：顶层已有完整收尾括号 → 按"完整但非法"处理
+    if stripped[-1] in "}]":
+        return False
+    # 解析错误发生在文本末尾（其后无实质内容）→ 输出在中途被截断
+    return not text[exc.pos :].strip()
+
+
 class ToolRegistry:
     """
     @classdesc Agent 工具注册表
@@ -178,6 +202,24 @@ class ToolRegistry:
                 error=f"未知工具: {call.name}",
             )
 
+        # 响应被截断的 tool_call：参数 JSON 不完整，任何分发都只会产生垃圾结果——
+        # 有 args_model 的工具回灌"字段缺失"（误导 LLM 以为漏填，实为响应被截断），
+        # 无 args_model 的工具静默收到残缺参数。短路分发，回灌明确的截断错误驱动重试。
+        if call.truncated_raw_arguments is not None:
+            logger.warning(
+                f"工具 {call.name} 的参数 JSON 疑似被截断，已拒绝分发（原始片段）: {call.truncated_raw_arguments[:200]}"
+            )
+            return ToolResult(
+                call_id=call.id,
+                name=call.name,
+                success=False,
+                observation="",
+                error=(
+                    "模型响应被截断：本次工具调用的参数 JSON 不完整，无法解析执行。"
+                    "请缩小单次操作的范围（减少一次提交的动作数量或参数长度）后重试。"
+                ),
+            )
+
         # P1-1：入参结构校验。若注册时提供了 args_model，先用 Pydantic 校验 LLM 的入参，
         # 拦截必填缺失/类型错误等结构问题，把结构化错误回灌给 LLM（不调 handler）。
         # 注意：校验通过后仍传 *原始* call.arguments 给 handler，避免 model_dump 的
@@ -281,13 +323,26 @@ class ToolRegistry:
         ]
 
     def parse_tool_call(self, raw: dict[str, Any]) -> ToolCall:
-        """从 LLM 返回的 tool_call dict 解析为 ToolCall。"""
+        """从 LLM 返回的 tool_call dict 解析为 ToolCall。
+
+        arguments JSON 解析失败时区分两种情况：
+        - 疑似截断（不完整 JSON）→ 标记 truncated_raw_arguments，execute 短路分发并
+          回灌明确的截断错误（按 {"raw": ...} 分发会误导 LLM 以为漏填字段）
+        - 完整但非法 → 维持 {"raw": <原文>} 降级，交给 LLM 下一轮自愈
+        """
         func = raw.get("function", {})
         arguments = func.get("arguments")
         if isinstance(arguments, str):
             try:
                 arguments = json.loads(arguments)
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as e:
+                if _looks_truncated_json(arguments, e):
+                    return ToolCall(
+                        id=raw.get("id", ""),
+                        name=func.get("name", ""),
+                        arguments={},
+                        truncated_raw_arguments=arguments,
+                    )
                 arguments = {"raw": arguments}
         return ToolCall(
             id=raw.get("id", ""),

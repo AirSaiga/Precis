@@ -40,7 +40,7 @@
       mode: relative_file
       path: data/users.json
       options:
-        format: auto
+        format: array
 
     # 嵌套 JSON 数据源
     source:
@@ -119,7 +119,7 @@ class SourceSpec(BaseModel):
           mode: relative_file
           path: data/users.json
           options:
-            format: auto
+            format: array
 
         # 嵌套 JSON 数据源
         source:

@@ -24,7 +24,7 @@
 Tools:
 - validate_data: 执行校验，返回契约 payload（docs/contracts/validate-json-v1.md）
 - check_config: 检查项目配置加载情况（loading_errors/warnings + 装载计数）
-- describe_constraints: 列出约束类型与参数说明（类型清单从 registry 派生）
+- describe_constraints: 列出约束类型与参数说明（refs/params 从 actions registry 派生）
 - infer_schema: 从数据文件推断 schema 草稿
 
 安全（P3-3）:
@@ -41,24 +41,6 @@ import os
 import sys
 from pathlib import Path
 from typing import Any
-
-# 约束类型的参数说明（类型清单从 core registry 派生，此表只补人话描述；
-# 新增约束类型时 registry 派生会自动带上，缺描述时用通用文案兜底）
-_CONSTRAINT_PARAM_DOCS: dict[str, dict[str, str]] = {
-    "NotNull": {"refs": "table_id + column_id", "params": "无"},
-    "Unique": {"refs": "table_id + column_ids（列表）", "params": "无"},
-    "AllowedValues": {"refs": "table_id + column_id", "params": "allowed_values: 允许值列表"},
-    "Range": {"refs": "table_id + column_id", "params": "min/max/boundary_mode(inclusive|exclusive)"},
-    "ForeignKey": {"refs": "from_table_id + from_column_id + to_table_id + to_column_id", "params": "无"},
-    "Conditional": {
-        "refs": "table_id + then_column_id + if_conditions[{if_column_id, operator, value}] + if_logic",
-        "params": "then_condition: {operator: not_null}",
-    },
-    "Scripted": {"refs": "table_id + column_id", "params": "name + expression（需 allow_eval）"},
-    "Charset": {"refs": "table_id + column_id", "params": "charset_mode: ascii|chinese|chinese_mixed"},
-    "DateLogic": {"refs": "table_id + column_id", "params": "logic_mode: compare + compare_op + reference_date"},
-    "Composite": {"refs": "table_id", "params": "logic(all|any) + sub_constraints（内嵌子约束列表）"},
-}
 
 
 def _allowed_roots() -> list[Path]:
@@ -136,20 +118,13 @@ def tool_check_config(manifest: str) -> dict[str, Any]:
 
 
 def tool_describe_constraints() -> dict[str, Any]:
-    """列出全部约束类型与参数说明（类型清单从 core registry 派生）。"""
-    from app.shared.core.project.constraint.registry import CONSTRAINT_TYPE_ALIASES
+    """列出全部约束类型与参数说明（refs/params 均从 actions registry 单一事实源派生）。"""
+    from app.shared.services.llm.actions.registry import build_constraint_param_docs_structured
 
-    # registry 的别名值集合即受支持的标准类型名集合
-    canonical_types = sorted(set(CONSTRAINT_TYPE_ALIASES.values()) | set(_CONSTRAINT_PARAM_DOCS.keys()))
-    types = [
-        {
-            "type": type_name,
-            "refs": _CONSTRAINT_PARAM_DOCS.get(type_name, {}).get("refs", "见 v2-format 文档"),
-            "params": _CONSTRAINT_PARAM_DOCS.get(type_name, {}).get("params", "见 v2-format 文档"),
-        }
-        for type_name in canonical_types
-    ]
-    return {"types": types, "note": "refs 指向 schema 的表/列 ID；配置格式详见插件 v2-format.md"}
+    return {
+        "types": build_constraint_param_docs_structured(),
+        "note": "refs 指向 schema 的表/列 ID；params 为 V2 文件 params 区的 snake_case 键（含值域/默认值）；配置格式详见插件 v2-format.md",
+    }
 
 
 def tool_infer_schema(
@@ -278,7 +253,9 @@ def _warm_up_imports() -> None:
     不变量：工具线程内出现的所有 app 内延迟导入都必须在此登记——2026-09-21
     审计实证 json_payload（tool_validate_data 内）与 project_loader
     （executor.build_dataset_schema 惰性导入）破坏该不变量，已补齐。
+    describe_constraints 的 actions registry 延迟导入（轻量纯数据模块）同样登记。
     """
+    from app.shared.services.llm.actions import registry  # noqa: F401
     from app.shared.services.project_loader import build_dataset_schema  # noqa: F401
     from app.shared.services.schema_inference import infer_schema  # noqa: F401
     from app.shared.services.validation import (

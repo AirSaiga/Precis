@@ -32,7 +32,7 @@
     source:
       path: data/users.json
       options:
-        format: auto
+        format: object
         json_path: "$.data.items"
         sep: "."
 
@@ -53,7 +53,7 @@
 
 输出示例:
     # JSON 格式选项
-    JSONOptions(format="auto", json_path="$.data.items", sep=".")
+    JSONOptions(format="object", json_path="$.data.items", sep=".")
 
     # CSV 格式选项
     CSVOptions(delimiter=",", encoding="utf-8", skip_rows=0)
@@ -82,8 +82,7 @@ class JSONOptions(BaseModel):
     包含 JSON 数据源的特定配置。
 
     字段说明:
-        - format: JSON 格式类型
-            - auto: 自动检测
+        - format: JSON 格式类型（D8: 必填,auto 已废弃）
             - array: 对象数组格式
             - lines: JSON Lines 格式
             - object: 嵌套对象格式

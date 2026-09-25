@@ -19,7 +19,7 @@ Chat mini-agent 的编排器。在 agent_mode=true 时，
 让 Chat 路径真正跑起 plan→act→observe 工具循环。
 
 核心职责:
-- 组装 7 个 chat 专用工具(read_project/list_data_files/read_table/apply_actions/validate_table/read_canvas/ask_user)
+- 组装 8 个 chat 专用工具(read_project/list_data_files/read_table/infer_schema/apply_actions/validate_table/read_canvas/ask_user)
 - 构建 chat agent 系统提示词
 - 调用 AgentExecutor 跑工具循环
 - 从循环结果提取 reply + 旁路收集的 frontend_instructions
@@ -34,6 +34,7 @@ Chat mini-agent 的编排器。在 agent_mode=true 时，
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass, field
 from typing import Any
@@ -41,6 +42,7 @@ from typing import Any
 from app.shared.services.ai.agent.chat_tools import (
     ApplyActionsTool,
     AskUserTool,
+    InferSchemaTool,
     ListDataFilesTool,
     ReadCanvasTool,
     ReadProjectTool,
@@ -58,6 +60,7 @@ from app.shared.services.llm.actions.registry import (
     ACTION_COUNT,
     READ_ONLY_ACTION_TYPES,
     build_action_type_list_text,
+    build_constraint_param_docs_text,
     build_spec_field_mapping_text,
 )
 from app.shared.services.llm.chat.chat_system_prompt import SYSTEM_PROMPT_CORE
@@ -72,10 +75,11 @@ _READ_ONLY_LABEL_TYPES = READ_ONLY_ACTION_TYPES
 # 系统提示词
 # =============================================================================
 
-# 工具使用指引：定义 LLM 如何使用 7 个工具完成查-改-验闭环
+# 工具使用指引：定义 LLM 如何使用 8 个工具完成查-改-验闭环
 _CHAT_AGENT_TOOL_GUIDE = """## 工具使用指引
 
-你有以下 7 个工具可用。请根据用户需求自主决定调用顺序和次数：
+你有以下 8 个工具可用（ask_user 在后文《何时使用 ask_user》单独说明）。
+请根据用户需求自主决定调用顺序和次数：
 
 ### 1. read_project（查询，无参数）
 读取当前项目的完整概览：所有表结构、约束、转换、正则节点、设置。
@@ -86,8 +90,8 @@ _CHAT_AGENT_TOOL_GUIDE = """## 工具使用指引
 是否已被 schema 注册（registered/registered_by）。
 **使用时机**：用户说"根据目录下的文件/表初始化项目或校验配置"、"分析文件夹里的数据"，
 或 read_project 显示项目为空但用户提到了数据文件时，先调用此工具发现文件，
-再为未注册（registered=false）的文件创建 schema（ADD_SCHEMA 的 source.path
-用返回的 path 值）。
+再为未注册（registered=false）的文件建表（先 infer_schema 出列定义草稿，
+ADD_SCHEMA 的 source.path 用返回的 path 值，详见"工作流程"第 5 条）。
 **与 read_project 的关键区别**：read_project 只读已注册到 manifest 的配置；
 list_data_files 看的是磁盘上实际存在的文件——包括还没注册进项目的。
 
@@ -95,7 +99,16 @@ list_data_files 看的是磁盘上实际存在的文件——包括还没注册�
 读取指定表的数据样本（前 N 行）和列结构。
 **使用时机**：需要为某列设计约束（如 Range/AllowedValues）时，先看真实数据分布再决定参数。
 
-### 4. apply_actions（修改，参数: actions）
+### 4. infer_schema（查询，参数: file_path, table_name?）
+对项目内的数据文件（CSV/Excel/JSON）确定性推断 schema 草稿：返回每列的名称和
+推断类型（string/integer/float/boolean/date）。
+**使用时机**：为数据文件建表（ADD_SCHEMA）前，**必须**先调用本工具获得列定义草稿，
+再按业务语义微调后作为 schemaSpec.columns 提交。典型微调：金额/单价列把 float 改
+decimal、主键列补 primary_key: true、按业务语义命名表名（table_name 参数）。
+**禁止凭记忆直接手写列类型**——推断草稿是基于真实数据的确定结果，你的调整只是
+增量修改。file_path 用 list_data_files 返回的相对项目根 path。
+
+### 5. apply_actions（修改，参数: actions）
 执行配置修改动作。actions 是动作列表，每个动作含 actionType 和对应 spec。
 **使用时机**：用户明确要求添加/修改/删除约束、表结构、正则、转换或设置时。
 **关键区分**：
@@ -109,11 +122,11 @@ list_data_files 看的是磁盘上实际存在的文件——包括还没注册�
 第一批只写结构，执行成功后再提交第二批挂约束——混在一批会被整批以
 "字段不存在"拒绝。
 
-### 5. validate_table（校验，参数: table_name?）
+### 6. validate_table（校验，参数: table_name?）
 执行数据校验，返回错误数量和列表。不传 table_name 校验所有表。
 **使用时机**：用户要求"校验项目/表"，或在 apply_actions 后想验证改动效果。
 
-### 6. read_canvas（查询，无参数）
+### 7. read_canvas（查询，无参数）
 读取当前**画布上实际显示**的节点列表（Schema、约束、正则、转换等），含各类数量摘要。
 **与 read_project 的关键区别**：read_project 读项目配置文件，read_canvas 读画布快照——
 项目配置里有的表/约束不一定已拖到画布上，两者会不一致。
@@ -137,9 +150,11 @@ list_data_files 看的是磁盘上实际存在的文件——包括还没注册�
    - 不要用 read_project 推断画布内容
 5. **初始化类问题**（如"根据目录下的文件初始化校验配置"、"分析文件夹里的数据"）：
    - 先 list_data_files 发现磁盘上的数据文件（未注册的 registered=false）
-   - 为未注册文件逐个 ADD_SCHEMA（schemaSpec 给 name + source.path 用返回的 path），
-     **columns 可省略**——系统会自动从数据文件推断列并写入 schema；需要覆盖推断
-     时才显式给 columns。建表后可用 read_table 查看真实数据分布
+   - 对每个未注册文件建表：先 infer_schema 获得列定义草稿（列名+推断类型），
+     按业务语义微调（金额/单价列把 float 改 decimal、主键列补 primary_key: true）
+     后 ADD_SCHEMA（schemaSpec 给 name + source.path 用返回的 path，columns 用
+     微调后的列定义）。**不要凭记忆手写列类型**——必须以推断草稿为基准做增量调整。
+     建表后可用 read_table 查看真实数据分布
    - 再按用户需求设计约束（可先 read_table 看数据分布）；**schema 结构变更与
      约束添加分两批 apply_actions 提交**（见 apply_actions 的批次依赖说明），
      不要混在一个批次里
@@ -225,20 +240,7 @@ actionType 可选值（{ACTION_COUNT}种）：
 调用 ADD_CONSTRAINT_NODE / UPDATE_CONSTRAINT_NODE 时，constraintSpec.type 必须是以下之一，
 constraintSpec.params 按类型填充对应字段：
 
-- **NotNull**: 非空约束。参数：无。
-- **Unique**: 唯一约束。单列无需参数；多列联合唯一用 constraintSpec.targetColumns（列名数组，如 ["order_id", "line_no"]）。
-- **AllowedValues**: 允许值约束。参数：`allowedValues` (List[Any])。
-- **Range**: 范围约束。参数：`min` (float/int), `max` (float/int)（至少一个），`boundaryMode` ("inclusive" 闭区间 / "exclusive" 开区间，默认 inclusive)。
-- **Scripted**: 脚本/正则约束。二选一：`expression` (str, 代码表达式) 或 `pattern` (str, 正则)。
-- **ForeignKey**: 外键约束。参数：`toTableId` (str), `toColumnId` (str)。
-- **Conditional**: 条件约束。参数：`ifConditions` (List), `thenCondition` (Object 或 str，必填)。
-  - `ifConditions` 结构：`[{{"ifColumnId": "列名", "operator": "eq/neq/in/not_null/greater_than/less_than", "value": "比较值", "values": 列表(in 时可选)}}]`
-  - `thenCondition` 两种形态：DSL 对象 `{{"operator": "not_null/greater_than/less_than/in/eq/neq", "value": 比较值, "values": 列表(in 时), "refColumn": "同表参考列(可选，与该列比较)"}}`；或字符串（已注册条件函数名，如 "is_not_empty"）。旧字段 thenValue 已废弃，不要再使用。
-- **DateLogic**: 日期逻辑约束。参数：`logicMode` ("compare"/"calculation")。
-  - compare 模式：`compareOp` ("gt/gte/lt/lte/eq/range"), `referenceDate` (str, "YYYY-MM-DD", 固定日期) 或 `referenceColumn` (str, 参考列，二选一)；`compareOp` 为 "range" 时必须同时提供 `referenceDateEnd` 或 `referenceColumnEnd`（与起点同形态）。
-  - calculation 模式：`calculationType` ("age"/"days_diff"), `targetValue` (数值，必填)；days_diff 另需 `targetColumn` (str, 天数差比较的目标列)。
-- **Charset**: 字符集约束。参数：`charsetMode` ("ascii"/"chinese"/"chinese_mixed"，必填——缺省会创建失败而非默认 ascii)。
-- **Composite**: 复合约束（把多条子约束按逻辑聚合为一条，如"非空且唯一"）。参数：`logic` ("all"/"any"/"none"，默认 all), `subConstraints` (List, 必填，每项 {{"type": 约束类型, "targetColumn": "列名", "params": {{该子约束的参数}}}})；不允许嵌套 Composite。
+{build_constraint_param_docs_text()}
 
 ## 字段解析约定
 
@@ -312,7 +314,7 @@ class ChatAgentRunner:
         project_path: str,
         context_nodes: list[dict[str, Any]],
         max_iterations: int = 5,
-        max_history_tokens: int = 120000,
+        max_history_tokens: int | None = None,
         confirm_controller: Any | None = None,
         apply_callbacks: ApplyCallbacks | None = None,
         ask_callbacks: AskCallbacks | None = None,
@@ -328,7 +330,9 @@ class ChatAgentRunner:
             project_path: 项目配置目录路径
             context_nodes: 前端选中的上下文节点列表
             max_iterations: Agent 最大迭代轮数
-            max_history_tokens: 历史消息 token 预算
+            max_history_tokens: 历史消息 token 预算。None（缺省）时在 run 阶段按
+                provider 上下文窗口自适应推导（resolve_chat_history_budget），
+                显式传入则尊重调用方预算（CLI 已自行按窗口计算后传入）
             confirm_controller: （已废弃）旧的单 job 控制器；保留兼容但不再用于门控
             apply_callbacks: apply_* 事件回调集合
             ask_callbacks: ask_user 事件回调集合（仅流式路径启用交互）
@@ -406,8 +410,9 @@ class ChatAgentRunner:
         """
         @methoddesc 创建并注册 chat 工具集
 
-        7 个工具：read_project/list_data_files/read_table/apply_actions/validate_table 注入 project_path，
-        read_canvas 注入画布节点快照，ask_user 注入交互回调（仅流式路径启用）。
+        8 个工具：read_project/list_data_files/read_table/infer_schema/apply_actions/
+        validate_table 注入 project_path，read_canvas 注入画布节点快照，
+        ask_user 注入交互回调（仅流式路径启用）。
         apply_actions 额外注入 collected_instructions 共享引用 + 当前用户消息（用于意图范围校验）。
         """
         registry = ToolRegistry()
@@ -427,6 +432,13 @@ class ChatAgentRunner:
             ReadTableTool(project_path=self.project_path),
             read_only=True,
             args_model=MODEL_FOR_TOOL.get(ReadTableTool.NAME),
+        )
+
+        # infer_schema：对数据文件确定性推断 schema 草稿（只读），建表工作流的前置步骤
+        registry.register_tool(
+            InferSchemaTool(project_path=self.project_path),
+            read_only=True,
+            args_model=MODEL_FOR_TOOL.get(InferSchemaTool.NAME),
         )
 
         # 关键：apply_actions 注入 collected_instructions 共享引用 + 两阶段确认参数
@@ -477,6 +489,7 @@ class ChatAgentRunner:
         ReadProjectTool.NAME: "读取项目",
         ListDataFilesTool.NAME: "发现数据文件",
         ReadTableTool.NAME: "查看数据",
+        InferSchemaTool.NAME: "推断表结构",
         ApplyActionsTool.NAME: "修改配置",
         ValidateTableTool.NAME: "校验数据",
         ReadCanvasTool.NAME: "读取画布",
@@ -551,6 +564,20 @@ class ChatAgentRunner:
 
         # 构建任务消息：用户消息 + 历史摘要
         task_message = self._build_task_message(message, history)
+
+        # 历史预算：显式传入优先；缺省(None)时按 provider 实际上下文窗口自适应推导
+        # （小窗口收缩预算，探测失败回退默认上限），与 orchestrator 旧路径共用同一来源
+        if self.max_history_tokens is None:
+            from app.shared.services.ai.utils import estimate_tokens, resolve_chat_history_budget
+
+            # 工具定义与系统提示词同属每轮固定开销：按 OpenAI tools JSON 序列化后
+            # 用 estimate_tokens 估算并从输入预算扣除。estimate_tokens 对 JSON 标点
+            # 逐字符计数，天然比真实 BPE 偏多——宁可少算历史，不可挤爆窗口
+            tools_json = json.dumps(registry.get_definitions(), ensure_ascii=False)
+            self.max_history_tokens = await resolve_chat_history_budget(
+                self.provider,
+                tool_definitions_tokens=estimate_tokens(tools_json),
+            )
 
         executor = AgentExecutor(
             provider=self.provider,

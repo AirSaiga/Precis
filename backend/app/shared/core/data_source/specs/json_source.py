@@ -70,8 +70,7 @@ class JSONSourceSpec(FileSourceSpec):
     提供 JSONPath 提取和自动展平功能，适应不同结构的 JSON 数据。
 
     特有配置:
-        format: JSON 格式类型
-            - auto: 自动检测格式
+        format: JSON 格式类型（D8: 必填,auto 已废弃）
             - array: 对象数组（如 [{"id": 1}, {"id": 2}]）
             - lines: JSON Lines（每行一个 JSON 对象）
             - object: 嵌套对象（需要通过 json_path 提取数据）

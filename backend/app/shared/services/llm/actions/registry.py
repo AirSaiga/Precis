@@ -20,10 +20,12 @@
 禁止重复硬编码动作类型集合，以消灭"同步遗漏"类 bug（如计数写错、
 enum 漏条目、spec 字段映射不一致）。
 
-三类内容在此收敛：
+四类内容在此收敛：
 1. 动作类型（15种）及其 spec 字段、分类、读写性
 2. 派生集合：ALL_ACTION_TYPES / BY_CATEGORY / READ_ONLY_TYPES / SPEC_FIELD_FOR 等
 3. 子类型白名单：约束类型、转换子类型、数据类型、设置分类（原散落 2-4 处）
+4. 约束参数文档（CONSTRAINT_PARAM_SCHEMAS）：chat 提示词与 MCP describe_constraints
+   共用的参数名/值域单一事实源（原三处手抄副本收编于此）
 
 设计原则：
 - 注册表只描述"是什么"（声明性），不描述"怎么做"（执行逻辑仍在各 handler）。
@@ -34,6 +36,7 @@ enum 漏条目、spec 字段映射不一致）。
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 # =============================================================================
 # 子类型白名单（规范来源）——原散落于 action_validator / response_parser /
@@ -89,6 +92,256 @@ CONSTRAINT_REQUIRED_PARAMS: dict[str, list[str]] = {
     "Composite": ["subConstraints"],
 }
 
+
+# =============================================================================
+# 约束参数文档（单一事实源）——chat 系统提示词（camelCase / AI 动作层）与 MCP
+# describe_constraints（snake_case / V2 文件层）共用，消灭三处手抄副本的同步漂移。
+# 参数名与值域以校验器（domain/constraints/*）和写盘侧（llm/constraints/constraint_builder.py）
+# 的实际消费为准；与 CONSTRAINT_REQUIRED_PARAMS 互补——那边是校验用的必填键清单，
+# 这边是完整人话文档，守卫测试保证两边键名不矛盾。
+# =============================================================================
+
+
+@dataclass(frozen=True)
+class ConstraintParamDoc:
+    """单个约束参数的声明性描述（AI 动作层与 V2 文件层双侧口径）。
+
+    Attributes:
+        camel: AI 动作层参数键（constraintSpec.params 内，camelCase）。空串表示仅存在于
+            V2 文件层（如 Scripted 的 name），chat 提示词渲染时跳过。
+        snake: V2 YAML 文件层参数键（constraint 文件 params 区，snake_case）。空串表示该键
+            不落在文件 params 区（写入 refs 或写盘时被转换），MCP 结构化输出跳过。
+        vtype: 值类型描述（LLM 可读，如 "float/int"、"str"、"List[Any]"）。
+        values: 枚举值域，(值, 中文说明) 二元组序列；空表示非枚举。
+        default: 缺省值（渲染为 "默认 X"；空串表示无缺省）。
+        note: 补充说明（必填性/模式归属/语义提示）。
+        group: 参数分组标签；非空时渲染为 "  - " 缩进子行（如 DateLogic 的两种模式）。
+    """
+
+    camel: str
+    snake: str = ""
+    vtype: str = ""
+    values: tuple[tuple[str, str], ...] = ()
+    default: str = ""
+    note: str = ""
+    group: str = ""
+
+
+@dataclass(frozen=True)
+class ConstraintTypeDoc:
+    """单个约束类型的参数文档。
+
+    Attributes:
+        type: PascalCase 标准名（必须与 CONSTRAINT_TYPES 全等，守卫测试保证）。
+        summary: 一句话中文摘要（进提示词 "- **Type**: summary。" 头部）。
+        refs: V2 文件层 refs 结构描述（MCP describe_constraints 的 refs 字段）。
+        params: 参数清单（键序即渲染序）。
+        spec_note: constraintSpec 层（非 params 区）特殊字段说明（如 Unique 的 targetColumns）。
+        sub_notes: 嵌套结构补充行（渲染为缩进 "  - " 子行，如 Conditional 的 ifConditions 结构）。
+    """
+
+    type: str
+    summary: str
+    refs: str
+    params: tuple[ConstraintParamDoc, ...] = ()
+    spec_note: str = ""
+    sub_notes: tuple[str, ...] = ()
+
+
+# 键序即文档渲染序（沿用 chat 提示词既有顺序）
+CONSTRAINT_PARAM_SCHEMAS: dict[str, ConstraintTypeDoc] = {
+    "NotNull": ConstraintTypeDoc(
+        type="NotNull",
+        summary="非空约束",
+        refs="table_id + column_id",
+    ),
+    "Unique": ConstraintTypeDoc(
+        type="Unique",
+        summary="唯一约束",
+        refs="table_id + column_ids（列表）",
+        spec_note='单列无需参数；多列联合唯一用 constraintSpec.targetColumns（列名/ID 数组，如 ["order_id", "line_no"]）。',
+    ),
+    "AllowedValues": ConstraintTypeDoc(
+        type="AllowedValues",
+        summary="允许值约束",
+        refs="table_id + column_id",
+        params=(ConstraintParamDoc(camel="allowedValues", snake="allowed_values", vtype="List[Any]", note="非空列表"),),
+    ),
+    "Range": ConstraintTypeDoc(
+        type="Range",
+        summary="范围约束",
+        refs="table_id + column_id",
+        params=(
+            ConstraintParamDoc(camel="min", snake="min", vtype="float/int", note="与 max 至少提供一个"),
+            ConstraintParamDoc(camel="max", snake="max", vtype="float/int"),
+            ConstraintParamDoc(
+                camel="boundaryMode",
+                snake="boundary_mode",
+                values=(("inclusive", "闭区间"), ("exclusive", "开区间")),
+                default="inclusive",
+            ),
+        ),
+    ),
+    "Scripted": ConstraintTypeDoc(
+        type="Scripted",
+        summary="脚本/正则约束",
+        refs="table_id + column_id",
+        params=(
+            # name 仅存在于 V2 文件层（camel 空 → chat 文档不渲染），运行时缺省用约束文件 id
+            ConstraintParamDoc(camel="", snake="name", vtype="str", note="规则名，缺省用约束文件 id"),
+            ConstraintParamDoc(
+                camel="expression",
+                snake="expression",
+                vtype="str",
+                note="与 pattern 二选一；simpleeval 布尔表达式，变量 value=当前列值、row=当前行数据，"
+                "函数 re_match(p, s) 等白名单；执行需开启项目设置的允许脚本",
+            ),
+            ConstraintParamDoc(
+                camel="pattern",
+                vtype="str",
+                note="与 expression 二选一；正则（fullmatch 全串匹配语义），写盘时转为沙箱函数调用 re_match(pattern, str(value))",
+            ),
+        ),
+    ),
+    "ForeignKey": ConstraintTypeDoc(
+        type="ForeignKey",
+        summary="外键约束",
+        refs="from_table_id + from_column_id + to_table_id + to_column_id",
+        params=(
+            # toTableId/toColumnId 写盘时落 refs（snake 空 → MCP params 不渲染，refs 字段已描述）
+            ConstraintParamDoc(camel="toTableId", vtype="str", note="被引用的目标表"),
+            ConstraintParamDoc(camel="toColumnId", vtype="str", note="被引用的目标列"),
+        ),
+    ),
+    "Conditional": ConstraintTypeDoc(
+        type="Conditional",
+        summary="条件约束",
+        refs="table_id + then_column_id + if_conditions[{if_column_id, operator, value}] + if_logic",
+        params=(
+            ConstraintParamDoc(
+                camel="ifConditions", vtype="List[Object]", note="IF 触发条件列表，写盘落 refs.if_conditions"
+            ),
+            ConstraintParamDoc(
+                camel="ifLogic",
+                values=(("and", "全部满足"), ("or", "任一满足")),
+                default="and",
+                note="多条件组合逻辑，写盘落 refs.if_logic",
+            ),
+            ConstraintParamDoc(camel="thenCondition", snake="then_condition", vtype="Object 或 str", note="必填"),
+        ),
+        sub_notes=(
+            '`ifConditions` 结构：`[{"ifColumnId": "列名", "operator": "eq/neq/in/not_null/greater_than/less_than", '
+            '"value": 比较值, "values": 列表(in 时可选)}]`',
+            '`thenCondition` 两种形态：DSL 对象 `{"operator": "not_null/greater_than/less_than/in/eq/neq", '
+            '"value": 比较值, "values": 列表(in 时), "refColumn": "同表参考列(可选，与该列比较)"}`；'
+            '或字符串（已注册条件函数名，如 "is_not_empty"）。旧字段 thenValue 已废弃，不要再使用',
+        ),
+    ),
+    "DateLogic": ConstraintTypeDoc(
+        type="DateLogic",
+        summary="日期逻辑约束",
+        refs="table_id + column_id",
+        params=(
+            ConstraintParamDoc(
+                camel="logicMode",
+                snake="logic_mode",
+                values=(("compare", "比较"), ("calculation", "计算")),
+                default="compare",
+            ),
+            ConstraintParamDoc(
+                camel="compareOp",
+                snake="compare_op",
+                values=(("gt", ""), ("gte", ""), ("lt", ""), ("lte", ""), ("eq", ""), ("range", "日期区间")),
+                default="gt",
+                note="为 range 时必须同时提供终点：referenceDateEnd 或 referenceColumnEnd",
+                group="compare 模式",
+            ),
+            ConstraintParamDoc(
+                camel="referenceDate",
+                snake="reference_date",
+                vtype="str",
+                note='固定日期 "YYYY-MM-DD"，与 referenceColumn 二选一',
+                group="compare 模式",
+            ),
+            ConstraintParamDoc(
+                camel="referenceColumn",
+                snake="reference_column",
+                vtype="str",
+                note="同表参考列，与 referenceDate 二选一",
+                group="compare 模式",
+            ),
+            ConstraintParamDoc(
+                camel="referenceDateEnd",
+                snake="reference_date_end",
+                vtype="str",
+                note="仅 compareOp=range：区间终点固定日期，与起点同形态",
+                group="compare 模式",
+            ),
+            ConstraintParamDoc(
+                camel="referenceColumnEnd",
+                snake="reference_column_end",
+                vtype="str",
+                note="仅 compareOp=range：区间终点参考列，与起点同形态",
+                group="compare 模式",
+            ),
+            ConstraintParamDoc(
+                camel="calculationType",
+                snake="calculation_type",
+                values=(("age", "年龄"), ("days_diff", "与目标列的天数差")),
+                note="必填",
+                group="calculation 模式",
+            ),
+            ConstraintParamDoc(
+                camel="targetValue",
+                snake="target_value",
+                vtype="数值",
+                note="必填；缺省比较口径 age=gte（满 N 岁即过）、days_diff=eq（差值恰等）",
+                group="calculation 模式",
+            ),
+            ConstraintParamDoc(
+                camel="targetColumn",
+                snake="target_column",
+                vtype="str",
+                note="仅 calculationType=days_diff：天数差比较的目标列",
+                group="calculation 模式",
+            ),
+        ),
+    ),
+    "Charset": ConstraintTypeDoc(
+        type="Charset",
+        summary="字符集约束",
+        refs="table_id + column_id",
+        params=(
+            ConstraintParamDoc(
+                camel="charsetMode",
+                snake="charset_mode",
+                values=(("ascii", "纯 ASCII"), ("chinese", "纯中文"), ("chinese_mixed", "中文+字母数字常见标点")),
+                note="AI 动作必填——缺省会创建失败；V2 文件层缺省 ascii",
+            ),
+        ),
+    ),
+    "Composite": ConstraintTypeDoc(
+        type="Composite",
+        summary='复合约束（把多条子约束按逻辑聚合为一条，如"非空且唯一"）',
+        refs="table_id",
+        params=(
+            ConstraintParamDoc(
+                camel="logic",
+                snake="logic",
+                values=(("all", "全部通过"), ("any", "至少一个通过"), ("none", "全部失败才通过")),
+                default="all",
+            ),
+            ConstraintParamDoc(
+                camel="subConstraints",
+                snake="sub_constraints",
+                vtype="List",
+                note='必填，每项 {"type": 约束类型, "targetColumn": "列名", "params": {该子约束的参数}}；'
+                "不允许嵌套 Composite",
+            ),
+        ),
+    ),
+}
+
 # 转换子类型白名单（22种）——原 response_parser(21条) 与 transform_handlers(22条) 不一致，
 # 以 transform_handlers 的 22 条为准（response_parser 缺 FillNA，实际是有效类型）。
 TRANSFORM_SUB_TYPES: frozenset[str] = frozenset(
@@ -118,8 +371,10 @@ TRANSFORM_SUB_TYPES: frozenset[str] = frozenset(
     }
 )
 
-# Schema 列数据类型白名单
-DATA_TYPES: frozenset[str] = frozenset({"string", "integer", "decimal", "boolean", "datetime", "date", "time", "float"})
+# Schema 列数据类型白名单——与运行时 TYPE_REGISTRY（domain/schema/builder.py）支持的
+# 6 种列类型严格一致。datetime/time 运行时不支持：按旧白名单写盘成功后，校验引擎加载
+# schema 时 build_type_from_config 对未知类型直接 raise，导致每次校验都失败。
+DATA_TYPES: frozenset[str] = frozenset({"string", "integer", "float", "decimal", "boolean", "date"})
 
 # 设置分类白名单
 SETTINGS_CATEGORIES: frozenset[str] = frozenset({"validation", "fileProcessing", "scriptSecurity"})
@@ -261,6 +516,14 @@ def build_action_type_list_text() -> str:
     return "\n".join(lines)
 
 
+def build_data_type_list_text() -> str:
+    """生成 Schema 列数据类型清单（逗号分隔），供系统提示词使用。
+
+    从 DATA_TYPES 派生，新增类型后自动出现在此清单，无需手动同步提示词文本。
+    """
+    return ", ".join(sorted(DATA_TYPES))
+
+
 def build_spec_field_mapping_text() -> str:
     """生成 actionType → spec 字段映射清单，供系统提示词使用。
 
@@ -289,6 +552,78 @@ def build_spec_field_mapping_text() -> str:
             note = "含 tableName，可选"
         lines.append(f"- {label}动作 → {spec_field} ({note})" if note else f"- {label}动作 → {spec_field}")
     return "\n".join(lines)
+
+
+def _render_param_doc_fragment(param: ConstraintParamDoc, key: str) -> str:
+    """渲染单个参数片段：`key` (类型) ("值" 说明 / …，默认 X)（补充说明）。"""
+    fragment = f"`{key}`"
+    if param.vtype:
+        fragment += f" ({param.vtype})"
+    if param.values:
+        rendered = " / ".join(f'"{value}"{f" {gloss}" if gloss else ""}' for value, gloss in param.values)
+        fragment += f" ({rendered}"
+        if param.default:
+            fragment += f"，默认 {param.default}"
+        fragment += ")"
+    if param.note:
+        fragment += f"（{param.note}）"
+    return fragment
+
+
+def build_constraint_param_docs_text() -> str:
+    """生成约束类型与参数说明清单（chat 系统提示词用，camelCase / AI 动作层口径）。
+
+    从 CONSTRAINT_PARAM_SCHEMAS 派生，新增约束类型漏写参数文档时守卫测试即红，
+    无需手动同步提示词文本。带 group 的参数（如 DateLogic 的两种模式）渲染为
+    "  - " 缩进子行；仅 V2 文件层的参数（camel 为空）不渲染。
+    """
+    lines: list[str] = []
+    for doc in CONSTRAINT_PARAM_SCHEMAS.values():
+        main_fragments = [_render_param_doc_fragment(p, p.camel) for p in doc.params if p.group == "" and p.camel]
+        grouped: dict[str, list[str]] = {}
+        for p in doc.params:
+            if p.group and p.camel:
+                grouped.setdefault(p.group, []).append(_render_param_doc_fragment(p, p.camel))
+        head = f"- **{doc.type}**: {doc.summary}。"
+        if main_fragments:
+            head += f"参数：{'，'.join(main_fragments)}。"
+        elif doc.spec_note:
+            head += doc.spec_note
+        else:
+            head += "参数：无。"
+        lines.append(head)
+        for label, fragments in grouped.items():
+            lines.append(f"  - {label}：{'，'.join(fragments)}")
+        for note in doc.sub_notes:
+            lines.append(f"  - {note}")
+    return "\n".join(lines)
+
+
+def build_constraint_param_docs_structured() -> list[dict[str, Any]]:
+    """生成约束参数的结构化描述（MCP describe_constraints 等 V2 文件层消费方用）。
+
+    每个类型：{"type", "refs", "params": [{"key", "type", "values", "default", "description"}]}。
+    只输出落在 V2 文件 params 区的 snake_case 键——写入 refs 的键由 refs 字段描述
+    （如 ForeignKey 的 to_table_id），AI 动作层专有键（如 Scripted 的 pattern）跳过。
+    """
+    types: list[dict[str, Any]] = []
+    for doc in CONSTRAINT_PARAM_SCHEMAS.values():
+        params: list[dict[str, Any]] = []
+        for p in doc.params:
+            if not p.snake:
+                continue
+            entry: dict[str, Any] = {"key": p.snake}
+            if p.vtype:
+                entry["type"] = p.vtype
+            if p.values:
+                entry["values"] = [{"value": v, "desc": g} for v, g in p.values]
+            if p.default:
+                entry["default"] = p.default
+            if p.note:
+                entry["description"] = p.note
+            params.append(entry)
+        types.append({"type": doc.type, "refs": doc.refs, "params": params})
+    return types
 
 
 # =============================================================================

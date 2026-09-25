@@ -32,6 +32,9 @@ class ToolCall:
     id: str
     name: str
     arguments: dict[str, Any]
+    # 非 None 表示 LLM 返回的 arguments JSON 因响应截断而无法解析，
+    # 此处保留原始文本供诊断；execute 检测到后短路分发并回灌明确的截断错误
+    truncated_raw_arguments: str | None = None
 
 
 @dataclass

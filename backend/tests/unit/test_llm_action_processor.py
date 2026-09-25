@@ -332,6 +332,113 @@ class TestProcessActions:
         assert result["results"][0]["success"] is False
 
     @patch("app.shared.services.llm.actions.action_processor._execute_actions")
+    def test_partial_failure_clears_frontend_instructions(self, mock_execute, tmp_path):
+        """部分失败批次：回滚后写盘动作（含成功动作）的 frontendInstructions 均被清空。
+
+        回滚使磁盘状态回到执行前，写盘动作携带的指令指向磁盘上已不存在的状态（幽灵指令），
+        不得流入上层消费者（apply_actions._run_two_phase / chat_orchestrator）emit 给前端画布。
+        """
+        mock_execute.return_value = [
+            {
+                "action": {"actionType": "ADD_CONSTRAINT_NODE"},
+                "success": True,
+                "message": "ok",
+                "frontendInstructions": {"actionType": "ADD_CONSTRAINT_NODE"},
+            },
+            {
+                "action": {"actionType": "ADD_SCHEMA"},
+                "success": False,
+                "message": "something went wrong",
+                "frontendInstructions": None,
+            },
+        ]
+
+        result = process_actions(
+            [
+                {
+                    "actionType": "ADD_CONSTRAINT_NODE",
+                    "constraintSpec": {"type": "NotNull", "tableName": "users", "targetColumn": "email"},
+                },
+                {"actionType": "ADD_SCHEMA", "schemaSpec": {"name": "orders", "columns": []}},
+            ],
+            str(tmp_path),
+        )
+
+        assert result["success"] is False
+        # 一成一败的两个写盘动作，指令全部清空（成功动作的也不得残留）
+        assert len(result["results"]) == 2
+        assert all(r["frontendInstructions"] is None for r in result["results"])
+
+    @patch("app.shared.services.llm.actions.action_processor._execute_actions")
+    def test_rollback_keeps_read_only_frontend_instructions(self, mock_execute, tmp_path):
+        """混合批次回滚：写盘动作的指令清空（幽灵指令），只读动作的指令保留。
+
+        只读动作（ADD_TO_CANVAS）的 frontendInstructions 重读的是批次执行前就存在的
+        磁盘配置，回滚（恢复备份 + 删除新建文件）不使其失效。
+        """
+        canvas_fi = {"actionType": "ADD_TO_CANVAS", "resourceKind": "schema", "resourceId": "users"}
+        mock_execute.return_value = [
+            {
+                "action": {"actionType": "ADD_CONSTRAINT_NODE"},
+                "success": True,
+                "message": "ok",
+                "frontendInstructions": {"actionType": "ADD_CONSTRAINT_NODE"},
+            },
+            {
+                "action": {"actionType": "ADD_TO_CANVAS"},
+                "success": True,
+                "message": "ok",
+                "frontendInstructions": canvas_fi,
+            },
+            {
+                "action": {"actionType": "ADD_SCHEMA"},
+                "success": False,
+                "message": "something went wrong",
+                "frontendInstructions": None,
+            },
+        ]
+
+        result = process_actions(
+            [
+                {
+                    "actionType": "ADD_CONSTRAINT_NODE",
+                    "constraintSpec": {"type": "NotNull", "tableName": "users", "targetColumn": "email"},
+                },
+                {"actionType": "ADD_TO_CANVAS", "canvasSpec": {"resourceKind": "schema", "resourceId": "users"}},
+                {"actionType": "ADD_SCHEMA", "schemaSpec": {"name": "orders", "columns": []}},
+            ],
+            str(tmp_path),
+        )
+
+        assert result["success"] is False
+        by_type = {r["action"]["actionType"]: r for r in result["results"]}
+        # 写盘动作（即使成功）的指令被清空
+        assert by_type["ADD_CONSTRAINT_NODE"]["frontendInstructions"] is None
+        # 只读动作的指令原样保留
+        assert by_type["ADD_TO_CANVAS"]["frontendInstructions"] == canvas_fi
+
+    @patch("app.shared.services.llm.actions.action_processor._execute_actions")
+    def test_all_success_keeps_frontend_instructions(self, mock_execute, tmp_path):
+        """全成功批次不触发清空：frontendInstructions 原样保留（清空仅发生在回滚时）。"""
+        expected_fi = {"actionType": "ADD_CONSTRAINT_NODE"}
+        mock_execute.return_value = [
+            {
+                "action": {"actionType": "ADD_CONSTRAINT_NODE"},
+                "success": True,
+                "message": "ok",
+                "frontendInstructions": expected_fi,
+            }
+        ]
+
+        result = process_actions(
+            [{"actionType": "VALIDATE_PROJECT", "constraintSpec": {}}],
+            str(tmp_path),
+        )
+
+        assert result["success"] is True
+        assert result["results"][0]["frontendInstructions"] == expected_fi
+
+    @patch("app.shared.services.llm.actions.action_processor._execute_actions")
     def test_no_affected_files_no_backup(self, mock_execute, tmp_path):
         mock_execute.return_value = [{"action": {"actionType": "VALIDATE_PROJECT"}, "success": True, "message": "ok"}]
         result = process_actions([{"actionType": "VALIDATE_PROJECT", "constraintSpec": {}}], str(tmp_path))

@@ -141,3 +141,110 @@ class TestUniqueWriteContract:
         assert error is None
         assert isinstance(constraint, UniqueConstraint)
         assert constraint.columns == ["email", "age"]
+
+
+class TestScriptedPatternWriteContract:
+    r"""Scripted pattern 参数端到端契约：AI 动作 → 真实写盘 → 真实校验引擎执行。
+
+    历史缺陷（数据误报级）：pattern 经 re.escape 生成 "re.match(字面量, str(value))
+    is not None"——沙箱只注册 re_match（re 未定义），逐行 SCRIPTED_EXECUTION_ERROR；
+    且 re.escape 把 ^\d+$ 等正则元字符当字面量子串匹配。修复后生成
+    re_match(pattern, str(value))（fullmatch 全串匹配，与独立 regex 约束同口径）。
+    """
+
+    def _build_project(self, tmp_path, csv_content: str):
+        """搭建最小可校验项目：manifest + schema（指向 CSV）+ 数据文件。"""
+        import yaml
+
+        workspace = tmp_path / "proj"
+        (workspace / "schemas").mkdir(parents=True)
+        (workspace / "data").mkdir()
+        (workspace / "data" / "codes.csv").write_text(csv_content, encoding="utf-8")
+
+        schema_data = {
+            "version": 2,
+            "id": "sc_codes",
+            "name": "codes",
+            "source": {"mode": "relative_file", "path": "data/codes.csv"},
+            "columns": [{"id": "code", "name": "code", "type": "string"}],
+        }
+        (workspace / "schemas" / "codes.schema.yaml").write_text(
+            yaml.safe_dump(schema_data, allow_unicode=True), encoding="utf-8"
+        )
+
+        manifest = {
+            "version": 2,
+            "project": {"id": "p-scripted", "name": "scripted 契约测试"},
+            "schemas": [{"id": "sc_codes", "path": "schemas/codes.schema.yaml"}],
+        }
+        (workspace / "project.precis.yaml").write_text(yaml.safe_dump(manifest, allow_unicode=True), encoding="utf-8")
+        return workspace
+
+    def test_pattern_constraint_validates_via_real_engine(self, tmp_path):
+        """pattern 建约束 → 写盘 → 真实引擎跑：匹配行通过、不匹配行报违规、无执行错误。"""
+        from app.shared.services.llm.actions.action_handlers import update_yaml_config
+        from app.shared.services.validation.executor import ValidationExecutor, ValidationOptions
+
+        workspace = self._build_project(tmp_path, "code\n123\n12a\n 42\n")
+        action = {
+            "actionType": "ADD_CONSTRAINT_NODE",
+            "constraintSpec": {
+                "type": "Scripted",
+                "tableName": "codes",
+                "targetColumn": "code",
+                "isInline": False,
+                "params": {"pattern": r"^\d+$"},
+            },
+        }
+        success, constraint_id = update_yaml_config(action, str(workspace))
+        assert success is True, f"写盘失败: {constraint_id}"
+
+        # 落盘断言：表达式必须是沙箱函数形式（旧式 "re.match(...)" 在沙箱内逐行执行错误）
+        import yaml
+
+        constraint_file = workspace / "constraints" / f"{constraint_id}.constraint.yaml"
+        cf = yaml.safe_load(constraint_file.read_text(encoding="utf-8"))
+        assert cf["params"]["expression"] == f"re_match({r'^\d+$'!r}, str(value))"
+
+        executor = ValidationExecutor(str(workspace / "project.precis.yaml"))
+        result = executor.execute(str(workspace), ValidationOptions(allow_unsafe_eval=True))
+        errors = result.get("errors", [])
+
+        # 无任何执行/定义错误（旧缺陷的表现形态就是逐行 ScriptCheckExecutionError）
+        script_errors = [e for e in errors if str(e.get("error_type", "")).startswith("Script")]
+        assert script_errors == [], f"存在脚本执行错误: {script_errors}"
+        # '12a'(行1) 与 ' 42'(行2，前导空格 fullmatch 不通过) 各报一条违规；'123'(行0) 通过
+        violations = [e for e in errors if e.get("error_type") == "BusinessLogicViolation"]
+        assert sorted(e.get("row_index") for e in violations) == [1, 2]
+        assert len(violations) == 2
+
+    def test_pattern_with_quotes_no_injection_escape(self, tmp_path):
+        """pattern 含引号：repr 封闭字面量，注入串按字面 pattern 求值（不逃逸为代码）。"""
+        from app.shared.services.llm.actions.action_handlers import update_yaml_config
+        from app.shared.services.validation.executor import ValidationExecutor, ValidationOptions
+
+        # 恶意尝试（须为合法正则才能作为注入探针）：闭合引号 + 布尔 or 篡改判定——
+        # repr 转义后仅是字面 pattern，逐字符精确匹配
+        malicious = "x' or '1'=='1"
+        workspace = self._build_project(tmp_path, "code\nx' or '1'=='1\nplain\nx\n")
+        action = {
+            "actionType": "ADD_CONSTRAINT_NODE",
+            "constraintSpec": {
+                "type": "Scripted",
+                "tableName": "codes",
+                "targetColumn": "code",
+                "isInline": False,
+                "params": {"pattern": malicious},
+            },
+        }
+        success, _ = update_yaml_config(action, str(workspace))
+        assert success is True
+
+        executor = ValidationExecutor(str(workspace / "project.precis.yaml"))
+        result = executor.execute(str(workspace), ValidationOptions(allow_unsafe_eval=True))
+        errors = result.get("errors", [])
+
+        # 注入未生效：仅等于恶意串本身的行(行0) fullmatch 通过，'plain'(行1) 与 'x'(行2) 报违规；
+        # 若注入成功（表达式被解析为 'x' or '1'=='1' 恒真），所有行都通过、0 违规——即为断言反面
+        violations = [e for e in errors if e.get("error_type") == "BusinessLogicViolation"]
+        assert [e.get("row_index") for e in violations] == [1, 2]

@@ -53,6 +53,7 @@ from app.shared.services.llm.actions.registry import (
     REGEX_ACTION_TYPES,
     SCHEMA_ACTION_TYPES,
     TRANSFORM_ACTION_TYPES,
+    is_read_only,
 )
 from app.shared.services.llm.actions.schema_handlers import process_schema_action
 from app.shared.services.llm.actions.settings_handlers import process_settings_action
@@ -227,6 +228,8 @@ def process_actions(actions: list[dict[str, Any]], workspace_path: str = "") -> 
     备份回滚策略：
     - 执行前备份所有可能受影响的文件到临时目录
     - 如果任何动作执行失败，恢复所有备份文件，并删除本次新建的文件
+    - 回滚后清空写盘动作的 frontendInstructions（磁盘上没有的东西不产生画布指令；
+      只读动作的指令重读批次前就存在的磁盘配置，不受回滚影响，保留）
     - 无论成功失败，最后清理临时目录
 
     参数:
@@ -267,6 +270,16 @@ def process_actions(actions: list[dict[str, Any]], workspace_path: str = "") -> 
                     logger.info(f"[process_actions] 回滚删除新建文件: {f}")
                 except OSError as e:
                     logger.warning(f"[process_actions] 删除新建文件失败: {f} -> {e}")
+            # 回滚后磁盘状态已回到执行前：写盘动作携带的 frontendInstructions 指向
+            # 磁盘上已不存在的状态（幽灵指令），必须清空——否则上层消费者
+            # （apply_actions._run_two_phase / chat_orchestrator）会把它们 emit 给前端，
+            # 画布长出无磁盘对应的节点；只读动作（ADD_TO_CANVAS 等）的指令重读的是
+            # 批次执行前就存在的磁盘配置，回滚不使其失效，保留（判定经注册表
+            # is_read_only，未知动作保守视为写盘、同样清空）
+            for r in results:
+                action_type = str((r.get("action") or {}).get("actionType") or "")
+                if not is_read_only(action_type):
+                    r["frontendInstructions"] = None
 
         return {"success": all_success, "results": results}
     finally:
@@ -364,8 +377,11 @@ def _execute_actions(actions: list[dict[str, Any]], workspace_path: str) -> list
                 "action": action,
                 "success": result["success"],
                 "message": result["message"],
-                # ADD/UPDATE/DELETE 均生成指令：前端据此建/刷/删画布 Schema 节点
-                "frontendInstructions": generate_frontend_instructions(action, workspace_path)
+                # ADD/UPDATE/DELETE 均生成变更集指令：前端据此重读磁盘建/刷/删画布节点。
+                # DELETE 后磁盘无据可查，用 handler 删文件前回传的真实 id 解析 entityId
+                "frontendInstructions": generate_frontend_instructions(
+                    action, workspace_path, resolved_id=str(result.get("resolved_id") or "")
+                )
                 if result["success"]
                 else None,
             }
@@ -379,8 +395,10 @@ def _execute_actions(actions: list[dict[str, Any]], workspace_path: str) -> list
                 "action": action,
                 "success": result["success"],
                 "message": result["message"],
-                # ADD/UPDATE/DELETE 均生成指令：前端据此建/刷/删画布 Regex 节点
-                "frontendInstructions": generate_frontend_instructions(action, workspace_path)
+                # ADD/UPDATE/DELETE 均生成变更集指令（resolved_id 同上，DELETE 兜底用）
+                "frontendInstructions": generate_frontend_instructions(
+                    action, workspace_path, resolved_id=str(result.get("resolved_id") or "")
+                )
                 if result["success"]
                 else None,
             }
@@ -394,8 +412,10 @@ def _execute_actions(actions: list[dict[str, Any]], workspace_path: str) -> list
                 "action": action,
                 "success": result["success"],
                 "message": result["message"],
-                # ADD/UPDATE/DELETE 均生成指令：前端据此建/刷/删画布 Transform 节点
-                "frontendInstructions": generate_frontend_instructions(action, workspace_path)
+                # ADD/UPDATE/DELETE 均生成变更集指令（ADD 未显式给 id 时重读磁盘拿自动生成的真实 id）
+                "frontendInstructions": generate_frontend_instructions(
+                    action, workspace_path, resolved_id=str(result.get("resolved_id") or "")
+                )
                 if result["success"]
                 else None,
             }

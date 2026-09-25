@@ -23,19 +23,25 @@ Chat mini-agent 可调用的工具：执行配置修改动作。
 2. legacy 直写（dry_run_enabled=False 或无 controller）:
    直接 process_actions 写盘，行为与改造前一致。
 
-关键机制：工具内部把 process_actions 产出的 frontendInstructions
+关键机制：工具内部把 process_actions 产出的 frontendInstructions（v2 变更集信封）
 旁路累积到 runner.collected_instructions，供 orchestrator 最终
-注入 ChatExecutionResult.frontend_instructions，实现前端画布双写。
+注入 ChatExecutionResult.frontend_instructions（前端从磁盘重读重建画布，文件是唯一事实源）。
+
+写盘后自检（结构性闭环）：两阶段确认真实写盘完成后，observation 自动
+附加 "## 写盘后自动校验" 段落（配置装载检查 → 数据校验摘要），不依赖
+LLM 自觉调用 validate_table；自检异常/超时降级为说明文本，不影响写盘结果。
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from app.shared.core.project.loader import load_project
 from app.shared.services.llm.actions.action_processor import process_actions
 from app.shared.services.llm.actions.action_validator import ActionValidator
 from app.shared.services.llm.actions.diff_compute import compute_action_diff
@@ -45,6 +51,7 @@ from app.shared.services.llm.actions.registry import (
     READ_ONLY_ACTION_TYPES,
 )
 from app.shared.services.llm.actions.validation_types import format_validation_result
+from app.shared.services.llm.validate_executor import execute_validate_project
 
 # 延迟导入以避免循环依赖（streaming/__init__ → orchestrator → apply_actions → streaming）
 # 在 _run_two_phase 内部 import ConfirmController / get_global_pending_interaction_store
@@ -53,6 +60,29 @@ logger = logging.getLogger(__name__)
 
 # 默认以 legacy 模式运行（dry_run_enabled=False），确保未注入时不改变行为
 _DRY_RUN_ENABLED_DEFAULT = False
+
+# 写盘后自检段落的展示上限：装载错误 5 条、数据违规前 15 条（截断惯例对齐 validate_table）
+_MAX_SELF_CHECK_LOAD_ERRORS = 5
+_MAX_SELF_CHECK_VIOLATIONS = 15
+
+# 自检段落标题：apply observation 中的结构化分隔，LLM 可在下一轮自然引用
+_SELF_CHECK_HEADER = "## 写盘后自动校验"
+
+# 未确认分支的回灌文案（key 为 await_outcome 的 decision 值）：
+# 必须区分"用户显式拒绝"与"系统兜底"（超时/断连），否则 LLM 会把超时误报成用户拒绝
+_UNCONFIRMED_REASON_TEXT = {
+    "reject": "用户选择拒绝，未写入文件",
+    "timeout": "等待用户确认超时（长时间无响应），未写入文件",
+    "disconnected": "客户端连接中断，等待确认超时，未写入文件",
+}
+
+# apply_rejected SSE 事件载荷的 reason 码（与 _UNCONFIRMED_REASON_TEXT 的 key 一一对应；
+# 前端只按事件名清态，不消费 reason，此处供轨迹/调试区分拒绝来源）
+_UNCONFIRMED_EVENT_REASON = {
+    "reject": "user_rejected",
+    "timeout": "timeout",
+    "disconnected": "disconnected",
+}
 
 
 @dataclass
@@ -96,6 +126,78 @@ def _collect_instructions(raw_results: list[dict[str, Any]], target_list: list[A
         fi = r.get("frontendInstructions")
         if fi:
             target_list.append(fi)
+
+
+def _post_write_self_check(workspace_path: str) -> str:
+    """写盘后自检（同步，线程池中执行）：先装载检查，装载通过再跑数据校验。
+
+    结构性闭环：不依赖 LLM 自觉调用 validate_table，写盘成功的 observation
+    必然携带当前配置装载状态与校验摘要。返回以 "## 写盘后自动校验" 开头的
+    段落文本；本函数自身抛出的异常由调用方兜底降级，不影响写盘结果。
+
+    参数:
+        workspace_path: 项目工作区路径（含 project.precis.yaml）
+    """
+    manifest_path = os.path.join(workspace_path, "project.precis.yaml")
+    loaded = load_project(manifest_path)
+    loading_errors = [err.to_dict() for err in loaded.loading_errors or []]
+
+    lines = [_SELF_CHECK_HEADER]
+
+    # 第一步：装载检查（配置文件能否被校验引擎正确装载）
+    if loading_errors:
+        lines.append(f"- 配置装载: 未通过（{len(loading_errors)} 个装载错误）")
+        for err in loading_errors[:_MAX_SELF_CHECK_LOAD_ERRORS]:
+            err_type = err.get("error_type") or err.get("type") or "未知错误"
+            where = err.get("file_path") or err.get("file") or ""
+            # message 可能为空（inspect 级错误），优先读 title——与 validate_executor 口径一致
+            message = err.get("title") or err.get("message") or ""
+            prefix = f"{where}: " if where else ""
+            lines.append(f"  - [{err_type}] {prefix}{message}")
+        if len(loading_errors) > _MAX_SELF_CHECK_LOAD_ERRORS:
+            lines.append(f"  ... 还有 {len(loading_errors) - _MAX_SELF_CHECK_LOAD_ERRORS} 个装载错误")
+        lines.append("- 数据校验: 已跳过（配置装载未通过，请先修正上述配置错误）")
+        return "\n".join(lines)
+
+    warnings = list(loaded.warnings or [])
+    warn_note = f", warnings={len(warnings)}" if warnings else ""
+    lines.append(
+        f"- 配置装载: 通过（schemas={len(loaded.schema_files)}, constraints={len(loaded.constraint_files)}{warn_note}）"
+    )
+
+    # 第二步：装载通过 → 跑真实校验（内部含 30s 超时；失败转为文本不抛出）
+    result = execute_validate_project(workspace_path)
+    if not result.get("success"):
+        lines.append(f"- 数据校验: 未完成（{result.get('message', '校验执行失败')}）。可调用 validate_table 复核。")
+        return "\n".join(lines)
+
+    details = result.get("details") or {}
+    error_count = details.get("error_count", 0)
+    # Scripted 权限跳过已由 execute_validate_project 从违规计数分离——此处单列提示，
+    # 避免"权限未开启"被误报为违规、挤占 15 条截断位
+    skipped_scripted_count = details.get("skipped_scripted_count", 0)
+
+    if not error_count:
+        duration_ms = details.get("duration_ms")
+        duration_note = f"，耗时 {duration_ms}ms" if duration_ms is not None else ""
+        lines.append(f"- 数据校验: 通过（0 个违规{duration_note}）")
+        if skipped_scripted_count:
+            lines.append(f"- 脚本约束: {skipped_scripted_count} 个因未启用脚本执行被跳过（不计违规）")
+        return "\n".join(lines)
+
+    lines.append(f"- 数据校验: 发现 {error_count} 个违规")
+    raw_errors = details.get("errors") or []
+    for err in raw_errors[:_MAX_SELF_CHECK_VIOLATIONS]:
+        err_type = err.get("error_type") or err.get("type") or "未知错误"
+        table = err.get("table", "")
+        column = err.get("column", "")
+        where = f"{table}.{column}" if column else (table or "未知表")
+        lines.append(f"  - {where}: {err.get('message', '')} ({err_type})")
+    if error_count > _MAX_SELF_CHECK_VIOLATIONS:
+        lines.append(f"  ... 还有 {error_count - _MAX_SELF_CHECK_VIOLATIONS} 个违规未列出")
+    if skipped_scripted_count:
+        lines.append(f"- 脚本约束: {skipped_scripted_count} 个因未启用脚本执行被跳过（不计违规）")
+    return "\n".join(lines)
 
 
 class ApplyActionsTool:
@@ -470,6 +572,23 @@ class ApplyActionsTool:
             "instructions_collected": len(self._collected_instructions),
         }
 
+    async def _run_post_write_self_check(self) -> str:
+        """写盘后自动自检的异步入口：线程池执行 + 全量异常兜底。
+
+        自检只是附加信息——写盘已成功，装载错误/校验异常/超时都不得让
+        apply 失败，一律降级为 observation 中的说明文本。
+        """
+        try:
+            # 装载检查（load_project 读 YAML，较轻）与校验（execute_validate_project
+            # 同步重计算、内部 30s 超时）合并为一个线程任务，减少一次线程切换
+            return await asyncio.to_thread(_post_write_self_check, self.project_path)
+        except Exception as e:
+            logger.warning(f"[apply_actions] 写盘后自检异常（写盘已成功，降级为提示文本）: {e}")
+            return (
+                f"{_SELF_CHECK_HEADER}\n"
+                f"- 状态: 未完成（自检异常: {e}）。写盘本身已成功；如需复核请调用 validate_table。"
+            )
+
     async def _run_two_phase(self, actions: list[dict[str, Any]]) -> dict[str, Any]:
         """两阶段确认模式：dry-run → await 用户决策 → 落盘/跳过。
 
@@ -477,7 +596,8 @@ class ApplyActionsTool:
         避免旧实现"每 job 一个 controller + Event 单次锁存"导致第 2 个 apply 免确认。
 
         阶段 1: shadow-copy dry-run 计算 diff（不碰真实项目）
-        阶段 2: 用户 confirm 后真实写盘；reject 则不写
+        阶段 2: 用户 confirm 后真实写盘；reject/超时/断连则不写，
+                三种未确认分支的回灌文案见 _UNCONFIRMED_REASON_TEXT
         """
         # 为本次 apply 生成独立 apply_id，创建全新 controller（不复用旧决策）
         self._apply_counter += 1
@@ -526,18 +646,25 @@ class ApplyActionsTool:
             if self._apply_callbacks.on_apply_pending:
                 self._apply_callbacks.on_apply_pending(pending_payload)
 
-            # 等待用户决策（协程挂起）——每次调用独立 controller，不受历史决策影响
-            decision = await controller.await_decision()
+            # 等待用户决策（协程挂起）——每次调用独立 controller，不受历史决策影响。
+            # 结构化结果区分 用户拒绝 / 等待超时 / 连接中断，回灌文案不得混淆三者
+            outcome = await controller.await_outcome()
+            decision = outcome["decision"]
 
             if decision != "confirm":
-                # 拒绝/超时：不写盘，返回明确的非成功状态（success=False）
+                # 未确认（用户拒绝/超时/断连）：不写盘，返回明确的非成功状态（success=False）
                 # 避免 LLM 看到 success=True 误报"已为您添加约束"
                 if self._apply_callbacks.on_apply_rejected:
-                    self._apply_callbacks.on_apply_rejected({"reason": "user_rejected", "decision": decision})
+                    self._apply_callbacks.on_apply_rejected(
+                        {
+                            "reason": _UNCONFIRMED_EVENT_REASON.get(decision, decision),
+                            "decision": decision,
+                        }
+                    )
                 return {
                     "success": False,
                     "skipped": True,
-                    "reason": f"用户选择{decision}，未写入文件",
+                    "reason": _UNCONFIRMED_REASON_TEXT.get(decision, f"未确认（{decision}），未写入文件"),
                     "results": [],
                 }
 
@@ -554,9 +681,10 @@ class ApplyActionsTool:
             _collect_instructions(raw_results, self._collected_instructions)
             summarized_results = _summarize_results(raw_results)
 
-            # 收集 dry-run 阶段的 frontend_instructions（写盘后可能已变化，但仍保留）
-            for fi in diff_result.frontend_instructions:
-                self._collected_instructions.append(fi)
+            # 注意：指令只从真实写盘结果（raw_results）收集一次；
+            # dry-run（diff_result.frontend_instructions）是 shadow-copy 副本上的等价产物，
+            # 不可再次累积——否则 completed 事件快照含两份等价指令，前端文本比对去重
+            # 稍有字段差异就会双应用（重复节点）。diff 本身仍用于用户确认预览。
 
             # 流式画布生长：逐条 emit 写盘产出的 frontend_instruction。
             # 仅取 raw_results 中实际落盘的单条指令（已 disk-committed），
@@ -582,11 +710,19 @@ class ApplyActionsTool:
                     }
                 )
 
-            return {
+            # 写盘成功（all_success=True）→ observation 强制附加自检段落（装载检查 → 校验摘要）。
+            # 结构性闭环：不依赖 LLM 自觉调用 validate_table；自检异常/超时在
+            # _run_post_write_self_check 内降级为说明文本，绝不改变本次 apply 的成败。
+            # all_success=False 时 process_actions 已回滚、磁盘无变化——不跑全量自检
+            # （白跑一次校验，且"写盘后自动校验"段落会让 LLM 误以为有写盘效果可汇报）。
+            result = {
                 "success": all_success,
                 "results": summarized_results,
                 "instructions_collected": len(self._collected_instructions),
             }
+            if all_success:
+                result["post_write_check"] = await self._run_post_write_self_check()
+            return result
         finally:
             # 无论 confirm/reject/timeout/异常，都清理本次 apply 的 controller（避免 store 泄漏）
             pending_store.pop(apply_id)

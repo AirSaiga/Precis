@@ -24,6 +24,7 @@
 
 from __future__ import annotations
 
+import os
 from unittest.mock import patch
 
 import pytest
@@ -119,6 +120,236 @@ class TestLegacyBranch:
 
         assert result["success"] is True
         mock_proc.assert_called_once()
+        # 只读路径不写盘 → 不附加写盘后自检段落
+        assert "post_write_check" not in result
+
+
+# =============================================================================
+# 写盘后自动自检测试（结构性闭环）
+# =============================================================================
+
+
+class TestPostWriteSelfCheck:
+    """写盘成功后 observation 强制附加自检段落。
+
+    自检分两步：load_project 装载检查 → 装载通过再 execute_validate_project
+    取校验摘要。自检失败（装载错误/校验异常）不得让 apply 失败——写盘已成功，
+    自检结果只是附加信息（降级为说明文本）。
+    """
+
+    def _make_tool(self, ws: str, collected: list) -> ApplyActionsTool:
+        """构造两阶段 + 自动 confirm 的工具（复用 TestTwoPhaseConfirm 的装配）。"""
+        callbacks = ApplyCallbacks()
+        tool, resolve_tasks = TestTwoPhaseConfirm()._make_tool_with_auto_confirm(ws, collected, callbacks, "confirm")
+        return tool, resolve_tasks
+
+    @pytest.mark.asyncio
+    async def test_confirm_appends_self_check_section(self, tmp_path):
+        """确认写盘成功 → observation 含自检段落：装载通过 + 违规摘要。"""
+        ws = make_test_workspace(tmp_path)
+        collected: list = []
+        tool, resolve_tasks = self._make_tool(ws, collected)
+
+        action = make_inline_not_null_action()
+        write_result = {
+            "success": True,
+            "results": [{"action": action, "success": True, "message": "完成"}],
+        }
+
+        with (
+            patch("app.shared.services.ai.agent.chat_tools.apply_actions.compute_action_diff") as mock_diff,
+            patch(PATCH_PROC, return_value=write_result),
+            patch(PATCH_LOAD, return_value=make_loaded_stub()) as mock_load,
+            patch(
+                PATCH_VALIDATE_EXEC,
+                return_value=make_validate_summary(
+                    error_count=2,
+                    errors=[
+                        {"table": "users", "column": "email", "message": "值为空", "error_type": "NotNull"},
+                        {"table": "orders", "column": "qty", "message": "-1 小于最小值 0", "error_type": "Range"},
+                    ],
+                ),
+            ) as mock_validate,
+        ):
+            mock_diff.return_value = make_diff_result(success=True)
+            result = await tool.run({"actions": [action]})
+
+        for t in resolve_tasks:
+            await t
+
+        assert result["success"] is True
+        section = result["post_write_check"]
+        # 段落以固定标题开头（LLM 可在下一轮自然引用）
+        assert section.startswith("## 写盘后自动校验")
+        # 第一步：装载通过（含 schema/约束计数）
+        assert "- 配置装载: 通过" in section
+        assert "schemas=1" in section
+        # 第二步：校验摘要（违规数 + 前 N 条违规明细）
+        assert "- 数据校验: 发现 2 个违规" in section
+        assert "users.email: 值为空 (NotNull)" in section
+        assert "orders.qty: -1 小于最小值 0 (Range)" in section
+        # 边界调用形状：装载用 manifest 路径，校验用工作区路径
+        mock_load.assert_called_once_with(f"{ws}{os.sep}project.precis.yaml")
+        mock_validate.assert_called_once_with(ws)
+
+    @pytest.mark.asyncio
+    async def test_self_check_validation_pass(self, tmp_path):
+        """装载通过且校验 0 违规 → 自检段落报通过（含耗时）。"""
+        ws = make_test_workspace(tmp_path)
+        tool, resolve_tasks = self._make_tool(ws, [])
+
+        action = make_inline_not_null_action()
+        with (
+            patch(
+                "app.shared.services.ai.agent.chat_tools.apply_actions.compute_action_diff",
+                return_value=make_diff_result(success=True),
+            ),
+            patch(PATCH_PROC, return_value={"success": True, "results": []}),
+            patch(PATCH_LOAD, return_value=make_loaded_stub()),
+            patch(PATCH_VALIDATE_EXEC, return_value=make_validate_summary(error_count=0)),
+        ):
+            result = await tool.run({"actions": [action]})
+
+        for t in resolve_tasks:
+            await t
+
+        assert result["success"] is True
+        assert "- 数据校验: 通过（0 个违规，耗时 5ms）" in result["post_write_check"]
+
+    @pytest.mark.asyncio
+    async def test_self_check_load_failure_skips_validation(self, tmp_path):
+        """装载错误 → 自检报装载未通过，且不再执行数据校验。"""
+        ws = make_test_workspace(tmp_path)
+        tool, resolve_tasks = self._make_tool(ws, [])
+
+        action = make_inline_not_null_action()
+        with (
+            patch(
+                "app.shared.services.ai.agent.chat_tools.apply_actions.compute_action_diff",
+                return_value=make_diff_result(success=True),
+            ),
+            patch(PATCH_PROC, return_value={"success": True, "results": []}),
+            patch(
+                PATCH_LOAD,
+                return_value=make_loaded_stub(loading_errors=[make_loading_error()]),
+            ),
+            patch(PATCH_VALIDATE_EXEC) as mock_validate,
+        ):
+            result = await tool.run({"actions": [action]})
+
+        for t in resolve_tasks:
+            await t
+
+        # 装载失败不改变 apply 成败——写盘已成功，自检只是附加信息
+        assert result["success"] is True
+        section = result["post_write_check"]
+        assert "- 配置装载: 未通过（1 个装载错误）" in section
+        assert "[SchemaFileError]" in section
+        assert "已跳过（配置装载未通过" in section
+        # 装载未通过 → 校验不得执行
+        mock_validate.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_self_check_exception_degrades_but_apply_succeeds(self, tmp_path):
+        """自检抛异常 → apply 仍成功，observation 携带降级说明。"""
+        ws = make_test_workspace(tmp_path)
+        tool, resolve_tasks = self._make_tool(ws, [])
+
+        action = make_inline_not_null_action()
+        with (
+            patch(
+                "app.shared.services.ai.agent.chat_tools.apply_actions.compute_action_diff",
+                return_value=make_diff_result(success=True),
+            ),
+            patch(PATCH_PROC, return_value={"success": True, "results": []}),
+            patch(PATCH_LOAD, return_value=make_loaded_stub()),
+            patch(PATCH_VALIDATE_EXEC, side_effect=RuntimeError("boom")),
+        ):
+            result = await tool.run({"actions": [action]})
+
+        for t in resolve_tasks:
+            await t
+
+        assert result["success"] is True
+        section = result["post_write_check"]
+        assert section.startswith("## 写盘后自动校验")
+        assert "未完成" in section
+        assert "boom" in section
+        assert "写盘本身已成功" in section
+
+    @pytest.mark.asyncio
+    async def test_self_check_scripted_skip_not_counted_as_violation(self, tmp_path):
+        """Scripted 权限跳过单列：0 违规 + 2 个跳过 → 报"通过"，跳过不计入违规数。"""
+        ws = make_test_workspace(tmp_path)
+        tool, resolve_tasks = self._make_tool(ws, [])
+
+        action = make_inline_not_null_action()
+        with (
+            patch(
+                "app.shared.services.ai.agent.chat_tools.apply_actions.compute_action_diff",
+                return_value=make_diff_result(success=True),
+            ),
+            patch(PATCH_PROC, return_value={"success": True, "results": []}),
+            patch(PATCH_LOAD, return_value=make_loaded_stub()),
+            patch(PATCH_VALIDATE_EXEC, return_value=make_validate_summary(skipped_scripted_count=2)),
+        ):
+            result = await tool.run({"actions": [action]})
+
+        for t in resolve_tasks:
+            await t
+
+        assert result["success"] is True
+        section = result["post_write_check"]
+        assert "- 数据校验: 通过（0 个违规，耗时 5ms）" in section
+        assert "- 脚本约束: 2 个因未启用脚本执行被跳过（不计违规）" in section
+        # 权限跳过不得被写成违规
+        assert "发现" not in section
+
+    def test_self_check_real_engine_scripted_project_reports_zero_violations(self, tmp_path):
+        """真实引擎回归：含 Scripted 约束的项目（默认关 eval）自检报 0 违规 + 跳过说明。
+
+        不 mock 任何边界——装载、校验全走真实链路，守卫"权限跳过被计入
+        error_count"的误报不再回归（修复前此处会显示"发现 1 个违规"）。
+        """
+        ws = str(make_scripted_workspace(tmp_path))
+        # 直接调用模块级同步自检函数（与工具内 to_thread 调用同一实现）
+        from app.shared.services.ai.agent.chat_tools.apply_actions import _post_write_self_check
+
+        section = _post_write_self_check(ws)
+
+        assert section.startswith("## 写盘后自动校验")
+        assert "- 配置装载: 通过（schemas=1, constraints=1）" in section
+        # 核心断言：权限跳过不计入违规数，且单列说明
+        assert "- 数据校验: 通过（0 个违规" in section
+        assert "- 脚本约束: 1 个因未启用脚本执行被跳过（不计违规）" in section
+        assert "发现" not in section
+
+    @pytest.mark.asyncio
+    async def test_rollback_write_skips_self_check(self, tmp_path):
+        """写盘结果 success=False（已回滚、磁盘无变化）→ 不跑自检、不附加段落。"""
+        ws = make_test_workspace(tmp_path)
+        tool, resolve_tasks = self._make_tool(ws, [])
+
+        action = make_inline_not_null_action()
+        with (
+            patch(
+                "app.shared.services.ai.agent.chat_tools.apply_actions.compute_action_diff",
+                return_value=make_diff_result(success=True),
+            ),
+            # 写盘返回部分动作失败（success=False，process_actions 已回滚）
+            patch(PATCH_PROC, return_value={"success": False, "results": []}),
+            patch(PATCH_LOAD, return_value=make_loaded_stub()),
+            patch(PATCH_VALIDATE_EXEC) as mock_validate,
+        ):
+            result = await tool.run({"actions": [action]})
+
+        for t in resolve_tasks:
+            await t
+
+        assert result["success"] is False
+        # 回滚路径：无自检段落、校验引擎未被调用
+        assert "post_write_check" not in result
+        mock_validate.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_legacy_error_propagates(self, tmp_path):
@@ -146,6 +377,79 @@ class TestLegacyBranch:
 
 # patch target for process_actions (legacy mode only): the import in apply_actions.py
 PATCH_PROC = "app.shared.services.ai.agent.chat_tools.apply_actions.process_actions"
+# 写盘后自检的边界 patch target：apply_actions.py 顶层导入的装载/校验入口
+PATCH_LOAD = "app.shared.services.ai.agent.chat_tools.apply_actions.load_project"
+PATCH_VALIDATE_EXEC = "app.shared.services.ai.agent.chat_tools.apply_actions.execute_validate_project"
+
+
+def make_loaded_stub(loading_errors: list | None = None, warnings: list | None = None):
+    """构造 load_project 边界返回值（duck-typed LoadedProject，自检只读这几个属性）。"""
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        loading_errors=loading_errors or [],
+        warnings=warnings or [],
+        schema_files={"users": {}},
+        constraint_files={"users_email_not_null": {}},
+    )
+
+
+def make_loading_error(error_type: str = "SchemaFileError", message: str = "schema 结构非法"):
+    """构造单条 LoadingError（duck-typed，提供 to_dict）。"""
+    from types import SimpleNamespace
+
+    payload = {"error_type": error_type, "file_path": "schemas/users.schema.yaml", "message": message}
+    return SimpleNamespace(to_dict=lambda: payload)
+
+
+def make_validate_summary(error_count: int = 0, errors: list | None = None, skipped_scripted_count: int = 0) -> dict:
+    """构造 execute_validate_project 边界返回值（校验流程跑通的摘要形状）。
+
+    skipped_scripted_count 对应 Scripted 权限跳过分离后的单列计数（不计入 error_count）。
+    """
+    return {
+        "success": True,
+        "message": f"发现 {error_count} 个数据错误" if error_count else "数据校验通过（耗时 5ms）",
+        "details": {
+            "error_count": error_count,
+            "duration_ms": 5,
+            "errors": errors or [],
+            "skipped_scripted_count": skipped_scripted_count,
+            "skipped_scripted": [],
+        },
+    }
+
+
+def make_scripted_workspace(tmp_path):
+    """构造含真实 Scripted 约束的临时项目（manifest/schema/约束文件/数据齐备）。
+
+    默认部署未开启 allow_unsafe_eval → 校验引擎对该约束产出 PermissionError
+    跳过条目（非数据违规），用于真实引擎回归。
+    """
+    ws = tmp_path / "scripted-project"
+    (ws / "schemas").mkdir(parents=True)
+    (ws / "constraints").mkdir()
+    (ws / "data").mkdir()
+    (ws / "project.precis.yaml").write_text(
+        "version: 2\n"
+        "project:\n  id: scripted-demo\n  name: scripted-demo\n"
+        "schemas:\n  - id: sc_users\n    path: schemas/users.schema.yaml\n"
+        "constraints:\n  - id: c_score_script\n    path: constraints/score_script.constraint.yaml\n",
+        encoding="utf-8",
+    )
+    (ws / "schemas" / "users.schema.yaml").write_text(
+        "id: sc_users\nname: users\nsource:\n  mode: relative_file\n  path: data/users.csv\n"
+        "columns:\n  - id: score\n    name: score\n    type: integer\n",
+        encoding="utf-8",
+    )
+    (ws / "constraints" / "score_script.constraint.yaml").write_text(
+        "version: 2\nid: c_score_script\ntype: Scripted\nenabled: true\ndescription: 分数范围脚本校验\n"
+        "refs:\n  table_id: sc_users\n  column_id: score\n"
+        "params:\n  name: score_check\n  expression: value >= 0 and value <= 100\n",
+        encoding="utf-8",
+    )
+    (ws / "data" / "users.csv").write_text("score\n50\n80\n", encoding="utf-8")
+    return ws
 
 
 class TestTwoPhaseConfirm:
@@ -220,6 +524,8 @@ class TestTwoPhaseConfirm:
                         }
                     ],
                 },
+                # 写盘后自检（to_thread 第 3 次调用）的 observation 段落
+                "## 写盘后自动校验\n- 配置装载: 通过\n- 数据校验: 通过（0 个违规）",
             ]
             result = await tool.run({"actions": [action]})
 
@@ -229,6 +535,8 @@ class TestTwoPhaseConfirm:
         assert result["success"] is True
         assert result.get("skipped") is None
         assert len(collected) >= 1
+        # 写盘成功 → observation 必须携带自检段落
+        assert result["post_write_check"].startswith("## 写盘后自动校验")
 
     @pytest.mark.asyncio
     async def test_confirm_emits_callbacks(self, tmp_path):
@@ -249,6 +557,8 @@ class TestTwoPhaseConfirm:
             mock_thread.side_effect = [
                 make_diff_result(success=True),
                 {"success": True, "results": []},
+                # 写盘后自检段落（第 3 次 to_thread 调用）
+                "## 写盘后自动校验\n- 配置装载: 通过\n- 数据校验: 通过（0 个违规）",
             ]
             await tool.run({"actions": [action]})
 
@@ -310,6 +620,8 @@ class TestTwoPhaseConfirm:
                         },
                     ],
                 },
+                # 写盘后自检段落（第 3 次 to_thread 调用）
+                "## 写盘后自动校验\n- 配置装载: 通过\n- 数据校验: 通过（0 个违规）",
             ]
             await tool.run({"actions": [action]})
 
@@ -321,6 +633,49 @@ class TestTwoPhaseConfirm:
         # payload 形状：{"instruction": {...}}，且顺序与 raw_results 一致
         assert fi_payloads[0]["instruction"] == {"actionType": "ADD_CONSTRAINT_NODE"}
         assert fi_payloads[1]["instruction"] == {"actionType": "ADD_SCHEMA"}
+
+    @pytest.mark.asyncio
+    async def test_confirm_collects_instructions_only_from_real_write(self, tmp_path):
+        """确认写盘后指令只从真实写盘结果收集一次，dry-run 指令不二次累积。
+
+        dry-run DiffResult 携带 shadow-copy 上算出的等价指令（用于确认预览）；
+        修复前它会被再追加一遍，completed 事件快照含两份等价指令，
+        前端文本比对去重稍有字段差异即双应用（画布长出重复节点）。
+        """
+        ws = make_test_workspace(tmp_path)
+        collected: list = []
+        callbacks = ApplyCallbacks()
+        tool, resolve_tasks = self._make_tool_with_auto_confirm(ws, collected, callbacks, "confirm")
+
+        action = make_inline_not_null_action()
+        real_fi = {"actionType": "ADD_CONSTRAINT_NODE", "source": "real_write"}
+
+        with patch("app.shared.services.ai.agent.chat_tools.apply_actions.asyncio.to_thread") as mock_thread:
+            mock_thread.side_effect = [
+                # dry-run：shadow-copy 上算出的等价指令（不应流入 collected）
+                make_diff_result(
+                    success=True,
+                    instructions=[{"actionType": "ADD_CONSTRAINT_NODE", "source": "dry_run"}],
+                ),
+                # 真实写盘：产出一条指令
+                {
+                    "success": True,
+                    "results": [
+                        {"action": action, "success": True, "message": "完成", "frontendInstructions": real_fi},
+                    ],
+                },
+                # 写盘后自检段落（第 3 次 to_thread 调用）
+                "## 写盘后自动校验\n- 配置装载: 通过\n- 数据校验: 通过（0 个违规）",
+            ]
+            result = await tool.run({"actions": [action]})
+
+        for t in resolve_tasks:
+            await t
+
+        assert result["success"] is True
+        # 收集数量 == 真实写盘产出（1 条），dry-run 指令未被二次累积
+        assert len(collected) == 1
+        assert collected[0] is real_fi
 
     @pytest.mark.asyncio
     async def test_reject_does_not_emit_frontend_instruction(self, tmp_path):
@@ -402,12 +757,14 @@ class TestTwoPhaseConfirm:
 
         with patch("app.shared.services.ai.agent.chat_tools.apply_actions.asyncio.to_thread") as mock_thread:
             mock_thread.side_effect = [
-                # 第1次 dry-run + 写盘
+                # 第1次 dry-run + 写盘 + 自检
                 make_diff_result(success=True),
                 {"success": True, "results": []},
-                # 第2次 dry-run + 写盘
+                "## 写盘后自动校验\n- 配置装载: 通过\n- 数据校验: 通过（0 个违规）",
+                # 第2次 dry-run + 写盘 + 自检
                 make_diff_result(success=True),
                 {"success": True, "results": []},
+                "## 写盘后自动校验\n- 配置装载: 通过\n- 数据校验: 通过（0 个违规）",
             ]
             await tool.run({"actions": [action]})
             await tool.run({"actions": [action]})
@@ -418,6 +775,108 @@ class TestTwoPhaseConfirm:
         # 两次 apply 必须有不同 apply_id（#1 修复的核心证据）
         assert len(pending_apply_ids) == 2
         assert pending_apply_ids[0] != pending_apply_ids[1], "两次 apply 必须独立 apply_id"
+
+
+# =============================================================================
+# 未确认三分支文案测试（reject / timeout / disconnected）
+# =============================================================================
+
+
+class TestUnconfirmedOutcomeText:
+    """await_outcome 三分支回灌文案：用户拒绝 / 等待超时 / 连接中断不得互相混淆。
+
+    修复前超时与断连一律折叠为 "用户选择reject，未写入文件"——LLM 会把超时误报成
+    用户主动拒绝。此处锁定三个分支各自的 reason 文案与 apply_rejected 事件 reason 码。
+    """
+
+    def _make_tool(self, ws: str, callbacks: ApplyCallbacks, job_id: str = "test-job") -> ApplyActionsTool:
+        """构造两阶段工具（不带自动 resolve——本组测试要验证等待分支）。"""
+        return ApplyActionsTool(
+            project_path=ws,
+            collected_instructions=[],
+            dry_run_enabled=True,
+            apply_callbacks=callbacks,
+            job_id=job_id,
+        )
+
+    @pytest.mark.asyncio
+    async def test_user_reject_message_mentions_user_choice(self, tmp_path):
+        """用户显式拒绝 → 文案明确"用户选择拒绝"，不含超时/连接中断字样。"""
+        ws = make_test_workspace(tmp_path)
+        rejected_payloads: list = []
+        callbacks = ApplyCallbacks(on_apply_rejected=lambda p: rejected_payloads.append(p))
+        tool, resolve_tasks = TestTwoPhaseConfirm()._make_tool_with_auto_confirm(ws, [], callbacks, "reject")
+
+        action = make_inline_not_null_action()
+        with patch("app.shared.services.ai.agent.chat_tools.apply_actions.asyncio.to_thread") as mock_thread:
+            mock_thread.return_value = make_diff_result(success=True)
+            result = await tool.run({"actions": [action]})
+
+        for t in resolve_tasks:
+            await t
+
+        assert result["success"] is False
+        assert result.get("skipped") is True
+        assert result["reason"] == "用户选择拒绝，未写入文件"
+        assert "超时" not in result["reason"]
+        assert "连接中断" not in result["reason"]
+        # SSE 事件载荷 reason 码保持 user_rejected（前端按事件名清态，不消费 reason）
+        assert rejected_payloads == [{"reason": "user_rejected", "decision": "reject"}]
+
+    @pytest.mark.asyncio
+    async def test_timeout_message_mentions_timeout_not_user_reject(self, tmp_path, monkeypatch):
+        """无人决议超时 → 文案"等待用户确认超时"，不得表述成用户拒绝。"""
+        import app.shared.services.ai.streaming.pending_interaction_store as store_mod
+
+        monkeypatch.setattr(store_mod, "_APPLY_CONFIRM_TIMEOUT", 0.05)
+        ws = make_test_workspace(tmp_path)
+        rejected_payloads: list = []
+        callbacks = ApplyCallbacks(on_apply_rejected=lambda p: rejected_payloads.append(p))
+        tool = self._make_tool(ws, callbacks)
+
+        action = make_inline_not_null_action()
+        with patch("app.shared.services.ai.agent.chat_tools.apply_actions.asyncio.to_thread") as mock_thread:
+            mock_thread.return_value = make_diff_result(success=True)
+            result = await tool.run({"actions": [action]})
+
+        assert result["success"] is False
+        assert result.get("skipped") is True
+        assert "等待用户确认超时" in result["reason"]
+        assert "用户选择拒绝" not in result["reason"]
+        assert rejected_payloads == [{"reason": "timeout", "decision": "timeout"}]
+
+    @pytest.mark.asyncio
+    async def test_disconnected_message_mentions_connection_loss(self, tmp_path, monkeypatch):
+        """SSE 客户端断开后超时 → 文案"连接中断"，非用户拒绝也非单纯超时。"""
+        import app.shared.services.ai.streaming.pending_interaction_store as store_mod
+        from app.shared.services.ai.streaming.pending_interaction_store import (
+            get_global_pending_interaction_store,
+        )
+
+        monkeypatch.setattr(store_mod, "_APPLY_CONFIRM_TIMEOUT", 0.05)
+        ws = make_test_workspace(tmp_path)
+        job_id = "test-job-grace"
+        # 模拟 SSE 断开：stream 层在断开时调用 mark_job_client_gone，
+        # 工具随后创建的 ConfirmController 出生即带失联标记
+        get_global_pending_interaction_store().mark_job_client_gone(job_id)
+        try:
+            rejected_payloads: list = []
+            callbacks = ApplyCallbacks(on_apply_rejected=lambda p: rejected_payloads.append(p))
+            tool = self._make_tool(ws, callbacks, job_id=job_id)
+
+            action = make_inline_not_null_action()
+            with patch("app.shared.services.ai.agent.chat_tools.apply_actions.asyncio.to_thread") as mock_thread:
+                mock_thread.return_value = make_diff_result(success=True)
+                result = await tool.run({"actions": [action]})
+        finally:
+            # 全局 store 单例：注销失联登记，避免污染其他测试
+            get_global_pending_interaction_store().pop_by_job_prefix(job_id)
+
+        assert result["success"] is False
+        assert result.get("skipped") is True
+        assert "连接中断" in result["reason"]
+        assert "用户选择拒绝" not in result["reason"]
+        assert rejected_payloads == [{"reason": "disconnected", "decision": "disconnected"}]
 
 
 # =============================================================================
@@ -661,6 +1120,9 @@ class TestReadOnlyBypass:
                 "app.shared.services.ai.agent.chat_tools.apply_actions.compute_action_diff",
                 return_value=diff_result,
             ),
+            # 写盘后自检的边界：装载检查 + 校验摘要（保持确定性，不跑真实校验引擎）
+            patch(PATCH_LOAD, return_value=make_loaded_stub()),
+            patch(PATCH_VALIDATE_EXEC, return_value=make_validate_summary()),
         ):
             result = await tool.run({"actions": [readonly_action, write_action]})
 

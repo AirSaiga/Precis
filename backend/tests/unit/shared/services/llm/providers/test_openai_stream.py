@@ -149,3 +149,114 @@ async def test_stream_tool_calls_accumulation():
     assert tcs[0]["id"] == "call_1"
     assert tcs[0]["function"]["name"] == "apply_actions"
     assert tcs[0]["function"]["arguments"] == '{"actions":[1]}'
+
+
+@pytest.mark.asyncio
+async def test_stream_flushes_accumulated_tool_calls_when_finish_is_stop():
+    """vLLM 等兼容端点以 stop 收尾但不发 finish_reason=tool_calls → 流耗尽后必须补发累积的 tool_calls。
+
+    不补发的话 executor 会误判本轮无工具调用，动作意图无痕迹消失。
+    """
+    provider = _make_provider()
+    chunks = [
+        _FakeChunk(
+            [
+                _FakeChoice(
+                    _FakeDelta(
+                        tool_calls=[_make_tc_delta(0, id_="call_1", name="read_table", args_fragment='{"table":"us')]
+                    )
+                )
+            ]
+        ),
+        _FakeChunk([_FakeChoice(_FakeDelta(tool_calls=[_make_tc_delta(0, args_fragment='ers"}')]))]),
+        _FakeChunk([_FakeChoice(_FakeDelta(), finish_reason="stop")]),
+    ]
+    provider.client.chat.completions.create = AsyncMock(return_value=_FakeStreamCall(chunks))
+
+    req = ChatRequest(messages=[ChatMessage(role="user", content="hi")])
+    results = []
+    async for chunk in provider.chat_stream(req):
+        results.append(chunk)
+
+    tc_chunks = [c for c in results if c.type == "tool_calls"]
+    assert len(tc_chunks) == 1, "stop 收尾但有累积 tool_calls 时，流耗尽后应补发恰好一次"
+    tcs = tc_chunks[0].tool_calls
+    assert tcs[0]["id"] == "call_1"
+    assert tcs[0]["function"]["name"] == "read_table"
+    assert tcs[0]["function"]["arguments"] == '{"table":"users"}'
+
+
+@pytest.mark.asyncio
+async def test_stream_flushes_accumulated_tool_calls_without_finish_reason():
+    """端点最后一个 chunk 不带 finish_reason（None）→ 流耗尽后同样补发。"""
+    provider = _make_provider()
+    chunks = [
+        _FakeChunk(
+            [
+                _FakeChoice(
+                    _FakeDelta(
+                        tool_calls=[_make_tc_delta(0, id_="call_2", name="validate_table", args_fragment='{"table')]
+                    )
+                )
+            ]
+        ),
+        _FakeChunk([_FakeChoice(_FakeDelta(tool_calls=[_make_tc_delta(0, args_fragment='":"users"}')]))]),
+        # 无 finish_reason 的收尾 chunk（部分网关直接结束流）
+        _FakeChunk([_FakeChoice(_FakeDelta())]),
+    ]
+    provider.client.chat.completions.create = AsyncMock(return_value=_FakeStreamCall(chunks))
+
+    req = ChatRequest(messages=[ChatMessage(role="user", content="hi")])
+    results = []
+    async for chunk in provider.chat_stream(req):
+        results.append(chunk)
+
+    tc_chunks = [c for c in results if c.type == "tool_calls"]
+    assert len(tc_chunks) == 1
+    assert tc_chunks[0].tool_calls[0]["function"]["arguments"] == '{"table":"users"}'
+
+
+@pytest.mark.asyncio
+async def test_stream_tool_calls_finish_reason_no_duplicate_flush():
+    """finish_reason=tool_calls 正常下发后 → 流耗尽兜底不得重复补发。"""
+    provider = _make_provider()
+    chunks = [
+        _FakeChunk(
+            [
+                _FakeChoice(
+                    _FakeDelta(tool_calls=[_make_tc_delta(0, id_="call_1", name="read_project", args_fragment="{}")])
+                )
+            ]
+        ),
+        _FakeChunk([_FakeChoice(_FakeDelta(), finish_reason="tool_calls")]),
+        # 收尾 chunk 之后流内还有空 chunk，再自然耗尽
+        _FakeChunk([_FakeChoice(_FakeDelta())]),
+    ]
+    provider.client.chat.completions.create = AsyncMock(return_value=_FakeStreamCall(chunks))
+
+    req = ChatRequest(messages=[ChatMessage(role="user", content="hi")])
+    results = []
+    async for chunk in provider.chat_stream(req):
+        results.append(chunk)
+
+    tc_chunks = [c for c in results if c.type == "tool_calls"]
+    assert len(tc_chunks) == 1, "已按 finish_reason=tool_calls 下发过，不得重复补发"
+
+
+@pytest.mark.asyncio
+async def test_stream_stop_without_accumulation_emits_no_tool_calls():
+    """stop 收尾且无累积 tool_calls → 不产生任何 tool_calls chunk（纯文本流不受兜底影响）。"""
+    provider = _make_provider()
+    chunks = [
+        _FakeChunk([_FakeChoice(_FakeDelta(content="你好"))]),
+        _FakeChunk([_FakeChoice(_FakeDelta(), finish_reason="stop")]),
+    ]
+    provider.client.chat.completions.create = AsyncMock(return_value=_FakeStreamCall(chunks))
+
+    req = ChatRequest(messages=[ChatMessage(role="user", content="hi")])
+    results = []
+    async for chunk in provider.chat_stream(req):
+        results.append(chunk)
+
+    assert [c.type for c in results] == ["delta"]
+    assert results[0].text == "你好"
