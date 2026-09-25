@@ -27,6 +27,8 @@
 
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from app.shared.services.ai.agent.chat_tools import InferSchemaTool
@@ -109,8 +111,17 @@ class TestInferSchemaPathGuard:
 
     @pytest.mark.asyncio
     async def test_rejects_absolute_path(self, tool):
-        """绝对路径 → 拒绝（数据文件必须是项目相对路径）。"""
-        result = await tool.run({"file_path": "C:/Windows/system32/config.csv"})
+        """绝对路径 → 拒绝（数据文件必须是项目相对路径）。
+
+        探针按运行平台构造：Linux 上 "C:/..." 经 os.path.isabs 判 False，
+        会落入"文件不存在"分支而非守卫拒绝（CI 实证）——必须用当前平台
+        必然为绝对路径的构造，保证任何平台测的都是同一行为。
+        """
+        absolute_probe = os.path.join(os.path.abspath(os.sep), "precis-guard-probe", "config.csv")
+        # 前置自检：探针在当前平台必须真的构造出绝对路径，否则测试失效
+        assert os.path.isabs(absolute_probe)
+
+        result = await tool.run({"file_path": absolute_probe})
 
         assert result["success"] is False
         assert "不合法" in result["error"]
