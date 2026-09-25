@@ -75,6 +75,7 @@ from app.shared.services.llm.actions._settings_validator import validate_setting
 from app.shared.services.llm.actions._transform_validator import validate_transform_action
 from app.shared.services.llm.actions.registry import (
     ALL_CONSTRAINT_TYPES,
+    CANVAS_ACTION_TYPES,
     REGEX_ACTION_TYPES,
     SCHEMA_ACTION_TYPES,
     SETTINGS_CATEGORIES,
@@ -122,8 +123,18 @@ class ActionValidator:
     # 需要特定参数的约束类型（从注册表派生）
     CONSTRAINT_REQUIRED_PARAMS = dict(CONSTRAINT_REQUIRED_PARAMS_REGISTRY)
 
-    def __init__(self, project_path: str):
+    def __init__(self, project_path: str, canvas_enabled: bool = True):
+        """
+        @methoddesc 初始化验证器
+
+        参数:
+            project_path: 项目路径
+            canvas_enabled: 当前环境是否有画布。无画布客户端（CLI 等经
+                ChatOptions.canvas_enabled=False 透传）传 False——canvas 类动作
+                （ADD_TO_CANVAS）直接判 error 拒绝，错误信息回灌给 LLM 自我修正
+        """
         self.project_path = Path(project_path)
+        self.canvas_enabled = canvas_enabled
         self._project_schema: dict[str, Any] | None = None
 
     def _load_project_schema(self) -> dict[str, Any]:
@@ -287,7 +298,22 @@ class ActionValidator:
                 else:
                     result.valid_actions.append(action)
 
-            elif action_type == "ADD_TO_CANVAS":
+            elif action_type in CANVAS_ACTION_TYPES:
+                # 无画布环境纵深防御：即便 LLM 绕过工具 enum 约束幻觉输出 canvas 类动作，
+                # 也在此拦截并把可读原因回灌（apply_actions tool / legacy orchestrator 两路共用本验证器）
+                if not self.canvas_enabled:
+                    result.errors.append(
+                        ValidationError(
+                            action_index=index,
+                            action_type=action_type,
+                            error_type="canvas_unavailable",
+                            message="当前环境无画布，该动作不可用",
+                            suggestion="本会话没有画布界面，无法把资源显示到画布；"
+                            "请改用 read_project 等查询工具回答，或 ADD/UPDATE/DELETE 等写动作",
+                        )
+                    )
+                    result.invalid_action_indices.add(index)
+                    continue
                 # ADD_TO_CANVAS 不写盘，但仍需校验目标资源真实存在（避免显示不存在的资源）
                 errors = validate_canvas_action(action, index, str(self.project_path))
                 result.errors.extend(errors)

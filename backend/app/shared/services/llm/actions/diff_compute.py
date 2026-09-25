@@ -106,16 +106,20 @@ def compute_action_diff(actions: list[dict[str, Any]], workspace_path: str) -> D
             return result
 
         # dry-run 后用资源文件快照对比检测新建文件（比按 spec 收集可靠——
-        # spec 可能不含 constraintFile，而 handler 内部派生的路径不在 _collect_affected_files 结果中）
-        pre_snapshot = _snapshot_resource_files(workspace_path)
-        post_snapshot = _snapshot_resource_files(tmp_root)
-        created_in_tmp = post_snapshot - pre_snapshot
-        for abs_p in created_in_tmp:
-            rel = os.path.relpath(abs_p, tmp_root)
-            if rel not in before_contents:
-                rel_paths.append(rel)
-                # 新建文件执行前不存在
-                before_contents[rel] = None
+        # spec 可能不含 constraintFile，而 handler 内部派生的路径不在 _collect_affected_files 结果中）。
+        # 差集必须按"相对各自根目录"的路径对比：两个快照的根不同（真实工作区 vs
+        # tempdir），直接对绝对路径做集合差恒等于 tempdir 全部资源文件，既有
+        # schema/constraint 会被误标 created（68146306 引入的回归）
+        pre_rels = {os.path.relpath(p, workspace_path) for p in _snapshot_resource_files(workspace_path)}
+        post_rels = {os.path.relpath(p, tmp_root) for p in _snapshot_resource_files(tmp_root)}
+        for rel in sorted(post_rels - pre_rels):
+            # 保险：真实工作区已存在同路径文件时一律不按新建处理（该文件未被
+            # 动作触碰，本就不该出现在 diff 里）
+            if rel in before_contents or os.path.isfile(os.path.join(workspace_abs, rel)):
+                continue
+            rel_paths.append(rel)
+            # 新建文件执行前不存在
+            before_contents[rel] = None
 
         for rel in rel_paths:
             tmp_p = os.path.join(tmp_root, rel)

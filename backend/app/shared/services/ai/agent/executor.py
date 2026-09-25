@@ -34,6 +34,7 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
+from app.shared.services.llm.config.models import DEFAULT_MAX_AGENT_ITERATIONS
 from app.shared.services.llm.providers.base import BaseProvider, ChatMessage, ChatRequest
 
 from .memory import AgentMemory
@@ -143,7 +144,7 @@ class AgentExecutor:
         provider: BaseProvider,
         registry: ToolRegistry,
         system_prompt: str | None = None,
-        max_iterations: int = 5,
+        max_iterations: int = DEFAULT_MAX_AGENT_ITERATIONS,
         max_tokens: int = 120000,
         progress_callback: Callable[[str, float, dict[str, Any] | None], None] | None = None,
         checkpoint_callback: Callable[[dict[str, Any]], None] | None = None,
@@ -239,10 +240,19 @@ class AgentExecutor:
             # P1-2 收敛引导：在最后一轮（达到 max_iterations）提醒 LLM 直接回复，
             # 避免它继续调工具导致循环用尽后直接 fail。reminder 在 get_messages 前注入。
             if turn_idx >= self.max_iterations:
-                self._memory.add_system_reminder(
+                reminder = (
                     f"注意：你已用尽全部 {self.max_iterations} 轮工具调用预算。"
                     "请立即基于已获取的信息给出最终回复，不要再调用任何工具。"
                 )
+                # 自救指引仅注入 chat agent（final_output_tool=None）：其预算来自用户级
+                # chat 配置、用户可自行调大；生成/迁移 agent 的预算来自各自 options，
+                # 该指引不适用。LLM 会把这句话转述给预算耗尽困惑的用户。
+                if self.final_output_tool is None:
+                    reminder += (
+                        "若因预算不足未能完成任务，请在回复中告知用户：可在 "
+                        "~/.precis/ai_providers.yaml 的 chat.max_agent_iterations 调大预算后重试。"
+                    )
+                self._memory.add_system_reminder(reminder)
 
             messages = self._memory.get_messages()
             logger.debug(f"Agent turn {turn_idx}, messages={len(messages)}")

@@ -47,6 +47,26 @@ def _enable_scripted_eval_for_tests(monkeypatch):
     )
 
 
+@pytest.fixture(autouse=True)
+def _isolate_agent_iteration_budget(monkeypatch):
+    """隔离 ChatAgentRunner 迭代预算的用户级配置解析。
+
+    runner 未显式传 max_iterations 时会读取 ~/.precis/ai_providers.yaml 的
+    chat.max_agent_iterations（文件缺失时 load 还会向家目录写默认配置）。
+    单测统一打桩为默认常量，保证测试结果不依赖开发者本机配置；
+    需要验证真实解析优先级的测试直接调用 chat_agent_runner._resolve_max_agent_iterations
+    并自行打桩 ConfigLoader 边界（模块导入期已持有真实函数引用，不受本桩影响）。
+    """
+    from app.shared.services.ai import chat_agent_runner
+    from app.shared.services.llm.config.models import DEFAULT_MAX_AGENT_ITERATIONS
+
+    monkeypatch.setattr(
+        chat_agent_runner,
+        "_resolve_max_agent_iterations",
+        lambda: DEFAULT_MAX_AGENT_ITERATIONS,
+    )
+
+
 @pytest.fixture
 def sample_project_config():
     """示例项目配置 fixture"""

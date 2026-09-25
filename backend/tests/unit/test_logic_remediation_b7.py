@@ -273,28 +273,6 @@ class TestDiffCollectionScope:
         assert any("regex/phone.regex.yaml" in k for k in keys)
         assert any("transforms/t1.transform.yaml" in k for k in keys)
 
-    def test_declared_new_files_derivation(self, tmp_path):
-        from app.cli.shell.commands.ai.executor_utils import _collect_declared_new_files
-
-        actions = [
-            {
-                "actionType": "ADD_REGEX",
-                "regexSpec": {"regexId": "phone", "name": "phone", "pattern": r"\d+"},
-            },
-            {
-                "actionType": "ADD_TRANSFORM",
-                "transformSpec": {"transformId": "t9"},
-            },
-            {
-                "actionType": "ADD_CONSTRAINT_NODE",
-                "constraintSpec": {"constraintId": "nn1"},
-            },
-        ]
-        paths = [p.replace("\\", "/") for p in _collect_declared_new_files({"actions": actions}, str(tmp_path))]
-        assert any("regex/phone.regex.yaml" in p for p in paths)
-        assert any("transforms/t9.transform.yaml" in p for p in paths)
-        assert any("constraints/nn1.constraint.yaml" in p for p in paths)
-
 
 # ============================================================
 # §4.26 config show V2 目录遍历

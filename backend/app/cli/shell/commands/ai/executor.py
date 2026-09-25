@@ -34,7 +34,6 @@ from .display import _display_execution_results, _display_tool_trail
 from .executor_utils import (
     SpinnerController,
     _collect_all_config_files,
-    _collect_declared_new_files,
     _get_provider_display,
     _get_provider_with_key,
 )
@@ -54,6 +53,7 @@ def execute_ai_chat(
     interactive: bool = False,
     history: list[dict[str, str]] | None = None,
     agent_mode: bool = True,
+    pretty: bool | None = None,
 ) -> CommandResult:
     """执行 AI 对话（统一版本）。
 
@@ -70,6 +70,8 @@ def execute_ai_chat(
         interactive: 是否为交互模式（显示 spinner、提示确认等）
         history: 对话历史记录列表，每个元素包含 role 和 content
         agent_mode: 是否启用 Agent 深度模式（默认 True），CLI 无画布时仍走 Agent 工具循环
+        pretty: 流式 markdown 渲染开关（True/False 强制，None 自动按 stdout TTY 检测；
+            非 TTY 管道场景自动回退原文直出）
 
     Returns:
         命令执行结果，成功时 data 包含 reply、actions 和 frontend_instructions
@@ -138,7 +140,9 @@ def execute_ai_chat(
 
     # 流式渲染器：agent 模式把 runner 的 on_chunk/on_tool_* 回调接到终端，
     # LLM 逐字输出与工具过程实时可见；legacy JSON 路径无流式管道，保持原 spinner 体验
-    stream_renderer = ChatStreamRenderer(spinner=spinner, interactive=interactive) if agent_mode else None
+    stream_renderer = (
+        ChatStreamRenderer(spinner=spinner, interactive=interactive, pretty=pretty) if agent_mode else None
+    )
 
     # 配置对话选项
     options = ChatOptions(
@@ -150,8 +154,10 @@ def execute_ai_chat(
         confirm_callback=confirm_actions_wrapper if interactive else None,
         ambiguity_resolver=ambiguity_resolver_wrapper if interactive else None,
         agent_mode=agent_mode,
-        max_agent_iterations=5,
         canvas_nodes=[],
+        # CLI 终端没有画布：隔离画布能力——read_canvas 工具不注册、
+        # ADD_TO_CANVAS 动作拦截、系统提示词剔除画布话术（agent/legacy 两路径共用）
+        canvas_enabled=False,
         apply_callbacks=agent_apply_callbacks,
         ask_callbacks=agent_ask_callbacks,
         dry_run_enabled=agent_apply_callbacks is not None,
@@ -161,11 +167,10 @@ def execute_ai_chat(
     try:
         import asyncio
 
-        # 收集原始文件内容（仅在交互模式下，用于 diff 对比）。
-        # 4.25: AI 本次新建的文件纳入执行前缓存（登记为空内容）——执行后它们
-        # 存在而缓存里没有，diff 生成器会跳过，新建文件的变更在摘要里永不显示
+        # 收集原始文件内容（仅 legacy 交互路径使用——agent 模式的 diff 由
+        # 确认框（apply 回调）基于 dry-run 计算，不需要会话前快照）
         original_files_cache = {}
-        if interactive and project_path:
+        if interactive and not agent_mode and project_path:
             original_files_cache = _collect_all_config_files(project_path)
 
         # 启动 spinner 动画，提示用户 AI 正在处理
@@ -214,12 +219,11 @@ def execute_ai_chat(
         if interactive and agent_mode and result.tool_steps:
             _display_tool_trail(result.tool_steps)
 
-        # 在交互模式下显示执行结果和 diff。
-        # 4.25: AI 本次新建的文件先登记进缓存（空内容）——执行后它们存在而缓存
-        # 没有，diff 生成器会跳过，新建文件的变更在摘要里永不显示
-        if interactive and actions and project_path is not None:
-            for declared in _collect_declared_new_files(result, project_path):
-                original_files_cache.setdefault(declared, "")
+        # 在交互 + legacy（非 agent）模式下显示执行结果和 diff 摘要。
+        # agent 模式不再弹事后摘要：确认框（apply 回调）已展示完整 dry-run diff，
+        # 且这里的数据源是会话前快照（漏掉本会话新建的文件），input() 还会
+        # 吞掉用户的下一条命令
+        if interactive and not agent_mode and actions and project_path is not None:
             _display_execution_results(result, project_path, original_files_cache)
 
         return CommandResult.ok(

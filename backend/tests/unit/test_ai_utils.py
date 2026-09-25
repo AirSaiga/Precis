@@ -219,6 +219,7 @@ settings:
         assert "validation" in result["settings"]
 
     def test_corrupt_yaml_handled(self, tmp_path):
+        """坏 YAML 不进 schemas 列表（跳过），但显式记入 parse_errors（文件名+错误摘要）。"""
         schemas_dir = tmp_path / "schemas"
         schemas_dir.mkdir()
         (schemas_dir / "bad.schema.yaml").write_text("{{invalid yaml", encoding="utf-8")
@@ -226,6 +227,88 @@ settings:
         result = get_project_overview(str(tmp_path))
         # Should not crash, just skip the bad file
         assert result["schemas"] == []
+        # 解析失败不静默：agent 能一眼看到哪个文件坏了
+        assert len(result["parse_errors"]) == 1
+        assert result["parse_errors"][0]["path"] == "schemas/bad.schema.yaml"
+        assert result["parse_errors"][0]["error"]
+
+    def test_corrupt_constraint_file_listed_in_parse_errors(self, tmp_path):
+        """constraints 目录下的坏文件同样记入 parse_errors。"""
+        constraints_dir = tmp_path / "constraints"
+        constraints_dir.mkdir()
+        (constraints_dir / "broken.constraint.yaml").write_text("id: [unclosed", encoding="utf-8")
+
+        result = get_project_overview(str(tmp_path))
+
+        assert result["constraints"] == []
+        assert [e["path"] for e in result["parse_errors"]] == ["constraints/broken.constraint.yaml"]
+
+    def test_corrupt_manifest_listed_once_in_parse_errors(self, tmp_path):
+        """坏 manifest（两段读取都会失败）只记一条 parse_errors，不重复。"""
+        (tmp_path / "project.precis.yaml").write_text("{ broken: [", encoding="utf-8")
+
+        result = get_project_overview(str(tmp_path))
+
+        manifest_errors = [e for e in result["parse_errors"] if e["path"] == "project.precis.yaml"]
+        assert len(manifest_errors) == 1
+        assert manifest_errors[0]["error"]
+
+    def test_corrupt_regex_and_transform_listed_in_parse_errors(self, tmp_path):
+        """regex_nodes 与 transforms 目录下的坏文件也计入 parse_errors。"""
+        regex_dir = tmp_path / "regex_nodes"
+        regex_dir.mkdir()
+        (regex_dir / "bad.regex.yaml").write_text("pattern: [", encoding="utf-8")
+        transforms_dir = tmp_path / "transforms"
+        transforms_dir.mkdir()
+        (transforms_dir / "bad.transform.yaml").write_text("type: {", encoding="utf-8")
+
+        result = get_project_overview(str(tmp_path))
+
+        assert {e["path"] for e in result["parse_errors"]} == {
+            "regex_nodes/bad.regex.yaml",
+            "transforms/bad.transform.yaml",
+        }
+
+    def test_good_and_bad_files_coexist_in_overview(self, tmp_path):
+        """好文件正常入列、坏文件进 parse_errors，互不影响。"""
+        schemas_dir = tmp_path / "schemas"
+        schemas_dir.mkdir()
+        (schemas_dir / "users.schema.yaml").write_text(
+            "id: users\nname: users\ncolumns:\n  - id: id\n    name: id\n    type: integer\n",
+            encoding="utf-8",
+        )
+        (schemas_dir / "broken.schema.yaml").write_text("\tbad: [", encoding="utf-8")
+
+        result = get_project_overview(str(tmp_path))
+
+        assert len(result["schemas"]) == 1
+        assert result["schemas"][0]["name"] == "users"
+        assert [e["path"] for e in result["parse_errors"]] == ["schemas/broken.schema.yaml"]
+
+    def test_parse_error_summary_truncated_to_200_chars(self, tmp_path, monkeypatch):
+        """超长错误摘要截断到 200 字符，防止撑爆概览。
+
+        用 monkeypatch 替换 yaml.safe_load（外部解析器边界）抛超长异常，
+        确定性构造 >200 字符的错误消息。
+        """
+        import yaml as yaml_module
+
+        schemas_dir = tmp_path / "schemas"
+        schemas_dir.mkdir()
+        (schemas_dir / "evil.schema.yaml").write_text("id: x\n", encoding="utf-8")
+
+        def fake_safe_load(f):
+            raise ValueError("E" * 500)
+
+        monkeypatch.setattr(yaml_module, "safe_load", fake_safe_load)
+
+        result = get_project_overview(str(tmp_path))
+
+        assert len(result["parse_errors"]) == 1
+        entry = result["parse_errors"][0]
+        assert entry["path"] == "schemas/evil.schema.yaml"
+        assert len(entry["error"]) <= 203  # 200 截断 + "..." 后缀
+        assert entry["error"].endswith("...")
 
     def test_orphan_schema_marked_unlisted(self, tmp_path):
         """孤儿文件（未登记 manifest）应标注 unlisted=True。"""
@@ -271,3 +354,139 @@ settings:
         result = get_project_overview(str(tmp_path))
         assert len(result["schemas"]) == 1
         assert result["schemas"][0]["unlisted"] is True
+
+    # ============================================================
+    # 严格校验失败（YAML 合法但结构损坏）透出
+    # ============================================================
+
+    def test_schema_missing_source_mode_listed_with_field_reason(self, tmp_path):
+        """缺 source.mode 的 schema（历史 AI 写盘缺陷产物）进 parse_errors 且摘要含字段级原因。
+
+        宽松 yaml.safe_load 读得出来、字段也挑得出来，但运行时 TableSchemaFile
+        严格解析器拒绝该文件——概览必须同口径暴露，agent 才能识别并修复。
+        """
+        schemas_dir = tmp_path / "schemas"
+        schemas_dir.mkdir()
+        (schemas_dir / "users.schema.yaml").write_text(
+            "version: 2\nid: users\nname: users\nsource:\n  path: data/users.csv\n"
+            "columns:\n  - id: c1\n    name: email\n    type: string\n",
+            encoding="utf-8",
+        )
+
+        result = get_project_overview(str(tmp_path))
+
+        assert [e["path"] for e in result["parse_errors"]] == ["schemas/users.schema.yaml"]
+        # 摘要是单行首要字段级原因（与校验中止时 loading_errors 的原文一致，可跨信号对照）
+        assert "source.mode" in result["parse_errors"][0]["error"]
+        assert "Field required" in result["parse_errors"][0]["error"]
+
+    def test_strict_broken_schema_still_listed_leniently(self, tmp_path):
+        """严格校验失败的 schema 仍宽松入列（名称/列可见），只是额外记 parse_errors。"""
+        schemas_dir = tmp_path / "schemas"
+        schemas_dir.mkdir()
+        (schemas_dir / "users.schema.yaml").write_text(
+            "version: 2\nid: users\nname: users\nsource:\n  path: data/users.csv\n"
+            "columns:\n  - id: c1\n    name: email\n    type: string\n",
+            encoding="utf-8",
+        )
+
+        result = get_project_overview(str(tmp_path))
+
+        assert [s["name"] for s in result["schemas"]] == ["users"]
+        assert len(result["schemas"][0]["columns"]) == 1
+        assert len(result["parse_errors"]) == 1
+
+    def test_yaml_syntax_error_and_strict_failure_both_recorded(self, tmp_path):
+        """YAML 语法错误与严格校验失败两类损坏都进 parse_errors，互不掩盖。"""
+        schemas_dir = tmp_path / "schemas"
+        schemas_dir.mkdir()
+        (schemas_dir / "syntax.schema.yaml").write_text("{{invalid yaml", encoding="utf-8")
+        (schemas_dir / "semantic.schema.yaml").write_text(
+            "version: 2\nid: sem\nname: sem\nsource:\n  path: data/sem.csv\ncolumns: []\n",
+            encoding="utf-8",
+        )
+
+        result = get_project_overview(str(tmp_path))
+
+        error_by_path = {e["path"]: e["error"] for e in result["parse_errors"]}
+        assert set(error_by_path) == {"schemas/syntax.schema.yaml", "schemas/semantic.schema.yaml"}
+        # 语法错误走 yaml 解析异常原文；语义损坏走严格校验摘要（含字段级原因）
+        assert "source.mode" in error_by_path["schemas/semantic.schema.yaml"]
+        assert "Field required" in error_by_path["schemas/semantic.schema.yaml"]
+
+    def test_valid_files_across_kinds_produce_no_parse_errors(self, tmp_path):
+        """四类配置文件都合法时零误报（严格校验不把好文件报坏）。"""
+        schemas_dir = tmp_path / "schemas"
+        schemas_dir.mkdir()
+        (schemas_dir / "users.schema.yaml").write_text(
+            "version: 2\nid: users\nname: users\nsource:\n  mode: relative_file\n  path: data/users.csv\n"
+            "columns:\n  - id: c1\n    name: email\n    type: string\n",
+            encoding="utf-8",
+        )
+        constraints_dir = tmp_path / "constraints"
+        constraints_dir.mkdir()
+        (constraints_dir / "nn_email.constraint.yaml").write_text(
+            "version: 2\nid: nn_email\ntype: NotNull\nrefs:\n  table_id: users\n  column_id: email\n",
+            encoding="utf-8",
+        )
+        regex_dir = tmp_path / "regex_nodes"
+        regex_dir.mkdir()
+        (regex_dir / "email.regex.yaml").write_text(
+            'version: 2\nid: email_re\nname: email_re\npattern: "^.+@.+$"\n',
+            encoding="utf-8",
+        )
+        transforms_dir = tmp_path / "transforms"
+        transforms_dir.mkdir()
+        (transforms_dir / "upper.transform.yaml").write_text(
+            "version: 2\nid: upper\ntype: UpperCase\ninput_column: email\noutput_columns:\n  - email_upper\n",
+            encoding="utf-8",
+        )
+        (tmp_path / "project.precis.yaml").write_text(
+            "version: 2\nproject:\n  id: p\n  name: P\nschemas:\n  - id: users\n    path: schemas/users.schema.yaml\n",
+            encoding="utf-8",
+        )
+
+        result = get_project_overview(str(tmp_path))
+
+        assert result["parse_errors"] == []
+        assert len(result["schemas"]) == 1
+        assert len(result["constraints"]) == 1
+        assert len(result["regex_nodes"]) == 1
+        assert len(result["transforms"]) == 1
+
+    def test_broken_constraint_regex_transform_listed_with_field_reason(self, tmp_path):
+        """constraint/regex/transform 的字段级损坏同样进 parse_errors（各自严格 File 模型）。"""
+        constraints_dir = tmp_path / "constraints"
+        constraints_dir.mkdir()
+        # 缺 id 必填字段
+        (constraints_dir / "noid.constraint.yaml").write_text(
+            "version: 2\ntype: NotNull\nrefs:\n  table_id: users\n  column_id: email\n",
+            encoding="utf-8",
+        )
+        regex_dir = tmp_path / "regex_nodes"
+        regex_dir.mkdir()
+        # pattern 与 uses_pattern 均缺失 → RegexNodeFile 模型校验失败
+        (regex_dir / "nopattern.regex.yaml").write_text(
+            "version: 2\nid: np\nname: np\nmatch_mode: full\n",
+            encoding="utf-8",
+        )
+        transforms_dir = tmp_path / "transforms"
+        transforms_dir.mkdir()
+        # 未知转换类型字面量 → Literal 校验失败
+        (transforms_dir / "badtype.transform.yaml").write_text(
+            "version: 2\nid: bt\ntype: NotATransform\n",
+            encoding="utf-8",
+        )
+
+        result = get_project_overview(str(tmp_path))
+
+        error_by_path = {e["path"]: e["error"] for e in result["parse_errors"]}
+        assert set(error_by_path) == {
+            "constraints/noid.constraint.yaml",
+            "regex_nodes/nopattern.regex.yaml",
+            "transforms/badtype.transform.yaml",
+        }
+        assert "id" in error_by_path["constraints/noid.constraint.yaml"]
+        assert "Field required" in error_by_path["constraints/noid.constraint.yaml"]
+        # 模型级校验器（非字段级）的失败也以首要原因形式透出
+        assert error_by_path["regex_nodes/nopattern.regex.yaml"]

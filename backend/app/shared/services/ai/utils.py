@@ -26,6 +26,8 @@
 - 纯函数设计，无副作用，便于单元测试
 - Token 估算采用字符分类加权策略：中文单字 + 英文单词 + 数字 + 标点
 - 项目概览扫描递归读取 schemas/ 和 constraints/ 目录下的 YAML 文件
+- 概览对每类配置文件追加严格 File 模型校验（与运行时 reader 同款），
+  字段级损坏（如缺 source.mode）与 YAML 语法错误一并记入 parse_errors
 
 输入示例:
     estimate_tokens("Hello 世界")
@@ -37,7 +39,7 @@
     7  # Token 估算值
     [{"role": "user", "content": "..."}]  # 截断后的历史
     11776  # 自适应推导的历史预算
-    {"schemas": [...], "constraints": [...]}  # 项目概览
+    {"schemas": [...], "constraints": [...], "parse_errors": [...]}  # 项目概览（parse_errors 为解析/严格校验失败文件清单）
 """
 
 import asyncio
@@ -47,6 +49,12 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from pydantic import BaseModel, ValidationError
+
+from app.shared.core.project.constraint.types import ConstraintFile
+from app.shared.core.project.regex.types import RegexNodeFile
+from app.shared.core.project.schema.types import TableSchemaFile
+from app.shared.core.project.transform.types import TransformFile
 
 logger = logging.getLogger(__name__)
 
@@ -55,10 +63,12 @@ logger = logging.getLogger(__name__)
 CHAT_HISTORY_BUDGET_CAP = 120000
 
 # 工具定义 token 的保守预留（调用方未显式传入估算时使用）：
-# 8 个 chat 工具的 OpenAI tools JSON（名称/描述/参数 schema）按 estimate_tokens
-# 口径序列化实测约 2.9k token（2026-09 P1 实测；estimate_tokens 对 JSON 标点逐字符
-# 计数，天然比真实 BPE 偏多）。宁可多预留、少算历史，不可挤爆窗口。
-_DEFAULT_TOOL_DEFINITIONS_TOKENS = 3000
+# 9 个 chat 工具的 OpenAI tools JSON（名称/描述/参数 schema）按 estimate_tokens
+# 口径序列化实测约 3.4k token（2026-09 实测：9 工具 6556 字符 → 3417；
+# read_project/validate_table 描述补"损坏配置修复指引"语义后由 3332 上调；
+# estimate_tokens 对 JSON 标点逐字符计数，天然比真实 BPE 偏多）。
+# 宁可多预留、少算历史，不可挤爆窗口。
+_DEFAULT_TOOL_DEFINITIONS_TOKENS = 3600
 
 # 扣除固定开销（输出预留 + 工具定义）后历史预算的保底下限：低于此值说明窗口已被
 # 系统提示词+工具定义挤占，再收缩会让多轮对话"零历史"——保底并告警，由人工
@@ -209,6 +219,31 @@ async def resolve_chat_history_budget(provider: Any, tool_definitions_tokens: in
         return CHAT_HISTORY_BUDGET_CAP
 
 
+def _summarize_validation_error(e: ValidationError) -> str:
+    """把 pydantic 严格校验失败压缩为单行首要字段级原因。
+
+    概览的 parse_errors 每文件只留一行摘要；pydantic 原始报错是多行大段文本
+    （含 "2 validation errors for TableSchemaFile" 头 + 逐条缩进详情），
+    直接透传会挤爆概览。只取第一条错误的字段路径 + 消息（如
+    "source.mode: Field required"），保留原始英文措辞——与校验中止时
+    loading_errors 里透出的原文一致，agent 可跨信号对照定位。
+
+    参数:
+        e: model_validate 抛出的 ValidationError
+
+    返回:
+        单行错误摘要，如 "严格校验失败: source.mode: Field required"
+    """
+    errors = e.errors()
+    if not errors:  # 理论不可达，防御性兜底
+        return "严格校验失败: 配置结构不符合模型要求"
+    first = errors[0]
+    loc = ".".join(str(part) for part in first.get("loc", ()))
+    msg = str(first.get("msg", "") or "校验失败")
+    reason = f"{loc}: {msg}" if loc else msg
+    return f"严格校验失败: {reason}"
+
+
 def get_project_overview(project_path: str) -> dict[str, Any]:
     """
     @methoddesc 扫描项目目录，生成项目概览信息
@@ -220,16 +255,65 @@ def get_project_overview(project_path: str) -> dict[str, Any]:
     会标注 unlisted=True，避免 AI 视角与用户资源树视角产生偏差（前者纯 glob，
     后者走 manifest）。
 
+    解析失败的文件不静默跳过：记入 parse_errors（文件相对路径 + 错误摘要），
+    让 read_project 的调用方（AI agent）一眼看到"哪些文件坏了"，再用
+    read_config_file 工具读原文定位问题。
+
+    除 YAML 语法错误外，每类配置文件还会用运行时同款的严格 File 模型
+    （schema→TableSchemaFile、constraint→ConstraintFile、regex→RegexNodeFile、
+    transform→TransformFile）追加一次 model_validate——缺必填字段（如
+    source.mode）这类"YAML 合法但结构损坏"的文件会被严格解析器拒绝、
+    导致校验中止，宽松读取却看不出来；概览必须同口径透出，agent 才能
+    识别并主动修复（对应 UPDATE_* 动作）。
+
     参数:
         project_path: 项目根目录路径
 
     返回:
-        项目概览字典，包含 schemas 和 constraints 两个列表
+        项目概览字典，包含 schemas/constraints/transforms/regex_nodes/settings
+        与 parse_errors（解析/严格校验失败文件清单，每项 {"path": str, "error": str}）
     """
-    overview: dict[str, Any] = {"schemas": [], "constraints": [], "transforms": [], "regex_nodes": [], "settings": {}}
+    overview: dict[str, Any] = {
+        "schemas": [],
+        "constraints": [],
+        "transforms": [],
+        "regex_nodes": [],
+        "settings": {},
+        "parse_errors": [],
+    }
 
     if not project_path:
         return overview
+
+    # 解析失败文件的记录器：同一文件多处读取失败只记一次（如 manifest 的
+    # schemas 白名单与 settings 两段读取），错误摘要截断防止超长 traceback 撑爆概览
+    recorded_error_paths: set[str] = set()
+
+    def record_parse_error(rel_path: str, error: Exception | str) -> None:
+        """把解析/读取/严格校验失败的文件记入 overview["parse_errors"]（去重 + 摘要截断）。"""
+        if rel_path in recorded_error_paths:
+            return
+        recorded_error_paths.add(rel_path)
+        if isinstance(error, str):
+            summary = error.strip() or "配置文件解析失败"
+        else:
+            summary = str(error).strip() or type(error).__name__
+        if len(summary) > 200:
+            summary = summary[:200] + "..."
+        overview["parse_errors"].append({"path": rel_path, "error": summary})
+
+    def check_strict_model(rel_path: str, data: Any, model: type[BaseModel]) -> None:
+        """用运行时同款严格 File 模型校验已宽松读出的数据，失败记入 parse_errors。
+
+        与各 reader（load_schema 等）的 model_validate 同一模型：这里失败 ≈
+        校验引擎加载该文件时也会失败（校验中止的根因），agent 据此可主动修复。
+        只记错误不打断宽松提取——文件仍进对应资源列表（名称/列等宽松可见）。
+        """
+        try:
+            model.model_validate(data)
+        except ValidationError as e:
+            logger.warning(f"配置文件严格校验失败 {rel_path}: {e.errors()[:1]}")
+            record_parse_error(rel_path, _summarize_validation_error(e))
 
     project_root = Path(project_path)
 
@@ -245,7 +329,8 @@ def get_project_overview(project_path: str) -> dict[str, Any]:
                 if isinstance(p, str) and p:
                     listed_schema_paths.add(p.replace("\\", "/").lower())
         except Exception as e:
-            logger.debug(f"读取 manifest schemas 失败 {manifest_path}: {e}")
+            logger.warning(f"读取 manifest schemas 失败 {manifest_path}: {e}")
+            record_parse_error("project.precis.yaml", e)
 
     schemas_dir = project_root / "schemas"
     if schemas_dir.exists():
@@ -253,6 +338,9 @@ def get_project_overview(project_path: str) -> dict[str, Any]:
             try:
                 with open(schema_file, encoding="utf-8") as f:
                     schema_data = yaml.safe_load(f) or {}
+
+                # 严格校验（宽松提取前先记）：缺 source.mode 等字段级损坏在此暴露
+                check_strict_model(f"schemas/{schema_file.name}", schema_data, TableSchemaFile)
 
                 table_name = schema_data.get("name", "")
                 table_id = schema_data.get("id", table_name)
@@ -304,7 +392,8 @@ def get_project_overview(project_path: str) -> dict[str, Any]:
                         }
                     )
             except Exception as e:
-                logger.debug(f"读取 schema 文件失败 {schema_file}: {e}")
+                logger.warning(f"读取 schema 文件失败 {schema_file}: {e}")
+                record_parse_error(f"schemas/{schema_file.name}", e)
 
     constraints_dir = project_root / "constraints"
     if constraints_dir.exists():
@@ -312,6 +401,9 @@ def get_project_overview(project_path: str) -> dict[str, Any]:
             try:
                 with open(constraint_file, encoding="utf-8") as f:
                     constraint_data = yaml.safe_load(f) or {}
+
+                # 严格校验：未知约束类型/缺 id 等字段级损坏在此暴露
+                check_strict_model(f"constraints/{constraint_file.name}", constraint_data, ConstraintFile)
 
                 constraint_id = constraint_data.get("id", "")
                 constraint_type = constraint_data.get("type", "")
@@ -339,6 +431,7 @@ def get_project_overview(project_path: str) -> dict[str, Any]:
                 )
             except Exception as e:
                 logger.warning(f"读取 constraint 文件失败 {constraint_file}: {e}")
+                record_parse_error(f"constraints/{constraint_file.name}", e)
 
     # 扫描 Regex 节点
     for dirname in ("regex_nodes", "regex"):
@@ -348,6 +441,9 @@ def get_project_overview(project_path: str) -> dict[str, Any]:
                 try:
                     with open(regex_file, encoding="utf-8") as f:
                         regex_data = yaml.safe_load(f) or {}
+
+                    # 严格校验：pattern/uses_pattern 二选一等结构损坏在此暴露
+                    check_strict_model(f"{dirname}/{regex_file.name}", regex_data, RegexNodeFile)
 
                     overview["regex_nodes"].append(
                         {
@@ -360,7 +456,8 @@ def get_project_overview(project_path: str) -> dict[str, Any]:
                         }
                     )
                 except Exception as e:
-                    logger.debug(f"读取 regex 文件失败 {regex_file}: {e}")
+                    logger.warning(f"读取 regex 文件失败 {regex_file}: {e}")
+                    record_parse_error(f"{dirname}/{regex_file.name}", e)
 
     # 扫描 Transform 节点
     transforms_dir = project_root / "transforms"
@@ -369,6 +466,9 @@ def get_project_overview(project_path: str) -> dict[str, Any]:
             try:
                 with open(transform_file, encoding="utf-8") as f:
                     transform_data = yaml.safe_load(f) or {}
+
+                # 严格校验：未知转换类型/缺 id 等字段级损坏在此暴露
+                check_strict_model(f"transforms/{transform_file.name}", transform_data, TransformFile)
 
                 overview["transforms"].append(
                     {
@@ -381,7 +481,8 @@ def get_project_overview(project_path: str) -> dict[str, Any]:
                     }
                 )
             except Exception as e:
-                logger.debug(f"读取 transform 文件失败 {transform_file}: {e}")
+                logger.warning(f"读取 transform 文件失败 {transform_file}: {e}")
+                record_parse_error(f"transforms/{transform_file.name}", e)
 
     # 读取项目设置
     manifest_path = project_root / "project.precis.yaml"
@@ -392,6 +493,7 @@ def get_project_overview(project_path: str) -> dict[str, Any]:
 
             overview["settings"] = manifest_data.get("settings", {})
         except Exception as e:
-            logger.debug(f"读取 manifest 设置失败 {manifest_path}: {e}")
+            logger.warning(f"读取 manifest 设置失败 {manifest_path}: {e}")
+            record_parse_error("project.precis.yaml", e)
 
     return overview

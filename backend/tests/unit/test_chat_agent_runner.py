@@ -351,8 +351,11 @@ def test_registry_includes_ask_user_tool():
     assert "list_data_files" in names
     # infer_schema 已注册（建表前的确定性 schema 推断）
     assert "infer_schema" in names
-    # 共 8 个工具：read_project/list_data_files/read_table/infer_schema/apply_actions/validate_table/read_canvas/ask_user
-    assert len(definitions) == 8
+    # read_config_file 已注册（项目内文本文件原文读取）
+    assert "read_config_file" in names
+    # 共 9 个工具：read_project/list_data_files/read_table/infer_schema/apply_actions/
+    # validate_table/read_canvas/read_config_file/ask_user
+    assert len(definitions) == 9
 
 
 # =============================================================================
@@ -853,3 +856,63 @@ async def test_orchestrator_legacy_with_confirm_gate_still_executes():
 
     mock_proc.assert_called_once()
     assert result.success is True
+
+
+# =============================================================================
+# 配置文件损坏识别与修复回路（提示词 + 开局概览可见性）
+# =============================================================================
+
+
+def test_agent_system_prompt_teaches_broken_config_repair_loop():
+    """系统提示词教修复回路：parse_errors → read_config_file → UPDATE_* → 重新校验。
+
+    背景：agent 跑了校验看到 SchemaParseError、读了原文，却得出"疑似环境问题"
+    并反问用户——提示词必须显式告知损坏配置可由 UPDATE_* 主动修复。
+    双变体（有/无画布）都要有：CLI 同样会遇到坏文件。
+    """
+    from app.shared.services.ai.chat_agent_runner import build_chat_agent_system_prompt
+
+    for prompt in (build_chat_agent_system_prompt(True), build_chat_agent_system_prompt(False)):
+        # 修复回路四步齐全
+        assert "配置文件修复回路" in prompt
+        assert "read_config_file" in prompt
+        assert "UPDATE_" in prompt
+        assert "重新校验" in prompt
+        # 关键 nudges：严格校验失败也是 parse_errors 的一部分；主动修复不问用户
+        assert "严格校验失败" in prompt
+        assert "不要只向用户报告问题" in prompt
+        # 示例锚点：缺 source.mode 的修复方式（系统自动补全缺失字段）
+        assert "source.mode" in prompt
+        assert "自动补全缺失字段" in prompt
+        # validate_table 中止指引联动
+        assert "修复指引" in prompt
+
+
+def test_runner_system_prompt_overview_section_lists_parse_errors(tmp_path):
+    """开局系统提示词的概览段可见坏文件：runner 构建提示词时即带上 parse_errors。
+
+    只有坏 schema、没有任何可用资源的项目也不能让概览段整体消失——
+    否则 agent 开局视野里"一切正常"，直到校验中止才发现问题。
+    """
+    from app.shared.services.ai.chat_agent_runner import ChatAgentRunner
+
+    schemas_dir = tmp_path / "schemas"
+    schemas_dir.mkdir()
+    (schemas_dir / "users.schema.yaml").write_text(
+        "version: 2\nid: users\nname: users\nsource:\n  path: data/users.csv\ncolumns: []\n",
+        encoding="utf-8",
+    )
+
+    runner = ChatAgentRunner(
+        provider=object(),
+        project_path=str(tmp_path),
+        context_nodes=[],
+        max_iterations=1,
+        max_history_tokens=100,
+    )
+
+    prompt = runner.system_prompt
+    assert "解析失败的配置文件" in prompt
+    assert "schemas/users.schema.yaml" in prompt
+    assert "source.mode" in prompt
+    assert "Field required" in prompt

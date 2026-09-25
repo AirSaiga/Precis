@@ -70,6 +70,26 @@ class InferSchemaArgs(_ToolArgsBase):
     table_name: str | None = Field(default=None, description="表显示名；不传则取文件名去扩展名")
 
 
+class ReadConfigFileArgs(_ToolArgsBase):
+    """read_config_file 入参：file_path 必填（项目相对路径），offset/length 可选（分段读取）。
+
+    offset/length 的下界校验（ge）在这一层拦截负数/零长度，错误经 P1-1
+    回灌给 LLM 自我修正；upper 钳制（length 上限）由工具内部处理。
+    """
+
+    file_path: str = Field(..., description="要读取的文件相对项目根的路径")
+    offset: int | None = Field(default=None, ge=0, description="起始字符偏移（默认 0；续读用上次返回的 next_offset）")
+    length: int | None = Field(default=None, ge=1, description="本次最多返回的字符数（默认 4000，上限 5000）")
+
+    @field_validator("file_path")
+    @classmethod
+    def _file_path_not_empty(cls, v: str) -> str:
+        # 空路径在校验层拒绝，比落到工具内部"路径不合法"分支的错误信息更明确
+        if not v or not v.strip():
+            raise ValueError("file_path 不能为空")
+        return v
+
+
 class ApplyActionsArgs(_ToolArgsBase):
     """apply_actions 入参：actions 必填（非空数组）。
 
@@ -112,6 +132,7 @@ MODEL_FOR_TOOL: dict[str, type[_ToolArgsBase]] = {
     "read_table": ReadTableArgs,
     "read_canvas": ReadCanvasArgs,
     "infer_schema": InferSchemaArgs,
+    "read_config_file": ReadConfigFileArgs,
     "validate_table": ValidateTableArgs,
     "apply_actions": ApplyActionsArgs,
     "ask_user": AskUserArgs,

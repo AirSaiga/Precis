@@ -30,10 +30,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 from pathlib import Path
 from typing import Any
 
+from app.shared.services.ai.agent.chat_tools.path_guard import resolve_project_relative_path
 from app.shared.services.schema_inference import infer_schema
 
 logger = logging.getLogger(__name__)
@@ -90,26 +90,12 @@ class InferSchemaTool:
         }
 
     def _resolve_data_file(self, file_path: str) -> Path | None:
-        """路径白名单校验：拒绝绝对路径/.. 穿越，解析结果必须落在项目根内。
+        """路径白名单校验（委托 path_guard 单一实现，与 read_config_file 同口径）。
 
         返回:
             解析后的绝对路径；路径非法（空/绝对/穿越/越出项目根）返回 None
         """
-        rel = (file_path or "").strip().replace("\\", "/")
-        if not rel:
-            return None
-        # 与 ADD_SCHEMA source.path 安全口径一致：绝对路径与 .. 分量一律拒绝
-        if os.path.isabs(rel) or ".." in rel.split("/"):
-            return None
-        try:
-            root = Path(self.project_path).resolve()
-            resolved = (root / rel).resolve()
-        except OSError:
-            return None
-        # 兜底符号链接绕过：resolve 后仍必须在项目根内
-        if resolved != root and root not in resolved.parents:
-            return None
-        return resolved
+        return resolve_project_relative_path(self.project_path, file_path)
 
     async def run(self, arguments: dict[str, Any]) -> dict[str, Any]:
         """

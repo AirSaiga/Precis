@@ -16,11 +16,12 @@
 """@fileoverview CLI AI 流式渲染单元测试
 
 覆盖三层：
-1. ChatStreamRenderer 直接驱动：chunk 增量打印、spinner 停止时机、
+1. ChatStreamRenderer 直接驱动：chunk 增量打印、spinner 停启时机（等待窗口重启）、
    工具行/轮次分隔/失败状态渲染、流末收尾、最终回复去重判定
-2. 编排器注入：ChatOptions.agent_stream_callbacks 经 _execute_with_agent
+2. SpinnerController 幂等性：重复 stop 无二次清行、重启可用、未启动时 stop 无副作用
+3. 编排器注入：ChatOptions.agent_stream_callbacks 经 _execute_with_agent
    转交 runner.configure_callbacks（on_chunk 逐段触发）
-3. execute_ai_chat 端到端（ProviderType.FAKE 确定性剧本）：终端输出包含
+4. execute_ai_chat 端到端（ProviderType.FAKE 确定性剧本）：终端输出包含
    流式内容而非仅最终 reply，工具回调被触发，最终回复不重复打印
 """
 
@@ -34,6 +35,7 @@ import pytest
 
 from app.cli.shell.commands.ai import executor as executor_mod
 from app.cli.shell.commands.ai.executor import execute_ai_chat
+from app.cli.shell.commands.ai.executor_utils import SpinnerController
 from app.cli.shell.commands.ai.stream_renderer import ChatStreamRenderer
 from app.cli.shell.commands.base import ProjectContext
 from app.shared.services.ai.agent.types import ToolResult
@@ -60,17 +62,67 @@ def _make_tool_result(name: str, success: bool = True, error: str | None = None)
 
 
 class TestChatStreamRendererUnit:
-    def test_chunk_prints_incrementally_and_stops_spinner_once(self, capsys):
-        """首个 chunk 停 spinner 并逐字打印；后续 chunk 不再停（无重复清行）。"""
-        spinner = MagicMock()
+    def test_chunk_stops_spinner_and_prints_incrementally(self, capsys):
+        """chunk 到达即停 spinner 并逐字打印；重复停无二次清行序列。"""
+        spinner = SpinnerController()
+        spinner.start()  # executor 在对话开始时启动
         renderer = ChatStreamRenderer(spinner=spinner, interactive=True)
 
         renderer.on_chunk("你好")
+        assert not spinner.is_running
         renderer.on_chunk("，世界")
 
         out = capsys.readouterr().out
         assert "你好，世界" in out
-        spinner.stop.assert_called_once()
+        assert not spinner.is_running
+        # 清行序列（\r + 空格覆盖 + \r）只出现一次——后续 chunk 的 stop 无副作用
+        assert out.count("\r" + " " * 20 + "\r") == 1
+
+    def test_spinner_restarts_for_tool_and_turn_wait_windows(self, capsys):
+        """工具执行与轮间 LLM 等待窗口 spinner 动画回归，结果/文本到达即停。"""
+        spinner = SpinnerController()
+        spinner.start()  # executor 在对话开始时启动
+        renderer = ChatStreamRenderer(spinner=spinner, interactive=True)
+        try:
+            renderer.on_chunk("先看看项目")
+            assert not spinner.is_running
+
+            renderer.on_tool_call("read_project", "call_1", 1)
+            assert spinner.is_running  # 工具执行等待窗口
+
+            renderer.on_tool_result(_make_tool_result("read_project"))
+            assert not spinner.is_running
+
+            renderer.on_turn(2)
+            assert spinner.is_running  # 下一轮 LLM 响应等待窗口
+
+            renderer.on_chunk("第二轮回复")
+            assert not spinner.is_running
+        finally:
+            spinner.stop()  # 收尾，确保后台线程不泄漏
+
+    def test_spinner_covers_whole_tool_batch(self, capsys):
+        """批量工具调用（call 全部先触发、结果批量返回）：动画覆盖整个执行窗口。"""
+        spinner = SpinnerController()
+        spinner.start()
+        renderer = ChatStreamRenderer(spinner=spinner, interactive=True)
+        try:
+            renderer.on_chunk("x")  # 停掉初始 spinner
+            renderer.on_tool_call("read_project", "c1", 1)
+            renderer.on_tool_call("read_table", "c2", 1)
+            assert spinner.is_running
+
+            renderer.on_tool_result(_make_tool_result("read_project"))
+            renderer.on_tool_result(_make_tool_result("read_table"))
+            assert not spinner.is_running
+
+            out = capsys.readouterr().out
+            assert "→ 调用工具 读取项目..." in out
+            assert "→ 调用工具 查看数据..." in out
+            assert "✓ 读取项目 完成" in out
+            assert "✓ 查看数据 完成" in out
+        finally:
+            spinner.stop()
 
     def test_tool_call_terminates_pending_stream_line(self, capsys):
         """工具行出现前流式文本已换行收尾，不粘连。"""
@@ -178,6 +230,45 @@ class TestChatStreamRendererUnit:
         stream.flush()
         content = stream.buffer.getvalue().decode("gbk")
         assert content == "? 完成\n"
+
+
+class TestSpinnerController:
+    def test_stop_without_start_is_noop(self, capsys):
+        """未启动时 stop 不输出清行序列（避免误抹行首的流式文本）。"""
+        spinner = SpinnerController()
+        spinner.stop()
+        assert capsys.readouterr().out == ""
+        assert not spinner.is_running
+
+    def test_double_stop_clears_line_once(self, capsys):
+        """重复 stop 幂等：清行序列只输出一次。"""
+        spinner = SpinnerController()
+        spinner.start()
+        spinner.stop()
+        first_out = capsys.readouterr().out
+        spinner.stop()
+        assert capsys.readouterr().out == ""
+        assert ("\r" + " " * 20 + "\r") in first_out
+
+    def test_restart_after_stop(self, capsys):
+        """stop 后可重新 start（等待窗口重启动画的前提）。"""
+        spinner = SpinnerController()
+        try:
+            spinner.start()
+            spinner.stop()
+            assert not spinner.is_running
+            spinner.start()
+            assert spinner.is_running
+        finally:
+            spinner.stop()
+        assert not spinner.is_running
+
+    def test_pause_resume_when_not_running_is_noop(self, capsys):
+        """未运行时 pause/resume 无副作用（不输出清行序列）。"""
+        spinner = SpinnerController()
+        spinner.pause()
+        spinner.resume()
+        assert capsys.readouterr().out == ""
 
 
 class TestOrchestratorCallbackInjection:
@@ -382,6 +473,42 @@ class TestExecuteAIChatStreaming:
         out = capsys.readouterr().out
         assert out.count("好的，已完成") == 1
         assert result.success
+
+    def test_agent_budget_left_unspecified_for_config_resolution(self, tmp_path):
+        """agent 预算接线：CLI 构建的 ChatOptions 不再硬编码轮数（旧实现固定 5），
+        交由 ChatAgentRunner 统一回退到用户级 chat.max_agent_iterations 配置。"""
+        fake_result = MagicMock()
+        fake_result.success = True
+        fake_result.reply = "好的，已完成"
+        fake_result.actions = []
+        fake_result.frontend_instructions = None
+        fake_result.tool_steps = []
+
+        orch = MagicMock()
+        captured: dict[str, object] = {}
+
+        async def _capture_chat(**kwargs):
+            captured.update(kwargs)
+            return fake_result
+
+        orch.execute_chat = _capture_chat
+
+        patches = _executor_patches() + [
+            patch.object(executor_mod, "AIChatOrchestrator", return_value=orch),
+        ]
+        for p in patches:
+            p.start()
+        try:
+            result = execute_ai_chat("帮我加个约束", _make_context(tmp_path), interactive=False, agent_mode=True)
+        finally:
+            for p in patches:
+                p.stop()
+
+        assert result.success
+        options = captured["options"]
+        assert options.agent_mode is True
+        # 未显式指定预算：None 交给 ChatAgentRunner 按用户级配置回退解析
+        assert options.max_agent_iterations is None
 
     def test_provider_runtime_error_mid_stream(self, tmp_path, capsys, monkeypatch):
         """provider 流式中途 RuntimeError：已上屏片段换行收尾、错误呈现一次、无重复 reply、spinner 停止。"""

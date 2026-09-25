@@ -118,6 +118,32 @@ class AICacheConfig(BaseModel):
     cache_temperature_above_zero: bool = Field(default=False, description="是否缓存 temperature > 0 的请求")
 
 
+# agent 工具调用预算的单一默认值来源：AIChatConfig 字段默认、ChatAgentRunner 与
+# AgentExecutor 的回退默认共用此常量，禁止在其他位置散落数字字面量（调整默认只改此处）
+DEFAULT_MAX_AGENT_ITERATIONS = 15
+
+
+class AIChatConfig(BaseModel):
+    """
+    @classdesc AI Chat 行为配置
+
+    控制 AI 聊天 agent 的行为参数。对应 ~/.precis/ai_providers.yaml 的顶层 chat 段，
+    旧配置无该键时整段取默认值（向后兼容）。
+
+    Attributes:
+        max_agent_iterations: agent 工具调用循环的最大迭代轮数，范围 1~50，默认 15
+    """
+
+    model_config = ConfigDict(use_enum_values=True)
+
+    max_agent_iterations: int = Field(
+        default=DEFAULT_MAX_AGENT_ITERATIONS,
+        ge=1,
+        le=50,
+        description="agent 工具调用循环的最大迭代轮数",
+    )
+
+
 class AIProvider(BaseModel):
     """
     @classdesc AI Provider 配置模型
@@ -202,3 +228,6 @@ class AIConfig(BaseModel):
 
     # LLM 响应缓存配置（默认关闭）
     cache: AICacheConfig = Field(default_factory=AICacheConfig, description="LLM 响应缓存配置")
+
+    # AI Chat 行为配置（agent 工具调用预算等，默认见 AIChatConfig）
+    chat: AIChatConfig = Field(default_factory=AIChatConfig, description="AI Chat 行为配置")

@@ -25,10 +25,12 @@
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError
 
 from app.shared.services.llm.actions.specs import (
     CanvasSpec,
     ConstraintSpec,
+    SchemaSpec,
     SettingsSpec,
     SpecParseError,
     TransformSpec,
@@ -77,6 +79,40 @@ class TestSpecWhitelists:
         assert c.resourceKind == "anything"
 
 
+class TestSchemaSourceSpec:
+    """SchemaSpec.source 的结构校验（形状与 core 层 SourceSpec 对齐，mode 可选）。"""
+
+    def test_accepts_source_without_mode(self):
+        """mode 可选（缺省由写盘层补 relative_file），source 不再被 extra=ignore 静默吞掉。"""
+        s = SchemaSpec(name="users", source={"path": "data/users.csv"})
+        assert s.source is not None
+        assert s.source.mode is None
+        assert s.source.path == "data/users.csv"
+
+    def test_accepts_header_row_misplaced_in_options(self):
+        """options.header_row 错位写法在结构层放行（由写盘层上移规范化）。"""
+        s = SchemaSpec(name="users", source={"path": "data/users.csv", "options": {"header_row": 1}})
+        assert s.source is not None
+        assert s.source.options == {"header_row": 1}
+
+    def test_accepts_valid_source_modes(self):
+        """两种合法 mode 均可通过结构校验。"""
+        for mode in ("relative_file", "absolute_file"):
+            s = SchemaSpec(name="users", source={"mode": mode, "path": "data/users.csv"})
+            assert s.source is not None
+            assert s.source.mode == mode
+
+    def test_rejects_invalid_mode(self):
+        """mode 枚举外取值在结构层即被拒（不再落到写盘层才失败）。"""
+        with pytest.raises(ValidationError):
+            SchemaSpec(name="users", source={"mode": "ftp", "path": "data/users.csv"})
+
+    def test_rejects_non_int_header_row(self):
+        """header_row 必须可解析为非负整数。"""
+        with pytest.raises(ValidationError):
+            SchemaSpec(name="users", source={"path": "data/users.csv", "header_row": "first"})
+
+
 # =============================================================================
 # parse_action_spec 统一入口
 # =============================================================================
@@ -112,3 +148,14 @@ class TestParseActionSpec:
             parse_action_spec({"actionType": "ADD_SCHEMA"})  # 缺 schemaSpec
         assert "缺失" in exc_info.value.message
         assert len(exc_info.value.errors) > 0
+
+    def test_parse_schema_invalid_source_mode_raises(self):
+        """ADD_SCHEMA 的 source.mode 非法 → 结构校验失败（SpecParseError），不再静默吞掉。"""
+        with pytest.raises(SpecParseError) as exc_info:
+            parse_action_spec(
+                {
+                    "actionType": "ADD_SCHEMA",
+                    "schemaSpec": {"name": "users", "source": {"mode": "ftp", "path": "data/users.csv"}},
+                }
+            )
+        assert "mode" in exc_info.value.message

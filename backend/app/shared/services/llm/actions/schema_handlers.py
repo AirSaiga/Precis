@@ -19,6 +19,7 @@
 - 处理 AI 生成的 Schema CRUD 动作（ADD_SCHEMA / UPDATE_SCHEMA / DELETE_SCHEMA）
 - 通过 core 层 writer 持久化 Schema YAML 文件
 - 同步更新 project.precis.yaml 中的 SchemaRef
+- 写盘前规范化 source（缺 mode 补 relative_file、options.header_row 上移顶层）并经 SourceSpec 严格校验
 
 架构设计:
 - 复用 core/project/schema/writer.py 的 save_schema()
@@ -34,10 +35,13 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from pydantic import ValidationError
 
 from app.shared.core.project.manifest.reader import load_manifest
 from app.shared.core.project.manifest.writer import ensure_schema_ref, save_manifest
+from app.shared.core.project.schema.types import SourceSpec
 from app.shared.core.project.schema_ref_check import find_schema_references, format_reference_report
+from app.shared.core.pydantic_messages import localize_pydantic_msg
 from app.shared.services.llm.yaml_io import FileLock, atomic_write_yaml, read_entity_id
 from app.shared.services.schema_inference import infer_schema
 
@@ -76,6 +80,64 @@ def _infer_columns_from_source(source: dict[str, Any], workspace_path: str) -> t
     if not cols:
         return None, f"数据文件无表头或无数据行，无法推断列: {rel}"
     return cols, f"columns 已从数据文件自动推断（{len(cols)} 列，源自 {rel}）"
+
+
+def _normalize_schema_source(source: Any) -> tuple[dict[str, Any], str | None]:
+    """规范化 LLM 传入的 schema source 并做严格校验（写盘前置）。
+
+    LLM 的 source 常见两类形状偏差（历史提示词只教过 source.path）：
+    1. 漏 mode 必填字段 → 原样落盘后严格解析器 TableSchemaFile 直接拒绝该文件，
+       整个项目校验中止（产品写出自己解析不了的 V2 YAML，契约红线）；
+    2. 把 header_row 错放进 options —— SourceSpec 的 header_row 是顶层字段，
+       JSONOptions/CSVOptions/ExcelOptions 均无此键，留在 options 里等于静默丢配置。
+
+    规范化规则：
+    - 缺 mode（或为空）时补 "relative_file"——LLM 给的 path 语义就是相对项目根，
+      与 schema_inference 推断写盘的口径一致；
+    - options.header_row 上移到 source 顶层（顶层已显式给出时以顶层为准），
+      options 清空后整体移除该键；
+    - 规范化后经 SourceSpec.model_validate 严格校验，不过则返回错误——
+      调用方必须让动作失败并回灌原因，绝不写出坏文件。
+
+    :param source: LLM 传入的 source（任意形状；非 dict 也按错误处理）
+    :return: (normalized, error)。error 非 None 表示校验失败，normalized 此时为空 dict。
+    """
+    if not isinstance(source, dict):
+        return {}, f"source 必须是对象（含 mode/path 等字段），实际为 {type(source).__name__}: {source!r}"
+
+    # 浅拷贝后再改，避免污染调用方的 action dict（同一 action 可能被重放/审计）
+    normalized = dict(source)
+
+    if not normalized.get("mode"):
+        normalized["mode"] = "relative_file"
+
+    options = normalized.get("options")
+    if isinstance(options, dict) and "header_row" in options:
+        options = dict(options)
+        # 顶层显式 header_row 优先（更具体的写法），否则把 options 里的值上移
+        if "header_row" not in normalized:
+            normalized["header_row"] = options.pop("header_row")
+        else:
+            options.pop("header_row")
+        # options 只剩被上移的 header_row 时整体移除，避免落盘空 options
+        if options:
+            normalized["options"] = options
+        else:
+            normalized.pop("options")
+
+    try:
+        SourceSpec.model_validate(normalized)
+    except ValidationError as e:
+        details = "; ".join(
+            f"source.{'.'.join(str(loc) for loc in err['loc'])}: {localize_pydantic_msg(err['msg'])}"
+            for err in e.errors()
+        )
+        return {}, (
+            f"source 配置非法: {details}。"
+            "mode 取值 relative_file/absolute_file（缺省按 relative_file），"
+            "header_row 是 source 顶层字段而非 options 字段"
+        )
+    return normalized, None
 
 
 def _sanitize_resource_id(resource_id: str) -> str:
@@ -134,6 +196,13 @@ def _add_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
         source_path = str(source.get("path") or "")
         if source_path and (".." in source_path or os.path.isabs(source_path)):
             return {"success": False, "message": f"source.path 不允许绝对路径或目录穿越: {source_path}"}
+
+    # 写盘前规范化 source：LLM 常漏 mode / 把 header_row 错放 options，原样透传
+    # 会写出严格解析器（TableSchemaFile）拒绝的坏文件，导致整个项目校验中止
+    if source is not None:
+        source, source_error = _normalize_schema_source(source)
+        if source_error:
+            return {"success": False, "message": source_error}
 
     # 列为空但给了 source.path：从数据文件推断兜底。LLM 常只给表名+路径，
     # 空壳 schema 会让后续约束动作全部挂在"字段不存在"预验证上；文件读不了
@@ -239,6 +308,13 @@ def _update_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
                 if source_path and (".." in source_path or os.path.isabs(source_path)):
                     return {"success": False, "message": "source.path 不允许绝对路径或目录穿越"}
 
+            # 写盘前规范化显式传入的 source（None 表示不改动数据源，保持现状）；
+            # 校验不过则动作失败且文件原样保留，绝不写出解析器拒绝的坏文件
+            if source is not None:
+                source, source_error = _normalize_schema_source(source)
+                if source_error:
+                    return {"success": False, "message": source_error}
+
             # 空壳 schema 修复：未传 columns 但现有列为空且 source 有效（传入的
             # 或文件里已有的）→ 从数据文件推断回填。推断失败不阻断本次更新
             # （UPDATE 可能只想改 source；空壳维持原状由其他链路报告）
@@ -284,7 +360,7 @@ def _update_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
                         updated_cols.append(col)
                 schema_data["columns"] = updated_cols
 
-            # 更新数据源（安全校验已前置）
+            # 更新数据源（安全校验与规范化已前置；None 表示不改动，保持现状）
             if source is not None:
                 schema_data["source"] = source
 

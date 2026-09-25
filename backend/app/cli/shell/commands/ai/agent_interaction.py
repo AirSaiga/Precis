@@ -38,8 +38,9 @@ from app.shared.services.ai.agent.chat_tools.ask_user import AskCallbacks
 
 logger = logging.getLogger(__name__)
 
-# 终端 diff 展示上限：超长 diff 只显示前 N 行，避免刷屏（完整内容在 dry-run 文件里）
-_MAX_DIFF_LINES = 30
+# 确认清单（动作/文件）的展示上限：超长清单只显示前 N 项 + 总数，避免刷屏；
+# diff 正文不在此处展示，用户按 [d] 可查看全量内容
+_MAX_LIST_ITEMS = 10
 
 
 def build_agent_interaction(spinner: SpinnerController | None) -> tuple[ApplyCallbacks, AskCallbacks]:
@@ -61,7 +62,7 @@ def build_agent_interaction(spinner: SpinnerController | None) -> tuple[ApplyCal
         _print_apply_summary(payload)
 
         def _worker() -> None:
-            decision = _read_apply_decision()
+            decision = _read_apply_decision(payload)
             try:
                 future = asyncio.run_coroutine_threadsafe(_resolve_apply(apply_id, decision), loop)
                 future.result(timeout=10)
@@ -123,33 +124,75 @@ async def _resolve_ask(ask_id: str, response: dict[str, Any]) -> None:
 
 
 def _print_apply_summary(payload: dict[str, Any]) -> None:
-    """打印写盘计划摘要：文件清单 + 状态 + 截断 diff + 汇总行。"""
+    """打印写盘计划摘要：动作语义清单 + 文件状态清单（不打印 diff 正文）。
+
+    摘要优先——用户先确认"AI 要干什么"（动作清单），再看"动了哪些文件"；
+    diff 正文体积大（新建文件即全文），改为在决策提示中按 [d] 按需查看全量。
+    """
+    actions = payload.get("actions") or []
     files = payload.get("files") or []
-    print(Formatter.warning(f"\nAI 请求写入 {len(files)} 个文件："))
+
+    # 动作语义清单：一行一个动作（如 "添加约束：users.email — NotNull"）
+    if actions:
+        print(Formatter.warning(f"\n将执行 {len(actions)} 个动作："))
+        for i, action in enumerate(actions[:_MAX_LIST_ITEMS], start=1):
+            description = str(action.get("description") or action.get("action_type") or "")
+            print(f"  {i}. {description}")
+        if len(actions) > _MAX_LIST_ITEMS:
+            print(f"  ... 共 {len(actions)} 个")
+
+    # 文件清单：状态 + 路径（无 diff 正文）
+    counts = {"created": 0, "modified": 0, "deleted": 0}
     for f in files:
-        status = f.get("status", "?")
-        path = f.get("path", "?")
-        print(f"  [{status}] {path}")
-        diff = (f.get("diff") or "").strip()
-        if diff:
-            diff_lines = diff.splitlines()
-            shown = diff_lines[:_MAX_DIFF_LINES]
-            for line in shown:
-                print(f"      {line}")
-            if len(diff_lines) > _MAX_DIFF_LINES:
-                print(f"      ...（共 {len(diff_lines)} 行，已截断）")
+        status = str(f.get("status", ""))
+        if status in counts:
+            counts[status] += 1
+    print(
+        Formatter.warning(
+            f"\nAI 请求写入 {len(files)} 个文件"
+            f"（新增 {counts['created']}，修改 {counts['modified']}，删除 {counts['deleted']}）："
+        )
+    )
+    for f in files[:_MAX_LIST_ITEMS]:
+        print(f"  [{f.get('status', '?')}] {f.get('path', '?')}")
+    if len(files) > _MAX_LIST_ITEMS:
+        print(f"  ... 共 {len(files)} 个")
+
     summary = payload.get("summary")
     if summary:
         print(Formatter.info(f"  摘要: {summary}"))
 
 
-def _read_apply_decision() -> str:
-    """读取 y/n 决策；空输入与非 y 输入一律 reject（写盘默认保守）。"""
-    try:
-        raw = input(Formatter.warning("确认写入以上变更？[y/N]: ")).strip().lower()
-    except EOFError:
+def _print_full_diff(payload: dict[str, Any]) -> None:
+    """打印全量 diff（[d] 按需查看）：payload 携带的就是完整内容，不做截断。"""
+    files = payload.get("files") or []
+    if not files:
+        print(Formatter.info("  （无文件变更）"))
+        return
+    for f in files:
+        print(Formatter.info(f"\n--- {f.get('path', '?')}（{f.get('status', '?')}）---"))
+        diff = (f.get("diff") or "").strip()
+        print(diff if diff else "  （无 diff 内容）")
+
+
+def _read_apply_decision(payload: dict[str, Any]) -> str:
+    """三态决策循环：y 确认写入 / d 查看全量 diff 后回到提示 / 其余（含空输入）拒绝。
+
+    空输入与非 y 输入一律 reject（写盘默认保守），与旧版语义一致。
+    """
+    while True:
+        try:
+            raw = (
+                input(Formatter.warning("确认写入以上变更？[y]确认写入 / [d]查看详细 diff / [N]拒绝: ")).strip().lower()
+            )
+        except EOFError:
+            return "reject"
+        if raw in ("y", "yes", "是"):
+            return "confirm"
+        if raw in ("d", "diff", "查看"):
+            _print_full_diff(payload)
+            continue
         return "reject"
-    return "confirm" if raw in ("y", "yes", "是") else "reject"
 
 
 def _print_ask_question(payload: dict[str, Any]) -> None:

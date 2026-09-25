@@ -33,7 +33,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -97,6 +97,27 @@ class SchemaColumnSpec(BaseModel):
     type: str = Field(default="string", description="数据类型")
 
 
+class SchemaSourceSpec(BaseModel):
+    """Schema 动作 spec 的 source 配置（schemaSpec.source）。
+
+    形状与 core 层 SourceSpec（types_parts/source.py）对齐，但放宽为全部可选：
+    mode 缺省由 schema_handlers 写盘前补 "relative_file"，path 必填等完整性
+    由写盘层的 SourceSpec.model_validate 兜底。结构层只拦截"看得见的形状错误"
+    （mode 枚举非法、header_row 非整数），避免 extra="ignore" 静默吞掉整个 source。
+    """
+
+    model_config = ConfigDict(extra="ignore")
+    mode: Literal["relative_file", "absolute_file"] | None = Field(
+        default=None, description="数据源模式：relative_file=相对项目根（默认，可省略）/ absolute_file=绝对路径"
+    )
+    path: str | None = Field(default=None, description="数据文件路径")
+    sheet: str | None = Field(default=None, description="Excel 工作表名")
+    header_row: int | None = Field(
+        default=None, ge=0, description="表头行索引（source 顶层字段，默认 0，不属于 options）"
+    )
+    options: dict[str, Any] | None = Field(default=None, description="格式特定配置（format/json_path/delimiter 等）")
+
+
 class SchemaSpec(BaseModel):
     """Schema 动作的 spec（schemaSpec）。"""
 
@@ -104,6 +125,7 @@ class SchemaSpec(BaseModel):
     name: str | None = Field(default=None, description="表名")
     schemaId: str | None = Field(default=None, description="表 ID")
     columns: list[SchemaColumnSpec] | None = Field(default=None, description="列定义")
+    source: SchemaSourceSpec | None = Field(default=None, description="数据源配置（写盘前由 handler 规范化）")
 
 
 class RegexSpec(BaseModel):

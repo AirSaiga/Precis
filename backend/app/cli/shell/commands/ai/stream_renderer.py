@@ -20,15 +20,27 @@
 功能概述:
 - 把 ChatAgentRunner 的流式回调（on_chunk/on_turn/on_tool_call/on_tool_result）渲染到终端
 - LLM 文本逐字增量打印（flush 即时），工具调用/结果打紧凑单行状态
-- 首个内容事件到达后永久停掉 spinner——流式反馈本身即"进行中"提示
+- 等待窗口（LLM 响应、工具执行）重启 spinner 动画——执行期终端长时间静止
+  易被误判为卡死；内容事件（chunk / 工具行 / 结果行）到达即停，
+  流式反馈本身接管"进行中"提示（SpinnerController start/stop 幂等，见 executor_utils）
 
 渲染协调（三个交互点）:
-- spinner: 首个 chunk / 工具事件停掉 spinner（spinner.stop 的清行序列会从行首覆盖，
-  调用前必须保证光标已落在干净行首，否则抹掉未换行的流式文本）
+- spinner: 内容事件到达即停（spinner.stop 的清行序列会从行首覆盖，
+  调用前必须保证光标已落在干净行首，否则抹掉未换行的流式文本）；
+  进入等待窗口（on_turn 本轮 LLM 响应、on_tool_call 工具执行）再启动
 - 交互提示（两阶段确认 / ask_user）: 提示在工具执行期触发，而 on_tool_call 先于工具执行
   收尾换行，故提示出现时流式文本已完整落行，不粘连
 - 工具轨迹: 流式期间只给轻量单行状态；循环结束后的 _display_tool_trail 总结保留，
   两者角色不同（实时进度 vs 结束审计），不视为重复
+
+markdown 流式渲染（pretty 路径）:
+- LLM 回复经 MarkdownStreamRenderer（markdown_stream.py 纯逻辑状态机）行级增量渲染：
+  标题着色加粗、**粗体**、反引号代码、表格对齐重排、代码围栏整块 dim
+- 三路开关：pretty=True 强制渲染 / False 强制原文（--no-pretty）/ None 自动（TTY 检测）；
+  非 TTY（管道/重定向）与 --no-pretty 共用"原文透传"分支
+- _turn_text 始终累积原文（渲染不参与），final_reply_already_shown 的 raw 比较不受影响
+- 工具行/轮次分隔的强制换行经 markdown 渲染器 newline() 同步状态机：
+  未闭合行内尾巴先按原文放出再换行，行首分类状态复位
 
 输入示例:
     renderer = ChatStreamRenderer(spinner=spinner, interactive=True)
@@ -46,6 +58,7 @@ import sys
 from typing import Any, TextIO
 
 from app.cli.shell.commands.ai.executor_utils import SpinnerController
+from app.cli.shell.commands.ai.markdown_stream import MarkdownStreamRenderer
 from app.cli.shell.formatter import Formatter
 
 # 交互模式工具失败错误信息截断上限：单行状态不刷屏（完整 error 由结束后的
@@ -91,9 +104,12 @@ class ChatStreamRenderer:
     Attributes:
         _spinner: 交互模式的 spinner 控制器（None 表示无动画）
         _interactive: 是否交互模式（决定错误信息截断策略）
+        _pretty: markdown 流式渲染开关（True/False 强制，None 自动按 TTY 检测）
+        _md: markdown 渲染状态机（None 表示原文透传：非 TTY / --no-pretty）
         _status_stream: 过程状态（工具行/轮次分隔）输出流；非交互模式走 stderr，
             保证 `ai ask` 管道场景 stdout 只含回复正文
-        _started: 首个内容事件已处理（spinner 已永久停止）
+        _started: 首个内容事件已处理（用于轮次分隔判定；spinner 停启由
+            SpinnerController 幂等管理，渲染器直接调 start/stop 即可）
         _pending_newline: 当前行有未收尾的流式文本
         _turn_text: 最近一轮已流式打印的累积文本（判定最终回复是否已上屏）
     """
@@ -102,9 +118,14 @@ class ChatStreamRenderer:
         self,
         spinner: SpinnerController | None = None,
         interactive: bool = True,
+        pretty: bool | None = None,
     ) -> None:
         self._spinner = spinner
         self._interactive = interactive
+        # 非 TTY（管道/重定向）自动回退原文直出：下游可能消费 stdout，
+        # ANSI 样式与表格重排都会污染机器可读性；--no-pretty 与之共用透传路径
+        enabled = sys.stdout.isatty() if pretty is None else pretty
+        self._md = MarkdownStreamRenderer() if enabled else None
         self._status_stream = sys.stdout if interactive else sys.stderr
         self._started = False
         self._pending_newline = False
@@ -119,42 +140,66 @@ class ChatStreamRenderer:
             "on_tool_result": self.on_tool_result,
         }
 
-    def _stop_spinner_once(self) -> None:
-        """首个内容事件到达后永久停掉 spinner（此后流式事件接管反馈）。"""
-        if self._started:
-            return
+    def _stop_spinner(self) -> None:
+        """内容事件到达即停 spinner（SpinnerController.stop 幂等，未运行时无清行副作用）。"""
         self._started = True
         if self._spinner:
             self._spinner.stop()
 
+    def _start_spinner(self) -> None:
+        """进入等待窗口（LLM 响应 / 工具执行）重启 spinner，避免终端静止被误判为卡死。"""
+        if self._spinner:
+            self._spinner.start()
+
     def _terminate_line(self) -> None:
-        """收尾未换行的流式文本行，保证后续行式输出不粘连。"""
+        """收尾未换行的流式文本行，保证后续行式输出不粘连。
+
+        pretty 路径下先经 markdown 渲染器同步行边界（未闭合尾巴按原文放出、
+        行首分类状态复位），再补换行——渲染器的行状态与终端保持一致。
+        """
         if self._pending_newline:
+            if self._md is not None:
+                sync = self._md.newline()
+                if sync:
+                    _print_to(sys.stdout, sync, end="")
             _print_to(sys.stdout, "")
             self._pending_newline = False
 
     def on_chunk(self, text: str) -> None:
-        """LLM 文本增量：停 spinner 后逐字打印（不主动换行，随流自然收尾）。"""
-        self._stop_spinner_once()
+        """LLM 文本增量：停 spinner 后输出（不主动换行，随流自然收尾）。
+
+        原文先累积进 _turn_text（final_reply_already_shown 的 raw 比较），
+        再按 pretty 开关分流：渲染路径经 markdown 状态机（表格/围栏等块级
+        内容可能暂存，输出可为空），透传路径原文直出。
+        """
+        self._stop_spinner()
         if not text:
             return
         self._turn_text += text
-        _print_to(sys.stdout, text, end="")
-        self._pending_newline = not text.endswith("\n")
+        if self._md is None:
+            _print_to(sys.stdout, text, end="")
+            self._pending_newline = not text.endswith("\n")
+            return
+        rendered = self._md.feed(text)
+        if rendered:
+            _print_to(sys.stdout, rendered, end="")
+            self._pending_newline = not rendered.endswith("\n")
 
     def on_turn(self, turn: int) -> None:
-        """轮次开始：重置本轮累积文本，仅在已有内容输出后打一个空行分隔（克制使用）。"""
+        """轮次开始：重置本轮累积文本、克制打分隔空行，并重启 spinner 覆盖本轮 LLM 等待窗口。"""
         self._turn_text = ""
-        if turn < 2 or not self._started:
-            return
-        self._terminate_line()
-        _print_to(self._status_stream, "")
+        if turn >= 2 and self._started:
+            self._terminate_line()
+            _print_to(self._status_stream, "")
+        self._start_spinner()
 
     def on_tool_call(self, name: str, call_id: str, turn: int) -> None:
-        """工具调用开始：收尾流式文本行（先于停 spinner，见模块注释）后打单行状态。"""
+        """工具调用开始：收尾流式文本行并停 spinner（顺序见模块注释）打单行状态，
+        随后重启 spinner 覆盖工具执行等待窗口。"""
         self._terminate_line()
-        self._stop_spinner_once()
+        self._stop_spinner()
         _print_to(self._status_stream, Formatter.dim(f"→ 调用工具 {_tool_label(name)}..."))
+        self._start_spinner()
 
     def on_tool_result(self, tr: Any) -> None:
         """工具调用结束：单行成败状态。
@@ -162,9 +207,11 @@ class ChatStreamRenderer:
         失败错误信息：交互模式截断到单行上限并补 "…" 标记（完整 error 由
         _display_tool_trail 结束总结展示）；非交互模式 stderr 是唯一诊断通道
         （_display_tool_trail 不运行），不截断，仅把换行压成空格保持单行形状。
+        不重启 spinner：execute_many 全部结束后结果批量回调，结果之间无等待窗口；
+        下一轮 LLM 等待由 on_turn 负责重启。
         """
         self._terminate_line()
-        self._stop_spinner_once()
+        self._stop_spinner()
         label = _tool_label(tr.name)
         if tr.success:
             _print_to(self._status_stream, Formatter.success(f"✓ {label} 完成"))
@@ -176,7 +223,14 @@ class ChatStreamRenderer:
             _print_to(self._status_stream, Formatter.error(f"✗ {label} 失败{suffix}"))
 
     def finish(self) -> None:
-        """流结束后收尾：保证末行换行，终端留给后续输出（确认提示/轨迹/错误信息）。"""
+        """流结束后收尾：冲刷 markdown 暂存（未闭合构造按原文兜底），保证末行换行，
+        终端留给后续输出（确认提示/轨迹/错误信息）。
+        """
+        if self._md is not None:
+            tail = self._md.flush()
+            if tail:
+                _print_to(sys.stdout, tail, end="")
+                self._pending_newline = not tail.endswith("\n")
         self._terminate_line()
 
     def final_reply_already_shown(self, reply: str) -> bool:

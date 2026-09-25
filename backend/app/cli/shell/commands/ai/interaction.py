@@ -46,6 +46,7 @@ from typing import Any
 
 from app.cli.shell.formatter import Colors, Formatter
 from app.shared.services.ai.utils import get_project_overview
+from app.shared.services.llm.actions.action_summaries import format_confirm_lines
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +55,9 @@ def confirm_actions(actions: list[dict[str, Any]], reply: str) -> bool:
     """显示操作确认提示，等待用户确认。
 
     在执行修改操作前，向用户展示 AI 计划执行的操作列表，
-    等待用户输入 y/yes 确认后才继续。
+    等待用户输入 y/yes 确认后才继续。动作文案由共享模块
+    action_summaries.format_confirm_lines 生成（与两阶段确认 payload
+    的动作摘要同一事实源，两份文案不漂移）。
 
     Args:
         actions: 动作列表
@@ -73,82 +76,8 @@ def confirm_actions(actions: list[dict[str, Any]], reply: str) -> bool:
 
     # 显示每个动作详情
     for i, action in enumerate(actions, 1):
-        action_type = action.get("actionType", "UNKNOWN")
-
-        # 处理 VALIDATE_PROJECT 特殊显示
-        if action_type == "VALIDATE_PROJECT":
-            spec = action.get("constraintSpec", {})
-            table_name = spec.get("tableName", spec.get("targetNodeId", "所有表"))
-            tables = spec.get("tables") or spec.get("tableIds")
-
-            if tables:
-                if len(tables) == 1:
-                    display = f"校验表: {tables[0]}"
-                else:
-                    display = f"校验 {len(tables)} 张表: {', '.join(tables)}"
-            elif table_name and table_name != "所有表":
-                display = f"校验表: {table_name}"
-            else:
-                display = "校验所有表"
-
-            print(f"  {i}. {display}")
-            continue
-
-        # 通用动作描述映射
-        action_desc = {
-            "ADD_TO_CANVAS": "显示到画布（只读）",
-            "ADD_CONSTRAINT_NODE": "添加约束",
-            "UPDATE_CONSTRAINT_NODE": "更新约束",
-            "DELETE_CONSTRAINT_NODE": "删除约束",
-            "ADD_SCHEMA": "创建表",
-            "UPDATE_SCHEMA": "修改表结构",
-            "DELETE_SCHEMA": "删除表",
-            "ADD_REGEX": "创建正则校验",
-            "UPDATE_REGEX": "更新正则校验",
-            "DELETE_REGEX": "删除正则校验",
-            "ADD_TRANSFORM": "创建数据转换",
-            "UPDATE_TRANSFORM": "更新数据转换",
-            "DELETE_TRANSFORM": "删除数据转换",
-            "UPDATE_SETTINGS": "修改项目设置",
-        }.get(action_type, action_type)
-
-        # 根据动作类型提取展示信息
-        if action_type == "ADD_TO_CANVAS":
-            spec = action.get("canvasSpec", {})
-            resource_kind = spec.get("resourceKind", "未知")
-            resource_name = spec.get("name", spec.get("resourceId", "未知"))
-            print(f"  {i}. {action_desc}: {resource_kind} / {resource_name}")
-        elif action_type in ("ADD_CONSTRAINT_NODE", "UPDATE_CONSTRAINT_NODE", "DELETE_CONSTRAINT_NODE"):
-            spec = action.get("constraintSpec", {})
-            constraint_type = spec.get("type", "Unknown")
-            table_name = spec.get("tableName", spec.get("targetNodeId", "未知"))
-            column_name = spec.get("targetColumn", spec.get("targetColumnId", "未知"))
-            print(f"  {i}. {action_desc}")
-            print(f"     表: {table_name}, 字段: {column_name}, 类型: {constraint_type}")
-        elif action_type in ("ADD_SCHEMA", "UPDATE_SCHEMA", "DELETE_SCHEMA"):
-            spec = action.get("schemaSpec", {})
-            name = spec.get("name", spec.get("schemaId", "未知"))
-            columns = spec.get("columns", [])
-            print(f"  {i}. {action_desc}: {name}")
-            if columns:
-                col_names = [c.get("name", "?") for c in columns]
-                print(f"     列: {', '.join(col_names)}")
-        elif action_type in ("ADD_REGEX", "UPDATE_REGEX", "DELETE_REGEX"):
-            spec = action.get("regexSpec", {})
-            name = spec.get("name", spec.get("regexId", "未知"))
-            print(f"  {i}. {action_desc}: {name}")
-        elif action_type in ("ADD_TRANSFORM", "UPDATE_TRANSFORM", "DELETE_TRANSFORM"):
-            spec = action.get("transformSpec", {})
-            t_type = spec.get("type", "未知")
-            print(f"  {i}. {action_desc}: {t_type}")
-        elif action_type == "UPDATE_SETTINGS":
-            spec = action.get("settingsSpec", {})
-            category = spec.get("category", "未知")
-            settings = spec.get("settings", {})
-            print(f"  {i}. {action_desc}: {category}")
-            print(f"     设置: {settings}")
-        else:
-            print(f"  {i}. {action_desc}")
+        for line in format_confirm_lines(action, i):
+            print(line)
 
     print("-" * 40)
 

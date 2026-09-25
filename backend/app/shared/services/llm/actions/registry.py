@@ -456,6 +456,9 @@ CONSTRAINT_ACTION_TYPES: frozenset[str] = BY_CATEGORY["constraint"]
 SCHEMA_ACTION_TYPES: frozenset[str] = BY_CATEGORY["schema"]
 REGEX_ACTION_TYPES: frozenset[str] = BY_CATEGORY["regex"]
 TRANSFORM_ACTION_TYPES: frozenset[str] = BY_CATEGORY["transform"]
+# canvas 类动作（category="canvas"，当前仅 ADD_TO_CANVAS）。无画布客户端（CLI）经
+# canvas_enabled 开关按此集合裁剪动作面，不在各消费方硬编码动作名清单
+CANVAS_ACTION_TYPES: frozenset[str] = BY_CATEGORY["canvas"]
 
 # 只读动作集合（不写盘）
 READ_ONLY_ACTION_TYPES: frozenset[str] = frozenset(a.type for a in ACTIONS.values() if a.read_only)
@@ -470,6 +473,17 @@ SPEC_FIELD_FOR: dict[str, str | None] = {a.type: a.spec_field for a in ACTIONS.v
 def get_action_def(action_type: str) -> ActionTypeDef | None:
     """查询动作定义，不存在返回 None。"""
     return ACTIONS.get(action_type)
+
+
+def filter_action_types(exclude_categories: frozenset[str] | set[str] | None = None) -> list[str]:
+    """按 category 过滤动作类型清单（保持注册表顺序），供 LLM 工具 schema enum 等消费方裁剪动作面。
+
+    分类信息从注册表派生（单一事实源），调用方只声明要排除的 category（如
+    无画布环境排除 {"canvas"}），不硬编码动作名清单；缺省 None 时返回全量。
+    """
+    if not exclude_categories:
+        return list(ALL_ACTION_TYPES)
+    return [a.type for a in ACTIONS.values() if a.category not in exclude_categories]
 
 
 def is_read_only(action_type: str) -> bool:
@@ -499,13 +513,17 @@ _CATEGORY_LABELS: dict[str, str] = {
 }
 
 
-def build_action_type_list_text() -> str:
+def build_action_type_list_text(exclude_categories: frozenset[str] | set[str] | None = None) -> str:
     """生成 actionType 可选值清单（按 category 分组），供系统提示词使用。
 
     新增动作后自动出现在此清单，无需手动同步提示词文本。
+    exclude_categories：需排除的 category 集合（如无画布环境排除 {"canvas"}），
+    从注册表分类派生、调用方不硬编码动作名；缺省 None 时全量输出（默认行为不变）。
     """
     lines: list[str] = []
     for category, types in BY_CATEGORY.items():
+        if exclude_categories and category in exclude_categories:
+            continue
         label = _CATEGORY_LABELS.get(category, category)
         types_sorted = " / ".join(sorted(types))
         suffix = ""
@@ -524,15 +542,17 @@ def build_data_type_list_text() -> str:
     return ", ".join(sorted(DATA_TYPES))
 
 
-def build_spec_field_mapping_text() -> str:
+def build_spec_field_mapping_text(exclude_categories: frozenset[str] | set[str] | None = None) -> str:
     """生成 actionType → spec 字段映射清单，供系统提示词使用。
 
     从 SPEC_FIELD_FOR 派生，新增动作后自动更新。
+    exclude_categories：需排除的 category 集合（如无画布环境排除 {"canvas"}），
+    缺省 None 时全量输出（默认行为不变）。
     """
     # spec 字段的中文说明（用于提示词）
     _spec_notes: dict[str, str] = {
         "constraintSpec": "含 type, tableName, targetColumn, isInline, params 等",
-        "schemaSpec": "含 name, columns",
+        "schemaSpec": "含 name, columns, source",
         "regexSpec": "含 name, pattern, matchMode",
         "transformSpec": "含 type, inputColumn, params, outputColumns",
         "settingsSpec": "含 category, settings",
@@ -540,6 +560,8 @@ def build_spec_field_mapping_text() -> str:
     }
     lines: list[str] = []
     for category, types in BY_CATEGORY.items():
+        if exclude_categories and category in exclude_categories:
+            continue
         label = _CATEGORY_LABELS.get(category, category)
         # 取该 category 第一个动作的 spec 字段（同 category 共享 spec 字段）
         sample_type = sorted(types)[0]

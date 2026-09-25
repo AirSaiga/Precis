@@ -15,7 +15,7 @@
 # limitations under the License.
 """Chat mini-agent 专用工具模块
 
-8 个工具构成"查-改-验"核心闭环：
+9 个工具构成"查-改-验"核心闭环：
 - ReadProjectTool:    读取项目概览(查)
 - ListDataFilesTool:  扫描项目目录发现数据文件(查)——read_project 只读已注册
     配置，本工具补"空项目 + 目录下有裸数据文件"的发现缺口
@@ -26,6 +26,9 @@
 - ValidateTableTool:  执行数据校验(验)
 - ReadCanvasTool:     读取画布上实际显示的节点快照(查)
     区别于 read_project 读项目配置文件——解决"配置里有但画布上没有"的同步鸿沟
+- ReadConfigFileTool: 读取项目内文本文件原文(查)——read_project 的概览是
+    解析后的结构（坏文件只出现在 parse_errors），本工具读原文供诊断
+    序列化/语法问题；与 infer_schema 共用 path_guard 路径白名单
 - AskUserTool:        向用户追加提问(交互)
 
 这些工具与 generation 路径的工具集完全独立：
@@ -39,6 +42,7 @@ from app.shared.services.ai.agent.chat_tools.ask_user import AskUserTool
 from app.shared.services.ai.agent.chat_tools.infer_schema import InferSchemaTool
 from app.shared.services.ai.agent.chat_tools.list_data_files import ListDataFilesTool
 from app.shared.services.ai.agent.chat_tools.read_canvas import ReadCanvasTool
+from app.shared.services.ai.agent.chat_tools.read_config_file import ReadConfigFileTool
 from app.shared.services.ai.agent.chat_tools.read_project import ReadProjectTool
 from app.shared.services.ai.agent.chat_tools.read_table import ReadTableTool
 from app.shared.services.ai.agent.chat_tools.validate_table import ValidateTableTool
@@ -49,6 +53,7 @@ __all__ = [
     "InferSchemaTool",
     "ListDataFilesTool",
     "ReadCanvasTool",
+    "ReadConfigFileTool",
     "ReadProjectTool",
     "ReadTableTool",
     "ValidateTableTool",

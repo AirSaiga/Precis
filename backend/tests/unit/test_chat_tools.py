@@ -59,6 +59,7 @@ def make_overview(**overrides) -> dict:
         "transforms": [],
         "regex_nodes": [],
         "settings": {},
+        "parse_errors": [],
     }
     base.update(overrides)
     return base
@@ -182,6 +183,50 @@ async def test_read_project_small_project_not_truncated():
     assert ov["truncated_schema_count"] == 0
     assert ov["truncated_constraint_count"] == 0
     assert ov["truncated_column_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_read_project_surfaces_parse_errors():
+    """解析失败清单完整透传到 overview 与 summary，agent 能看到"哪些文件坏了"。"""
+    overview = make_overview(
+        parse_errors=[
+            {"path": "schemas/bad.schema.yaml", "error": "yaml 解析失败: line 1"},
+            {"path": "constraints/broken.constraint.yaml", "error": "yaml 解析失败: line 3"},
+        ]
+    )
+    tool = ReadProjectTool(project_path="/fake/project")
+
+    with patch(
+        "app.shared.services.ai.agent.chat_tools.read_project.get_project_overview",
+        return_value=overview,
+    ):
+        result = await tool.run({})
+
+    assert result["success"] is True
+    assert result["overview"]["parse_errors"] == overview["parse_errors"]
+    assert result["summary"]["parse_error_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_read_project_truncates_long_parse_error_list():
+    """parse_errors 超上限时截断到前 N 项 + truncated_parse_error_count，不静默丢规模。"""
+    from app.shared.services.ai.agent.chat_tools import read_project as rp_module
+
+    many_errors = [{"path": f"schemas/bad{i}.schema.yaml", "error": "boom"} for i in range(30)]
+    overview = make_overview(parse_errors=many_errors)
+    tool = ReadProjectTool(project_path="/fake/project")
+
+    with patch(
+        "app.shared.services.ai.agent.chat_tools.read_project.get_project_overview",
+        return_value=overview,
+    ):
+        result = await tool.run({})
+
+    ov = result["overview"]
+    assert len(ov["parse_errors"]) == rp_module._MAX_PARSE_ERRORS_IN_OBSERVATION
+    assert ov["truncated_parse_error_count"] == 30 - rp_module._MAX_PARSE_ERRORS_IN_OBSERVATION
+    # summary 仍反映真实总数
+    assert result["summary"]["parse_error_count"] == 30
 
 
 # =============================================================================
@@ -554,6 +599,121 @@ async def test_validate_table_passes_through_scripted_skip_count():
     assert result["skipped_scripted_count"] == 1
     # message 携带跳过说明，LLM 可读
     assert "未计入违规" in result["message"]
+
+
+@pytest.mark.asyncio
+async def test_validate_table_parse_error_abort_includes_repair_hint():
+    """校验因 SchemaParseError 类加载错误中止时，结果给 LLM 明确的修复指引。
+
+    绝对文件路径换算为项目相对路径（直接可喂 read_config_file），并指出
+    对应 UPDATE 动作——只甩错误会让 LLM 误判为环境问题而止步。
+    """
+    tool = ValidateTableTool(project_path="/fake/project")
+    validate_result = {
+        "success": True,
+        "message": "数据校验通过，但存在 1 个加载警告:\n  - [SchemaParseError] users.schema 校验失败: ...",
+        "details": {
+            "error_count": 0,
+            "errors": [],
+            "loading_errors": [
+                {
+                    "error_type": "SchemaParseError",
+                    "file_path": "/fake/project/schemas/users.schema.yaml",
+                    "ref_id": "users",
+                    "message": "schema 校验失败: ...",
+                }
+            ],
+        },
+    }
+
+    with patch(
+        "app.shared.services.ai.agent.chat_tools.validate_table.execute_validate_project",
+        return_value=validate_result,
+    ):
+        result = await tool.run({})
+
+    hint = result["repair_hint"]
+    assert hint
+    # 相对路径 + 读原文 + 对应 UPDATE 动作三要素齐全
+    assert "schemas/users.schema.yaml" in hint
+    assert "read_config_file" in hint
+    assert "UPDATE_SCHEMA" in hint
+    # message 同步拼接指引（LLM 主读通道）
+    assert "UPDATE_SCHEMA" in result["message"]
+
+
+@pytest.mark.asyncio
+async def test_validate_table_repair_hint_maps_constraint_and_regex_kinds():
+    """不同资源类型的加载错误映射到各自 UPDATE 动作（constraint/regex）。"""
+    tool = ValidateTableTool(project_path="/fake/project")
+    validate_result = {
+        "success": True,
+        "message": "数据校验通过，但存在 2 个加载警告",
+        "details": {
+            "error_count": 0,
+            "errors": [],
+            "loading_errors": [
+                {
+                    "error_type": "ConstraintParseError",
+                    "file_path": "/fake/project/constraints/nn_email.constraint.yaml",
+                },
+                {
+                    "error_type": "RegexParseError",
+                    "file_path": "/fake/project/regex_nodes/phone.regex.yaml",
+                },
+            ],
+        },
+    }
+
+    with patch(
+        "app.shared.services.ai.agent.chat_tools.validate_table.execute_validate_project",
+        return_value=validate_result,
+    ):
+        result = await tool.run({})
+
+    hint = result["repair_hint"]
+    assert "UPDATE_CONSTRAINT_NODE" in hint
+    assert "constraints/nn_email.constraint.yaml" in hint
+    assert "UPDATE_REGEX" in hint
+    assert "regex_nodes/phone.regex.yaml" in hint
+
+
+@pytest.mark.asyncio
+async def test_validate_table_no_repair_hint_without_parse_errors():
+    """非文件损坏类加载错误（如 NotFound）或无加载错误时，不给 UPDATE 修复指引。"""
+    tool = ValidateTableTool(project_path="/fake/project")
+    validate_result = {
+        "success": True,
+        "message": "数据校验通过（耗时 5ms）",
+        "details": {
+            "error_count": 0,
+            "errors": [],
+            "loading_errors": [
+                {"error_type": "SchemaNotFound", "file_path": "/fake/project/schemas/miss.schema.yaml"},
+            ],
+        },
+    }
+
+    with patch(
+        "app.shared.services.ai.agent.chat_tools.validate_table.execute_validate_project",
+        return_value=validate_result,
+    ):
+        result = await tool.run({})
+
+    assert result["repair_hint"] == ""
+    assert "UPDATE" not in result["message"]
+
+
+def test_read_project_definition_documents_parse_error_semantics():
+    """read_project 工具描述说明 parse_errors 语义（含严格校验失败）与修复方向。"""
+    tool = ReadProjectTool(project_path="/fake/project")
+    description = tool.get_definition()["function"]["description"]
+
+    assert "parse_errors" in description
+    # 严格校验失败（字段级损坏）也是 parse_errors 的一部分
+    assert "严格校验失败" in description
+    assert "read_config_file" in description
+    assert "UPDATE_" in description
 
 
 # =============================================================================

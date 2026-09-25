@@ -778,6 +778,138 @@ class TestTwoPhaseConfirm:
 
 
 # =============================================================================
+# pending payload 动作语义摘要测试（actions 字段）
+# =============================================================================
+
+
+class TestPendingPayloadActions:
+    """两阶段确认 payload 的 actions 字段：动作级一行语义摘要。
+
+    CLI 摘要优先确认与 GUI 未来的动作清单展示都消费该字段；
+    read-only 分流的动作不进 payload（维持既有语义）。
+    """
+
+    @pytest.mark.asyncio
+    async def test_payload_contains_action_summaries_from_real_dry_run(self, tmp_path):
+        """真实动作 spec 走真实 dry-run：payload.actions 为一行人类可读摘要。
+
+        不 mock compute_action_diff——shadow-copy 上真实执行动作，
+        验证 actions 字段与实际写盘动作的一致性。
+        """
+        ws = make_test_workspace(tmp_path)
+        pending_payloads: list = []
+        callbacks = ApplyCallbacks(on_apply_pending=lambda p: pending_payloads.append(p))
+        tool, resolve_tasks = TestTwoPhaseConfirm()._make_tool_with_auto_confirm(ws, [], callbacks, "confirm")
+
+        action = make_inline_not_null_action()
+        # 只 mock 写盘后自检边界（保持确定性），dry-run 与真实写盘走真实链路
+        with (
+            patch(PATCH_LOAD, return_value=make_loaded_stub()),
+            patch(PATCH_VALIDATE_EXEC, return_value=make_validate_summary()),
+        ):
+            result = await tool.run({"actions": [action]})
+
+        for t in resolve_tasks:
+            await t
+
+        assert result["success"] is True
+        assert len(pending_payloads) == 1
+        payload = pending_payloads[0]
+        # 动作摘要：action_type + 一行描述 + 目标（复用 extract_action_target）
+        assert payload["actions"] == [
+            {
+                "action_type": "ADD_CONSTRAINT_NODE",
+                "description": "添加约束：users.email — NotNull",
+                "target": "users.email",
+            }
+        ]
+        # files 结构不因新增 actions 字段而变化（GUI 向后兼容的前提）
+        # 注：os.path.relpath 在 Windows 产生反斜杠分隔，统一归一化后比对
+        assert any(
+            f["path"].replace("\\", "/") == "schemas/users.schema.yaml" and f["status"] == "modified" and f["diff"]
+            for f in payload["files"]
+        )
+        assert "apply_id" in payload
+
+    @pytest.mark.asyncio
+    async def test_readonly_actions_excluded_from_payload(self, tmp_path):
+        """混合批次（只读+写盘）：只读动作不进确认 payload 的 actions 清单。"""
+        ws = make_test_workspace(tmp_path)
+        pending_payloads: list = []
+        callbacks = ApplyCallbacks(on_apply_pending=lambda p: pending_payloads.append(p))
+        tool, resolve_tasks = TestTwoPhaseConfirm()._make_tool_with_auto_confirm(ws, [], callbacks, "confirm")
+
+        readonly_action = {
+            "actionType": "ADD_TO_CANVAS",
+            "canvasSpec": {"resourceKind": "schema", "resourceId": "sc_users"},
+        }
+        write_action = make_inline_not_null_action()
+
+        def tracking_process(actions, path):
+            return {
+                "success": True,
+                "results": [{"action": a, "success": True, "message": "ok"} for a in actions],
+            }
+
+        from app.shared.services.llm.actions.diff_compute import DiffResult, FileDiff
+
+        diff_result = DiffResult(
+            success=True,
+            files=[FileDiff(path="schemas/users.schema.yaml", status="modified", diff="d")],
+            summary={"modified": 1},
+            frontend_instructions=[],
+            error=None,
+        )
+
+        with (
+            patch(PATCH_PROC, side_effect=tracking_process),
+            patch(
+                "app.shared.services.ai.agent.chat_tools.apply_actions.compute_action_diff",
+                return_value=diff_result,
+            ),
+            patch(PATCH_LOAD, return_value=make_loaded_stub()),
+            patch(PATCH_VALIDATE_EXEC, return_value=make_validate_summary()),
+        ):
+            result = await tool.run({"actions": [readonly_action, write_action]})
+
+        for t in resolve_tasks:
+            await t
+
+        assert result["success"] is True
+        assert len(pending_payloads) == 1
+        # 只读动作（ADD_TO_CANVAS）不进确认清单，只有写盘动作
+        assert [a["action_type"] for a in pending_payloads[0]["actions"]] == ["ADD_CONSTRAINT_NODE"]
+
+    @pytest.mark.asyncio
+    async def test_multiple_actions_summarized_in_order(self, tmp_path):
+        """多个写动作按到达顺序逐条生成摘要（保序，不做重排）。"""
+        ws = make_test_workspace(tmp_path)
+        pending_payloads: list = []
+        callbacks = ApplyCallbacks(on_apply_pending=lambda p: pending_payloads.append(p))
+        tool, resolve_tasks = TestTwoPhaseConfirm()._make_tool_with_auto_confirm(ws, [], callbacks, "reject")
+
+        actions = [
+            make_inline_not_null_action(),
+            {
+                "actionType": "ADD_REGEX",
+                "regexSpec": {"name": "email_pattern", "pattern": r"^[\w.-]+@[\w.-]+$"},
+            },
+        ]
+
+        with patch("app.shared.services.ai.agent.chat_tools.apply_actions.asyncio.to_thread") as mock_thread:
+            mock_thread.return_value = make_diff_result(success=True)
+            await tool.run({"actions": actions})
+
+        for t in resolve_tasks:
+            await t
+
+        summaries = pending_payloads[0]["actions"]
+        assert [a["action_type"] for a in summaries] == ["ADD_CONSTRAINT_NODE", "ADD_REGEX"]
+        assert summaries[1]["description"] == "创建正则校验：email_pattern"
+        assert summaries[1]["target"] is None
+
+
+# =============================================================================
 # 未确认三分支文案测试（reject / timeout / disconnected）
 # =============================================================================
 

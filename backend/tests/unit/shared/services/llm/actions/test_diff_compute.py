@@ -77,6 +77,46 @@ def write_users_schema_with_email(ws: str) -> None:
         f.write("name: users\ncolumns:\n  - id: col_email\n    name: email\n    type: string\n")
 
 
+def write_users_schema_v2(ws: str) -> None:
+    """写入带 id 的 users schema（独立约束动作按 targetNodeId 引用它）。"""
+    import yaml as _yaml
+
+    schemas_dir = os.path.join(ws, "schemas")
+    os.makedirs(schemas_dir, exist_ok=True)
+    with open(os.path.join(schemas_dir, "users.schema.yaml"), "w", encoding="utf-8") as f:
+        _yaml.safe_dump(
+            {
+                "id": "sc_users",
+                "name": "users",
+                "columns": [{"id": "col_email", "name": "email", "type": "string"}],
+            },
+            f,
+        )
+
+
+def write_legacy_constraint(ws: str, constraint_id: str = "legacy_other") -> None:
+    """写入一个与被测动作无关的既有独立约束文件。"""
+    constraints_dir = os.path.join(ws, "constraints")
+    os.makedirs(constraints_dir, exist_ok=True)
+    with open(os.path.join(constraints_dir, f"{constraint_id}.constraint.yaml"), "w", encoding="utf-8") as f:
+        f.write(f"id: {constraint_id}\ntype: NotNull\n")
+
+
+def make_standalone_constraint_action(constraint_type: str = "Unique") -> dict:
+    """构造一个 ADD_CONSTRAINT_NODE 独立约束（非内联）action。"""
+    return {
+        "actionType": "ADD_CONSTRAINT_NODE",
+        "constraintSpec": {
+            "type": constraint_type,
+            "targetColumn": "email",
+            "tableName": "users",
+            "targetNodeId": "sc_users",
+            "targetColumnId": "col_email",
+            "isInline": False,
+        },
+    }
+
+
 def sha256_file(path: str) -> str:
     """计算文件的 SHA-256 hash。"""
     h = hashlib.sha256()
@@ -289,3 +329,43 @@ class TestDiffIncludesCreatedFiles:
         # 约束文件路径应含 constraints/
         constraint_files = [f for f in result.files if "constraints" in f.path and f.status == "created"]
         assert len(constraint_files) >= 1, f"应至少有一个新建的约束文件，files={[f.path for f in result.files]}"
+        # 反向断言（68146306 回归）：既有 schema 未被动作触碰，不得出现在任何 diff 中，
+        # 更不得被误标 created（绝对路径集合差曾把 tempdir 全部文件都算成新建）
+        created_paths = [f.path for f in result.files if f.status == "created"]
+        assert all("schemas" not in p for p in created_paths), f"既有 schema 被误标 created: {created_paths}"
+        assert all("users.schema.yaml" not in f.path for f in result.files), (
+            f"未修改的既有 schema 不应出现在 diff: {[f.path for f in result.files]}"
+        )
+
+    def test_existing_unrelated_constraint_not_reported_created(self, tmp_path):
+        """工作区里与本次动作无关的既有约束文件不被误报为 created。"""
+        ws = make_workspace(tmp_path)
+        write_users_schema_v2(ws)
+        write_legacy_constraint(ws)
+
+        action = make_standalone_constraint_action("Unique")
+        result = compute_action_diff([action], ws)
+
+        assert result.success is True
+        created_paths = [f.path for f in result.files if f.status == "created"]
+        assert created_paths, "新建约束文件应出现在 diff（created）"
+        assert all("legacy_other" not in p for p in created_paths), f"无关既有约束文件被误标 created: {created_paths}"
+
+    def test_created_count_equals_truly_new_files(self, tmp_path):
+        """created 计数等于真实新建数：新建 2 个独立约束，既有文件（schema + 无关约束）均不计入。"""
+        ws = make_workspace(tmp_path)
+        write_users_schema_v2(ws)
+        write_legacy_constraint(ws)
+
+        result = compute_action_diff(
+            [make_standalone_constraint_action("Unique"), make_standalone_constraint_action("NotNull")], ws
+        )
+
+        assert result.success is True
+        created_paths = {f.path.replace(os.sep, "/") for f in result.files if f.status == "created"}
+        # 真实新建的只有两个独立约束文件（ID 由 handler 按类型/表/列派生）
+        assert created_paths == {
+            "constraints/unique_users_email.constraint.yaml",
+            "constraints/notnull_users_email.constraint.yaml",
+        }
+        assert result.summary["created"] == 2

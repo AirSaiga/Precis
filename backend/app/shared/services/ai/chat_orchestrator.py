@@ -34,6 +34,7 @@ from app.shared.services.llm.actions.action_parser import (
     process_actions,
 )
 from app.shared.services.llm.actions.action_validator import ActionValidator
+from app.shared.services.llm.actions.registry import CANVAS_ACTION_TYPES
 from app.shared.services.llm.chat.chat_system_prompt import build_system_prompt
 from app.shared.services.llm.chat.response_parser import ActionParser
 from app.shared.services.llm.config.models import AIProvider
@@ -97,10 +98,16 @@ class ChatOptions:
     skip_action_processing: bool = False
     return_frontend_instructions: bool = True
     agent_mode: bool = False
-    # 默认 5 轮：覆盖典型多步工作流（read_canvas → read_project → apply_actions → validate）
-    max_agent_iterations: int = 5
+    # Agent 工具循环预算。None=未显式指定：由 ChatAgentRunner 统一回退到用户级配置
+    # ~/.precis/ai_providers.yaml 的 chat.max_agent_iterations，再缺省取默认常量
+    max_agent_iterations: int | None = None
     # 画布节点快照（前端请求体携带，供 read_canvas 工具查询画布真实状态）
     canvas_nodes: list[dict[str, Any]] = field(default_factory=list)
+    # 客户端画布能力开关：False 表示当前客户端没有画布（CLI 终端）——read_canvas
+    # 工具不注册、canvas 类动作（ADD_TO_CANVAS）在预验证/执行层拦截（不生成
+    # frontend_instructions 信封）、系统提示词取无画布变体。GUI 两通道与 TUI
+    # 走 HTTP 缺省 True，行为不变
+    canvas_enabled: bool = True
     # Agent 模式两阶段确认/交互问答回调（CLI 终端注入；HTTP 非流式缺省 → fail-closed 保持）
     apply_callbacks: ApplyCallbacks | None = None
     ask_callbacks: AskCallbacks | None = None
@@ -194,9 +201,9 @@ class AIChatOrchestrator:
         if options.agent_mode and not project_path:
             logger.warning("agent_mode=True 但 project_path 为空，降级为非 agent 路径")
 
-        # 步骤 1: 构建上下文数据（项目概览 + 选中节点）
+        # 步骤 1: 构建上下文数据（项目概览 + 选中节点）；无画布客户端（CLI）取无画布提示词变体
         context_data = self._build_context_data(message, context_nodes, project_path)
-        system_prompt = build_system_prompt(context_data)
+        system_prompt = build_system_prompt(context_data, canvas_enabled=options.canvas_enabled)
 
         # 步骤 2: 调用 LLM（provider 提前创建，供历史预算推导与请求复用）
         # 直接 await provider.chat()，与 agent 路径（_execute_with_agent / agent/executor.py）对齐。
@@ -478,6 +485,8 @@ class AIChatOrchestrator:
                 max_iterations=options.max_agent_iterations,
                 max_history_tokens=options.max_history_tokens,
                 canvas_nodes=options.canvas_nodes,
+                # 客户端画布能力透传：CLI（无画布）传 False 隔离画布工具/动作/提示词
+                canvas_enabled=options.canvas_enabled,
                 # CLI 终端环境经 ChatOptions 注入确认回调后解锁写盘/提问；
                 # HTTP 非流式缺省 None/False → apply_actions/ask_user 保持 fail-closed
                 apply_callbacks=options.apply_callbacks,
@@ -537,8 +546,9 @@ class AIChatOrchestrator:
         @methoddesc 处理 AI 返回的动作列表
 
         阶段编排（细节在各 _xxx_gate 阶段方法）：
-        6.1 歧义解析门（交互式 CLI）→ 6.2 预验证门（含交互确认与 all-or-nothing 拒绝）
-        → 6.3 fail-closed 确认门检查 + 执行 → 6.4 收集前端指令。
+        6.0 无画布守卫（canvas_enabled=False 时拒绝 canvas 类动作）→ 6.1 歧义解析门
+        （交互式 CLI）→ 6.2 预验证门（all-or-nothing 拒绝先于交互确认——注定失败的
+        批次不让用户先确认一遍）→ 6.3 fail-closed 确认门检查 + 执行 → 6.4 收集前端指令。
 
         参数:
             actions: 动作列表
@@ -554,6 +564,21 @@ class AIChatOrchestrator:
         frontend_instructions: list[Any] = []
         validation_result: dict[str, Any] | None = None
         action_results: list[dict[str, Any]] = []
+
+        # 无画布环境守卫：canvas 类动作不执行、不生成 frontend_instructions 信封。
+        # 正常流量已在 6.2 预验证门拦截（ActionValidator canvas_enabled）；
+        # 此处兜底 skip_action_validation=True 的直通入口（纵深防御）。
+        if not options.canvas_enabled:
+            canvas_hits = [a.get("actionType", "") for a in actions if a.get("actionType", "") in CANVAS_ACTION_TYPES]
+            if canvas_hits:
+                logger.warning("[chat_orchestrator] 无画布环境拒绝 canvas 动作: %s", canvas_hits)
+                return ChatExecutionResult(
+                    success=False,
+                    reply=reply,
+                    actions=actions,
+                    error="当前环境无画布，该动作不可用（无法把资源显示到画布）",
+                    updated_history=updated_history,
+                )
 
         # 6.1 歧义解析（交互式 CLI 使用）
         early = self._resolve_ambiguity_gate(actions, project_path, reply, options, updated_history)
@@ -653,13 +678,14 @@ class AIChatOrchestrator:
         """
         @methoddesc 6.2 动作预验证门
 
-        预验证动作合法性 → 交互确认（CLI）→ all-or-nothing 拒绝（有 error 不执行任何动作）。
+        预验证动作合法性 → all-or-nothing 拒绝（有 error 不执行任何动作，也不弹确认框）
+        → 交互确认（CLI）。
 
         返回:
             (提前返回的 ChatExecutionResult 或 None, (过滤后的合法动作, 验证结果摘要))
         """
         self._notify_progress(options, "validating", "验证操作...")
-        validator = ActionValidator(project_path)
+        validator = ActionValidator(project_path, canvas_enabled=options.canvas_enabled)
         validation_result_obj = validator.validate(actions)
         validation_result = {
             "has_errors": validation_result_obj.has_errors,
@@ -667,26 +693,11 @@ class AIChatOrchestrator:
             "valid_actions": validation_result_obj.valid_actions,
         }
 
-        # 交互确认
-        if options.enable_interactive and options.confirm_callback:
-            if options.pause_callback:
-                options.pause_callback()
-            confirmed = options.confirm_callback(actions, reply)
-            if not confirmed:
-                return (
-                    ChatExecutionResult(
-                        success=True,
-                        reply=reply,
-                        actions=actions,
-                        updated_history=updated_history,
-                        validation_result=validation_result,
-                    ),
-                    (actions, validation_result),
-                )
-
-        # 校验失败处理：有 error 时直接返回失败 + 错误清单，不执行（all-or-nothing 语义）
+        # 校验失败处理：有 error 时直接返回失败 + 错误清单，不执行（all-or-nothing 语义）。
         # 修复 #5：旧逻辑 `if valid_actions:` 在全部非法时（valid_actions==[]）走 else
         # 把原始的全部非法动作交给 process_actions 写盘，造成校验绕过。
+        # 先于交互确认执行：注定整批失败的动作不让用户先确认一遍再收失败
+        # （也保证无画布环境的 canvas 动作拒绝信息直接可见，确认框不出现画布话术）。
         if validation_result_obj.has_errors:
             from app.shared.services.llm.actions.validation_types import format_validation_result
 
@@ -704,6 +715,23 @@ class AIChatOrchestrator:
                 (actions, validation_result),
             )
 
+        # 交互确认（通过预校验的动作才进入确认门）
+        if options.enable_interactive and options.confirm_callback:
+            if options.pause_callback:
+                options.pause_callback()
+            confirmed = options.confirm_callback(actions, reply)
+            if not confirmed:
+                return (
+                    ChatExecutionResult(
+                        success=True,
+                        reply=reply,
+                        actions=actions,
+                        updated_history=updated_history,
+                        validation_result=validation_result,
+                    ),
+                    (actions, validation_result),
+                )
+
         return None, (validation_result_obj.valid_actions, validation_result)
 
 
@@ -720,14 +748,15 @@ async def execute_ai_chat_unified(
     history: list[dict[str, str]] | None = None,
     agent_mode: bool = True,
     canvas_nodes: list[dict[str, Any]] | None = None,
-    max_agent_iterations: int = 5,
+    max_agent_iterations: int | None = None,
 ) -> ChatExecutionResult:
     """
     @methoddesc 便捷的统一 AI Chat 执行函数（用于 API 场景）
 
     参数:
-        max_agent_iterations: Agent 最大迭代轮数，默认 5（覆盖多步工作流：
-            read_canvas → read_project → apply_actions → validate）。
+        max_agent_iterations: Agent 最大迭代轮数。None（缺省）=未显式指定，
+            由 ChatAgentRunner 统一回退到用户级配置 chat.max_agent_iterations
+            （~/.precis/ai_providers.yaml），配置不可用时取默认常量。
 
     参数:
         message: 用户消息

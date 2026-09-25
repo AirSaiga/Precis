@@ -26,7 +26,23 @@ from typing import Any
 
 from app.shared.services.llm.actions.registry import build_constraint_param_docs_text, build_data_type_list_text
 
-SYSTEM_PROMPT_CORE = f"""你是一个数据质量和校验规则配置的 AI 助手。
+# 概览段渲染 parse_errors 的条数上限：坏文件清单是诊断入口但会随项目规模
+# 膨胀，超限折叠为计数（与 read_project 工具 observation 的截断策略同思路）
+_MAX_PARSE_ERRORS_IN_OVERVIEW_SECTION = 10
+
+
+def build_system_prompt_core(canvas_enabled: bool = True) -> str:
+    """构建共享基底系统提示词（legacy JSON 直出与 chat agent 提示词共用的 CORE）。
+
+    canvas_enabled=False（无画布客户端，如 CLI 终端）时省略画布 Q&A 示例行——
+    那是共享基底里唯一的画布话术，注入会诱导 LLM 对无画布用户提议"显示到画布"。
+    """
+    canvas_qa_line = (
+        '- ✅ "把 users 表拖到画布" / "显示在画布上" → ADD_TO_CANVAS（已存在的配置显示到画布）\n'
+        if canvas_enabled
+        else ""
+    )
+    return f"""你是一个数据质量和校验规则配置的 AI 助手。
 用户将提供给他当前选中的表格节点及其字段信息，以及他的自然语言需求。
 你可以帮助用户进行以下操作：
 
@@ -85,8 +101,7 @@ JSON 数据源的 schema 配置选项：
 - ✅ "创建一个邮箱格式的正则校验" → 创建 Regex 节点
 - ✅ "把 price 列转成数字类型" → 创建 Transform 节点
 - ✅ "把编码改成 GBK" → 修改项目设置
-- ✅ "把 users 表拖到画布" / "显示在画布上" → ADD_TO_CANVAS（已存在的配置显示到画布）
-- ✅ "如何配置 JSON 数据源？" → 给出 YAML 配置建议（不执行操作）
+{canvas_qa_line}- ✅ "如何配置 JSON 数据源？" → 给出 YAML 配置建议（不执行操作）
 
 ## 措辞规范（关键）
 - 查询类问题：直接回答，如"当前有3张表：users、orders..."
@@ -94,6 +109,11 @@ JSON 数据源的 schema 配置选项：
   ❌ 错误："已为 email 添加唯一约束"
   ✅ 正确："我将为 email 添加唯一约束"
 """
+
+
+# 共享基底（有画布变体，GUI 客户端默认）：保持既有导入方的行为不变；
+# 无画布环境（CLI）经 build_system_prompt_core(canvas_enabled=False) 取隔离变体
+SYSTEM_PROMPT_CORE = build_system_prompt_core()
 
 # JSON 直出模式专用：强制 LLM 返回 {reply, actions} JSON 结构。
 # 仅非 Agent 路径（build_system_prompt）使用；Agent 路径走工具调用，不需要此约束。
@@ -107,8 +127,19 @@ SYSTEM_PROMPT_JSON_OUTPUT = """
 必须返回 JSON！必须返回 JSON！必须返回 JSON！"""
 
 
-SYSTEM_PROMPT_JSON_FORMAT = (
+def build_json_format_prompt(canvas_enabled: bool = True) -> str:
+    """构建 JSON 直出格式提示词（仅非 Agent legacy 路径使用）。
+
+    canvas_enabled=False（无画布客户端，如 CLI）时剔除动作说明中的 ADD_TO_CANVAS 行，
+    避免 legacy JSON 模式的 LLM 生成无人消费的画布动作。
     """
+    canvas_action_note = (
+        "- ADD_TO_CANVAS: 把项目配置里已存在的资源（schema/regex/constraint/transform）显示到画布上（不写盘）。\n"
+        if canvas_enabled
+        else ""
+    )
+    return (
+        """
 ## 输出格式要求
 你必须返回以下 JSON 格式，禁止返回任何其他内容：
 
@@ -224,15 +255,15 @@ SYSTEM_PROMPT_JSON_FORMAT = (
 
 ## 约束类型与参数说明
 """
-    + build_constraint_param_docs_text()
-    + """
+        + build_constraint_param_docs_text()
+        + """
 
 ## 动作说明
 - ADD_CONSTRAINT_NODE: 添加约束节点。
 - UPDATE_CONSTRAINT_NODE: 更新约束节点。
 - DELETE_CONSTRAINT_NODE: 删除约束节点。删除时 `isInline` 必须与目标约束的实际存储形态一致：内联约束（项目概览"内联约束"下列出、存储在表配置中）设 `isInline: true`；独立约束（单独的 .constraint.yaml 文件）设 `isInline: false`。形态判断错误会导致删除失败。
-- ADD_SCHEMA: 创建新表。schemaSpec 含 name 和 source.path（相对项目根的数据文件路径）；columns 可省略——省略时系统自动从数据文件推断列并写入，显式给 columns 则以显式定义为准。
-- UPDATE_SCHEMA: 修改表结构（增删列、改类型）。
+- ADD_SCHEMA: 创建新表。schemaSpec 含 name、columns 和 source（数据源）。columns 可省略——省略时系统自动从数据文件推断列并写入，显式给 columns 则以显式定义为准。source 字段写法：mode（relative_file=相对项目根，默认可省略 / absolute_file=绝对路径）、path（数据文件路径）、header_row（表头行索引，默认 0；**是 source 顶层字段，不要写进 source.options**）、sheet（Excel 工作表名）、options（仅放格式配置，如 format/json_path/delimiter）。
+- UPDATE_SCHEMA: 修改表结构（增删列、改类型）或更换数据源（显式传 source 则整体替换，写法同 ADD_SCHEMA；不传 source 则数据源保持现状）。
 - DELETE_SCHEMA: 删除表。
 - ADD_REGEX: 创建正则校验节点。
 - UPDATE_REGEX: 更新正则节点。
@@ -242,8 +273,9 @@ SYSTEM_PROMPT_JSON_FORMAT = (
 - DELETE_TRANSFORM: 删除数据转换节点。
 - UPDATE_SETTINGS: 修改项目设置。
 - VALIDATE_PROJECT: 执行项目数据校验。
-- ADD_TO_CANVAS: 把项目配置里已存在的资源（schema/regex/constraint/transform）显示到画布上（不写盘）。
-
+"""
+        + canvas_action_note
+        + """
 ## 使用策略
 - **默认创建独立约束文件** (`isInline: false`)：独立文件是可独立引用的配置实体（§2.11 口径，与消费方一致）
 - **只有当用户明确要求"内联约束"、"存在表配置里"时**，才设置 `isInline: true`
@@ -351,13 +383,26 @@ SYSTEM_PROMPT_JSON_FORMAT = (
     ]
 }
 """
-)
+    )
 
 
-def build_system_prompt(context_data: dict[str, Any]) -> str:
-    """根据用户消息、上下文节点和项目概览动态组装完整的系统提示词。"""
+# JSON 直出格式提示词（有画布变体，GUI 客户端默认）：保持既有导入方的行为不变；
+# 无画布环境（CLI）经 build_json_format_prompt(canvas_enabled=False) 取隔离变体
+SYSTEM_PROMPT_JSON_FORMAT = build_json_format_prompt()
+
+
+def build_system_prompt(context_data: dict[str, Any], canvas_enabled: bool = True) -> str:
+    """根据用户消息、上下文节点和项目概览动态组装完整的系统提示词。
+
+    canvas_enabled=False（无画布客户端，如 CLI 终端）时，CORE 与 JSON 格式段均取
+    无画布变体（剔除画布 Q&A 示例与 ADD_TO_CANVAS 动作说明）。
+    """
     # 非 Agent（JSON 直出）路径：CORE + JSON 输出强制 + JSON 格式示例
-    parts = [SYSTEM_PROMPT_CORE, SYSTEM_PROMPT_JSON_OUTPUT, SYSTEM_PROMPT_JSON_FORMAT]
+    parts = [
+        build_system_prompt_core(canvas_enabled),
+        SYSTEM_PROMPT_JSON_OUTPUT,
+        build_json_format_prompt(canvas_enabled),
+    ]
 
     message = context_data.get("message", "")
     context = context_data.get("context", {})
@@ -380,7 +425,13 @@ def build_system_prompt(context_data: dict[str, Any]) -> str:
 
 
 def build_project_overview_section(overview: dict[str, Any]) -> str:
-    """将项目中的表结构、字段信息、内联约束、独立约束、正则节点、转换节点和设置格式化为 Markdown 文本。"""
+    """将项目中的表结构、字段信息、内联约束、独立约束、正则节点、转换节点和设置格式化为 Markdown 文本。
+
+    parse_errors（解析/严格校验失败清单）同样渲染为独立小节——配置文件损坏时
+    agent 开局（系统提示词）即知"哪些文件坏了、错在哪个字段"，不必等校验中止
+    后再排查。仅有坏文件、无任何可用资源的极端项目也不能返回空串（否则该节
+    被整体跳过，坏文件从 agent 视野里消失）。
+    """
     if not overview:
         return ""
 
@@ -389,11 +440,21 @@ def build_project_overview_section(overview: dict[str, Any]) -> str:
     transforms = overview.get("transforms", [])
     regex_nodes = overview.get("regex_nodes", [])
     settings = overview.get("settings", {})
+    parse_errors = overview.get("parse_errors") or []
 
-    if not schemas and not constraints and not transforms and not regex_nodes and not settings:
+    if not schemas and not constraints and not transforms and not regex_nodes and not settings and not parse_errors:
         return ""
 
     lines = ["## 当前项目概览"]
+
+    if parse_errors:
+        lines.append(f"\n### 解析失败的配置文件（共 {len(parse_errors)} 个，校验会被中止）")
+        lines.append("以下文件无法通过严格解析（YAML 语法错误或缺必填字段）。用 read_config_file 读原文，")
+        lines.append("对照错误字段用对应 UPDATE_* 动作修复（系统写盘会自动补全缺失字段），修复后重新校验：")
+        for pe in parse_errors[:_MAX_PARSE_ERRORS_IN_OVERVIEW_SECTION]:
+            lines.append(f"- {pe.get('path', '')}: {pe.get('error', '')}")
+        if len(parse_errors) > _MAX_PARSE_ERRORS_IN_OVERVIEW_SECTION:
+            lines.append(f"  ... 另有 {len(parse_errors) - _MAX_PARSE_ERRORS_IN_OVERVIEW_SECTION} 个待修复文件")
 
     if schemas:
         lines.append(f"\n### 数据表结构（共 {len(schemas)} 张表）")

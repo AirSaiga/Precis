@@ -42,6 +42,19 @@ class TestConstraintId:
         result = _generate_constraint_id("Range", "t1", "col-with.dots")
         assert result == "range_t1_col_with_dots"
 
+    def test_fullwidth_paren_column_falls_back_to_col(self):
+        """全角括号列名（"月薪（元）"）不匹配纯中文正则，落清洗分支后全空须兜底 "col"——
+        不再产出尾随下划线空段的 ID（如 "range_t1_"）"""
+        result = _generate_constraint_id("Range", "t1", "月薪（元）")
+        assert result == "range_t1_col"
+        assert result and not result.endswith("_")
+
+    def test_symbol_only_column_falls_back_to_col(self):
+        """纯全角符号列名清洗后为空同样兜底，ID 非空且不以 "_" 结尾。"""
+        result = _generate_constraint_id("NotNull", "users", "（）")
+        assert result == "notnull_users_col"
+        assert not result.endswith("_")
+
     def test_empty_table_abbr_uses_type_and_column(self):
         result = _generate_constraint_id("notNull", "___", "email")
         assert result == "notnull_email"

@@ -44,7 +44,10 @@ def _generate_constraint_id(constraint_type: str, table_name: str, column_name: 
     if re.match(r"^[\u4e00-\u9fff]+$", column_name):
         safe_column = _chinese_to_abbr(column_name) or "col"
     else:
-        safe_column = re.sub(r"[^a-zA-Z0-9_]", "_", column_name).strip("_")
+        # 混合列名（如含全角括号的"月薪（元）"）不匹配纯中文正则，落此分支清洗；
+        # 全部字符被替换为 "_" 再 strip 后可能为空——兜底 "col"，避免产出
+        # "range_t1_" 这类尾随空段的 ID
+        safe_column = re.sub(r"[^a-zA-Z0-9_]", "_", column_name).strip("_") or "col"
 
     if re.match(r"^[\u4e00-\u9fff]+$", table_name):
         table_abbr = _chinese_to_abbr(table_name)

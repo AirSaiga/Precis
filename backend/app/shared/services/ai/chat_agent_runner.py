@@ -19,8 +19,10 @@ Chat mini-agent 的编排器。在 agent_mode=true 时，
 让 Chat 路径真正跑起 plan→act→observe 工具循环。
 
 核心职责:
-- 组装 8 个 chat 专用工具(read_project/list_data_files/read_table/infer_schema/apply_actions/validate_table/read_canvas/ask_user)
-- 构建 chat agent 系统提示词
+- 组装 chat 专用工具（有画布客户端 9 个：read_project/list_data_files/read_table/
+  infer_schema/apply_actions/validate_table/read_canvas/read_config_file/ask_user；
+  无画布客户端（CLI）8 个——read_canvas 不注册）
+- 构建 chat agent 系统提示词（按客户端有无画布两态构建，见 build_chat_agent_system_prompt）
 - 调用 AgentExecutor 跑工具循环
 - 从循环结果提取 reply + 旁路收集的 frontend_instructions
 - 对外保持 ChatExecutionResult 契约不变(前端零改动)
@@ -45,6 +47,7 @@ from app.shared.services.ai.agent.chat_tools import (
     InferSchemaTool,
     ListDataFilesTool,
     ReadCanvasTool,
+    ReadConfigFileTool,
     ReadProjectTool,
     ReadTableTool,
     ValidateTableTool,
@@ -58,14 +61,41 @@ from app.shared.services.ai.agent.executor import AgentExecutor
 from app.shared.services.ai.agent.tool_registry import ToolRegistry
 from app.shared.services.llm.actions.registry import (
     ACTION_COUNT,
+    CANVAS_ACTION_TYPES,
     READ_ONLY_ACTION_TYPES,
     build_action_type_list_text,
     build_constraint_param_docs_text,
     build_spec_field_mapping_text,
 )
-from app.shared.services.llm.chat.chat_system_prompt import SYSTEM_PROMPT_CORE
+from app.shared.services.llm.chat.chat_system_prompt import build_system_prompt_core
+from app.shared.services.llm.config.models import DEFAULT_MAX_AGENT_ITERATIONS
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_max_agent_iterations() -> int:
+    """解析 agent 工具调用预算的缺省值（单一配置回退点）。
+
+    预算优先级：调用方显式传参 > 用户级配置 chat.max_agent_iterations > 默认常量。
+    本函数只负责后两级：读取 ~/.precis/ai_providers.yaml 的 chat 段。
+    配置缺失/损坏/校验失败时不能让聊天崩溃——告警并回退默认常量。
+
+    返回:
+        生效的最大迭代轮数
+    """
+    try:
+        # 延迟导入：与 runner 内其他依赖一致，避免非 chat 场景的模块加载开销
+        from app.shared.services.llm.config.loader import ConfigLoader
+
+        return ConfigLoader().load().chat.max_agent_iterations
+    except Exception as e:
+        logger.warning(
+            "读取 chat.max_agent_iterations 配置失败，回退默认值 %d: %s",
+            DEFAULT_MAX_AGENT_ITERATIONS,
+            e,
+        )
+        return DEFAULT_MAX_AGENT_ITERATIONS
+
 
 # 只读动作类型集合（用于动态标签判断，从注册表派生）
 _READ_ONLY_LABEL_TYPES = READ_ONLY_ACTION_TYPES
@@ -75,14 +105,64 @@ _READ_ONLY_LABEL_TYPES = READ_ONLY_ACTION_TYPES
 # 系统提示词
 # =============================================================================
 
-# 工具使用指引：定义 LLM 如何使用 8 个工具完成查-改-验闭环
-_CHAT_AGENT_TOOL_GUIDE = """## 工具使用指引
 
-你有以下 8 个工具可用（ask_user 在后文《何时使用 ask_user》单独说明）。
+def _build_tool_guide(canvas_enabled: bool) -> str:
+    """构建工具使用指引：定义 LLM 如何使用 chat 工具完成查-改-验闭环。
+
+    canvas_enabled=False（无画布客户端，CLI）时：工具数 9→8，省略 read_canvas
+    工具节与"画布显示类"工作流条目（后续小节/条目自动重编号），apply_actions
+    指引剔除 ADD_TO_CANVAS 关键区分块。
+    """
+    tool_count = 9 if canvas_enabled else 8
+    apply_canvas_note = (
+        '- 想"把已存在的资源显示到画布上"（配置文件已有，但画布上没显示）→ 用 **ADD_TO_CANVAS**\n'
+        "  （actionType=ADD_TO_CANVAS，spec 含 resourceKind: schema/regex/constraint/transform\n"
+        "  和 resourceId/resourceName）。ADD_TO_CANVAS 不写盘，只把现有配置显示到画布。\n"
+        if canvas_enabled
+        else ""
+    )
+    read_canvas_section = (
+        """### 7. read_canvas（查询，无参数）
+读取当前**画布上实际显示**的节点列表（Schema、约束、正则、转换等），含各类数量摘要。
+**与 read_project 的关键区别**：read_project 读项目配置文件，read_canvas 读画布快照——
+项目配置里有的表/约束不一定已拖到画布上，两者会不一致。
+**使用时机**：当用户说"画布上有没有 X"、"把 Y 放到画布/拖到画布"、"画布上现在有什么"、
+或你需要判断某节点是否已在画布上显示时，先调用本工具确认画布真实状态，再决定是否需要 ADD 动作。
+判断"画布上是否存在某节点"必须用 read_canvas，不能用 read_project。
+
+"""
+        if canvas_enabled
+        else ""
+    )
+    # 无画布时 read_canvas 节缺失，read_config_file 从 §8 前移为 §7
+    read_config_section_num = 8 if canvas_enabled else 7
+    canvas_workflow = (
+        """4. **画布显示类问题**（如"把 users 表拖到画布"、"显示 orders 约束"）：
+   - 先 read_canvas 确认画布真实状态（可能已经显示了）
+   - 若画布上没有但配置里有（read_project 确认）→ apply_actions 用 **ADD_TO_CANVAS** 显示
+   - 若配置里也没有 → 用 ADD_SCHEMA 等先创建
+   - 不要用 read_project 推断画布内容
+"""
+        if canvas_enabled
+        else ""
+    )
+    # 无画布时"画布显示类"工作流缺失，初始化类从第 5 条前移为第 4 条
+    init_workflow_num = 5 if canvas_enabled else 4
+    return f"""## 工具使用指引
+
+你有以下 {tool_count} 个工具可用（ask_user 在后文《何时使用 ask_user》单独说明）。
 请根据用户需求自主决定调用顺序和次数：
 
 ### 1. read_project（查询，无参数）
 读取当前项目的完整概览：所有表结构、约束、转换、正则节点、设置。
+解析失败的配置文件会列入 parse_errors（文件路径+错误摘要，含 YAML 语法错误与
+缺必填字段的严格校验失败）。**配置文件修复回路**：发现 parse_errors 非空、或校验
+报 SchemaParseError/"schema 校验失败"中止时——用 read_config_file 读该文件原文，
+对照错误指出的字段，用 apply_actions 的对应 UPDATE_* 动作传回完整配置修复
+（系统写盘会自动补全缺失字段，如 schema 缺 source.mode：UPDATE_SCHEMA 把原 source
+原样传回即可；若自行填写 source.mode，取值只能是 relative_file/absolute_file，
+不要用其他值），修复后 validate_table 重新校验确认。损坏的配置文件应主动修复，
+不要只向用户报告问题后等待指示。
 **使用时机**：用户询问"有哪些表"、"某表有哪些约束"、"当前配置"等查询类问题时，先调用此工具。
 
 ### 2. list_data_files（查询，无参数）
@@ -91,7 +171,7 @@ _CHAT_AGENT_TOOL_GUIDE = """## 工具使用指引
 **使用时机**：用户说"根据目录下的文件/表初始化项目或校验配置"、"分析文件夹里的数据"，
 或 read_project 显示项目为空但用户提到了数据文件时，先调用此工具发现文件，
 再为未注册（registered=false）的文件建表（先 infer_schema 出列定义草稿，
-ADD_SCHEMA 的 source.path 用返回的 path 值，详见"工作流程"第 5 条）。
+ADD_SCHEMA 的 source.path 用返回的 path 值，详见"工作流程"第 {init_workflow_num} 条）。
 **与 read_project 的关键区别**：read_project 只读已注册到 manifest 的配置；
 list_data_files 看的是磁盘上实际存在的文件——包括还没注册进项目的。
 
@@ -113,10 +193,7 @@ decimal、主键列补 primary_key: true、按业务语义命名表名（table_n
 **使用时机**：用户明确要求添加/修改/删除约束、表结构、正则、转换或设置时。
 **关键区分**：
 - 想创建新配置文件（磁盘上没有）→ 用 ADD_SCHEMA/ADD_REGEX 等。
-- 想"把已存在的资源显示到画布上"（配置文件已有，但画布上没显示）→ 用 **ADD_TO_CANVAS**
-  （actionType=ADD_TO_CANVAS，spec 含 resourceKind: schema/regex/constraint/transform
-  和 resourceId/resourceName）。ADD_TO_CANVAS 不写盘，只把现有配置显示到画布。
-**注意**：纯查询类问题绝不调用此工具。
+{apply_canvas_note}**注意**：纯查询类问题绝不调用此工具。
 **批次依赖（重要）**：预验证按**当前磁盘状态**逐条校验动作，不会模拟同批次
 先序动作的效果。因此"补 schema 列/建表"与"依赖该列的约束"必须**分两批提交**：
 第一批只写结构，执行成功后再提交第二批挂约束——混在一批会被整批以
@@ -125,14 +202,19 @@ decimal、主键列补 primary_key: true、按业务语义命名表名（table_n
 ### 6. validate_table（校验，参数: table_name?）
 执行数据校验，返回错误数量和列表。不传 table_name 校验所有表。
 **使用时机**：用户要求"校验项目/表"，或在 apply_actions 后想验证改动效果。
+校验因配置文件加载错误（SchemaParseError 等）中止时，结果会附修复指引——
+按指引用 read_config_file 查看该文件原文，用对应 UPDATE_* 动作修复后重新校验。
 
-### 7. read_canvas（查询，无参数）
-读取当前**画布上实际显示**的节点列表（Schema、约束、正则、转换等），含各类数量摘要。
-**与 read_project 的关键区别**：read_project 读项目配置文件，read_canvas 读画布快照——
-项目配置里有的表/约束不一定已拖到画布上，两者会不一致。
-**使用时机**：当用户说"画布上有没有 X"、"把 Y 放到画布/拖到画布"、"画布上现在有什么"、
-或你需要判断某节点是否已在画布上显示时，先调用本工具确认画布真实状态，再决定是否需要 ADD 动作。
-判断"画布上是否存在某节点"必须用 read_canvas，不能用 read_project。
+{read_canvas_section}### {read_config_section_num}. read_config_file（查询，参数: file_path, offset?, length?）
+读取项目内文本文件（yaml/yml/json/jsonl/ndjson/md/txt/csv/tsv）的**原文**。
+read_project 返回的是解析后的结构化概览，本工具读的是文件原始内容。
+**使用时机**：
+- read_project 的 parse_errors 报某配置文件解析失败时，读该文件原文定位问题
+  （YAML 语法错误、缩进、字段拼写、序列化异常）；
+- 需要核对配置文件的真实字段/格式细节（如用户说"schema 文件里写的和界面上不一致"）；
+- 读取项目内的说明文档（md/txt）或小型数据文件内容。
+**注意**：返回超过长度上限会标注 truncated/total_length/next_offset，
+用 next_offset 作为下次调用的 offset 分段读完，不要反复猜路径重读。
 
 ## 工作流程
 
@@ -143,12 +225,7 @@ decimal、主键列补 primary_key: true、按业务语义命名表名（table_n
    - 可选：validate_table 验证效果
    - 用自然语言总结结果
 3. **校验类问题**（如"校验数据"）：直接 validate_table → 用自然语言汇报结果。
-4. **画布显示类问题**（如"把 users 表拖到画布"、"显示 orders 约束"）：
-   - 先 read_canvas 确认画布真实状态（可能已经显示了）
-   - 若画布上没有但配置里有（read_project 确认）→ apply_actions 用 **ADD_TO_CANVAS** 显示
-   - 若配置里也没有 → 用 ADD_SCHEMA 等先创建
-   - 不要用 read_project 推断画布内容
-5. **初始化类问题**（如"根据目录下的文件初始化校验配置"、"分析文件夹里的数据"）：
+{canvas_workflow}{init_workflow_num}. **初始化类问题**（如"根据目录下的文件初始化校验配置"、"分析文件夹里的数据"）：
    - 先 list_data_files 发现磁盘上的数据文件（未注册的 registered=false）
    - 对每个未注册文件建表：先 infer_schema 获得列定义草稿（列名+推断类型），
      按业务语义微调（金额/单价列把 float 改 decimal、主键列补 primary_key: true）
@@ -165,6 +242,7 @@ decimal、主键列补 primary_key: true、按业务语义命名表名（table_n
 当你准备好回答用户、不再需要调用任何工具时，直接输出自然语言文本（不带 tool_calls），
 循环即结束，该文本会作为最终回复返回给用户。回答应简洁明了。"""
 
+
 # 措辞规范（复用自原 chat_system_prompt）
 _WORDING_RULES = """## 措辞规范
 
@@ -173,14 +251,27 @@ _WORDING_RULES = """## 措辞规范
   ✅ 正确："我将为 email 添加唯一约束"
 - 当汇报校验结果时：客观陈述错误数量和内容，不夸大不缩小。"""
 
-# ask_user 工具使用指引
-_ASK_USER_GUIDE = """## 何时使用 ask_user
+
+# ask_user 工具使用指引（canvas_enabled=False 时剔除 read_canvas/canvas 引用）
+def _build_ask_user_guide(canvas_enabled: bool) -> str:
+    """构建 ask_user 使用指引。
+
+    canvas_enabled=False（无画布客户端）时：可推断来源不列 read_canvas，
+    "已有信息"不提 canvas——工具面里本就没有画布可查。
+    """
+    infer_sources = "read_project/read_table/read_canvas" if canvas_enabled else "read_project/read_table"
+    context_answer = (
+        "答案在 context.selectedNodes 或 canvas 已有信息里"
+        if canvas_enabled
+        else "答案在 context.selectedNodes 已有信息里"
+    )
+    return f"""## 何时使用 ask_user
 
 ask_user 用于获取无法自行查到的信息或让用户做决策。**能自己查到的不要问**。
 
 该问的情况：
 - 用户意图存在多方案需要抉择（"用 A 还是 B？"）→ choice 类型
-- 关键参数缺失且无法从 read_project/read_table/read_canvas 推断（如目标列名歧义）→ value 或 choice 类型
+- 关键参数缺失且无法从 {infer_sources} 推断（如目标列名歧义）→ value 或 choice 类型
 - 执行不可逆的批量非写盘操作前确认意图 → confirm 类型
 - 需要用户提供开放式信息（如业务规则说明）→ free_text 类型
 
@@ -188,41 +279,15 @@ ask_user 用于获取无法自行查到的信息或让用户做决策。**能自
 - 能通过 read_project 查到的表/列信息
 - 能通过 list_data_files 查到的项目目录数据文件清单
 - 能通过 read_table 推断的数据特征
-- 答案在 context.selectedNodes 或 canvas 已有信息里
+- 能通过 read_config_file 直接读取的项目内文件原文
+- {context_answer}
 
 返回值：observation 含 answer 字段。用户可能跳过（skipped:true）——此时不要反复追问，
 基于已知信息尽力继续或明确说明无法完成的原因。"""
 
-# 完整的 chat agent 系统提示词
-# 注意：SYSTEM_PROMPT_CORE 现已剥离 JSON 输出指令（移至 SYSTEM_PROMPT_JSON_OUTPUT，
-# 仅非 Agent 路径用），故 Agent 路径无需 verbal override，直接继承 CORE 的领域能力描述。
-CHAT_AGENT_SYSTEM_PROMPT = f"""{SYSTEM_PROMPT_CORE}
 
----
-
-# Chat Agent 模式说明
-
-你现在处于 Agent 工具调用模式。你不直接输出 JSON，而是：
-- 调用工具完成查-改-验，最后用**自然语言文本**（不带 tool_calls）回复用户。
-
-你可以通过调用工具查询项目信息、修改配置、校验数据。请根据用户需求自主决定如何组合使用工具。
-
-{_CHAT_AGENT_TOOL_GUIDE}
-
-{_WORDING_RULES}
-
-{_ASK_USER_GUIDE}
-
-## actions 格式说明
-
-调用 apply_actions 时，actions 数组中每个元素必须含 actionType 和对应的 spec 字段。
-actionType 可选值（{ACTION_COUNT}种）：
-{build_action_type_list_text()}
-
-每个动作需带对应 spec 字段：
-{build_spec_field_mapping_text()}
-
-## ADD_TO_CANVAS vs ADD_* 的关键区分（最容易出错，务必牢记）
+# "ADD_TO_CANVAS vs ADD_* 的关键区分"整节（仅画布客户端注入）
+_CANVAS_DISTINCTION_SECTION = """## ADD_TO_CANVAS vs ADD_* 的关键区分（最容易出错，务必牢记）
 
 - **ADD_TO_CANVAS**：项目配置文件里**已有**该资源，只是没显示在画布上 → 只读，不写盘。
 - **ADD_SCHEMA / ADD_REGEX 等**：项目配置文件里**没有**该资源，需要**新建文件** → 会写盘。
@@ -233,29 +298,72 @@ actionType 可选值（{ACTION_COUNT}种）：
 3. 不存在 → 用 ADD_SCHEMA 等创建（会写盘，需用户确认）。
 
 ❌ 错误：配置里已有 users 表，用户说"拖到画布"，却调 ADD_SCHEMA（会触发"文件已存在"失败或无谓的写盘确认）。
-✅ 正确：配置里已有 users 表，用户说"拖到画布" → 调 ADD_TO_CANVAS。
+✅ 正确：配置里已有 users 表，用户说"拖到画布" → 调 ADD_TO_CANVAS。"""
 
-## 约束类型与参数说明（关键）
+
+def build_chat_agent_system_prompt(canvas_enabled: bool = True) -> str:
+    """构建 chat agent 系统提示词（按客户端有无画布两态构建）。
+
+    canvas_enabled=False（无画布客户端，CLI）时三通道联动隔离：
+    - CORE 基底 / 工具指引 / ask_user 指引均取无画布变体（见各构建函数）
+    - 动作清单与 spec 映射经 exclude_categories 排除 canvas 类动作（计数同步收紧）
+    - 省略"ADD_TO_CANVAS vs ADD_*"整节，使用策略/防误操作剔除画布条目
+    """
+    exclude_canvas: frozenset[str] | set[str] | None = None if canvas_enabled else {"canvas"}
+    # 可选值计数与动作清单同源：排除 canvas 类动作后按过滤后规模计数（不硬编码数字）
+    action_count = ACTION_COUNT if canvas_enabled else ACTION_COUNT - len(CANVAS_ACTION_TYPES)
+    inline_note_tail = "，画布节点与文件一一对应" if canvas_enabled else ""
+    canvas_guardrail = (
+        '- **不要把"拖到画布"误用为 ADD_SCHEMA**：当用户想把已存在的资源显示到画布时，使用 ADD_TO_CANVAS；'
+        "只有资源不存在时才使用 ADD_SCHEMA/ADD_REGEX/ADD_TRANSFORM。\n"
+        if canvas_enabled
+        else ""
+    )
+    sections: list[str] = [
+        build_system_prompt_core(canvas_enabled),
+        f"""---
+
+# Chat Agent 模式说明
+
+你现在处于 Agent 工具调用模式。你不直接输出 JSON，而是：
+- 调用工具完成查-改-验，最后用**自然语言文本**（不带 tool_calls）回复用户。
+
+你可以通过调用工具查询项目信息、修改配置、校验数据。请根据用户需求自主决定如何组合使用工具。
+
+{_build_tool_guide(canvas_enabled)}""",
+        _WORDING_RULES,
+        _build_ask_user_guide(canvas_enabled),
+        f"""## actions 格式说明
+
+调用 apply_actions 时，actions 数组中每个元素必须含 actionType 和对应的 spec 字段。
+actionType 可选值（{action_count}种）：
+{build_action_type_list_text(exclude_categories=exclude_canvas)}
+
+每个动作需带对应 spec 字段：
+{build_spec_field_mapping_text(exclude_categories=exclude_canvas)}""",
+    ]
+    if canvas_enabled:
+        sections.append(_CANVAS_DISTINCTION_SECTION)
+    sections.extend(
+        [
+            f"""## 约束类型与参数说明（关键）
 
 调用 ADD_CONSTRAINT_NODE / UPDATE_CONSTRAINT_NODE 时，constraintSpec.type 必须是以下之一，
 constraintSpec.params 按类型填充对应字段：
 
-{build_constraint_param_docs_text()}
-
-## 字段解析约定
+{build_constraint_param_docs_text()}""",
+            """## 字段解析约定
 
 - `tableName` / `targetColumn`：可使用表名/列名（中文或英文），系统会自动解析为对应 ID。
 - 如不确定 ID，留空 `targetNodeId` / `targetColumnId`，系统从 `tableName` / `targetColumn` 解析。
-- `isInline`：默认 false（创建独立约束文件）。仅当用户明确要求"内联约束/存入表配置"时设 true。
+- `isInline`：默认 false（创建独立约束文件）。仅当用户明确要求"内联约束/存入表配置"时设 true。""",
+            f"""## 使用策略
 
-## 使用策略
-
-- **默认创建独立约束文件** (`isInline: false`)：独立文件是独立可引用的配置实体，画布节点与文件一一对应
+- **默认创建独立约束文件** (`isInline: false`)：独立文件是独立可引用的配置实体{inline_note_tail}
 - **只有当用户明确要求"内联约束"、"存在表配置里"时**，才设置 `isInline: true`
 - 如果用户说"删除 XXX 约束"，请使用 DELETE_CONSTRAINT_NODE，且 `isInline` 必须与该约束的实际存储形态一致（内联约束 → true，独立约束 → false）
-- 必须确保 `tableName` 和 `targetColumn` 准确无误
-
-## 防止误操作（务必遵守）
+- 必须确保 `tableName` 和 `targetColumn` 准确无误""",
+            f"""## 防止误操作（务必遵守）
 
 - **只改用户明确要求的资源**：不要主动添加、修改或删除无关的约束、表结构、正则节点、转换节点或设置。
 - **不要重命名或重建 schema 文件**：除非用户明确要求重命名，否则使用现有 schema 的 tableName/id，直接修改对应文件。
@@ -264,8 +372,15 @@ constraintSpec.params 按类型填充对应字段：
 - **格式校验优先用约束**："为 X 添加格式校验"应使用 ADD_CONSTRAINT_NODE（type=Scripted，params.pattern 为正则）或 ADD_REGEX，仅操作目标列。
 - **一次只做一个明确修改**：如果用户只提到一个字段（如"为 email 添加格式校验"），你的 actions 列表中只能包含针对该字段的写操作。严禁同时添加 age 的 Range 约束、重建 users schema 或删除其他约束。若该字段已存在同类型约束，直接说明即可，不要生成新动作。
 - **禁止照搬示例参数**：示例中的 `min: 0, max: 100` 只是参数格式说明，不要为未提及的字段创建 Range 约束。
-- **不要把"拖到画布"误用为 ADD_SCHEMA**：当用户想把已存在的资源显示到画布时，使用 ADD_TO_CANVAS；只有资源不存在时才使用 ADD_SCHEMA/ADD_REGEX/ADD_TRANSFORM。
-- **填写 intent_scope（写动作必填）**：调用 apply_actions 时，凡含写动作（ADD/UPDATE/DELETE_*），必须在 intent_scope 中声明你理解的用户意图所涉及的表和列。这是防止越界修改的安全门——后端会校验 actions 的写目标是否全部在 intent_scope 内，越界将被拒绝。例：用户说"给邮箱加格式校验"（邮箱=email），intent_scope 填 `{{"tables":["users"],"columns":[{{"table":"users","column":"email"}}]}}`；用户说"删除 users 表的所有约束"，intent_scope 填 `{{"tables":["users"]}}`。中文到字段名的映射（邮箱→email）由你完成，后端只做精确比对。"""
+{canvas_guardrail}- **填写 intent_scope（写动作必填）**：调用 apply_actions 时，凡含写动作（ADD/UPDATE/DELETE_*），必须在 intent_scope 中声明你理解的用户意图所涉及的表和列。这是防止越界修改的安全门——后端会校验 actions 的写目标是否全部在 intent_scope 内，越界将被拒绝。例：用户说"给邮箱加格式校验"（邮箱=email），intent_scope 填 `{{"tables":["users"],"columns":[{{"table":"users","column":"email"}}]}}`；用户说"删除 users 表的所有约束"，intent_scope 填 `{{"tables":["users"]}}`。中文到字段名的映射（邮箱→email）由你完成，后端只做精确比对。""",
+        ]
+    )
+    return "\n\n".join(sections)
+
+
+# 默认（有画布）变体：GUI 流式/非流式两通道共用，保持既有导入方行为不变；
+# 无画布环境（CLI）经 build_chat_agent_system_prompt(canvas_enabled=False) 构建隔离变体
+CHAT_AGENT_SYSTEM_PROMPT = build_chat_agent_system_prompt()
 
 
 # =============================================================================
@@ -313,7 +428,7 @@ class ChatAgentRunner:
         provider: Any,
         project_path: str,
         context_nodes: list[dict[str, Any]],
-        max_iterations: int = 5,
+        max_iterations: int | None = None,
         max_history_tokens: int | None = None,
         confirm_controller: Any | None = None,
         apply_callbacks: ApplyCallbacks | None = None,
@@ -321,6 +436,7 @@ class ChatAgentRunner:
         dry_run_enabled: bool = False,
         job_id: str = "",
         canvas_nodes: list[dict[str, Any]] | None = None,
+        canvas_enabled: bool = True,
     ):
         """
         @methoddesc 初始化 Chat Agent Runner
@@ -329,7 +445,10 @@ class ChatAgentRunner:
             provider: Provider 实例（BaseProvider 子类，有 chat 方法），由调用方通过 create() 创建
             project_path: 项目配置目录路径
             context_nodes: 前端选中的上下文节点列表
-            max_iterations: Agent 最大迭代轮数
+            max_iterations: Agent 最大迭代轮数。None（缺省）时回退到用户级配置
+                ~/.precis/ai_providers.yaml 的 chat.max_agent_iterations（配置不可用
+                时再回退默认常量，见 _resolve_max_agent_iterations）；显式传入则
+                尊重调用方预算
             max_history_tokens: 历史消息 token 预算。None（缺省）时在 run 阶段按
                 provider 上下文窗口自适应推导（resolve_chat_history_budget），
                 显式传入则尊重调用方预算（CLI 已自行按窗口计算后传入）
@@ -340,11 +459,16 @@ class ChatAgentRunner:
             job_id: 当前任务 ID，供 ApplyActionsTool 生成 apply_id
             canvas_nodes: 前端请求体携带的画布节点快照（已裁剪），供 read_canvas 工具查询。
                 区别于 context_nodes（用户右键选中的少数节点），canvas_nodes 是全部画布业务节点。
+            canvas_enabled: 客户端是否有画布。False（CLI 等无画布终端）时 read_canvas
+                不注册、apply_actions 剔除 canvas 类动作（ADD_TO_CANVAS）、系统提示词
+                取无画布变体；GUI 两通道缺省 True（行为不变）
         """
         self.provider = provider
         self.project_path = project_path
         self.context_nodes = context_nodes
-        self.max_iterations = max_iterations
+        # 预算优先级：显式传参 > 用户级 chat.max_agent_iterations 配置 > 默认常量
+        # （None 表示调用方未显式指定，统一经 _resolve_max_agent_iterations 回退）
+        self.max_iterations = _resolve_max_agent_iterations() if max_iterations is None else max_iterations
         self.max_history_tokens = max_history_tokens
         self.confirm_controller = confirm_controller
         self.apply_callbacks = apply_callbacks or ApplyCallbacks()
@@ -352,6 +476,7 @@ class ChatAgentRunner:
         self.dry_run_enabled = dry_run_enabled
         self.job_id = job_id
         self.canvas_nodes = canvas_nodes or []
+        self.canvas_enabled = canvas_enabled
 
         # 关键：frontend_instructions 的旁路累积容器
         # apply_actions 工具持有此列表引用，append 后 runner 最终读取
@@ -388,7 +513,7 @@ class ChatAgentRunner:
             build_project_overview_section,
         )
 
-        parts = [CHAT_AGENT_SYSTEM_PROMPT]
+        parts = [build_chat_agent_system_prompt(self.canvas_enabled)]
 
         # 附加项目概览（让 LLM 无需首轮必调 read_project）
         try:
@@ -410,9 +535,10 @@ class ChatAgentRunner:
         """
         @methoddesc 创建并注册 chat 工具集
 
-        8 个工具：read_project/list_data_files/read_table/infer_schema/apply_actions/
-        validate_table 注入 project_path，read_canvas 注入画布节点快照，
+        有画布客户端 9 个工具：read_project/list_data_files/read_table/infer_schema/
+        read_config_file 注入 project_path，read_canvas 注入画布节点快照，
         ask_user 注入交互回调（仅流式路径启用）。
+        无画布客户端（canvas_enabled=False，CLI）8 个：read_canvas 不注册。
         apply_actions 额外注入 collected_instructions 共享引用 + 当前用户消息（用于意图范围校验）。
         """
         registry = ToolRegistry()
@@ -441,6 +567,13 @@ class ChatAgentRunner:
             args_model=MODEL_FOR_TOOL.get(InferSchemaTool.NAME),
         )
 
+        # read_config_file：读取项目内文本文件原文（只读），诊断配置解析失败/核对文件真实内容
+        registry.register_tool(
+            ReadConfigFileTool(project_path=self.project_path),
+            read_only=True,
+            args_model=MODEL_FOR_TOOL.get(ReadConfigFileTool.NAME),
+        )
+
         # 关键：apply_actions 注入 collected_instructions 共享引用 + 两阶段确认参数
         # 同时传入 user_message，用于工具内部做意图范围校验，防止 LLM 越界修改。
         # job_id 用于生成 apply_id（"{job_id}#{seq}"），每次 apply 创建独立确认控制器
@@ -453,6 +586,7 @@ class ChatAgentRunner:
                 apply_callbacks=self.apply_callbacks,
                 job_id=self.job_id,
                 user_message=user_message,
+                canvas_enabled=self.canvas_enabled,
             ),
             args_model=MODEL_FOR_TOOL.get(ApplyActionsTool.NAME),
         )
@@ -463,12 +597,15 @@ class ChatAgentRunner:
             args_model=MODEL_FOR_TOOL.get(ValidateTableTool.NAME),
         )
 
-        # read_canvas：注入前端请求体携带的画布节点快照，供 LLM 查询画布真实状态
-        registry.register_tool(
-            ReadCanvasTool(canvas_nodes=self.canvas_nodes),
-            read_only=True,
-            args_model=MODEL_FOR_TOOL.get(ReadCanvasTool.NAME),
-        )
+        # read_canvas：注入前端请求体携带的画布节点快照，供 LLM 查询画布真实状态。
+        # 无画布环境（canvas_enabled=False，CLI）不注册——注册了也只能永远读到空画布，
+        # 反而诱导 LLM 产生"画布存在且为空"的错觉并提议画布动作
+        if self.canvas_enabled:
+            registry.register_tool(
+                ReadCanvasTool(canvas_nodes=self.canvas_nodes),
+                read_only=True,
+                args_model=MODEL_FOR_TOOL.get(ReadCanvasTool.NAME),
+            )
 
         # ask_user：交互问答工具，注入 ask_callbacks 与 dry_run_enabled
         # ask_user 不写盘（标 read_only），与其他工具同轮调用时并发安全
@@ -493,6 +630,7 @@ class ChatAgentRunner:
         ApplyActionsTool.NAME: "修改配置",
         ValidateTableTool.NAME: "校验数据",
         ReadCanvasTool.NAME: "读取画布",
+        ReadConfigFileTool.NAME: "读取配置文件",
         AskUserTool.NAME: "询问用户",
     }
 
@@ -538,7 +676,8 @@ class ChatAgentRunner:
                             action_types = [a.get("actionType", "") for a in actions if isinstance(a, dict)]
                             if action_types and all(t in _READ_ONLY_LABEL_TYPES for t in action_types):
                                 # 进一步细分：全是 ADD_TO_CANVAS 显示"显示到画布"，全是 VALIDATE 显示"校验数据"
-                                if all(t == "ADD_TO_CANVAS" for t in action_types):
+                                # （无画布环境 canvas 动作已被拦截，不会出现该分支的画布标签）
+                                if self.canvas_enabled and all(t == "ADD_TO_CANVAS" for t in action_types):
                                     step["label"] = "显示到画布"
                                 elif all(t == "VALIDATE_PROJECT" for t in action_types):
                                     step["label"] = "校验数据"

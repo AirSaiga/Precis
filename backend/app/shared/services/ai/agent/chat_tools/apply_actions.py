@@ -43,12 +43,12 @@ from typing import Any
 
 from app.shared.core.project.loader import load_project
 from app.shared.services.llm.actions.action_processor import process_actions
+from app.shared.services.llm.actions.action_summaries import extract_action_target, summarize_action
 from app.shared.services.llm.actions.action_validator import ActionValidator
 from app.shared.services.llm.actions.diff_compute import compute_action_diff
 from app.shared.services.llm.actions.registry import (
-    ACTION_COUNT,
-    ACTION_ENUM,
     READ_ONLY_ACTION_TYPES,
+    filter_action_types,
 )
 from app.shared.services.llm.actions.validation_types import format_validation_result
 from app.shared.services.llm.validate_executor import execute_validate_project
@@ -219,6 +219,7 @@ class ApplyActionsTool:
         apply_callbacks: ApplyCallbacks | None = None,
         job_id: str = "",
         user_message: str = "",
+        canvas_enabled: bool = True,
     ):
         """
         @methoddesc 初始化工具
@@ -232,6 +233,8 @@ class ApplyActionsTool:
             apply_callbacks: 事件回调集合（两阶段模式用）
             job_id: 当前任务 ID，用于生成 apply_id（"{job_id}#{seq}"）键控每次 apply 的独立确认
             user_message: 用户当前输入的原始消息，用于意图范围校验（防止 LLM 添加无关修改）
+            canvas_enabled: 客户端是否有画布。False（CLI 等无画布终端）时工具定义
+                剔除 canvas 类动作与画布话术，canvas 动作在预验证被拦截
         """
         self.project_path = project_path
         self._collected_instructions = collected_instructions
@@ -241,41 +244,17 @@ class ApplyActionsTool:
         # user_message 保留注入（向后兼容 chat_agent_runner 调用），但 P2-1 后意图校验
         # 改用 LLM 自填的 intent_scope 做一致性比对，不再依赖 user_message 做关键词匹配。
         self._user_message = user_message or ""
+        self._canvas_enabled = canvas_enabled
         # 每次 _run_two_phase 自增，保证同一 job 内多次 apply 各有独立 apply_id
         self._apply_counter = 0
 
     def _extract_action_target(self, action: dict[str, Any]) -> tuple[str | None, str | None]:
-        """从动作中提取目标表名和列名（如可提取）。"""
-        action_type = action.get("actionType", "")
-        spec: dict[str, Any] = {}
-        table: str | None = None
-        column: str | None = None
+        """从动作中提取目标表名和列名（如可提取）。
 
-        if action_type in (
-            "ADD_CONSTRAINT_NODE",
-            "UPDATE_CONSTRAINT_NODE",
-            "DELETE_CONSTRAINT_NODE",
-        ):
-            spec = action.get("constraintSpec", {}) or {}
-            table = spec.get("tableName") or spec.get("targetNodeId")
-            column = spec.get("targetColumn") or spec.get("targetColumnId")
-        elif action_type in ("ADD_SCHEMA", "UPDATE_SCHEMA", "DELETE_SCHEMA"):
-            spec = action.get("schemaSpec", {}) or {}
-            table = spec.get("name") or spec.get("schemaId") or spec.get("id")
-        elif action_type in ("ADD_TRANSFORM", "UPDATE_TRANSFORM", "DELETE_TRANSFORM"):
-            spec = action.get("transformSpec", {}) or {}
-            table = spec.get("inputFromNode") or spec.get("inputNodeId")
-            column = spec.get("inputColumn")
-        elif action_type in ("ADD_REGEX", "UPDATE_REGEX", "DELETE_REGEX"):
-            # Regex 节点通常不直接绑定到具体表/列，不做强校验
-            return None, None
-
-        # 清洗字符串
-        if table and isinstance(table, str):
-            table = table.strip()
-        if column and isinstance(column, str):
-            column = column.strip()
-        return table, column
+        实现已迁移至共享模块 action_summaries.extract_action_target
+        （与动作语义摘要共用同一份提取逻辑），此处保留薄委托。
+        """
+        return extract_action_target(action)
 
     def _check_actions_match_intent(
         self, actions: list[dict[str, Any]], intent_scope: dict[str, Any] | None
@@ -379,20 +358,42 @@ class ApplyActionsTool:
         return True, ""
 
     def get_definition(self) -> dict[str, Any]:
-        """返回 OpenAI tool 定义。"""
+        """返回 OpenAI tool 定义。
+
+        无画布环境（canvas_enabled=False）时剔除 canvas 类动作与画布话术：
+        enum 经 filter_action_types 按注册表 category 过滤（单一事实源，
+        不硬编码动作名清单），描述中不出现"画布"/ADD_TO_CANVAS/canvasSpec 引导。
+        """
+        # canvas 类动作（category="canvas"）只在有画布客户端提供
+        enum_values = filter_action_types(exclude_categories=None if self._canvas_enabled else {"canvas"})
+        action_count = len(enum_values)
+        # 顶层 description 的三处画布话术（调用时机、落盘同步说明、ADD_TO_CANVAS 引导）按环境取舍
+        canvas_resource_clause = "、把已有资源放到画布上" if self._canvas_enabled else ""
+        canvas_sync_clause = "并同步到画布。" if self._canvas_enabled else ""
+        canvas_note = (
+            "注意：项目配置文件里存在的表/约束/正则，不一定已经在画布上显示；"
+            "当用户说'拖到画布'、'放到画布'、'显示在画布上'时，"
+            "必须显式使用 actionType=ADD_TO_CANVAS（不是 ADD_SCHEMA/ADD_REGEX 等）。"
+            if self._canvas_enabled
+            else ""
+        )
+        # actions 参数描述里的 canvasSpec 映射行按环境取舍
+        canvas_spec_line = (
+            "- 显示到画布（actionType=ADD_TO_CANVAS）→ canvasSpec（把已存在的配置显示到画布，不写盘）\n"
+            if self._canvas_enabled
+            else ""
+        )
         return {
             "type": "function",
             "function": {
                 "name": self.NAME,
                 "description": (
                     "执行配置修改动作。当用户明确要求添加/修改/删除约束、表结构、"
-                    "正则节点、转换节点、把已有资源放到画布上或修改项目设置时调用此工具。"
+                    f"正则节点、转换节点{canvas_resource_clause}或修改项目设置时调用此工具。"
                     "actions 数组中的每个元素必须包含 actionType 和对应的 spec 字段。"
-                    "执行成功后，改动会立即写入项目文件并同步到画布。"
+                    f"执行成功后，改动会立即写入项目文件{canvas_sync_clause}"
                     "如果是纯查询类问题（如'有哪些表'），不要调用此工具，改用 read_project。"
-                    "注意：项目配置文件里存在的表/约束/正则，不一定已经在画布上显示；"
-                    "当用户说'拖到画布'、'放到画布'、'显示在画布上'时，"
-                    "必须显式使用 actionType=ADD_TO_CANVAS（不是 ADD_SCHEMA/ADD_REGEX 等）。"
+                    f"{canvas_note}"
                     "重要约束：actions 列表只能包含用户当前明确请求的修改，"
                     "禁止主动添加、修改或删除无关的约束、表、正则节点或转换节点。"
                 ),
@@ -409,7 +410,7 @@ class ApplyActionsTool:
                                 "- 转换动作（actionType=ADD/UPDATE/DELETE_TRANSFORM）→ transformSpec\n"
                                 "- 设置动作（actionType=UPDATE_SETTINGS）→ settingsSpec\n"
                                 "- 校验动作（actionType=VALIDATE_PROJECT）→ constraintSpec（含 tableName）\n"
-                                "- 显示到画布（actionType=ADD_TO_CANVAS）→ canvasSpec（把已存在的配置显示到画布，不写盘）\n"
+                                f"{canvas_spec_line}"
                                 "注意字段名是 constraintSpec/schemaSpec 等（不是 spec）。"
                             ),
                             "items": {
@@ -417,9 +418,10 @@ class ApplyActionsTool:
                                 "properties": {
                                     "actionType": {
                                         "type": "string",
-                                        # enum 从注册表派生，新增动作自动出现，消灭"漏条目"bug
-                                        "enum": list(ACTION_ENUM),
-                                        "description": f"动作类型（{ACTION_COUNT} 种）。",
+                                        # enum 从注册表派生，新增动作自动出现，消灭"漏条目"bug；
+                                        # 无画布环境按 category 剔除 canvas 类动作
+                                        "enum": enum_values,
+                                        "description": f"动作类型（{action_count} 种）。",
                                     },
                                 },
                                 "required": ["actionType"],
@@ -495,7 +497,8 @@ class ApplyActionsTool:
         # 预验证：在 dry-run / 写盘前拦截非法动作（表/列不存在、约束类型不支持、参数缺失等）。
         # 采用全有或全无语义——任一动作有 error 即整批拒绝，把含 "did you mean" 建议的错误清单
         # 回灌给 LLM 以便自我修正。warnings 不阻止执行（对齐 ValidationResult 设计）。
-        validator = ActionValidator(self.project_path)
+        # 无画布环境同时在此拦截 canvas 类动作（ActionValidator canvas_enabled 纵深防御）。
+        validator = ActionValidator(self.project_path, canvas_enabled=self._canvas_enabled)
         validation = validator.validate(actions)
         if validation.has_errors:
             formatted = format_validation_result(validation)
@@ -624,9 +627,12 @@ class ApplyActionsTool:
             if not diff_result.success:
                 return {"success": False, "error": diff_result.error or "dry-run 失败", "results": []}
 
-            # 构建 pending payload，发给前端展示（含 apply_id 供前端回传）
+            # 构建 pending payload，发给前端展示（含 apply_id 供前端回传）。
+            # actions 为动作级语义摘要（一行人类可读），CLI 据此做"摘要优先"确认，
+            # diff 正文按需查看；GUI 忽略未知字段，加字段向后兼容。
             pending_payload: dict[str, Any] = {
                 "apply_id": apply_id,
+                "actions": [summarize_action(a) for a in actions],
                 "files": [
                     {
                         "path": f.path,

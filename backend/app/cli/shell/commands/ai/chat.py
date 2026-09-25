@@ -80,7 +80,7 @@ class AIChatCommand(Command):
 
     @property
     def usage(self) -> str:
-        return "ai chat [--no-agent-mode]"
+        return "ai chat [--no-agent-mode] [--no-pretty]"
 
     def execute(self, args: list[str], context: ProjectContext) -> CommandResult:
         """执行 AI 交互式对话命令。
@@ -88,7 +88,7 @@ class AIChatCommand(Command):
         检查项目和 AI 配置，解析命令行参数，然后进入交互式输入循环。
 
         Args:
-            args: 命令参数列表，可能包含 --no-agent-mode
+            args: 命令参数列表，可能包含 --no-agent-mode / --no-pretty
             context: 命令上下文，必须包含已打开的项目
 
         Returns:
@@ -104,10 +104,14 @@ class AIChatCommand(Command):
 
         # 解析命令行参数（--stream/--no-stream 已随 execute_ai_chat 的死参数一并移除）
         agent_mode = True  # 默认启用 Agent 深度模式
+        pretty: bool | None = None  # markdown 流式渲染：None 自动（TTY 检测）
         filtered_args = []
         for arg in args:
             if arg == "--no-agent-mode":
                 agent_mode = False
+            elif arg == "--no-pretty":
+                # 关闭流式 markdown 渲染，回退原文直出（与非 TTY 管道路径一致）
+                pretty = False
             else:
                 filtered_args.append(arg)
 
@@ -209,6 +213,7 @@ class AIChatCommand(Command):
                     interactive=True,
                     history=chat_history,
                     agent_mode=agent_mode,
+                    pretty=pretty,
                 )
 
                 if result.success and result.data:
@@ -259,6 +264,7 @@ AI 助手帮助
 
 启动选项:
     --no-agent-mode  - 关闭 Agent 深度模式（降级为旧 JSON actions 路径）
+    --no-pretty      - 关闭流式 markdown 渲染（标题/粗体/表格重排），回退原文直出
 
 你可以用自然语言描述你的需求，例如:
   - "在 users 表的 email 列上添加非空约束"

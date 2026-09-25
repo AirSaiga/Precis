@@ -73,35 +73,60 @@ class SpinnerController:
     在 AI 处理请求期间，在终端显示一个旋转的动画字符，
     提示用户程序正在工作中。支持在需要用户交互时暂停动画。
 
+    start/stop/pause/resume 均幂等：一次对话中存在多个"等待窗口"
+    （LLM 响应、工具执行），流式渲染器会在每个窗口重启动画、内容到达时停掉，
+    重复调用无副作用（重复 stop 不再输出清行序列，避免误抹行首的流式文本）。
+
+    pause 带停机应答握手：置位暂停后等待 spinner 线程回 ack 再打印清行序列，
+    建立"清行之后不会再有帧"的硬时序——否则线程可能恰在清行后吐出一帧
+    ``\rAI> ⠋``，覆盖随后打印文本的行首（确认框动作清单首条的 ``  1. `` 前缀被抹）。
+
     Attributes:
         _stop_event: 线程事件，用于通知 spinner 线程停止
         _pause_event: 线程事件，用于通知 spinner 线程暂停
+        _paused_ack: 线程事件，spinner 线程观察到暂停置位后应答，pause() 收到
+            应答后才打印清行序列
         _thread: spinner 后台线程实例
         _chars: 旋转动画使用的 Unicode 字符列表
+        _running: 动画是否处于运行状态（暂停中仍算运行）
     """
 
     def __init__(self) -> None:
         self._stop_event = threading.Event()
         self._pause_event = threading.Event()
+        self._paused_ack = threading.Event()
         self._thread: threading.Thread | None = None
         # Unicode Braille 点字图案，用于终端旋转动画
         self._chars = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+        self._running = False
+
+    @property
+    def is_running(self) -> bool:
+        """spinner 动画是否处于运行状态（暂停中仍算运行）。"""
+        return self._running
 
     def start(self) -> None:
-        """启动 spinner 动画。
+        """启动 spinner 动画（幂等：已在运行时直接返回）。
 
         创建并启动一个后台守护线程，循环显示旋转字符。
         """
+        if self._running:
+            return
+        self._running = True
         self._stop_event.clear()
         self._pause_event.clear()
+        self._paused_ack.clear()
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
 
     def stop(self) -> None:
-        """停止 spinner 动画。
+        """停止 spinner 动画（幂等：未运行时不输出清行序列）。
 
         设置停止标志，等待线程结束，并清除终端上的 spinner 残留。
         """
+        if not self._running:
+            return
+        self._running = False
         self._stop_event.set()
         self._pause_event.set()  # 确保线程能退出（如果正处于暂停状态）
         if self._thread:
@@ -110,13 +135,25 @@ class SpinnerController:
         print(f"\r{' ' * 20}\r", end="", flush=True)
 
     def pause(self) -> None:
-        """暂停 spinner（用于显示确认提示等需要用户输入的场景）。"""
+        """暂停 spinner（用于显示确认提示等需要用户输入的场景；未运行时 no-op）。
+
+        停机应答握手：置位暂停后等 spinner 线程回 ack 再打印清行序列——不等应答
+        就清行的话，线程可能恰在清行后吐出一帧覆盖后续文本的行首。线程异常未能
+        及时应答时按超时兜底继续清行，不阻塞交互。
+        """
+        if not self._running:
+            return
+        self._paused_ack.clear()
         self._pause_event.set()
+        self._paused_ack.wait(timeout=0.5)
         # 清除当前 spinner 行，避免与后续输出重叠
         print(f"\r{' ' * 20}\r", end="", flush=True)
 
     def resume(self) -> None:
-        """恢复 spinner 动画。"""
+        """恢复 spinner 动画（未运行时 no-op；与 pause 对称地清空应答事件）。"""
+        if not self._running:
+            return
+        self._paused_ack.clear()
         self._pause_event.clear()
 
     def _run(self) -> None:
@@ -128,8 +165,17 @@ class SpinnerController:
         while not self._stop_event.is_set():
             if not self._pause_event.is_set():
                 char = self._chars[i % len(self._chars)]
-                print(f"\r{Formatter.colorize('AI> ', Colors.CYAN)}{char}", end="", flush=True)
+                try:
+                    print(f"\r{Formatter.colorize('AI> ', Colors.CYAN)}{char}", end="", flush=True)
+                except UnicodeEncodeError:
+                    # GBK 等本地编码管道下 Braille 字符不可编码，降级 ASCII 旋转符
+                    # （否则线程静默死亡，等待窗口又退化为"无反馈"）
+                    print(f"\rAI> {'|/-\\'[i % 4]}", end="", flush=True)
                 i += 1
+            else:
+                # 观察到暂停置位：应答 pause() 的停机握手，保证其后打印的
+                # 清行序列不会被本线程的后续帧覆盖（resume 前不会再吐帧）
+                self._paused_ack.set()
             time.sleep(0.1)
 
 
@@ -235,37 +281,3 @@ def _collect_all_config_files(project_path: str) -> dict[str, str]:
                 logger.error("读取配置文件失败", exc_info=True)
 
     return files_content
-
-
-def _collect_declared_new_files(result: object, project_path: str) -> list[str]:
-    """4.25: 从 AI 执行结果/动作声明中提取本次新建的配置文件路径。
-
-    扫描约束/正则/转换动作声明的 ID，按 V2 目录约定推导文件路径（文件此时
-    可能尚未写盘——调用方仅用于登记缓存键，路径不存在即为"新建"）。
-    """
-    project = Path(project_path)
-    candidates: list[str] = []
-    actions: list[dict] = []
-    # 兼容 ChatAgentResult 形状（.actions）与裸 dict（{"actions": [...]}）
-    if isinstance(result, dict):
-        actions = result.get("actions", []) or []
-    else:
-        actions = getattr(result, "actions", None) or []
-
-    for action in actions:
-        if not isinstance(action, dict):
-            continue
-        action_type = str(action.get("actionType", ""))
-        spec = action.get("constraintSpec") or action.get("regexSpec") or action.get("transformSpec") or {}
-        if not isinstance(spec, dict):
-            continue
-        raw_id = spec.get("constraintId") or spec.get("regexId") or spec.get("transformId") or spec.get("id")
-        if not raw_id or not isinstance(raw_id, str):
-            continue
-        if action_type.startswith("ADD_CONSTRAINT"):
-            candidates.append(str(project / "constraints" / f"{raw_id}.constraint.yaml"))
-        elif action_type.startswith("ADD_REGEX"):
-            candidates.append(str(project / "regex" / f"{raw_id}.regex.yaml"))
-        elif action_type.startswith("ADD_TRANSFORM"):
-            candidates.append(str(project / "transforms" / f"{raw_id}.transform.yaml"))
-    return candidates

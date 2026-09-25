@@ -28,6 +28,7 @@ from unittest.mock import patch
 import pytest
 import yaml
 
+from app.shared.core.project.schema.types import TableSchemaFile
 from app.shared.services.llm.actions.action_handlers import update_yaml_config
 from app.shared.services.llm.actions.regex_handlers import (
     _sanitize_resource_id as regex_sanitize,
@@ -969,6 +970,303 @@ class TestProcessSchemaAction:
         assert result["success"] is False
         assert "manifest" in result["message"]
         assert not os.path.isfile(schema_file)
+
+
+# ============================================================
+# schema_handlers.py — source 写盘前规范化
+# ============================================================
+
+
+def _write_existing_schema(
+    tmp_path,
+    schema_id: str,
+    *,
+    columns: list[dict] | None = None,
+    source: dict | None = None,
+) -> str:
+    """工厂：在工作区写入一个已存在的 schema YAML 文件，返回文件路径。"""
+    schemas_dir = tmp_path / "schemas"
+    schemas_dir.mkdir(exist_ok=True)
+    schema_file = schemas_dir / f"{schema_id}.schema.yaml"
+    data: dict = {
+        "version": 2,
+        "id": schema_id,
+        "name": schema_id,
+        "columns": columns if columns is not None else [{"id": "c1", "name": "email", "type": "string"}],
+    }
+    if source is not None:
+        data["source"] = source
+    with open(schema_file, "w", encoding="utf-8") as f:
+        yaml.safe_dump(data, f)
+    return str(schema_file)
+
+
+def _read_schema_yaml(schema_file: str) -> dict:
+    with open(schema_file, encoding="utf-8") as f:
+        return yaml.safe_load(f) or {}
+
+
+class TestSchemaSourceNormalization:
+    """ADD/UPDATE_SCHEMA 的 source 规范化。
+
+    红线守卫：AI 写出的 schemas/*.schema.yaml 必须能被严格解析器
+    TableSchemaFile 原样读回——产品不能写出自己解析不了的 V2 YAML。
+    """
+
+    def test_add_schema_source_without_mode_defaults_to_relative_file(self, tmp_path):
+        """ADD 传 source: {path}（无 mode）→ 落盘补 mode: relative_file 且严格解析通过。"""
+        result = process_schema_action(
+            {
+                "actionType": "ADD_SCHEMA",
+                "schemaSpec": {
+                    "name": "users",
+                    "schemaId": "users",
+                    "columns": [{"name": "email", "type": "string"}],
+                    "source": {"path": "data/users.csv"},
+                },
+            },
+            str(tmp_path),
+        )
+        assert result["success"] is True
+
+        data = _read_schema_yaml(str(tmp_path / "schemas" / "users.schema.yaml"))
+        assert data["source"]["mode"] == "relative_file"
+        assert data["source"]["path"] == "data/users.csv"
+        TableSchemaFile.model_validate(data)
+
+    def test_add_schema_moves_header_row_out_of_options(self, tmp_path):
+        """ADD 传 options: {header_row: 1} → header_row 上移 source 顶层，options 清空后整体移除。"""
+        result = process_schema_action(
+            {
+                "actionType": "ADD_SCHEMA",
+                "schemaSpec": {
+                    "name": "users",
+                    "schemaId": "users",
+                    "columns": [{"name": "email", "type": "string"}],
+                    "source": {"path": "data/users.xlsx", "options": {"header_row": 1}},
+                },
+            },
+            str(tmp_path),
+        )
+        assert result["success"] is True
+
+        data = _read_schema_yaml(str(tmp_path / "schemas" / "users.schema.yaml"))
+        assert data["source"]["header_row"] == 1
+        assert "options" not in data["source"]
+        TableSchemaFile.model_validate(data)
+
+    def test_add_schema_keeps_other_options_keys(self, tmp_path):
+        """options 除 header_row 外的键保留，仅 header_row 被上移。"""
+        result = process_schema_action(
+            {
+                "actionType": "ADD_SCHEMA",
+                "schemaSpec": {
+                    "name": "users",
+                    "schemaId": "users",
+                    "columns": [{"name": "id", "type": "string"}],
+                    "source": {"path": "data/users.json", "options": {"format": "array", "header_row": 0}},
+                },
+            },
+            str(tmp_path),
+        )
+        assert result["success"] is True
+
+        data = _read_schema_yaml(str(tmp_path / "schemas" / "users.schema.yaml"))
+        assert data["source"]["header_row"] == 0
+        assert data["source"]["options"] == {"format": "array"}
+        TableSchemaFile.model_validate(data)
+
+    def test_add_schema_top_level_header_row_wins_over_options(self, tmp_path):
+        """顶层 header_row 与 options.header_row 并存时以顶层为准。"""
+        result = process_schema_action(
+            {
+                "actionType": "ADD_SCHEMA",
+                "schemaSpec": {
+                    "name": "users",
+                    "schemaId": "users",
+                    "columns": [{"name": "email", "type": "string"}],
+                    "source": {
+                        "mode": "relative_file",
+                        "path": "data/users.xlsx",
+                        "header_row": 2,
+                        "options": {"header_row": 5},
+                    },
+                },
+            },
+            str(tmp_path),
+        )
+        assert result["success"] is True
+
+        data = _read_schema_yaml(str(tmp_path / "schemas" / "users.schema.yaml"))
+        assert data["source"]["header_row"] == 2
+        assert "options" not in data["source"]
+        TableSchemaFile.model_validate(data)
+
+    def test_add_schema_invalid_mode_fails_without_writing(self, tmp_path):
+        """ADD 传非法 mode → 动作失败携带可读原因，且不写出坏文件。"""
+        result = process_schema_action(
+            {
+                "actionType": "ADD_SCHEMA",
+                "schemaSpec": {
+                    "name": "users",
+                    "schemaId": "users",
+                    "columns": [{"name": "email", "type": "string"}],
+                    "source": {"mode": "ftp", "path": "data/users.csv"},
+                },
+            },
+            str(tmp_path),
+        )
+        assert result["success"] is False
+        assert "source 配置非法" in result["message"]
+        assert "mode" in result["message"]
+        assert not (tmp_path / "schemas" / "users.schema.yaml").exists()
+
+    def test_add_schema_empty_source_fails_with_readable_reason(self, tmp_path):
+        """ADD 传 source: {} → 失败并回灌缺什么（不再静默丢弃或落盘非法配置）。"""
+        result = process_schema_action(
+            {
+                "actionType": "ADD_SCHEMA",
+                "schemaSpec": {"name": "users", "schemaId": "users", "source": {}},
+            },
+            str(tmp_path),
+        )
+        assert result["success"] is False
+        assert "source 配置非法" in result["message"]
+        assert not (tmp_path / "schemas" / "users.schema.yaml").exists()
+
+    def test_add_schema_non_dict_source_fails(self, tmp_path):
+        """ADD 传字符串 source → 失败（原实现会原样透传写出非法 source 键）。"""
+        result = process_schema_action(
+            {
+                "actionType": "ADD_SCHEMA",
+                "schemaSpec": {
+                    "name": "users",
+                    "schemaId": "users",
+                    "columns": [{"name": "email", "type": "string"}],
+                    "source": "data/users.csv",
+                },
+            },
+            str(tmp_path),
+        )
+        assert result["success"] is False
+        assert "source 必须是对象" in result["message"]
+        assert not (tmp_path / "schemas" / "users.schema.yaml").exists()
+
+    def test_update_schema_invalid_source_keeps_existing_file(self, tmp_path):
+        """UPDATE 传非法 source → 动作失败且已有文件原样保留。"""
+        schema_file = _write_existing_schema(
+            tmp_path,
+            "users",
+            source={"mode": "relative_file", "path": "data/old.csv"},
+        )
+        before = _read_schema_yaml(schema_file)
+
+        result = process_schema_action(
+            {
+                "actionType": "UPDATE_SCHEMA",
+                "schemaSpec": {"schemaId": "users", "source": {"mode": "cloud", "path": "data/new.csv"}},
+            },
+            str(tmp_path),
+        )
+        assert result["success"] is False
+        assert "source 配置非法" in result["message"]
+        assert _read_schema_yaml(schema_file) == before
+
+    def test_update_schema_empty_source_fails_without_touching_file(self, tmp_path):
+        """UPDATE 传 source: {} → 失败（原实现会写出空 source，毁掉可解析的文件）。"""
+        schema_file = _write_existing_schema(tmp_path, "users")
+        before = _read_schema_yaml(schema_file)
+
+        result = process_schema_action(
+            {
+                "actionType": "UPDATE_SCHEMA",
+                "schemaSpec": {"schemaId": "users", "source": {}},
+            },
+            str(tmp_path),
+        )
+        assert result["success"] is False
+        assert "source 配置非法" in result["message"]
+        assert _read_schema_yaml(schema_file) == before
+
+    def test_update_schema_without_source_preserves_existing_source(self, tmp_path):
+        """UPDATE 不传 source → 已有 source 原样保留（含显式 absolute_file，不注入默认值）。"""
+        schema_file = _write_existing_schema(
+            tmp_path,
+            "users",
+            source={"mode": "absolute_file", "path": "D:/shared/users.csv"},
+        )
+
+        result = process_schema_action(
+            {
+                "actionType": "UPDATE_SCHEMA",
+                "schemaSpec": {"schemaId": "users", "columns": [{"name": "email", "type": "integer"}]},
+            },
+            str(tmp_path),
+        )
+        assert result["success"] is True
+
+        data = _read_schema_yaml(schema_file)
+        assert data["source"] == {"mode": "absolute_file", "path": "D:/shared/users.csv"}
+
+    def test_update_schema_source_normalized_on_replacement(self, tmp_path):
+        """UPDATE 显式传 source（无 mode + header_row 错放 options）→ 替换后规范化且严格解析通过。"""
+        schema_file = _write_existing_schema(tmp_path, "users")
+
+        result = process_schema_action(
+            {
+                "actionType": "UPDATE_SCHEMA",
+                "schemaSpec": {
+                    "schemaId": "users",
+                    "source": {"path": "data/orders.csv", "options": {"header_row": 1}},
+                },
+            },
+            str(tmp_path),
+        )
+        assert result["success"] is True
+
+        data = _read_schema_yaml(schema_file)
+        assert data["source"] == {"mode": "relative_file", "path": "data/orders.csv", "header_row": 1}
+        TableSchemaFile.model_validate(data)
+
+    def test_update_schema_repairs_broken_source_missing_mode_end_to_end(self, tmp_path):
+        """端到端修复回路（动作级，不起真 LLM）：坏 schema → UPDATE_SCHEMA 传回原 source → 严格解析通过。
+
+        场景：历史 AI 写盘缺陷产物（source 缺 mode）被 TableSchemaFile 拒绝、
+        校验中止。agent 的修复动作只需把 read_config_file 读到的原 source 原样
+        传回（哪怕缺 mode）——写盘前规范化自动补 relative_file，落盘即修复。
+        """
+        from pydantic import ValidationError
+
+        from app.shared.services.ai.utils import get_project_overview
+
+        # 1) 构造坏 schema：YAML 合法但缺 source.mode
+        schema_file = _write_existing_schema(tmp_path, "users", source={"path": "data/users.csv"})
+        broken_data = _read_schema_yaml(schema_file)
+        with pytest.raises(ValidationError):
+            TableSchemaFile.model_validate(broken_data)
+        overview_before = get_project_overview(str(tmp_path))
+        assert [e["path"] for e in overview_before["parse_errors"]] == ["schemas/users.schema.yaml"]
+
+        # 2) 模拟 agent 修复动作：UPDATE_SCHEMA 把原 source 原样传回（缺 mode 也照传）
+        result = process_schema_action(
+            {
+                "actionType": "UPDATE_SCHEMA",
+                "schemaSpec": {
+                    "schemaId": "users",
+                    "source": dict(broken_data["source"]),
+                },
+            },
+            str(tmp_path),
+        )
+        assert result["success"] is True
+
+        # 3) 落盘后严格解析通过、概览零 parse_errors——修复回路闭环
+        repaired = _read_schema_yaml(schema_file)
+        assert repaired["source"]["mode"] == "relative_file"
+        assert repaired["source"]["path"] == "data/users.csv"
+        TableSchemaFile.model_validate(repaired)
+        overview_after = get_project_overview(str(tmp_path))
+        assert overview_after["parse_errors"] == []
 
 
 # ============================================================
