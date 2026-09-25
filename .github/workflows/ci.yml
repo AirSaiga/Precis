@@ -88,7 +88,18 @@ jobs:
       - name: Audit dependencies
         run: |
           pip install pip-audit
-          pip-audit --desc --format=markdown
+          # pip-audit 依赖 pypi.org JSON API 解析依赖元数据，PyPI 偶发 5xx 瞬断
+          # （2026-09-25 503 实证）会以 ServiceError 失败；重试 3 次抗瞬断。
+          # 审计真发现漏洞时重试只会浪费几秒，退出码仍为 1，不影响语义。
+          for i in 1 2 3; do
+            if pip-audit --desc --format=markdown; then
+              exit 0
+            fi
+            echo "::warning::pip-audit attempt $i failed; retrying in 30s"
+            sleep 30
+          done
+          echo "::error::pip-audit failed after 3 attempts"
+          exit 1
 
       - name: Run unit + integration tests with coverage
         run: python -m pytest --cov=app --cov-fail-under=67 --cov-report=html --cov-report=term-missing
