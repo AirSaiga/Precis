@@ -108,6 +108,55 @@ class TestAskUserGate:
         )
         assert response == {"answer": "orders"}
 
+    def test_choice_dict_options_render_and_answer_value(self, monkeypatch, capsys):
+        """schema 声明的 {label, value, description} 形态：展示人类可读，回灌 value 而非 dict repr。"""
+        monkeypatch.setattr("builtins.input", lambda *a, **k: "1")
+        _, ask_cbs = build_agent_interaction(None)
+        response = _run_gate_scenario(
+            ask_cbs.on_user_input_requested,
+            {
+                "ask_id": "job1#ask#4",
+                "question_type": "choice",
+                "prompt": "初始化意图？",
+                "options": [
+                    {
+                        "label": "重置项目设置为默认值",
+                        "value": "reset_settings",
+                        "description": "把校验/文件处理/脚本安全等设置恢复为默认值",
+                    },
+                    {"label": "创建一张新表", "value": "create_schema"},
+                ],
+            },
+            InteractionController(request_id="job1#ask#4"),
+            "job1#ask#4",
+        )
+        assert response == {"answer": "reset_settings"}
+        out = capsys.readouterr().out
+        assert "1. 重置项目设置为默认值 — 把校验/文件处理/脚本安全等设置恢复为默认值" in out
+        assert "2. 创建一张新表" in out
+        assert "{'label'" not in out
+
+    def test_choice_dict_options_multiple(self, monkeypatch):
+        """多选 dict 形态：逗号分隔编号回灌各选项 value。"""
+        monkeypatch.setattr("builtins.input", lambda *a, **k: "2,1")
+        _, ask_cbs = build_agent_interaction(None)
+        response = _run_gate_scenario(
+            ask_cbs.on_user_input_requested,
+            {
+                "ask_id": "job1#ask#5",
+                "question_type": "choice",
+                "prompt": "选择要启用的检查",
+                "multiple": True,
+                "options": [
+                    {"label": "非空", "value": "not_null"},
+                    {"label": "唯一", "value": "unique"},
+                ],
+            },
+            InteractionController(request_id="job1#ask#5"),
+            "job1#ask#5",
+        )
+        assert response == {"answer": ["unique", "not_null"]}
+
     def test_free_text(self, monkeypatch):
         monkeypatch.setattr("builtins.input", lambda *a, **k: "身份证号")
         _, ask_cbs = build_agent_interaction(None)

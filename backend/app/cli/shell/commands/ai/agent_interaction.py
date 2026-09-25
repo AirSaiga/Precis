@@ -157,9 +157,25 @@ def _print_ask_question(payload: dict[str, Any]) -> None:
     options = payload.get("options")
     if isinstance(options, list) and options:
         for idx, opt in enumerate(options, start=1):
-            print(f"  {idx}. {opt}")
+            _, text = _split_option(opt)
+            print(f"  {idx}. {text}")
     if payload.get("optional"):
         print(Formatter.info("  （直接回车跳过此问题）"))
+
+
+def _split_option(opt: Any) -> tuple[str, str]:
+    """解析单个选项为 (value, 展示文本)。
+
+    ask_user 工具 schema 声明 options 为 {label, value, description?} 对象；
+    纯字符串形态（历史/测试用例）兼容处理，value 即字符串本身。
+    """
+    if isinstance(opt, dict):
+        value = str(opt.get("value", opt.get("label", "")))
+        label = str(opt.get("label", value))
+        desc = str(opt.get("description") or "")
+        text = f"{label} — {desc}" if desc else label
+        return value, text
+    return str(opt), str(opt)
 
 
 def _read_ask_response(payload: dict[str, Any]) -> dict[str, Any]:
@@ -182,7 +198,8 @@ def _read_ask_response(payload: dict[str, Any]) -> dict[str, Any]:
             picked: list[str] = []
             for part in indexes:
                 if part.isdigit() and 1 <= int(part) <= len(options):
-                    picked.append(str(options[int(part) - 1]))
+                    # 按编号选中：回灌选项的 value 字段（与前端 AskUserCard 契约一致）
+                    picked.append(_split_option(options[int(part) - 1])[0])
                 else:
                     picked.append(part)
             if payload.get("multiple"):
