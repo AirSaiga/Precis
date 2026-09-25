@@ -39,7 +39,7 @@ from app.shared.core.project.manifest.reader import load_manifest
 from app.shared.core.project.manifest.writer import ensure_regex_ref, save_manifest
 from app.shared.core.project.regex.types import RegexNodeFile, RegexSourceRef
 from app.shared.core.project.regex.writer import save_regex_node
-from app.shared.services.llm.yaml_io import FileLock, atomic_write_yaml
+from app.shared.services.llm.yaml_io import FileLock, atomic_write_yaml, read_entity_id
 
 logger = logging.getLogger(__name__)
 
@@ -218,6 +218,9 @@ def _delete_regex(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
     if not regex_file:
         return {"success": False, "message": f"Regex 文件不存在: {regex_id}"}
 
+    # 删除前捕获文件真实 id（画布节点 id 是文件 id，删除后磁盘无据可查）
+    resolved_id = read_entity_id(regex_file, default=regex_id)
+
     try:
         regex_file.unlink()
     except OSError as e:
@@ -226,7 +229,7 @@ def _delete_regex(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
     _remove_manifest_regex_ref(workspace_path, regex_id)
 
     logger.info(f"[RegexHandler] 删除 Regex: {regex_id}")
-    return {"success": True, "message": regex_id}
+    return {"success": True, "message": regex_id, "resolved_id": resolved_id}
 
 
 def _find_regex_file(workspace_path: str, regex_id: str) -> Path | None:

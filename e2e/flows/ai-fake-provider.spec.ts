@@ -20,6 +20,7 @@ import * as os from 'os'
 import * as path from 'path'
 import { test, expect } from '../fixtures/base'
 import { BACKEND_URL, API_PREFIX } from '../config'
+import { openProjectOnCanvas } from '../fixtures/openProject'
 
 /**
  * AI 链路确定性 CI 守卫（fake provider）
@@ -29,13 +30,24 @@ import { BACKEND_URL, API_PREFIX } from '../config'
  * 本 spec 借它在无真实 LLM key 的 CI 里端到端守卫 AI 三大流程：
  * 1. agent 聊天写盘全链路：/ai/chat/stream（SSE）→ apply_pending 两阶段确认 →
  *    confirm → constraints/ 落盘 charset 约束（params.charset_mode == chinese_mixed）
+ *    → frontend_instruction 为 v2 变更集信封（entityId ≡ 磁盘文件 id，画布对账口径）
  * 2. 配置生成流：/ai/config/generate 返回含 Charset 约束的配置 JSON
  * 3. 配置迁移流：/ai/config/migrate/jobs 完成且结果含 users 表
+ * 4. GUI 保存 roundtrip 回归：AI 建约束 → 画布对账（节点 id == 磁盘实体 id）→
+ *    GUI 保存 → 重载 → 无重复节点
+ *
+ * UPDATE 路径说明：fake 剧本只产出 ADD（Charset 约束），无 UPDATE 动作可回放，
+ * 因此"update 信封 → 已存在节点原地刷新（refreshExisting）"的对账口径由单测覆盖：
+ * frontend/tests/services/canvasReconcile/refreshExisting.integration.test.ts
+ * （真实 v2Import 工厂验证磁盘新值落进节点 data、幽灵内嵌约束移除、撤销栈不入 AI 删除）。
  *
  * 与三个真实 Provider spec（ai-chat-agent / ai-config-generation / ai-config-migration）
  * 的关系：本 spec 不依赖真实 key，CI 常绿；三个真实 spec 仍然保留，有 key 的环境照常跑。
  * 后端未启动时沿用既有 skip 模式（healthCheck）。
  */
+
+/** v2 契约（docs/contracts/frontend-instructions-v2.md）信封六字段 */
+const ENVELOPE_KEYS = ['instructionId', 'actionType', 'op', 'kind', 'entityId', 'filePath'] as const
 
 const FAKE_PROVIDER_NAME = 'fake-e2e'
 const TERMINAL_EVENTS = new Set(['completed', 'error', 'cancelled'])
@@ -258,6 +270,27 @@ test.describe('AI Fake Provider（确定性 CI 守卫）', () => {
       const reply = completed.data.reply as string
       expect(reply).toContain('字符集')
 
+      // ---- v2 变更集信封（画布对账口径）----
+      // frontend_instruction 事件逐条携带六字段信封；entityId 恒等于磁盘约束文件名
+      // 推导的 id（画布节点 id 与之恒等——不再是随机 uuid）
+      const envelopes = events
+        .filter((e) => e.event === 'frontend_instruction')
+        .map((e) => e.data.instruction as Record<string, unknown>)
+      expect(envelopes.length).toBeGreaterThanOrEqual(1)
+      for (const env of envelopes) {
+        for (const key of ENVELOPE_KEYS) {
+          expect(env, `信封缺字段 ${key}`).toHaveProperty(key)
+        }
+        expect(env.op).toBe('add')
+        expect(env.kind).toBe('constraint')
+        expect(env.entityId).toBe(String(env.entityId))
+        expect(String(env.filePath)).toMatch(/^constraints\/.+\.constraint\.yaml$/)
+        // 确定性 instructionId："{op}:{kind}:{entityId}"
+        expect(env.instructionId).toBe(`${env.op}:${env.kind}:${env.entityId}`)
+      }
+      const charsetEnvelope = envelopes.find((e) => String(e.entityId).startsWith('charset_'))
+      expect(charsetEnvelope).toBeDefined()
+
       // 落盘断言：constraints/ 出现 Charset 约束且 charset_mode == chinese_mixed
       const fullResp = await projectFetch('/project/config/full', projectDir)
       expect(fullResp.ok).toBe(true)
@@ -271,11 +304,90 @@ test.describe('AI Fake Provider（确定性 CI 守卫）', () => {
       expect((charset!.refs as Record<string, string>).table_id).toBe('users')
       expect((charset!.params as Record<string, string>).charset_mode).toBe('chinese_mixed')
 
-      // 磁盘上确实出现约束文件
-      const constraintFiles = fs.readdirSync(path.join(projectDir, 'constraints'))
-      expect(constraintFiles.some((f) => f.endsWith('.constraint.yaml'))).toBe(true)
+      // 磁盘上确实出现约束文件，且文件名 id == 信封 entityId（恒等约束）
+      const constraintFiles = fs.readdirSync(path.join(projectDir, 'constraints')).filter((f) => f.endsWith('.constraint.yaml'))
+      expect(constraintFiles.length).toBeGreaterThanOrEqual(1)
+      const charsetFile = constraintFiles.find((f) => f.startsWith('charset_'))!
+      expect(`${'add'}:constraint:${charsetFile.replace('.constraint.yaml', '')}`).toBe(
+        charsetEnvelope!.instructionId
+      )
     },
     { timeout: 120_000 }
+  )
+
+  test(
+    'GUI 保存 roundtrip：AI 建约束 → 画布对账（节点 id == 磁盘实体 id）→ 保存 → 重载无重复节点',
+    async ({ page }) => {
+      test.setTimeout(180_000)
+      const projectDir = createFakeProject('roundtrip')
+
+      // 打开临时项目（localStorage 引导，启动自动恢复直达画布）
+      await openProjectOnCanvas(page, projectDir)
+      // 关闭可能自动弹出的配置自检抽屉（复用 mode-toggle.spec.ts 的模式）
+      for (let i = 0; i < 6; i++) {
+        const drawer = page.locator('.inspection-drawer')
+        if (await drawer.isVisible().catch(() => false)) {
+          await drawer.locator('button[title="关闭"]').first().click({ timeout: 5000 }).catch(() => {})
+          await expect(drawer).toBeHidden({ timeout: 5000 }).catch(() => {})
+        }
+        await page.waitForTimeout(500)
+      }
+
+      // 切到 Agent 模式（AIChatPanel 随 AgentLayout 挂载）
+      await page.locator('.mode-toggle-option', { hasText: 'Agent' }).first().click()
+      await expect(page.locator('.ai-chat-panel')).toBeVisible({ timeout: 15_000 })
+
+      // 发送触发 fake 剧本的消息（为 nickname 加中文混合字符集约束）
+      const chatInput = page.locator('.chat-input-area textarea')
+      await expect(chatInput).toBeVisible({ timeout: 10_000 })
+      await chatInput.fill('为 users 表 nickname 列加中文混合字符集约束')
+      await chatInput.press('Enter')
+
+      // 两阶段确认卡出现后：先点头部展开（卡体默认折叠，按钮在展开区），再点"确认修改"
+      const confirmCard = page.locator('.apply-confirm-card')
+      await expect(confirmCard).toBeVisible({ timeout: 60_000 })
+      await confirmCard.locator('.confirm-header').click()
+      const confirmBtn = confirmCard.locator('.btn-confirm')
+      await expect(confirmBtn).toBeVisible({ timeout: 10_000 })
+      await confirmBtn.click()
+
+      // 等后端落盘：constraints/ 出现 charset 约束文件，取文件名 id 作为确定性节点 id
+      const deadlineFile = Date.now() + 60_000
+      let constraintFileStem = ''
+      while (Date.now() < deadlineFile) {
+        const files = fs
+          .readdirSync(path.join(projectDir, 'constraints'))
+          .filter((f) => f.startsWith('charset_') && f.endsWith('.constraint.yaml'))
+        if (files.length > 0) {
+          constraintFileStem = files[0].replace('.constraint.yaml', '')
+          break
+        }
+        await page.waitForTimeout(500)
+      }
+      expect(constraintFileStem).not.toBe('')
+
+      // 画布对账：出现 id == 磁盘实体 id 的约束节点，且恰好一个（不再是随机 uuid）
+      const constraintNode = page.locator(`.vue-flow__node[data-id="${constraintFileStem}"]`)
+      await expect(constraintNode).toHaveCount(1, { timeout: 30_000 })
+
+      // 对账摘要状态行可见（v2 同步结果反馈）
+      await expect(page.locator('.canvas-sync-card').first()).toBeVisible({ timeout: 15_000 })
+
+      // GUI 保存：先点画布空白处移出输入焦点，再 Ctrl+S，等待"已保存"toast
+      await page.locator('.vue-flow__pane').first().click({ position: { x: 50, y: 50 } })
+      await page.keyboard.press('Control+s')
+      await expect(page.getByText('已保存').first()).toBeVisible({ timeout: 30_000 })
+
+      // 重载：hydrate 从 manifest 重建画布，确定性 id 节点不重复
+      await page.reload()
+      await openProjectOnCanvas(page, projectDir)
+      const reloadedNode = page.locator(`.vue-flow__node[data-id="${constraintFileStem}"]`)
+      await expect(reloadedNode).toHaveCount(1, { timeout: 30_000 })
+      // 不存在同约束的第二个节点（旧"镜像随机 uuid + hydrate 确定性 id"双节点缺陷形态）
+      const charsetNodeCount = await page.locator('.vue-flow__node-charsetConstraint').count()
+      expect(charsetNodeCount).toBe(1)
+    },
+    { timeout: 180_000 }
   )
 
   test(

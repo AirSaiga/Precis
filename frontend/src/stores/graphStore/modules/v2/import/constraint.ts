@@ -48,7 +48,8 @@ import {
   type ResolvedColumnRef,
 } from '@/services/constraints/columnRefResolver'
 import { logger } from '@/core/utils/logger'
-import { addNodes, updateNode } from '@/services/canvas/vueFlowApi'
+import { addNodes, removeEdges, removeNodes, updateNode } from '@/services/canvas/vueFlowApi'
+import { nodeDataGet, nodeDataKeys } from '../shared/nodeDataRead'
 /** 从 Schema 节点中查找列名 */
 function resolveColumnName(schemaNode: CustomNode | undefined, columnId: string): string {
   if (!schemaNode) return ''
@@ -109,26 +110,30 @@ export function createV2ConstraintImporter(params: {
   ) => Promise<CustomNode>
   ensureSchemaToConstraintEdge: (tableId: string, constraintId: string, columnId: string) => void
   bufferEdge: (edge: Edge) => void
+  /** 节点 data 唯一修改入口（原地刷新用，graphStore state 模块注入） */
+  updateNodeData: (nodeId: string, patches: Partial<CustomNodeData>) => void
 }) {
   const {
     nodes,
-    edges: _edges,
+    edges,
     selectedNodeId,
     ensureSchemaNode,
     ensureSchemaToConstraintEdge,
     bufferEdge,
+    updateNodeData,
   } = params
 
   async function importConstraint(
     resourceId: string,
     position: { x: number; y: number },
-    options?: { includeDeps?: boolean; moveIfExists?: boolean }
+    options?: { includeDeps?: boolean; moveIfExists?: boolean; refreshExisting?: boolean }
   ): Promise<string> {
     const includeDeps = options?.includeDeps !== false
     const moveIfExists = options?.moveIfExists === true
+    const refreshExisting = options?.refreshExisting === true
 
     const existingNode = nodes.value.find((n) => n.id === resourceId)
-    if (existingNode) {
+    if (existingNode && !refreshExisting) {
       if (moveIfExists) {
         // 走 vueFlowApi.updateNode 更新位置，与 regex.ts/importV2ResourceToCanvas 一致：
         // 直接改 node.position 会绕过 Vue Flow 内部 state 同步（store 变了但渲染不变）
@@ -136,6 +141,19 @@ export function createV2ConstraintImporter(params: {
       }
       selectedNodeId.value = resourceId
       return resourceId
+    }
+    if (existingNode) {
+      // 刷新路径：先清该节点的旧边，data 构建后原地刷新并按磁盘重建。两类边：
+      // - 入边（schema→constraint，target===resourceId）：引用列可能已变
+      // - FK 展示边（constraint→to_schema，source===resourceId 且 data.kind==='fkDisplay'）：
+      //   UPDATE 的 to_table 后旧虚线边残留、仅改 from_column 时 label 停留旧列名，须一并清
+      for (const edge of edges.value.filter(
+        (e) =>
+          e.target === resourceId ||
+          (e.source === resourceId && nodeDataGet(e.data, 'kind') === 'fkDisplay')
+      )) {
+        removeEdges(edge.id)
+      }
     }
 
     const c = await getV2Constraint(resourceId)
@@ -147,6 +165,34 @@ export function createV2ConstraintImporter(params: {
     const nodeType = getConstraintNodeTypeByV2Type(c.type) ?? 'constraint'
     const refs = c.refs as Record<string, unknown>
     const cParams = c.params as Record<string, unknown> | undefined
+
+    // 依赖 Schema 守卫（includeDeps=false 且引用的表节点不在画布）：
+    // - 磁盘上存在 → 先 ensureSchemaNode 裸补依赖（不级联该 schema 的其他约束，
+    //   防雪崩语义保持），再走正常导入——覆盖"schema 在磁盘、尚未上画布"的时序
+    //   （如 hydrate 未完成时对账先到）；
+    // - 磁盘上也没有（getV2Schema 抛错）→ 返回空串而非建空列名半成品
+    //   （buildInput 的 columnRef/columnName 解析不到会全空）。对账 executor 据空串
+    //   记 failed，走既有失败呈现（toast + "建议重新加载项目"）——等价覆盖 v1
+    //   handler 的 targetNodeNotFound 拒绝语义。includeDeps=true 时 ensureSchemaNode
+    //   已在分支内保证存在，不受影响。
+    if (!includeDeps) {
+      const requiredTableIds =
+        c.type === 'ForeignKey'
+          ? [String(refs.from_table_id || ''), String(refs.to_table_id || '')]
+          : [String(refs.table_id || '')]
+      for (const tableId of requiredTableIds.filter(Boolean)) {
+        if (nodes.value.some((n) => n.id === tableId)) continue
+        try {
+          await ensureSchemaNode(tableId, { x: position.x - 420, y: position.y })
+        } catch (e) {
+          logger.warn(
+            `[constraint.ts] 依赖 Schema ${tableId} 不在画布且磁盘上不可用，跳过导入（不建半成品节点）: ${resourceId}`,
+            e
+          )
+          return ''
+        }
+      }
+    }
 
     // ========================================================================
     // 解析 Schema 节点和列名 — 根据约束类型不同有不同的引用结构
@@ -327,11 +373,33 @@ export function createV2ConstraintImporter(params: {
       position,
       data: result.nodeData as unknown as CustomNodeData,
     }
-    addNodes(constraintNode)
-    // addNodes 是 Vue Flow 增量 API，先等 nextTick 完成 model→store 回写再建边：
-    // 边路径计算依赖节点渲染后的 handleBounds（见 AGENTS.md 时序约定），
-    // 禁止手动 spread 追加 nodes.value 绕过 Vue Flow 内部状态管理。
-    await nextTick()
+
+    if (!existingNode) {
+      addNodes(constraintNode)
+      // addNodes 是 Vue Flow 增量 API，先等 nextTick 完成 model→store 回写再建边：
+      // 边路径计算依赖节点渲染后的 handleBounds（见 AGENTS.md 时序约定），
+      // 禁止手动 spread 追加 nodes.value 绕过 Vue Flow 内部状态管理。
+      await nextTick()
+    } else if (existingNode.type !== nodeType) {
+      // 类型已变（如 NotNull→Range）：node type 是节点级字段无法原地改，删旧建新（位置保留）
+      removeNodes([resourceId])
+      addNodes({ ...constraintNode, position: { ...existingNode.position } })
+      await nextTick()
+    } else {
+      // 原地刷新 data（磁盘为准）：整体替换语义——旧 data 独有字段补 undefined，
+      // 并重置校验状态（参数已变，旧结果失效）
+      const patch: Record<string, unknown> = {
+        ...result.nodeData,
+        validationStatus: 'idle',
+        validationErrors: [],
+        lastValidation: undefined,
+      }
+      for (const key of nodeDataKeys(existingNode.data)) {
+        if (!(key in patch)) patch[key] = undefined
+      }
+      updateNodeData(resourceId, patch as Partial<CustomNodeData>)
+      await nextTick()
+    }
 
     // 创建边
     applyEdgeDescriptors(
@@ -340,8 +408,11 @@ export function createV2ConstraintImporter(params: {
       (columnId) => rootColumnIdByRef.get(columnId) ?? columnId
     )
 
-    selectedNodeId.value = constraintNode.id
-    return constraintNode.id
+    // 刷新路径不抢选中（对账是后台同步语义，选中应留给用户）
+    if (!existingNode) {
+      selectedNodeId.value = constraintNode.id
+    }
+    return resourceId
   }
 
   /** 根据 EdgeDescriptor 列表创建实际的边（columnIdToRoot 把嵌套子列映射到顶层祖先 handle） */

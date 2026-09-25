@@ -38,7 +38,7 @@ import yaml
 from app.shared.core.project.manifest.reader import load_manifest
 from app.shared.core.project.manifest.writer import ensure_schema_ref, save_manifest
 from app.shared.core.project.schema_ref_check import find_schema_references, format_reference_report
-from app.shared.services.llm.yaml_io import FileLock, atomic_write_yaml
+from app.shared.services.llm.yaml_io import FileLock, atomic_write_yaml, read_entity_id
 from app.shared.services.schema_inference import infer_schema
 
 logger = logging.getLogger(__name__)
@@ -328,6 +328,10 @@ def _delete_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
             ),
         }
 
+    # 删除前捕获文件真实 id：删除后磁盘无据可查，变更集指令需用它定位画布节点
+    # （LLM 可能只给 name，画布节点 id 是文件 id，两者可能不同）
+    resolved_id = read_entity_id(schema_file, default=schema_id)
+
     try:
         schema_file.unlink()
     except OSError as e:
@@ -341,7 +345,7 @@ def _delete_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
         return {"success": False, "message": f"更新 manifest 引用失败，文件已删除但 manifest 残留: {e}"}
 
     logger.info(f"[SchemaHandler] 删除 Schema: {schema_id}")
-    return {"success": True, "message": schema_id}
+    return {"success": True, "message": schema_id, "resolved_id": resolved_id}
 
 
 def _find_schema_file(workspace_path: str, schema_id: str) -> Path | None:

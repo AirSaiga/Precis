@@ -16,70 +16,48 @@
  * limitations under the License.
  */
 /**
- * @fileoverview AI 聊天前端指令分发器：按 actionType 把前端渲染指令分发到
- * aiChatInstructions/ 下的各 handler（约束/Schema/Regex/Transform/ADD_TO_CANVAS）。
- * 画布操作、连接解析与错误类型等具体能力由该目录内的模块提供，
- * 此处仅为分发入口 + 历史导出符号（debouncedFitView / AIInstructionError）的再导出。
+ * @fileoverview AI 聊天前端指令入口（v2 变更集对账）：把 SSE/快照收到的原始
+ * 指令解析为变更集信封并送入画布对账串行队列。
  *
- * 指令类型：
- * - 约束节点（ADD/UPDATE/DELETE_CONSTRAINT_NODE）
- * - Schema 节点（ADD/UPDATE/DELETE_SCHEMA）
- * - Regex 节点（ADD/UPDATE/DELETE_REGEX）
- * - Transform 节点（ADD/UPDATE/DELETE_TRANSFORM）
- * - 项目设置（UPDATE_SETTINGS）
- * - 数据校验（VALIDATE_PROJECT）
- *
- * 所有 DAG 操作通过 vueFlowApi 增量 API，不直接 push。
+ * v2 契约（docs/contracts/frontend-instructions-v2.md）：指令只声明"哪个磁盘实体
+ * 发生了什么变化"，不携带实体数据；画布同步统一走"磁盘重读重建"（文件唯一事实源），
+ * 旧的 actionType 镜像 handler 链路已下线。
  */
 
 import { logger } from '@/core/utils/logger'
-import type { FrontendInstruction } from '@/stores/aiChatStore'
-// 动作类型分类集合由 codegen 从后端 registry 生成,消除前后端硬编码漂移
-import {
-  CONSTRAINT_ACTION_TYPES,
-  SCHEMA_ACTION_TYPES,
-  REGEX_ACTION_TYPES,
-  TRANSFORM_ACTION_TYPES,
-} from '@/types/generated/actions'
-import { handleConstraintInstruction } from './aiChatInstructions/constraintHandler'
-import { handleSchemaInstruction } from './aiChatInstructions/schemaHandler'
-import { handleRegexInstruction } from './aiChatInstructions/regexHandler'
-import { handleTransformInstruction } from './aiChatInstructions/transformHandler'
-import { handleAddToCanvasInstruction } from './aiChatInstructions/addToCanvasHandler'
+import { parseChangeSetEnvelope } from './canvasReconcile/envelope'
+import type { ReconcileOutcome } from './canvasReconcile/executor'
+import { getReconcileQueue } from './canvasReconcile/reconcileQueue'
 
-// 历史导出符号再导出（消费方仍从本模块导入，实现已拆分至 aiChatInstructions/）
-export { debouncedFitView } from './aiChatInstructions/canvasOps'
-export { AIInstructionError } from './aiChatInstructions/errors'
+export { parseChangeSetEnvelope } from './canvasReconcile/envelope'
+export type { ChangeSetEnvelope, ChangeSetKind, ChangeSetOp } from './canvasReconcile/envelope'
+export type { ReconcileOutcome, ReconcileFailure } from './canvasReconcile/executor'
 
 /**
- * 处理前端渲染指令，按 actionType 分发到对应 handler
+ * 把原始指令数组（SSE 事件 instruction / completed 快照 frontend_instructions）
+ * 解析为信封并批量入队。
  *
- * @param instructions - AI 返回的前端渲染指令数组
+ * 非法形状（契约破坏/未知字段漂移）记日志丢弃，不进失败清单——无法定位实体的
+ * 条目报错只会制造噪音。返回 null 表示本批没有合法信封（调用方可跳过聚合）。
+ *
+ * @param instructions 原始指令对象数组（unknown，来自 SSE data）
+ * @returns 入队批次的执行结果 Promise；null 表示无可执行内容
  */
-export async function processFrontendInstructions(
-  instructions: FrontendInstruction[]
-): Promise<void> {
-  if (!instructions || instructions.length === 0) return
+export function processFrontendInstructions(
+  instructions: unknown[]
+): Promise<ReconcileOutcome> | null {
+  if (!Array.isArray(instructions) || instructions.length === 0) return null
 
-  for (const instruction of instructions) {
-    const { actionType } = instruction
-
-    if (CONSTRAINT_ACTION_TYPES.has(actionType)) {
-      await handleConstraintInstruction(instruction)
-    } else if (SCHEMA_ACTION_TYPES.has(actionType)) {
-      await handleSchemaInstruction(instruction)
-    } else if (REGEX_ACTION_TYPES.has(actionType)) {
-      await handleRegexInstruction(instruction)
-    } else if (TRANSFORM_ACTION_TYPES.has(actionType)) {
-      await handleTransformInstruction(instruction)
-    } else if (actionType === 'ADD_TO_CANVAS') {
-      await handleAddToCanvasInstruction(instruction)
-    } else if (actionType === 'UPDATE_SETTINGS') {
-      logger.info(`[AI Chat] Settings 指令: 无需画布操作`)
-    } else if (actionType === 'VALIDATE_PROJECT') {
-      logger.info(`[AI Chat] Validate 指令: 无需画布操作`)
-    } else {
-      logger.warn(`[AI Chat] 未知指令类型: ${actionType}`)
+  const envelopes = []
+  for (const raw of instructions) {
+    const envelope = parseChangeSetEnvelope(raw)
+    if (!envelope) {
+      logger.warn('[AI Chat] 非法指令形状（应为 v2 变更集信封），已丢弃:', raw)
+      continue
     }
+    envelopes.push(envelope)
   }
+  if (envelopes.length === 0) return null
+
+  return getReconcileQueue().enqueueChangeSet(envelopes)
 }

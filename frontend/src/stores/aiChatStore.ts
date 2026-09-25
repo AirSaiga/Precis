@@ -23,11 +23,14 @@
  * - AI 助手对话框的聊天记录管理
  * - 上下文节点（用户选中的画布节点）管理
  * - 消息发送与 AI 响应处理
- * - 前端指令解析与执行（如自动创建约束）
+ * - 画布同步：frontend_instruction 变更集信封（v2）入对账队列，磁盘重读重建画布
  *
  * 数据流：
- * 用户发送消息 → addUserMessage → sendMessage（POST /ai/chat）
- * → AI 返回回复 + frontend_instructions → addAssistantMessage + processFrontendInstructions
+ * 用户发送消息 → addUserMessage → sendMessage（POST /ai/chat/stream SSE）
+ * → AI 写盘后逐条 frontend_instruction 信封入 canvasReconcile 队列（画布实时生长）
+ * → completed 快照作为权威全量列表整批重放（重复由 planFromChangeSet 末见去重 +
+ *    队列 pending coalescing 收敛，重复执行幂等于磁盘）
+ * → 队列排空后聚合结果写入 canvasSync 摘要 + 刷新 workspaces 快照
  */
 
 import { logger } from '@/core/utils/logger'
@@ -42,12 +45,18 @@ import {
   useStreamingMessage,
   type StreamingMessage,
 } from '@/composables/shared/useStreamingMessage'
-import { processFrontendInstructions } from '@/services/aiChatInstructionService'
+import {
+  processFrontendInstructions,
+  parseChangeSetEnvelope,
+  type ChangeSetEnvelope,
+  type ReconcileOutcome,
+} from '@/services/aiChatInstructionService'
+import { aggregateReconcileOutcomes } from '@/services/canvasReconcile/executor'
 import { toastError } from '@/core/toast'
 import { useProjectStore } from '@/stores/projectStore'
 import { useGraphStore } from '@/stores/graphStore'
+import { useCanvasStore } from '@/stores/canvasStore'
 import { serializeCanvasForAI } from '@/utils/ai/serializeCanvasForAI'
-import type { ActionType } from '@/types/generated/actions'
 import type { AskResponseBody } from '@/components/ai/AskUserCard.vue'
 
 /**
@@ -100,186 +109,10 @@ export interface ChatContext {
 }
 
 /**
- * 约束规格参数（约束指令的 spec 部分）
- */
-export interface ConstraintSpec {
-  type: string
-  targetNodeId: string
-  tableName: string
-  targetColumn: string
-  targetColumnId?: string
-  constraintId: string
-  isInline?: boolean
-  params?: Record<string, unknown>
-}
-
-/**
- * Schema 规格参数（Schema 指令的 spec 部分）
- */
-export interface SchemaColumnSpec {
-  name: string
-  type: string
-  id?: string
-  constraints?: Record<string, unknown>
-}
-
-export interface SchemaSpec {
-  name: string
-  schemaId?: string
-  columns?: Array<SchemaColumnSpec>
-  constraints?: Array<Record<string, unknown>>
-  source?: Record<string, unknown>
-  action?: 'add' | 'update' | 'delete'
-}
-
-/**
- * Regex 规格参数（Regex 指令的 spec 部分）
- */
-export interface RegexSpec {
-  name: string
-  regexId?: string
-  pattern?: string
-  matchMode?: 'full' | 'partial' | 'extract'
-  caseSensitive?: boolean
-  targetNodeId?: string
-  targetColumn?: string
-  description?: string
-}
-
-/**
- * Transform 规格参数（Transform 指令的 spec 部分）
- */
-export interface TransformSpec {
-  transformId?: string
-  type: string
-  description?: string
-  inputFromNode?: string
-  inputColumn?: string
-  params?: Record<string, unknown>
-  outputColumns?: string[]
-}
-
-/**
- * Settings 规格参数（项目设置指令的 spec 部分）
- */
-export interface SettingsSpec {
-  category: 'validation' | 'fileProcessing' | 'scriptSecurity'
-  settings: Record<string, unknown>
-}
-
-/**
- * AI 返回的前端指令，用于自动创建/修改画布节点或项目配置
- *
- * @property actionType - 指令动作类型
- * @property constraintSpec - 约束规格参数（兼容旧字段名）
- */
-export interface FrontendInstruction {
-  actionType: ActionType
-  constraintSpec: ConstraintSpec
-  schemaSpec?: SchemaSpec
-  regexSpec?: RegexSpec
-  transformSpec?: TransformSpec
-  settingsSpec?: SettingsSpec
-  canvasSpec?: CanvasSpec
-}
-
-/**
- * 画布显示规格参数（ADD_TO_CANVAS 指令的 spec）
- *
- * 把项目配置里已存在的资源显示到画布上（不写盘）。
- * 前端委托 graphStore.importV2ResourceToCanvas 创建节点。
- *
- * @property resourceKind - 资源类型 schema/regex/constraint/transform
- * @property resourceId - 资源 ID（后端重读解析，确定性）
- * @property name - 资源名称（兜底匹配用）
- * @property config - 后端重读的真实配置（前端可不依赖 API 往返直接构建节点）
- */
-export interface CanvasSpec {
-  resourceKind: string
-  resourceId: string
-  name?: string
-  config?: Record<string, unknown>
-}
-
-/**
- * 流式画布生长去重：从终态全量指令中剔除已通过 frontend_instruction 事件实时应用的指令。
- *
- * 后端 completed 事件携带全量 frontend_instructions 作为兜底（含流式期间已逐条发送的 +
- * dry-result 阶段的兜底产物）。流式期间已应用的指令若再次执行会重复创建画布节点（如约束），
- * 因此需按内容去重。
- *
- * 去重键：以序列化文本（stable stringify）作为身份标识。stable stringify 通过预排序对象键，
- * 使键顺序不同但内容相同的指令视为相等。序列化失败（含循环引用）的指令直接保留（不去重），
- * 以安全兜底——宁可重复应用一条，也不误删未执行的指令。
- *
- * @param all - 终态全量指令（completed/cancelled 携带）
- * @param streamed - 流式期间已实时应用的指令（来自 frontend_instruction 事件）
- * @returns 待执行的"新增"指令（流式期间未处理过的）
- */
-export function dedupeStreamedInstructions(
-  all: FrontendInstruction[],
-  streamed: unknown[]
-): FrontendInstruction[] {
-  if (streamed.length === 0) return [...all]
-  const streamedKeys = new Set<string>()
-  for (const s of streamed) {
-    const key = stableStringify(s)
-    if (key !== null) streamedKeys.add(key)
-  }
-  const result: FrontendInstruction[] = []
-  for (const inst of all) {
-    const key = stableStringify(inst)
-    // 流式指令集合为空（全部序列化失败）或本条无法序列化时，保留本条（安全兜底）
-    if (key === null || streamedKeys.size === 0) {
-      result.push(inst)
-      continue
-    }
-    if (!streamedKeys.has(key)) {
-      result.push(inst)
-    }
-  }
-  return result
-}
-
-/**
- * 稳定序列化：递归排序对象键后 JSON.stringify，使键顺序不影响相等性。
- * 无法序列化（循环引用 / BigInt / 函数 / undefined）时返回 null。
- *
- * 注意：不能用 JSON.stringify(value, keys) 的数组 replacer 形式——它会作为键白名单
- * 递归过滤嵌套对象，破坏深层结构。改为先递归构造"键已排序"的副本，再序列化。
- */
-function stableStringify(value: unknown): string | null {
-  try {
-    return JSON.stringify(sortKeysDeep(value))
-  } catch {
-    return null
-  }
-}
-
-/**
- * 递归构造键已排序的副本（深拷贝 + 排序），供稳定序列化使用。
- * 遇到无法 JSON 化的值（undefined / 函数 / symbol / BigInt）会让外层 JSON.stringify 抛错，
- * 由 stableStringify 捕获并返回 null。
- */
-function sortKeysDeep(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map(sortKeysDeep)
-  }
-  if (value !== null && typeof value === 'object') {
-    const sorted: Record<string, unknown> = {}
-    for (const key of Object.keys(value as Record<string, unknown>).sort()) {
-      sorted[key] = sortKeysDeep((value as Record<string, unknown>)[key])
-    }
-    return sorted
-  }
-  return value
-}
-
-/**
  * AI 聊天 Store 工厂函数
  *
  * 使用 Pinia Setup Store 模式，提供 AI 聊天相关的完整状态管理。
- * 包含抽屉控制、上下文节点管理、消息收发及前端指令处理。
+ * 包含抽屉控制、上下文节点管理、消息收发及画布对账（v2 变更集）触发。
  */
 export const useAiChatStore = defineStore('aiChat', () => {
   const { t } = useI18n()
@@ -472,6 +305,59 @@ export const useAiChatStore = defineStore('aiChat', () => {
     const sseClient = createSSEClient()
     currentSSEClient = sseClient
 
+    // 本消息的变更集对账账本：outcome Promise 聚合出 canvasSync 摘要。
+    // 注意不做消息级 seen-set 去重——completed 快照是权威全量列表，重复条目由
+    // planFromChangeSet（instructionId 末见去重）与队列 pending coalescing 收敛，
+    // 其余重复执行的代价是幂等磁盘重读（终态恒等于磁盘，自愈流式丢帧）
+    const reconcileOutcomePromises: Promise<ReconcileOutcome>[] = []
+    /** 信封入队（飞行追踪 + 结果聚合） */
+    const enqueueEnvelopes = (envelopes: ChangeSetEnvelope[]) => {
+      if (envelopes.length === 0) return
+      const outcomeP = processFrontendInstructions(envelopes)
+      if (!outcomeP) return
+      reconcileOutcomePromises.push(outcomeP)
+      // 追踪飞行 Promise：模式切换前 awaitPendingInstructions 会等待它们落定，
+      // 避免对账操作在 NodeCanvas 重建窗口期命中已销毁的 vueFlowApi 单例
+      pendingInstructionPromises.add(outcomeP)
+      outcomeP.finally(() => pendingInstructionPromises.delete(outcomeP))
+    }
+
+    /**
+     * 对账队列排空后的收尾（正常终态与 SSE 异常兜底两路共用）：
+     * 聚合本消息全部批次结果 → canvasSync 摘要（有失败时 toast）→ 刷新 workspaces 快照。
+     */
+    const finalizeCanvasSync = async (): Promise<void> => {
+      if (reconcileOutcomePromises.length === 0) return
+      try {
+        const outcomes = await Promise.all(reconcileOutcomePromises)
+        const agg = aggregateReconcileOutcomes(outcomes)
+        if (agg.touchedEntityIds.length === 0 && agg.failed.length === 0) return
+
+        streamingMsg.canvasSync = {
+          added: agg.added,
+          updated: agg.updated,
+          removed: agg.removed,
+          failed: agg.failed.map((f) => ({ entityId: f.entityId, error: f.error })),
+        }
+        if (agg.failed.length > 0) {
+          // 配置已写盘、画布同步失败——明确告知终态与恢复手段（重载项目以磁盘为准）
+          toastError(t('aiChat.canvasSyncFailedMessage'), t('aiChat.canvasSyncFailedTitle'))
+        }
+        // 快照一致性：把对账后的画布写回当前 Tab 快照并同步后端，
+        // 保证重载/切 Tab 不会回退到对账前的状态
+        try {
+          const graphStore = getGraphStore()
+          const canvasStore = useCanvasStore()
+          canvasStore.saveCurrentCanvasData(graphStore.nodes, graphStore.edges)
+          await canvasStore.syncWorkspacesToBackend()
+        } catch (e) {
+          logger.warn('[AI Chat] 对账后工作区快照刷新失败（不影响画布本身）:', e)
+        }
+      } catch (e) {
+        logger.warn('[AI Chat] 对账结果汇总失败:', e)
+      }
+    }
+
     try {
       const body = {
         message: content,
@@ -500,21 +386,15 @@ export const useAiChatStore = defineStore('aiChat', () => {
             ) {
               currentStreamingJobId.value = (data as Record<string, unknown>).job_id as string
             }
-            // 流式画布生长：apply_actions 落盘后逐条收到 frontend_instruction，
-            // 立即执行单条指令（processFrontendInstructions 内部触发 addNodes + 节点级 fitView），
-            // 实现 Agent 模式画布实时生长。handleEvent 同时把指令累积到 streamedInstructions，
-            // 供 completed 兜底批量路径去重，避免重复应用同一指令。
+            // 流式画布生长：apply_actions 落盘后逐条收到 frontend_instruction 信封，
+            // 解析入对账队列（磁盘重读幂等重建，队列内 fitView 相机跟随新节点）
             if (event === 'frontend_instruction' && data) {
-              const instruction = (data as Record<string, unknown>).instruction
-              if (instruction) {
-                // 异步执行，不阻塞 SSE 事件循环；每条指令独立触发节点级 fitView（相机跟随新节点）
-                // 追踪飞行 Promise：模式切换前 awaitPendingInstructions 会等待它们落定，
-                // 避免指令在 NodeCanvas 重建窗口期命中已销毁的 vueFlowApi 单例
-                const p = processFrontendInstructions([instruction] as FrontendInstruction[]).catch(
-                  (e) => logger.error('流式执行 frontend_instruction 失败:', e)
-                )
-                pendingInstructionPromises.add(p)
-                p.finally(() => pendingInstructionPromises.delete(p))
+              const raw = (data as Record<string, unknown>).instruction
+              const envelope = parseChangeSetEnvelope(raw)
+              if (envelope) {
+                enqueueEnvelopes([envelope])
+              } else {
+                logger.warn('[AI Chat] frontend_instruction 非法信封，已丢弃:', raw)
               }
             }
             handleEvent(event, _id, data)
@@ -553,9 +433,8 @@ export const useAiChatStore = defineStore('aiChat', () => {
         }
       )
 
-      // 流结束后，根据 streaming 状态最终化消息
-      assistantMessage.streaming = null
-
+      // 流结束后，根据 streaming 状态最终化消息内容（streaming 引用最后才解除，
+      // 中间的 canvasSync 摘要先落 streamingMsg 再迁入 agentMeta）
       if (streamingMsg.status === 'error') {
         // 错误时保留已累积的部分内容（如果有），追加错误提示而非覆盖
         const partialContent = streamingMsg.content || ''
@@ -572,25 +451,33 @@ export const useAiChatStore = defineStore('aiChat', () => {
         assistantMessage.content = streamingMsg.content
       }
 
-      // 处理 frontend_instructions（画布双写）——error/cancelled 也尝试处理已收到的指令。
-      // 流式画布生长：已在前端通过 frontend_instruction 事件实时执行的指令会累积在
-      // streamedInstructions 中，此处需去重，避免对同一指令二次应用（如重复创建约束节点）。
-      // 仅处理流式期间未收到的新增指令（含 dry-result 兜底产物）；去重失败时退化为全量应用。
+      // 终态快照兜底：completed/cancelled 携带全量 frontend_instructions 信封
+      //（流式丢失补漏；error/cancelled 也尝试处理已收到的信封）。
+      // 快照是权威全量列表，直接整批入队——重复条目由 planFromChangeSet 的
+      // instructionId 末见去重与队列 pending coalescing 收敛，重复执行幂等
+      //（磁盘重读，终态自愈）；非法形状与流式路径同口径记 warn 后丢弃。
       const result = streamingMsg.result
-      if (result?.frontend_instructions && result.frontend_instructions.length > 0) {
-        const allInstructions = result.frontend_instructions as FrontendInstruction[]
-        const streamed = streamingMsg.streamedInstructions
-        const pending = dedupeStreamedInstructions(allInstructions, streamed)
-        if (pending.length > 0) {
-          // 加入飞行追踪集合：与流式指令一致，供 awaitPendingInstructions 等待
-          const batchP = processFrontendInstructions(pending)
-          pendingInstructionPromises.add(batchP)
-          batchP.finally(() => pendingInstructionPromises.delete(batchP))
-          await batchP
+      if (Array.isArray(result?.frontend_instructions)) {
+        const envelopes: ChangeSetEnvelope[] = []
+        for (const raw of result.frontend_instructions) {
+          const envelope = parseChangeSetEnvelope(raw)
+          if (envelope) {
+            envelopes.push(envelope)
+          } else {
+            logger.warn(
+              '[AI Chat] completed 快照中的非法指令形状（应为 v2 变更集信封），已丢弃:',
+              raw
+            )
+          }
         }
+        enqueueEnvelopes(envelopes)
       }
 
-      // 填充 agentMeta（轨迹展示）——error/cancelled 也填充（iterations 从 result 取，无则 0）
+      // 队列排空：等待本消息全部对账批次落定，聚合结果写入 canvasSync 摘要
+      await finalizeCanvasSync()
+
+      // 填充 agentMeta（轨迹展示 + 对账摘要持久化）——error/cancelled 也填充
+      //（iterations 从 result 取，无则 0）
       assistantMessage.agentMeta = {
         iterations: result?.iterations ?? 0,
         tool_steps: streamingMsg.toolSteps.map((s) => ({
@@ -601,13 +488,37 @@ export const useAiChatStore = defineStore('aiChat', () => {
           status: s.status,
           error: s.error,
         })),
+        canvas_sync: streamingMsg.canvasSync,
       }
+
+      // 摘要已迁入 agentMeta，解除流式引用（UI 转读 agentMeta）
+      assistantMessage.streaming = null
     } catch (error) {
       logger.error('AI Chat SSE error:', error)
-      assistantMessage.streaming = null
       if (!streamingMsg.content) {
         assistantMessage.content = t('aiChat.errorMessage')
       }
+      // SSE 异常终态：飞行中的对账批次同样汇总并把 canvasSync 摘要迁入 agentMeta，
+      // 之后才解除流式引用——保证 CanvasSyncCard 不消失、也不停在永久的空态。
+      // 带 3s 超时兜底：批次理论上必然落定（逐条捕获异常），但异常路径不该为
+      // 可能卡住的批次无限挂起 sendMessage（超时后后台汇总继续，摘要容缺）
+      await Promise.race([
+        finalizeCanvasSync(),
+        new Promise((resolve) => setTimeout(resolve, 3000)),
+      ])
+      assistantMessage.agentMeta = {
+        iterations: streamingMsg.result?.iterations ?? 0,
+        tool_steps: streamingMsg.toolSteps.map((s) => ({
+          tool: s.tool,
+          label: s.label,
+          turn: s.turn,
+          action_count: s.actionCount,
+          status: s.status,
+          error: s.error,
+        })),
+        canvas_sync: streamingMsg.canvasSync,
+      }
+      assistantMessage.streaming = null
     } finally {
       loading.value = false
       currentSSEClient = null
@@ -640,9 +551,10 @@ export const useAiChatStore = defineStore('aiChat', () => {
       .reverse()
       .find((m) => m.role === 'assistant' && m.streaming)
     const applyId = lastStreamingMsg?.streaming?.pendingApply?.applyId
+    let response: Response
     try {
       const baseUrl = (await import('@/core/services/httpClient')).getApiBaseUrl()
-      await fetch(`${baseUrl}/api/latest/ai/chat/${jobId}/confirm`, {
+      response = await fetch(`${baseUrl}/api/latest/ai/chat/${jobId}/confirm`, {
         method: 'POST',
         // 裸 fetch 不经 httpClient 拦截器，须自带 token 头（打包模式 null Origin
         // 的 CORS 预检凭据，缺失会被后端拒绝）
@@ -653,7 +565,18 @@ export const useAiChatStore = defineStore('aiChat', () => {
         body: JSON.stringify({ decision, ...(applyId ? { apply_id: applyId } : {}) }),
       })
     } catch (error) {
+      // 网络层失败（断网/后端不可达）：toast 提示；确认卡片不清理本地状态，
+      // pendingApply 仍在（只由 apply_confirmed/apply_rejected SSE 事件清除），
+      // 用户可直接重试
       logger.error('确认 apply_actions 失败:', error)
+      toastError(t('aiChat.confirmSendFailed'))
+      return
+    }
+    // HTTP 失败（404/500 等）：后端未收到决策，确认卡片不会收到转态事件；
+    // toast 提示并保持卡片可重试（此前非 2xx 被当成功，卡片干等超时）
+    if (!response.ok) {
+      logger.error(`确认 apply_actions HTTP 失败: ${response.status}`)
+      toastError(t('aiChat.confirmSendFailed'))
     }
   }
 
@@ -676,9 +599,10 @@ export const useAiChatStore = defineStore('aiChat', () => {
       logger.warn('respondToAsk: 无当前 job_id（started 事件可能丢失）')
       return
     }
+    let resp: Response
     try {
       const baseUrl = (await import('@/core/services/httpClient')).getApiBaseUrl()
-      await fetch(`${baseUrl}/api/latest/ai/chat/${jobId}/respond`, {
+      resp = await fetch(`${baseUrl}/api/latest/ai/chat/${jobId}/respond`, {
         method: 'POST',
         // 裸 fetch 不经 httpClient 拦截器，须自带 token 头（同 confirmApply）
         headers: {
@@ -687,9 +611,17 @@ export const useAiChatStore = defineStore('aiChat', () => {
         },
         body: JSON.stringify({ ask_id: askId, response }),
       })
-      // 不在此清 pendingAsk——等 user_responded SSE 事件来清（与 confirmApply 一致）
     } catch (error) {
+      // 网络层失败：toast 提示；pendingAsk 不清理（由 user_responded SSE 事件清除），
+      // 问答卡保持可重试
       logger.error('回答 ask_user 失败:', error)
+      toastError(t('aiChat.respondSendFailed'))
+      return
+    }
+    // HTTP 失败：后端未收到回答，卡片不会转态；toast 提示并保持可重试
+    if (!resp.ok) {
+      logger.error(`回答 ask_user HTTP 失败: ${resp.status}`)
+      toastError(t('aiChat.respondSendFailed'))
     }
   }
 
@@ -745,7 +677,9 @@ export const useAiChatStore = defineStore('aiChat', () => {
    * 内没有指令在执行（否则会命中已 resetVueFlowApi 置空的 vueFlowApi 单例）。
    *
    * 带 3s 超时兜底：若某指令因异常卡住（如死循环），不永久阻塞模式切换。
-   * 超时后残留指令仍会继续执行，但由 guardCanvasOp 静默降级保护，不会崩溃。
+   * 带 3s 超时兜底：若某指令因异常卡住（如死循环），不永久阻塞模式切换。
+   * 超时后残留指令仍会继续执行，但由 executor 对 VueFlowApiNotInitializedError
+   * 的静默降级保护（记 warn 跳过、不计失败），不会崩溃。
    */
   async function awaitPendingInstructions(): Promise<void> {
     if (pendingInstructionPromises.size === 0) return

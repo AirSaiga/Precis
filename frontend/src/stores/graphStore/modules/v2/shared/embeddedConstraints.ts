@@ -50,6 +50,7 @@ import {
   type ColumnRefNode,
   type ResolvedColumnRef,
 } from '@/services/constraints/columnRefResolver'
+import { nodeDataKeys } from './nodeDataRead'
 import { logger } from '@/core/utils/logger'
 interface EmbeddedConstraintItem {
   id?: string | number
@@ -94,6 +95,21 @@ export function materializeV2EmbeddedConstraints(params: {
   hasNode: (id: string) => boolean
   addNode: (node: CustomNode) => void
   addConstraintEdge: (tableId: string, constraintId: string, columnId: string) => void
+  /**
+   * 刷新支持（可选，仅对账 update 路径传入）：已存在节点的原地刷新。
+   * - 未传（默认导入路径）：已存在节点保持只增不改的物化语义（hasNode 即跳过）
+   * - 传入时：已存在且类型未变 → updateNodeData(id, 磁盘新值)；类型已变 → removeNode + addNode 删旧建新
+   */
+  getNode?: (id: string) =>
+    | {
+        id: string
+        type?: string
+        position?: { x: number; y: number }
+        data?: unknown
+      }
+    | undefined
+  updateNodeData?: (id: string, data: Record<string, unknown>) => void
+  removeNode?: (id: string) => void
 }) {
   const {
     schemaNode,
@@ -103,6 +119,9 @@ export function materializeV2EmbeddedConstraints(params: {
     hasNode,
     addNode,
     addConstraintEdge,
+    getNode,
+    updateNodeData,
+    removeNode,
   } = params
 
   // 名称字段严格解析：顶层裸名 / 嵌套「父.子」全限定路径（与后端 embedded_constraints 同约定）
@@ -124,11 +143,13 @@ export function materializeV2EmbeddedConstraints(params: {
     const rawId = String(item.id)
     const id = rawId.startsWith(`${schemaNode.id}_`) ? rawId : `${schemaNode.id}_${rawId}`
 
-    if (hasNode(id)) return
-
     const nodeType = getConstraintNodeTypeByV2Type(item.type ?? '') ?? 'constraint'
     const basePos = { x: schemaNode.position.x + 420, y: schemaNode.position.y + idx * 160 }
     const kind = getConstraintKindByV2Type(item.type ?? '')
+
+    const isExisting = hasNode(id)
+    // 默认导入路径（未提供 updateNodeData）：已存在节点保持只增不改的物化语义
+    if (isExisting && !updateNodeData) return
 
     // 名称字段严格解析：顶层裸名 / 嵌套「父.子」全限定路径，不接受列 ID。
     // Conditional 除外：其 column 字段承载 THEN 列 ID（保存契约），属 ID 语义，按 ID 直查
@@ -275,6 +296,46 @@ export function materializeV2EmbeddedConstraints(params: {
           }>,
         }
 
+    // ---- 刷新分支（仅对账 update 路径：updateNodeData 已提供且节点已存在）----
+    if (isExisting) {
+      const existing = getNode?.(id)
+      const typeChanged = existing?.type !== undefined && existing.type !== nodeType
+      if (typeChanged && removeNode) {
+        // 类型已变（如 NotNull→Range）：node type 是节点级字段无法原地改，删旧建新
+        removeNode(id)
+        addNode({
+          id,
+          type: nodeType,
+          position: existing?.position ?? basePos,
+          // builder 产出宽松 Record<string, unknown>，与 CustomNodeData 联合无足够重叠，
+          // 单断言编译不过（TS2352），此处为注册表 builder 出口的标准接收方式（同下方创建分支）
+          data: result.nodeData as unknown as CustomNode['data'],
+        })
+      } else if (updateNodeData) {
+        // 类型未变：原地刷新 data（磁盘为准）。整体替换语义——旧 data 独有字段补
+        // undefined（shallow-merge 下等价删除），并重置校验状态（参数已变，旧结果失效）
+        const patch: Record<string, unknown> = {
+          ...result.nodeData,
+          validationStatus: 'idle',
+          validationErrors: [],
+          lastValidation: undefined,
+        }
+        const oldData = existing?.data
+        for (const key of nodeDataKeys(oldData)) {
+          if (!(key in patch)) patch[key] = undefined
+        }
+        updateNodeData(id, patch)
+      }
+      // 边按磁盘重建（调用方刷新路径已清派生边；默认导入路径不会走到这里）
+      for (const desc of result.edgeDescriptors) {
+        if (desc.kind === 'constraint' || desc.kind === 'if') {
+          addConstraintEdge(desc.sourceNodeId, desc.targetNodeId, rootColumnIdOf(desc.columnId))
+        }
+      }
+      return
+    }
+
+    // ---- 创建分支 ----
     addNode({
       id,
       type: nodeType,

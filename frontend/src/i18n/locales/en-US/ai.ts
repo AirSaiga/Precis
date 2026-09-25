@@ -35,30 +35,16 @@ const aiChat = {
   noProviderConfigured: 'No AI provider configured. Please set up an AI model in Settings first.',
   serviceUnavailable:
     'AI service is unavailable. Please check your network connection or try again later.',
-  targetNodeNotFound: 'Target node not found. Please ensure the table node is on the canvas.',
-  constraintCreated: 'Created standalone constraint for {table}.{column}',
-  alreadyOnCanvas: '{name} is already on canvas',
-  constraintDeleted: 'Deleted constraint for {table}.{column}',
-  constraintUpdated: 'Updated constraint params for {table}.{column}',
-  constraintAmbiguous:
-    '{count} constraints of the same type exist on {table}.{column}; cannot tell which one to modify. Provide a constraintId in the instruction.',
-  inlineConstraintCreated: 'Added inline constraint for {table}.{column}',
-  inlineConstraintDeleted: 'Deleted inline constraint for {column}',
-  inlineConstraintUnsupported:
-    'Constraint type {type} does not support inline storage. Use a standalone constraint node instead.',
-  inlineAllowedValuesMissing:
-    'Inline allowed-values constraint missing allowedValues param. Not written.',
-  columnNotFound: 'Column {column} not found. Please check the table structure.',
-  unsupportedConstraintType: 'Unsupported constraint type: {type}',
-  schemaCreated: 'Schema "{name}" created',
-  schemaUpdated: 'Schema "{name}" updated',
-  schemaDeleted: 'Schema "{name}" deleted',
-  regexCreated: 'Regex "{name}" created',
-  regexUpdated: 'Regex "{name}" updated',
-  regexDeleted: 'Regex "{name}" deleted',
-  transformCreated: 'Transform "{name}" created',
-  transformUpdated: 'Transform "{name}" updated',
-  transformDeleted: 'Transform "{name}" deleted',
+  // Canvas reconciliation (v2 change-set: per-message sync summary after disk re-read rebuild)
+  canvasSyncDone: 'Canvas synced: {added} added, {updated} updated, {removed} removed',
+  canvasSyncPartial:
+    'Canvas partially synced: {added} added, {updated} updated, {removed} removed, {failed} failed',
+  canvasSyncFailedTitle: 'Canvas sync failed',
+  canvasSyncFailedMessage:
+    'Config has been written to disk, but canvas sync failed. Reloading the project is recommended.',
+  // apply confirm / ask respond send failures (card stays retryable)
+  confirmSendFailed: 'Failed to send the confirmation. Please retry.',
+  respondSendFailed: 'Failed to send the response. Please retry.',
   copy: 'Copy',
   copied: 'Copied to clipboard',
   copyFailed: 'Copy failed, please select text manually',
@@ -94,6 +80,7 @@ const aiChat = {
   askAnswered: 'Answered',
   askSkipped: 'Skipped',
   askTimeout: 'Timed out',
+  askDisconnected: 'Connection lost',
   askInvalidValue: 'Please enter a valid {type}',
   askMustSelect: 'Please select at least one',
   statusPendingAsk: 'Awaiting your answer',

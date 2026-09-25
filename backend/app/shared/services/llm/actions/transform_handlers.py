@@ -40,7 +40,7 @@ from app.shared.core.project.manifest.types import TransformRef
 from app.shared.core.project.manifest.writer import save_manifest
 from app.shared.core.project.transform.types import TransformFile
 from app.shared.core.project.transform.writer import save_transform
-from app.shared.services.llm.yaml_io import FileLock, atomic_write_yaml
+from app.shared.services.llm.yaml_io import FileLock, atomic_write_yaml, read_entity_id
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +137,8 @@ def _add_transform(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
     _ensure_manifest_transform_ref(workspace_path, transform_id)
 
     logger.info(f"[TransformHandler] 创建 Transform: {transform_id}")
-    return {"success": True, "message": transform_id}
+    # resolved_id：写盘侧实际使用的 id（spec 未显式给 id 时是自动生成的，变更集指令须用它）
+    return {"success": True, "message": transform_id, "resolved_id": transform_id}
 
 
 def _update_transform(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
@@ -181,7 +182,12 @@ def _update_transform(spec: dict[str, Any], workspace_path: str) -> dict[str, An
         return {"success": False, "message": f"更新 Transform 失败: {e}"}
 
     logger.info(f"[TransformHandler] 更新 Transform: {transform_id}")
-    return {"success": True, "message": transform_id}
+    # resolved_id：文件可能按文件名兜底命中（内容 id 与传入 key 不同），回传真实 id
+    return {
+        "success": True,
+        "message": transform_id,
+        "resolved_id": read_entity_id(transform_file, default=transform_id),
+    }
 
 
 def _delete_transform(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
@@ -199,6 +205,10 @@ def _delete_transform(spec: dict[str, Any], workspace_path: str) -> dict[str, An
     if not transform_file:
         return {"success": False, "message": f"Transform 文件不存在: {transform_id}"}
 
+    # 删除前捕获文件真实 id（_find_transform_file 可能按文件名兜底命中，
+    # 文件内容 id 与传入 key 不同；删除后磁盘无据可查）
+    resolved_id = read_entity_id(transform_file, default=transform_id)
+
     try:
         transform_file.unlink()
     except OSError as e:
@@ -207,7 +217,7 @@ def _delete_transform(spec: dict[str, Any], workspace_path: str) -> dict[str, An
     _remove_manifest_transform_ref(workspace_path, transform_id)
 
     logger.info(f"[TransformHandler] 删除 Transform: {transform_id}")
-    return {"success": True, "message": transform_id}
+    return {"success": True, "message": transform_id, "resolved_id": resolved_id}
 
 
 def _find_transform_file(workspace_path: str, transform_id: str) -> Path | None:

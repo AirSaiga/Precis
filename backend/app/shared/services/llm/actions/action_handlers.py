@@ -20,7 +20,7 @@
 - 处理约束的 YAML 配置更新（添加、更新、删除）
 - 批量处理内联约束（同一 schema 合并为一次文件读写）
 - 执行项目数据校验
-- 生成前端渲染指令
+- 生成前端变更集指令（v2 信封，见 constraints/frontend_instructions.py）
 
 输入示例:
     success, message = update_yaml_config(action, "/workspace")

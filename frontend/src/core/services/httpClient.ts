@@ -400,6 +400,13 @@ export interface AgentMeta {
     /** 失败时的错误信息 */
     error?: string
   }>
+  /** 画布对账摘要（v2 变更集；流式消息完成后从 StreamingMessage.canvasSync 迁入） */
+  canvas_sync?: {
+    added: number
+    updated: number
+    removed: number
+    failed: Array<{ entityId: string; error: string }>
+  } | null
 }
 
 /**

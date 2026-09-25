@@ -16,31 +16,24 @@
  * limitations under the License.
  */
 /**
- * @fileoverview AI 指令画布操作助手：防抖 fitView、入场动画 class 清理、
- * 画布未就绪守卫与新节点放置位置计算（跨各指令 handler 共享）。
+ * @fileoverview 对账链路画布操作助手：防抖 fitView 与新节点放置位置计算
+ * （rebuild 执行路径共享）。画布未就绪（模式切换窗口期）的静默降级由
+ * executor 捕获 VueFlowApiNotInitializedError 实现，无需独立 guard 包装。
  */
 
 import { logger } from '@/core/utils/logger'
 import * as vueFlowApi from '@/services/canvas/vueFlowApi'
 import { VueFlowApiNotInitializedError } from '@/services/canvas/vueFlowApi'
-import {
-  FITVIEW_DURATION_MS,
-  NODE_ENTER_DURATION_MS,
-  NODE_ENTERING_CLASS,
-} from '@/services/canvas/animationDurations'
+import { FITVIEW_DURATION_MS } from '@/services/canvas/animationDurations'
 
 /**
  * fitView 防抖
  *
- * 多个 handler 连续创建节点时（如 Schema + 子约束），各自触发 fitView 会导致画布
+ * 连续重建多个节点时（如 Schema + 子约束），各自触发 fitView 会导致画布
  * 连续跳动。防抖窗口内累加所有调用方传入的节点 id（取并集，而非覆盖），最终只执行
  * 一次 fitView，框住整批节点。
  *
- * 跨 handler 共享同一 timer，防抖窗口 500ms。
- *
- * 注意：入场动画与 fitView 不做时序拆分——曾尝试「先 fitView 再延迟加 enter class」，
- * 但节点创建时缺少 opacity:0 初始态，延迟加 class 反而造成「先可见→闪没→淡入」
- * 的闪现回归。改为节点创建即带 NODE_ENTERING_CLASS（详见 attachEnteringClass）。
+ * 跨调用方共享同一 timer，防抖窗口 500ms。
  */
 let fitViewTimer: ReturnType<typeof setTimeout> | null = null
 let pendingFitViewNodes = new Set<string>()
@@ -73,7 +66,7 @@ export function debouncedFitView(
       })
     } catch (e) {
       if (e instanceof VueFlowApiNotInitializedError) {
-        logger.warn('[AI Instruction] fitView 跳过（画布未就绪）')
+        logger.warn('[canvasReconcile] fitView 跳过（画布未就绪）')
       } else {
         throw e
       }
@@ -82,49 +75,10 @@ export function debouncedFitView(
 }
 
 /**
- * 给 AI 新建的节点安排入场动画 class 的清理。
- *
- * 与 createBaseNodeFactory.clearNodeClass 同一模式：用 findNode 增量改 Vue Flow
- * 内部响应式 GraphNode 的 class，不能用 nodes.value = [...] 全量替换（会绕过 Vue Flow
- * 增量 hooks，在节点→边关联场景下可能引发隐性状态不一致）。
- *
- * 调用方在节点对象上预设 `class: NODE_ENTERING_CLASS`，再调用本助手在动画结束后清除。
- */
-export function attachEnteringClass(nodeId: string): void {
-  setTimeout(() => {
-    const vfNode = vueFlowApi.findNode(nodeId)
-    if (vfNode && vfNode.class === NODE_ENTERING_CLASS) {
-      vfNode.class = undefined
-    }
-  }, NODE_ENTER_DURATION_MS)
-}
-
-/**
- * 执行画布操作，VueFlow 未就绪时（模式切换窗口期）静默跳过并记 warn。
- *
- * IDE ↔ Agent 模式切换时 NodeCanvas 会销毁重建，vueFlowApi 单例被 resetVueFlowApi 置空。
- * 此时飞行中的 AI 指令若调用 addNodes/addEdges/removeNodes 会抛 VueFlowApiNotInitializedError。
- * 这是可预期的降级——指令遇画布重建时不应崩溃，也不应记 error 制造噪音。
- * 节点可能少建（与"切换前中止 AI 任务"配合可将此场景压到极低概率），但不会污染新画布。
- *
- * 其他异常照常上抛，不吞错。
- */
-export function guardCanvasOp<T>(fn: () => T): T | undefined {
-  try {
-    return fn()
-  } catch (e) {
-    if (e instanceof VueFlowApiNotInitializedError) {
-      logger.warn('[AI Instruction] 画布未就绪（模式切换中），跳过指令:', e.message)
-      return undefined
-    }
-    throw e
-  }
-}
-
-/**
  * 计算新节点的放置位置
  *
- * 在当前画布视口中心偏移放置，避免与已有节点重叠。
+ * 在当前画布既有节点右外侧放置，避免与已有节点重叠；
+ * 连续多次调用时随画布增长自然右移错开（每次都基于最新节点集计算）。
  */
 export function computePlacementPosition(graphStore: {
   nodes: Array<{ position: { x: number; y: number } }>

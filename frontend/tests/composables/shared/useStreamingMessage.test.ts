@@ -157,33 +157,36 @@ describe('useStreamingMessage', () => {
     expect(message.content).toBe('')
   })
 
-  it('frontend_instruction 事件累积指令到 streamedInstructions', () => {
+  it('frontend_instruction 事件不改变状态机（v2 信封由 aiChatStore 解析入对账队列）', () => {
     const { message, handleEvent } = useStreamingMessage()
-    const inst1 = { actionType: 'ADD_CONSTRAINT_NODE', constraintSpec: { type: 'NotNull' } }
-    const inst2 = { actionType: 'ADD_SCHEMA', schemaSpec: { name: 'users' } }
-    handleEvent('frontend_instruction', 1, { instruction: inst1 })
-    handleEvent('frontend_instruction', 2, { instruction: inst2 })
-    expect(message.streamedInstructions).toHaveLength(2)
-    expect(message.streamedInstructions[0]).toEqual(inst1)
-    expect(message.streamedInstructions[1]).toEqual(inst2)
+    const env = {
+      instructionId: 'add:schema:users',
+      actionType: 'ADD_SCHEMA',
+      op: 'add',
+      kind: 'schema',
+      entityId: 'users',
+      filePath: 'schemas/users.schema.yaml',
+    }
+    handleEvent('frontend_instruction', 1, { instruction: env })
+    // 状态机只透传事件；去重/执行在 canvasReconcile 队列，此处无状态累积
+    expect(message.content).toBe('')
+    expect(message.canvasSync).toBeNull()
   })
 
-  it('frontend_instruction 缺失 instruction 字段不报错且不累积', () => {
+  it('frontend_instruction 缺失 instruction 字段不报错', () => {
     const { message, handleEvent } = useStreamingMessage()
     handleEvent('frontend_instruction', 1, {})
-    expect(message.streamedInstructions).toHaveLength(0)
+    expect(message.content).toBe('')
+    expect(message.canvasSync).toBeNull()
   })
 
-  it('start/reset 清空 streamedInstructions', () => {
-    const { message, handleEvent, start, reset } = useStreamingMessage()
-    handleEvent('frontend_instruction', 1, { instruction: { actionType: 'ADD_SCHEMA' } })
-    expect(message.streamedInstructions).toHaveLength(1)
+  it('canvasSync 初始为 null，start/reset 保持 null', () => {
+    const { message, start, reset } = useStreamingMessage()
+    expect(message.canvasSync).toBeNull()
     start()
-    expect(message.streamedInstructions).toHaveLength(0)
-    handleEvent('frontend_instruction', 2, { instruction: { actionType: 'ADD_SCHEMA' } })
-    expect(message.streamedInstructions).toHaveLength(1)
+    expect(message.canvasSync).toBeNull()
     reset()
-    expect(message.streamedInstructions).toHaveLength(0)
+    expect(message.canvasSync).toBeNull()
   })
 
   // ---- ask_user 交互事件 ----

@@ -110,11 +110,18 @@ export interface StreamingMessage {
   /** 已答态展示的回答摘要（由 user_responded 事件携带，前端渲染用） */
   lastAskSummary: string | null
   /**
-   * 流式画布生长：apply_actions 落盘后逐条收到的 frontend_instruction 事件累积。
-   * 每条已由 aiChatStore 实时执行（processFrontendInstructions + fitView），
-   * 完成后供 completed 兜底批量路径去重，避免重复应用同一指令。
+   * 画布对账摘要（v2 变更集）：本消息全部信封（流式 + 终态快照兜底）经对账队列
+   * 执行完毕后由 aiChatStore 写入；null 表示尚未汇总（无变更或仍在执行）。
    */
-  streamedInstructions: unknown[]
+  canvasSync: CanvasSyncSummary | null
+}
+
+/** 画布对账摘要（ui 呈现用；由 ReconcileOutcome 聚合而来） */
+export interface CanvasSyncSummary {
+  added: number
+  updated: number
+  removed: number
+  failed: Array<{ entityId: string; error: string }>
 }
 
 /** 终止事件的完整快照（completed/cancelled 携带） */
@@ -246,7 +253,7 @@ export function useStreamingMessage() {
     pendingAsk: null,
     askAnswered: false,
     lastAskSummary: null,
-    streamedInstructions: [],
+    canvasSync: null,
   })
 
   /** 开始一次新的流式会话（重置状态） */
@@ -263,7 +270,7 @@ export function useStreamingMessage() {
     message.pendingAsk = null
     message.askAnswered = false
     message.lastAskSummary = null
-    message.streamedInstructions = []
+    message.canvasSync = null
   }
 
   /** 重置为初始空状态 */
@@ -280,7 +287,7 @@ export function useStreamingMessage() {
     message.pendingAsk = null
     message.askAnswered = false
     message.lastAskSummary = null
-    message.streamedInstructions = []
+    message.canvasSync = null
   }
 
   /** 处理一个 SSE 事件，更新状态 */
@@ -384,12 +391,9 @@ export function useStreamingMessage() {
         break
       }
       case 'frontend_instruction': {
-        // 流式画布生长：累积 apply_actions 落盘的单条指令。
-        // 纯状态累积，实际执行（processFrontendInstructions + fitView）由 aiChatStore 在
-        // onEvent 处理时完成；此处记录供 completed 兜底批量路径去重。
-        if (data.instruction) {
-          message.streamedInstructions.push(data.instruction)
-        }
+        // v2 变更集信封：aiChatStore 在 onEvent 中解析并入画布对账队列
+        //（画布实时生长），本状态机不再累积指令（去重由 instructionId seen-set
+        // 与队列 pending-id coalescing 承担）。
         break
       }
       case 'completed': {

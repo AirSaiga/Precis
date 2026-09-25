@@ -143,6 +143,7 @@ export function createGraphStoreAssembly(
     resourceTreeStore,
     sourceIndex,
     saveState,
+    updateNodeData,
   })
 
   const { createSchemaNode, addColumnToSchema } = createSchemaFactoryModule({

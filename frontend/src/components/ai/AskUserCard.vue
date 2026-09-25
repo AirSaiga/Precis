@@ -154,6 +154,10 @@ limitations under the License.
     const s = props.answerSummary
     if (!s) return t('aiChat.askAnswered')
     if (s.startsWith('skipped:timeout')) return t('aiChat.askTimeout')
+    // disconnected 分支当前无触达路径：SSE 断开的客户端收不到 user_responded 事件，
+    // 不会渲染到已答态。保留是为断线续传预留——后端已按 reason=disconnected 发事件，
+    // 重连回放落地后此分支即生效（未知 reason 兜底走下方通用"已跳过"）
+    if (s.startsWith('skipped:disconnected')) return t('aiChat.askDisconnected')
     if (s.startsWith('skipped:')) return t('aiChat.askSkipped')
     return s
   })

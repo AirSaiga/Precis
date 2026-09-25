@@ -418,9 +418,8 @@ async def test_apply_actions_collects_frontend_instructions():
     assert "frontendInstructions" not in str(result["results"])
     assert result["results"][0]["actionType"] == "ADD_CONSTRAINT_NODE"
 
-    # frontendInstructions 已旁路累积到共享列表（dry-run + 写盘各累积一次，≥1）
-    assert len(collected) >= 1
-    assert any(c.get("data") == "instr1" for c in collected)
+    # frontendInstructions 已旁路累积到共享列表（只从真实写盘结果收集一次）
+    assert len(collected) == 1
     assert collected[0]["data"] == "instr1"
 
 
@@ -523,6 +522,38 @@ async def test_validate_table_no_project_path():
     result = await tool.run({})
 
     assert result["success"] is False
+
+
+@pytest.mark.asyncio
+async def test_validate_table_passes_through_scripted_skip_count():
+    """Scripted 权限跳过分离后透传：error_count 只含真实违规，跳过单列计数。
+
+    回归守卫：validate_table 与 apply 自检共用 execute_validate_project，
+    权限跳过（error_type=PermissionError）不得被计入 error_count（误报"发现 N 个违规"）。
+    """
+    tool = ValidateTableTool(project_path="/fake/project")
+    validate_result = {
+        "success": True,
+        "message": "数据校验通过（1 个脚本约束因未开启『允许执行脚本 eval』被跳过，未计入违规；耗时 5ms）",
+        "details": {
+            "error_count": 0,
+            "errors": [],
+            "skipped_scripted_count": 1,
+            "skipped_scripted": [{"error_type": "PermissionError", "table": "users", "message": "脚本约束已跳过"}],
+        },
+    }
+
+    with patch(
+        "app.shared.services.ai.agent.chat_tools.validate_table.execute_validate_project",
+        return_value=validate_result,
+    ):
+        result = await tool.run({})
+
+    assert result["success"] is True
+    assert result["error_count"] == 0
+    assert result["skipped_scripted_count"] == 1
+    # message 携带跳过说明，LLM 可读
+    assert "未计入违规" in result["message"]
 
 
 # =============================================================================
@@ -691,7 +722,7 @@ def _make_canvas_workspace(tmp_path) -> str:
 
 @pytest.mark.asyncio
 async def test_add_to_canvas_generates_instruction_for_existing_schema(tmp_path):
-    """ADD_TO_CANVAS 对已存在的 schema 资源：不写盘，只发含重读真实 columns 的 frontendInstructions。"""
+    """ADD_TO_CANVAS 对已存在的 schema 资源：不写盘，产出 v2 变更集信封（op=add，entityId=磁盘真实 id）。"""
     from app.shared.services.llm.actions.action_processor import process_actions
 
     ws = _make_canvas_workspace(tmp_path)
@@ -708,18 +739,19 @@ async def test_add_to_canvas_generates_instruction_for_existing_schema(tmp_path)
     assert r["success"] is True
     fi = r["frontendInstructions"]
     assert fi is not None
+    # 信封字段完整性：只声明"什么变了"，不携带实体数据（前端从磁盘重读）
+    assert set(fi.keys()) == {"instructionId", "actionType", "op", "kind", "entityId", "filePath"}
     assert fi["actionType"] == "ADD_TO_CANVAS"
-    assert fi["canvasSpec"]["resourceKind"] == "schema"
-    assert fi["canvasSpec"]["resourceId"] == "sc_users"
-    # 重读磁盘拿到真实 columns（不是回声空数组）
-    config = fi["canvasSpec"]["config"]
-    assert config["name"] == "users"
-    assert config["columns"][0]["name"] == "email"
+    assert fi["op"] == "add"
+    assert fi["kind"] == "schema"
+    assert fi["entityId"] == "sc_users"
+    assert fi["filePath"] == "schemas/users.schema.yaml"
+    assert fi["instructionId"] == "add:schema:sc_users"
 
 
 @pytest.mark.asyncio
 async def test_add_to_canvas_by_name_resolves_id(tmp_path):
-    """ADD_TO_CANVAS 只给 resourceName 时，后端重读时补全 resourceId。"""
+    """ADD_TO_CANVAS 只给 resourceName 时，entityId 解析为磁盘真实 id。"""
     from app.shared.services.llm.actions.action_processor import process_actions
 
     ws = _make_canvas_workspace(tmp_path)
@@ -730,8 +762,8 @@ async def test_add_to_canvas_by_name_resolves_id(tmp_path):
     process_result = await asyncio.to_thread(process_actions, [action], ws)
 
     fi = process_result["results"][0]["frontendInstructions"]
-    # name 匹配到文件后，resourceId 被补全为磁盘真实 id
-    assert fi["canvasSpec"]["resourceId"] == "sc_users"
+    # name 匹配到文件后，entityId 为磁盘真实 id
+    assert fi["entityId"] == "sc_users"
 
 
 @pytest.mark.asyncio
@@ -772,7 +804,7 @@ async def test_add_to_canvas_validator_rejects_invalid_kind(tmp_path):
 
 @pytest.mark.asyncio
 async def test_add_to_canvas_supports_regex(tmp_path):
-    """ADD_TO_CANVAS 支持 regex 资源类型。"""
+    """ADD_TO_CANVAS 支持 regex 资源类型（信封 kind=regex，entityId=文件真实 id）。"""
     from app.shared.services.llm.actions.action_processor import process_actions
 
     ws = _make_canvas_workspace(tmp_path)
@@ -783,8 +815,10 @@ async def test_add_to_canvas_supports_regex(tmp_path):
     process_result = await asyncio.to_thread(process_actions, [action], ws)
 
     fi = process_result["results"][0]["frontendInstructions"]
-    assert fi["canvasSpec"]["resourceKind"] == "regex"
-    assert fi["canvasSpec"]["config"]["pattern"].startswith("^\\w")
+    assert fi["kind"] == "regex"
+    assert fi["entityId"] == "rx_email"
+    assert fi["filePath"] == "regex/email_regex.regex.yaml"
+    assert fi["instructionId"] == "add:regex:rx_email"
 
 
 def test_add_to_canvas_definition_mentions_canvas_spec():

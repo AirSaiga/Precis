@@ -334,6 +334,39 @@ def atomic_write_yaml(file_path: Path, data: dict[str, Any], preserve_format: bo
         raise YamlUpdateError(f"原子写入失败: {file_path}") from e
 
 
+def read_entity_id(file_path: Path, default: str = "") -> str:
+    """
+    @methoddesc 读取资源 YAML 文件的真实实体 id
+
+    优先取文件内容的 id 字段，缺失时按已知资源后缀从文件名推导。
+    供删除类 handler 在 unlink 前捕获真实 id（删除后磁盘无据可查，
+    前端变更集指令需用它定位画布节点）。
+
+    参数:
+        file_path: 资源 YAML 文件路径
+        default: 读取失败时的兜底值
+
+    返回:
+        真实实体 id 字符串
+    """
+    import yaml
+
+    try:
+        with open(file_path, encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+        if isinstance(data, dict):
+            rid = data.get("id")
+            if rid not in (None, ""):
+                return str(rid)
+    except Exception:
+        logger.debug(f"读取实体 id 失败，回退文件名推导: {file_path}", exc_info=True)
+    name = Path(file_path).name
+    for suffix in (".constraint.yaml", ".schema.yaml", ".regex.yaml", ".transform.yaml", ".yaml", ".yml"):
+        if name.endswith(suffix):
+            return name[: -len(suffix)]
+    return default
+
+
 def _update_yaml_data(existing: Any, new: Any) -> None:
     """
     @methoddesc 递归更新 YAML 数据，保留现有格式

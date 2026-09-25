@@ -396,27 +396,31 @@ AI Provider 预设的**单一事实源**是 `backend/app/shared/services/llm/con
 
 所有注册表经 barrel 文件的 side-effect import 触发自注册。
 
-### AI 聊天自动化维护（指令链路防漂移）
+### AI 聊天画布同步（v2 变更集对账，文件唯一事实源 D1）
 
-AI 聊天（agent 模式）经 `frontend_instruction` SSE 事件驱动前端 `services/aiChatInstructions/` 各 handler 创建/修改/删除画布节点。链路为：**后端提示词 → LLM action → 写盘（constraints/schemas/...）→ `frontend_instructions.py` 生成指令 → 前端 handler 镜像到画布**。2026-09 审计实证：节点类型/连接规则改了而 AI 链路没跟上时**静默失效**（regexExtract 拆分后 `resolveTargetHandle` 无对应 case 即建边必败，CI 无任何红灯）。维护规则：
+AI 聊天（agent 模式）的画布同步走**变更集对账**架构：后端写盘后发 `frontend_instruction` 变更集**信封**（六字段：`instructionId`/`actionType`/`op`/`kind`/`entityId`/`filePath`，**不携带实体数据**，契约见 `docs/contracts/frontend-instructions-v2.md`），前端 `services/canvasReconcile/` 把信封入**全局串行对账队列**，统一动作为"从磁盘重读重建画布"（`importV2ResourceToCanvas`，幂等；remove 走 `graphStore.deleteNode` 级联清理）。旧的"镜像 handler 双写"链路（指令内嵌实体数据、前端按 actionType 各自建节点）已删除——uuid 脱钩、竞态、参数丢失三类 bug 均源于该双写。
 
-**单一事实源与契约守卫**（已就位，勿绕过）：
+**链路**：后端提示词 → LLM action → 写盘 → `frontend_instructions.py` 生成信封 → SSE 流式逐条 emit（画布实时生长）+ completed 快照兜底 → 前端解析信封（`parseChangeSetEnvelope` 运行时校验）→ 对账队列（`planFromChangeSet` 按 instructionId **末见**去重、同实体 add+update 折叠、**保序不重排**）→ 执行结果聚合为 `canvasSync` 摘要（聊天 UI 呈现 + 失败 toast）→ 队列排空后刷新 workspaces 快照。
 
-- 约束类型映射 `CONSTRAINT_TYPE_MAP` 由 codegen 从后端 registry 生成（见上文 AI 动作类型契约），handler 禁止手写类型表
-- 契约测试 `frontend/tests/types/generated/actions.test.ts` 守卫"生成物 × constraintMeta × i18n 双侧"三方对齐——**新增约束类型漏改任一侧即红**
-- 后端指令生成器 `_generate_constraint_instruction` 已把 type 标准化为 PascalCase 正名并透传 `params`；前端 handler 按 `constraintNodeData.ts` 的映射把 params 落进节点 data（保存链路从节点 data 重建约束文件，漏写会被空值覆盖）
-- 内联约束的列内契约是 **camelCase 键**（`notNull`/`unique` 布尔、`allowedValues` 数组），与 `useSchemaInteractions`/Inspector 写入格式一致；无内联表示的类型（Range/Scripted 等）handler 须拒绝写入而非落死数据
+**rebuild 的 add/update 语义（refreshExisting）**：`importV2ResourceToCanvas` 对已存在节点默认幂等早退（不重读）；对账 rebuild 在**节点已存在**时传 `refreshExisting: true` 走原地刷新——磁盘为准重读并经 `updateNodeData` 整体替换节点 data（Schema 含内嵌约束三态对账：新增物化/参数刷新/幽灵移除；regex↔regexExtract、约束类型变更等 node type 级变化按删旧建新处理），不删节点、不丢布局、不弹确认窗。contract 的"add: 已存在则幂等刷新"由此落地——**改导入器已存在分支的早退行为时必须对照 refreshExisting 路径**（测试：`tests/services/canvasReconcile/refreshExisting.integration.test.ts`，真实 v2Import 工厂 + mock vueFlowApi 边界）。
+
+**幂等与去重（两层）**：执行幂等由 `refreshExisting` 磁盘重读保证（completed 快照是权威全量列表，整批重放终态恒等于磁盘，自愈流式丢帧）；队列 pending-id coalescing 只对"仍在排队/执行中"且**同批次内该实体仅一条操作**的条目去重（多操作批次豁免，保住删后重建时序）。
+
+**AI 删除与撤销栈**：对账 remove 走 `graphStore.deleteNode(id, { recordHistory: false })`——磁盘已删的实体不入撤销栈，防 Ctrl+Z 复活后被全量保存写回磁盘（静默回滚 AI 的删除）。手动删除仍默认入栈。
 
 **改动时的触点清单**：
 
 | 改动 | AI 链路必查触点 |
 |------|----------------|
-| 新增约束类型 | 后端 registry 白名单+别名 → `npm run codegen` → 前端五处注册（见上节）→ `constraintNodeData.ts` params 映射 → 提示词约束清单（`chat_system_prompt.py`，建议从 registry 派生） |
-| 新增/拆分节点类型 | `resolveTargetHandle` case → `connectionRules.ts` 规则 → 对应 handler 的建边/删除兜底 → **显式决策并记录**：该类型 AI 是否可操作，不可操作要在提示词中告知 |
-| 修改节点 data 结构 | handler 硬编码字段 ↔ `persistence/builders/**` 读取侧**双侧对照**（只改一侧 = 保存 roundtrip 数据丢失） |
-| handler 新增 actionType 分支 | `frontend/tests/services/aiChatInstructionService.test.ts` 补用例（mock 边界：graphStore + vueFlowApi） |
+| 新增约束类型 | 后端 registry 白名单+别名+`CONSTRAINT_PARAM_SCHEMAS` 参数文档（chat 提示词约束参数段与 MCP describe_constraints 均从它派生，漏写守卫测试即红）→ `npm run codegen` → 前端五处注册（见约束节点自注册节）。前端无需为画布同步改代码（磁盘重读自动覆盖），但保存链路读取侧（`persistence/builders/**`）须支持该类型 |
+| 信封新增 kind（如 manualData/template 转正） | `canvasReconcile/envelope.ts` 的 KINDS 集合 + `executor.ts` 的 IMPORTABLE_KINDS（当前这两个 kind 的 rebuild 会记 failed，契约漂移可见）→ `importV2ResourceToCanvas` 增加导入工厂分支 → `tests/services/canvasReconcile/` 补用例 |
+| 修改 `importV2ResourceToCanvas` 行为/选项 | executor 的 rebuild 选项组合（与 `hydrateResourcesFromConfig` 范本一致：`recordHistory: false` + `skipRelatedConstraints: true` + `refreshExisting: 按节点是否已存在`）双侧对照；`refreshExisting` 的原地刷新实现分散在 schema.ts（`refreshSchemaNode`）/regex.ts/constraint.ts/importTransform 的已存在分支，改一处须四kind 同步 |
+| 修改对账队列/计划器语义 | `tests/services/canvasReconcile/`（plan 纯逻辑全分支 / 队列串行顺序 / remove 级联 / 失败收集）与 `tests/services/aiChatInstructionService.test.ts`（mock 边界：graphStore + vueFlowApi；**vueFlowApi mock 必须导出 `VueFlowApiNotInitializedError`**，缺导出会让 instanceof 守卫静默失效） |
+| 修改 SSE 信封契约 | 以 `docs/contracts/frontend-instructions-v2.md` 为权威先改契约文档，前后端同步（同仓库同发布硬切换） |
 
-**确定性守卫（已就位）**：后端 `providers/fake.py` 提供 `ProviderType.FAKE` 确定性剧本（为 users.nickname 添加 chinese_mixed Charset 约束），E2E `e2e/flows/ai-fake-provider.spec.ts` 借它无 key 守卫 AI 三链路（agent 聊天两阶段确认写盘 / 配置生成 / 配置迁移）；三个真实 Provider spec 保留不变。改 fake 剧本或三链路提示词特征字样（`build_prompt` 的 "## 输出要求"/"regex_nodes"、迁移消息的 "迁移"）时须同步该 spec 与 `backend/tests/unit/test_fake_provider.py`。**已知缺口（后续）**：`ADD_*` 指令无幂等查重（当前依赖流式/completed 双通道去重）。
+**op 顺序语义**：`planFromChangeSet` 保持输入（到达）时间序，不做"add 先于 remove"的全局重排——磁盘是唯一事实源，同实体 remove→add（删后重建）保序执行才得到正确终态；跨实体无正确性依赖（rebuild 自带依赖处理、remove 自带级联清理）。同实体 add+update 折叠为一次磁盘重读（落在最后一次出现位置）。
+
+**确定性守卫（已就位）**：后端 `providers/fake.py` 提供 `ProviderType.FAKE` 确定性剧本（为 users.nickname 添加 chinese_mixed Charset 约束），E2E `e2e/flows/ai-fake-provider.spec.ts` 借它无 key 守卫 AI 三链路（agent 聊天两阶段确认写盘 + **v2 信封断言（entityId ≡ 磁盘文件 id）** / 配置生成 / 配置迁移）与 **GUI 保存 roundtrip**（AI 建约束 → 画布节点 id == 磁盘实体 id → 保存 → 重载无重复节点）；三个真实 Provider spec 保留不变。改 fake 剧本或三链路提示词特征字样（`build_prompt` 的 "## 输出要求"/"regex_nodes"、迁移消息的 "迁移"）时须同步该 spec 与 `backend/tests/unit/test_fake_provider.py`。
 
 ### CustomNodeData 到 Record<string, unknown> 的安全转换
 

@@ -44,6 +44,7 @@ import { useI18n } from 'vue-i18n'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import { toastError, toastWarning } from '@/core/toast'
 import { createV2ImportEdges } from './edges'
+import { nodeDataKeys } from '../shared/nodeDataRead'
 import { createV2SchemaImporter } from './schema'
 import { createV2RegexImporter } from './regex'
 import { createV2ConstraintImporter } from './constraint'
@@ -180,6 +181,8 @@ export function createV2ImportToCanvas(params: {
   }
   /** 导入前压入撤销快照（可选，历史模块注入） */
   saveState?: () => void
+  /** 节点 data 唯一修改入口（原地刷新用，graphStore state 模块注入） */
+  updateNodeData: (nodeId: string, patches: Partial<CustomNodeData>) => void
 }) {
   const {
     nodes,
@@ -191,6 +194,7 @@ export function createV2ImportToCanvas(params: {
     getIndependentConstraintIdsForSchema,
     sourceIndex,
     saveState,
+    updateNodeData,
   } = params
   const { t } = useI18n()
   const { showConfirm } = useGlobalConfirm()
@@ -252,19 +256,23 @@ export function createV2ImportToCanvas(params: {
     }
   }
 
-  const { ensureSchemaNode, importSchema } = createV2SchemaImporter({
+  const { ensureSchemaNode, importSchema, refreshSchemaNode } = createV2SchemaImporter({
     nodes,
+    edges,
     getEffectiveProjectConfigPath,
     resolveProjectRelativePath,
     ensureSchemaToConstraintEdge,
     importRelatedIndependentConstraints,
+    updateNodeData,
   })
   const { importRegex } = createV2RegexImporter({
     nodes,
+    edges,
     selectedNodeId,
     ensureSchemaNode,
     ensureSchemaToRegexEdge,
     ensureSchemaToRegexExtractEdge,
+    updateNodeData,
   })
   const { importConstraint } = createV2ConstraintImporter({
     nodes,
@@ -273,6 +281,7 @@ export function createV2ImportToCanvas(params: {
     ensureSchemaNode,
     ensureSchemaToConstraintEdge,
     bufferEdge,
+    updateNodeData,
   })
   // 完成延迟绑定：供 schema importer 的连带创建逻辑使用
   importConstraintFn = importConstraint
@@ -288,6 +297,12 @@ export function createV2ImportToCanvas(params: {
       /** 导入前是否压入撤销快照（默认 true）；启动水合等后台补齐应传 false，
        * 否则用户打开项目后 Ctrl+Z 撤掉的是水合节点而非自己的操作 */
       recordHistory?: boolean
+      /**
+       * 已存在节点的原地刷新（对账 update 语义）：磁盘为准重读并刷新节点 data，
+       * 不删节点、不丢布局、不弹相关约束确认窗。类型翻转（regex↔regexExtract、
+       * 约束类型变更）等 node type 级变化由各导入器按"删旧建新"处理。
+       */
+      refreshExisting?: boolean
     }
   ): Promise<string | null> {
     const normalizedKind: ProjectResourceKind =
@@ -295,13 +310,14 @@ export function createV2ImportToCanvas(params: {
     const includeDeps = options?.includeDeps !== false
     const moveIfExists = options?.moveIfExists === true
     const recordHistory = options?.recordHistory !== false
+    const refreshExisting = options?.refreshExisting === true
 
     // pattern 节点 id 带 `pattern-` 前缀（见 importPattern），外层查重须用同一 id，
     // 否则恒 miss 走不到幂等早退，importPattern 内部会无条件 updateNode 移动节点
     // （多出撤销步且忽略 moveIfExists=false）
     const existingNodeId = kind === 'pattern' ? `pattern-${resourceId}` : resourceId
     const existing = nodes.value.find((n) => n.id === existingNodeId)
-    if (existing) {
+    if (existing && !refreshExisting) {
       if (moveIfExists) {
         // 走 vueFlowApi.updateNode 更新位置（Vue Flow 规范，触发内部状态同步）
         updateNode(existing.id, { position })
@@ -321,6 +337,16 @@ export function createV2ImportToCanvas(params: {
       // 后台补齐类导入（recordHistory=false）不入撤销栈，避免污染用户撤销历史
       if (recordHistory) {
         saveState?.()
+      }
+
+      // Schema 原地刷新（对账 update）：磁盘为准刷新列/数据源 + 内嵌约束三态对账，
+      // 不走"相关独立约束确认弹窗"等创建路径逻辑
+      if (refreshExisting && normalizedKind === 'schema') {
+        const nodeId = await refreshSchemaNode(resourceId)
+        await nextTick()
+        flushBufferedEdges()
+        await reconcileAll()
+        return nodeId
       }
 
       if (kind === 'pattern') {
@@ -425,7 +451,11 @@ export function createV2ImportToCanvas(params: {
       }
 
       if (normalizedKind === 'regex') {
-        const nodeId = await importRegex(resourceId, position, { includeDeps, moveIfExists })
+        const nodeId = await importRegex(resourceId, position, {
+          includeDeps,
+          moveIfExists,
+          refreshExisting,
+        })
         await nextTick()
         flushBufferedEdges()
         await reconcileAll()
@@ -433,7 +463,11 @@ export function createV2ImportToCanvas(params: {
       }
 
       if (normalizedKind === 'constraint') {
-        const nodeId = await importConstraint(resourceId, position, { includeDeps, moveIfExists })
+        const nodeId = await importConstraint(resourceId, position, {
+          includeDeps,
+          moveIfExists,
+          refreshExisting,
+        })
         await nextTick()
         flushBufferedEdges()
         await reconcileAll()
@@ -441,7 +475,11 @@ export function createV2ImportToCanvas(params: {
       }
 
       if (normalizedKind === 'transform') {
-        const nodeId = await importTransform(resourceId, position, { includeDeps, moveIfExists })
+        const nodeId = await importTransform(resourceId, position, {
+          includeDeps,
+          moveIfExists,
+          refreshExisting,
+        })
         await nextTick()
         flushBufferedEdges()
         await reconcileAll()
@@ -536,12 +574,13 @@ export function createV2ImportToCanvas(params: {
   async function importTransform(
     transformId: string,
     position: { x: number; y: number },
-    options?: { includeDeps?: boolean; moveIfExists?: boolean }
+    options?: { includeDeps?: boolean; moveIfExists?: boolean; refreshExisting?: boolean }
   ): Promise<string | null> {
     const moveIfExists = options?.moveIfExists === true
+    const refreshExisting = options?.refreshExisting === true
 
     const existingNode = nodes.value.find((n) => n.id === transformId)
-    if (existingNode) {
+    if (existingNode && !refreshExisting) {
       if (moveIfExists) {
         updateNode(existingNode.id, { position })
       }
@@ -564,21 +603,35 @@ export function createV2ImportToCanvas(params: {
 
     const inputFromNode = tData.input_from_node || undefined
 
+    const transformData: TransformNodeData = {
+      configName: tData.name || tData.id || 'Transform',
+      transformType: tData.type || 'StringSplit',
+      description: tData.description || '',
+      inputFromNode,
+      inputColumn: tData.input_column || undefined,
+      params: tData.params || {},
+      outputColumns: tData.output_columns || [],
+      enabled: tData.enabled !== false,
+      saveState: 'saved',
+    }
+
+    if (existingNode) {
+      // 原地刷新 data（磁盘为准）：整体替换语义（旧 data 独有字段补 undefined）
+      const patch: Record<string, unknown> = { ...transformData }
+      for (const key of nodeDataKeys(existingNode.data)) {
+        if (!(key in patch)) patch[key] = undefined
+      }
+      updateNodeData(transformId, patch as Partial<CustomNodeData>)
+      await nextTick()
+      // 刷新不抢选中（对账是后台同步语义）
+      return transformId
+    }
+
     const transformNode: CustomNode = {
       id: transformId,
       type: 'transform',
       position,
-      data: {
-        configName: tData.name || tData.id || 'Transform',
-        transformType: tData.type || 'StringSplit',
-        description: tData.description || '',
-        inputFromNode,
-        inputColumn: tData.input_column || undefined,
-        params: tData.params || {},
-        outputColumns: tData.output_columns || [],
-        enabled: tData.enabled !== false,
-        saveState: 'saved',
-      } as TransformNodeData,
+      data: transformData,
     }
 
     addNodes(transformNode)

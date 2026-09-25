@@ -118,7 +118,15 @@ export function createNodeOpsModule(deps: NodeOpsDeps) {
     return Array.from(new Set([nodeId, ...outputNodeIds, ...childIdsByParentRef]))
   }
 
-  async function deleteNode(nodeId: string) {
+  /**
+   * 删除单个节点。
+   *
+   * @param nodeId - 目标节点 id
+   * @param options.recordHistory - 删除前是否压入撤销快照（默认 true）。AI 对账等
+   *   "磁盘已删、画布跟随" 的同步删除应传 false——否则 Ctrl+Z 会复活磁盘上已不存在的
+   *   节点，并被全量保存写回磁盘（静默回滚 AI 的删除）。
+   */
+  async function deleteNode(nodeId: string, options?: { recordHistory?: boolean }) {
     const node = nodes.value.find((n) => n.id === nodeId)
     if (!node || node.type === 'projectRoot') {
       return
@@ -126,7 +134,9 @@ export function createNodeOpsModule(deps: NodeOpsDeps) {
 
     // 删除前压入撤销快照，并挂起级联清理的重复压栈
     // （removeEdges 会触发 onEdgesChange → handleEdgeRemoved 清理链）
-    saveState?.()
+    if (options?.recordHistory !== false) {
+      saveState?.()
+    }
     suspendHistory?.()
     try {
       await deleteNodeInner(nodeId)

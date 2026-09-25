@@ -89,6 +89,11 @@ limitations under the License.
             :status="getTrailStatus(msg)"
             :completed-turns="getCompletedTurns(msg)"
           />
+          <!-- 画布对账摘要（v2 变更集：队列排空后的同步结果） -->
+          <CanvasSyncCard
+            v-if="msg.role === 'assistant' && getCanvasSync(msg)"
+            :summary="getCanvasSync(msg)!"
+          />
           <!-- apply_actions 改动确认卡（两阶段确认） -->
           <ApplyConfirmCard
             v-if="msg.role === 'assistant' && msg.streaming?.pendingApply"
@@ -212,7 +217,7 @@ limitations under the License.
   import { useI18n } from 'vue-i18n'
   import { useAiChatStore } from '@/stores/aiChatStore'
   import type { ChatMessage } from '@/stores/aiChatStore'
-  import type { ToolStep } from '@/composables/shared/useStreamingMessage'
+  import type { ToolStep, CanvasSyncSummary } from '@/composables/shared/useStreamingMessage'
   import { useMessageCopy } from '@/composables/useMessageCopy'
   import MarkdownIt from 'markdown-it'
   import DOMPurify from 'dompurify'
@@ -227,6 +232,7 @@ limitations under the License.
   import ToolTrailCard from './ToolTrailCard.vue'
   import ApplyConfirmCard from './ApplyConfirmCard.vue'
   import AskUserCard from './AskUserCard.vue'
+  import CanvasSyncCard from './CanvasSyncCard.vue'
   import type { AskResponseBody } from './AskUserCard.vue'
 
   hljs.registerLanguage('javascript', javascript)
@@ -424,6 +430,11 @@ limitations under the License.
   const getTrailStatus = (msg: ChatMessage): 'streaming' | 'completed' | 'cancelled' | 'error' => {
     if (msg.streaming) return msg.streaming.status
     return 'completed'
+  }
+
+  /** 获取消息的画布对账摘要（流式中读 streaming，完成后读 agentMeta 持久副本） */
+  const getCanvasSync = (msg: ChatMessage): CanvasSyncSummary | null => {
+    return msg.streaming?.canvasSync ?? msg.agentMeta?.canvas_sync ?? null
   }
 
   /** 获取取消时的已执行轮次 */

@@ -25,7 +25,7 @@
 
 import type { Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
-import type { CustomNode } from '@/types/graph'
+import type { CustomNode, CustomNodeData } from '@/types/graph'
 import type { ResourceTreeStoreLike } from '@/types/storeInterfaces'
 import { createEnsureSchemaNodeFromV2 } from './v2/import/ensureSchemaNodeFromV2'
 import { createV2ImportToCanvas } from './v2/import/importV2ResourceToCanvas'
@@ -59,6 +59,8 @@ export function createV2ImportModule(params: {
   }
   /** 导入前压入撤销快照（可选，历史模块注入） */
   saveState?: () => void
+  /** 节点 data 唯一修改入口（原地刷新用，graphStore state 模块注入） */
+  updateNodeData: (nodeId: string, patches: Partial<CustomNodeData>) => void
 }) {
   const {
     nodes,
@@ -70,6 +72,7 @@ export function createV2ImportModule(params: {
     resourceTreeStore,
     sourceIndex,
     saveState,
+    updateNodeData,
   } = params
 
   // 拖拽独立约束触发自动创建 Schema 时，连带创建该 Schema 关联的其他独立约束。
@@ -107,6 +110,7 @@ export function createV2ImportModule(params: {
     getIndependentConstraintIdsForSchema,
     sourceIndex,
     saveState,
+    updateNodeData,
   })
 
   return { importV2ResourceToCanvas, ensureSchemaNodeFromV2, hydrateResourcesFromConfig }

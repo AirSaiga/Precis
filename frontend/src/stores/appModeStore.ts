@@ -60,7 +60,8 @@ export const useAppModeStore = defineStore('appMode', () => {
    *
    * 切换前主动清理 AI 任务：中止进行中的流式对话 + 等待飞行指令落定，
    * 避免 NodeCanvas 重建窗口期内指令命中已销毁的 vueFlowApi 单例。
-   * 这是"主动清理"层；即使清理有遗漏，飞行指令也由 guardCanvasOp 静默降级兜底。
+   * 这是"主动清理"层；即使清理有遗漏，飞行中的对账操作也由 executor 捕获
+   * VueFlowApiNotInitializedError 静默降级兜底（记 warn 跳过，不计失败）。
    *
    * 调用方（如 ModeToggle @click）无需 await——async 函数返回 Promise 自动处理。
    *
@@ -76,7 +77,7 @@ export const useAppModeStore = defineStore('appMode', () => {
       }
       await aiChatStore.awaitPendingInstructions()
     } catch (e) {
-      // 清理失败不阻塞切换——guardCanvasOp 会兜底降级
+      // 清理失败不阻塞切换——对账 executor 的未就绪降级会兜底
       logger.warn('[appModeStore] 切换前 AI 任务清理失败，继续切换:', e)
     }
     mode.value = next

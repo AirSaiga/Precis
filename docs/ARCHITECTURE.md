@@ -281,7 +281,7 @@ expandOnCanvas(instanceNodeId)                    [templateExpand.ts]
 |------|----------|
 | AI Chat | `ai-chat-agent.spec.ts`、`ai-chat-confirm.spec.ts`、`ai-chat-respond.spec.ts` |
 | AI 配置生成 | `ai-config-generation.spec.ts`、`ai-config-migration.spec.ts` |
-| AI 确定性守卫 | `ai-fake-provider.spec.ts`（fake provider 演练 agent 写盘/生成/迁移三链路，无真实 key 也可跑） |
+| AI 确定性守卫 | `ai-fake-provider.spec.ts`（fake provider 演练 agent 写盘/生成/迁移三链路 + v2 变更集信封断言 + GUI 保存 roundtrip，无真实 key 也可跑） |
 | Schema 生命周期 | `schema-import-validate.spec.ts`、`schema-settings-crud.spec.ts` |
 | JSON Schema | `json-schema-lifecycle.spec.ts`、`json-schema-nested-constraints.spec.ts` |
 | 约束 CRUD/覆盖 | `constraint-crud.spec.ts`、`constraint-types-coverage.spec.ts` |

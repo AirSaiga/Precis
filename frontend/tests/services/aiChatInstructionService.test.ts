@@ -16,740 +16,222 @@
  * limitations under the License.
  */
 /**
- * @file aiChatInstructionService.test.ts
- * @description AI 聊天指令服务单元测试
+ * @fileoverview aiChatInstructionService 单元测试（v2 变更集对账口径）
  *
  * 核心覆盖：
- * - AI 构造的合法边在加入画布前会通过连接验证器校验
- * - 非法边被拒绝，不会调用 vueFlowApi.addEdges
- * - 合法边的方向与 sourceHandle/targetHandle 格式符合 connectionRules
+ * - 信封（envelope）→ 对账队列 → importV2ResourceToCanvas 磁盘重读幂等导入
+ * - remove 信封 → graphStore.deleteNode 级联删除
+ - 画布节点 id 恒等于磁盘实体 id（entityId），不再生成随机 uuid
+ * - 非法形状丢弃、同实体 add+update 折叠、队列串行
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import type { Edge, Node as VueFlowNode } from '@vue-flow/core'
-import type { FrontendInstruction } from '@/stores/aiChatStore'
-import { processFrontendInstructions, debouncedFitView } from '@/services/aiChatInstructionService'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { processFrontendInstructions } from '@/services/aiChatInstructionService'
 
-const mocks = vi.hoisted(() => ({
-  validateConnection: vi.fn(),
-  addEdges: vi.fn(),
-  addNodes: vi.fn(),
-  removeNodes: vi.fn(),
-  fitView: vi.fn(),
-  findNode: vi.fn(),
-  toastError: vi.fn(),
-  toastSuccess: vi.fn(),
-  loggerError: vi.fn(),
-  loggerWarn: vi.fn(),
-  loggerInfo: vi.fn(),
-  graphStore: {
-    nodes: [] as VueFlowNode[],
-    edges: [] as Edge[],
-    reconcileAll: vi.fn(),
-    updateNodeData: vi.fn(),
-  },
-}))
-
-vi.mock('uuid', () => ({ v4: vi.fn(() => 'test-uuid') }))
+const mocks = vi.hoisted(() => {
+  class VueFlowApiNotInitializedError extends Error {
+    constructor(message = 'VueFlow API not initialized') {
+      super(message)
+      this.name = 'VueFlowApiNotInitializedError'
+    }
+  }
+  return {
+    // vueFlowApi 边界（canvasOps 顶层 import 该 class，mock 缺此导出会是 undefined，
+    // instanceof 守卫静默失效——历史上踩过的坑）
+    fitView: vi.fn(),
+    findNode: vi.fn(),
+    VueFlowApiNotInitializedError,
+    // graphStore 边界
+    nodes: [] as Array<{ id: string; position: { x: number; y: number } }>,
+    importV2ResourceToCanvas: vi.fn(),
+    deleteNode: vi.fn(),
+    // logger
+    loggerWarn: vi.fn(),
+  }
+})
 
 vi.mock('@/services/canvas/vueFlowApi', () => ({
-  addEdges: mocks.addEdges,
-  addNodes: mocks.addNodes,
-  removeNodes: mocks.removeNodes,
   fitView: mocks.fitView,
   findNode: mocks.findNode,
-}))
-
-vi.mock('@/composables/validation/useConnectionValidator', () => ({
-  useConnectionValidator: vi.fn(() => ({ validateConnection: mocks.validateConnection })),
+  VueFlowApiNotInitializedError: mocks.VueFlowApiNotInitializedError,
 }))
 
 vi.mock('@/stores/graphStore', () => ({
-  useGraphStore: vi.fn(() => mocks.graphStore),
-}))
-
-vi.mock('@/i18n', () => ({
-  i18n: { global: { t: vi.fn((key: string) => key) } },
-}))
-
-vi.mock('@/core/toast', () => ({
-  toastError: mocks.toastError,
-  toastSuccess: mocks.toastSuccess,
+  useGraphStore: () => ({
+    nodes: mocks.nodes,
+    importV2ResourceToCanvas: mocks.importV2ResourceToCanvas,
+    deleteNode: mocks.deleteNode,
+  }),
 }))
 
 vi.mock('@/core/utils/logger', () => ({
-  logger: {
-    error: mocks.loggerError,
-    warn: mocks.loggerWarn,
-    info: mocks.loggerInfo,
-    debug: vi.fn(),
-  },
+  logger: { warn: mocks.loggerWarn, debug: vi.fn(), info: vi.fn(), error: vi.fn() },
 }))
 
-vi.mock('@/services/builders/schemaBuilder', () => ({
-  fromBackendType: vi.fn((type: string) => type),
-}))
-
-function makeSchemaNode(
-  id: string,
-  columns: Array<{ id: string; columnName: string }> = []
-): VueFlowNode {
+function makeEnvelope(overrides: Record<string, unknown> = {}) {
+  const op = (overrides.op ?? 'add') as string
+  const kind = (overrides.kind ?? 'schema') as string
+  const entityId = (overrides.entityId ?? 'users') as string
   return {
-    id,
-    type: 'schema',
-    position: { x: 0, y: 0 },
-    data: {
-      configName: 'Schema_Users',
-      tableName: 'Users',
-      columns,
-      saveState: 'saved',
-    },
-  } as VueFlowNode
+    instructionId: `${op}:${kind}:${entityId}`,
+    actionType: overrides.actionType ?? 'ADD_SCHEMA',
+    op,
+    kind,
+    entityId,
+    filePath: overrides.filePath ?? `${kind}s/${entityId}.yaml`,
+    ...overrides,
+  }
 }
 
-function makeConstraintInstruction(
-  constraintSpecOverrides: Record<string, unknown> = {}
-): FrontendInstruction {
-  return {
-    actionType: 'ADD_CONSTRAINT_NODE',
-    constraintSpec: {
-      type: 'NOT_NULL',
-      targetNodeId: 'schema-1',
-      tableName: 'Users',
-      targetColumn: 'name',
-      constraintId: 'nn1',
-      isInline: false,
-      ...constraintSpecOverrides,
-    },
-  } as unknown as FrontendInstruction
-}
-
-describe('aiChatInstructionService', () => {
+describe('aiChatInstructionService（v2 变更集对账）', () => {
   beforeEach(() => {
-    mocks.graphStore.nodes = []
-    mocks.graphStore.edges = []
-    mocks.graphStore.reconcileAll.mockReset()
-    mocks.graphStore.updateNodeData.mockReset()
-    mocks.validateConnection.mockReset().mockReturnValue({ isValid: true })
-    mocks.addEdges.mockReset()
-    mocks.addNodes.mockReset()
-    mocks.removeNodes.mockReset()
+    mocks.nodes.length = 0
+    mocks.importV2ResourceToCanvas.mockReset()
+    mocks.deleteNode.mockReset()
     mocks.fitView.mockReset()
-    mocks.findNode.mockReset()
-    mocks.toastError.mockReset()
-    mocks.toastSuccess.mockReset()
-    mocks.loggerError.mockReset()
     mocks.loggerWarn.mockReset()
-    mocks.loggerInfo.mockReset()
+    mocks.importV2ResourceToCanvas.mockImplementation(async (_kind: string, id: string) => id)
   })
 
-  describe('debouncedFitView', () => {
-    beforeEach(() => {
-      vi.useFakeTimers()
-    })
-    afterEach(() => {
-      vi.useRealTimers()
-    })
+  it('add 信封 → importV2ResourceToCanvas 磁盘重读（hydrate 同款选项），画布节点 id == entityId', async () => {
+    const p = processFrontendInstructions([makeEnvelope()])
+    expect(p).not.toBeNull()
+    const outcome = await p!
 
-    it('防抖窗口内多次调用只 fitView 一次', () => {
-      debouncedFitView(['a'])
-      debouncedFitView(['b'])
-      debouncedFitView(['c'])
-
-      expect(mocks.fitView).not.toHaveBeenCalled()
-      vi.advanceTimersByTime(500)
-      expect(mocks.fitView).toHaveBeenCalledTimes(1)
-    })
-
-    it('多次调用的 nodes 取并集,而非覆盖(schema + 子约束不应只框 schema)', () => {
-      // 模拟 schema+约束场景:scheduleEnteringClass(c1)→[c1], 后续 debouncedFitView([schema, c1, c2])
-      debouncedFitView(['c1'])
-      debouncedFitView(['schema', 'c1', 'c2'])
-
-      vi.advanceTimersByTime(500)
-      expect(mocks.fitView).toHaveBeenCalledTimes(1)
-      // 并集应包含全部三个节点,而非最后一次覆盖
-      const calledNodes = mocks.fitView.mock.calls[0][0].nodes as string[]
-      expect(calledNodes.sort()).toEqual(['c1', 'c2', 'schema'])
-    })
-
-    it('防抖窗口结束后再次调用会触发新的 fitView', () => {
-      debouncedFitView(['a'])
-      vi.advanceTimersByTime(500)
-      expect(mocks.fitView).toHaveBeenCalledTimes(1)
-
-      // 窗口结束后的新批次
-      debouncedFitView(['b'])
-      vi.advanceTimersByTime(500)
-      expect(mocks.fitView).toHaveBeenCalledTimes(2)
-    })
-  })
-
-  describe('ADD_CONSTRAINT_NODE', () => {
-    it('创建合法约束节点并从 Schema 列连向约束节点', async () => {
-      mocks.graphStore.nodes = [makeSchemaNode('schema-1', [{ id: 'col-1', columnName: 'name' }])]
-
-      await processFrontendInstructions([makeConstraintInstruction()])
-
-      expect(mocks.addNodes).toHaveBeenCalledTimes(1)
-      expect(mocks.addNodes).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: 'test-uuid',
-          type: 'notNullConstraint',
-        })
-      )
-
-      expect(mocks.validateConnection).toHaveBeenCalledTimes(1)
-      expect(mocks.validateConnection).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'schema-1', type: 'schema' }),
-        'source-right-col-1',
-        expect.objectContaining({ id: 'test-uuid', type: 'notNullConstraint' }),
-        'target-input-test-uuid'
-      )
-
-      expect(mocks.addEdges).toHaveBeenCalledTimes(1)
-      expect(mocks.addEdges).toHaveBeenCalledWith(
-        expect.objectContaining({
-          source: 'schema-1',
-          target: 'test-uuid',
-          sourceHandle: 'source-right-col-1',
-          targetHandle: 'target-input-test-uuid',
-        })
-      )
-
-      expect(mocks.graphStore.reconcileAll).toHaveBeenCalled()
-    })
-
-    it('当 AI 只提供列名时能解析为列 ID', async () => {
-      mocks.graphStore.nodes = [
-        makeSchemaNode('schema-1', [{ id: 'col-abc', columnName: 'email' }]),
-      ]
-
-      await processFrontendInstructions([makeConstraintInstruction({ targetColumn: 'email' })])
-
-      expect(mocks.validateConnection).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'schema-1' }),
-        'source-right-col-abc',
-        expect.anything(),
-        expect.anything()
-      )
-      expect(mocks.addEdges).toHaveBeenCalledWith(
-        expect.objectContaining({ sourceHandle: 'source-right-col-abc' })
-      )
-    })
-
-    it('连接验证失败时不添加非法边，并记录错误', async () => {
-      mocks.graphStore.nodes = [makeSchemaNode('schema-1', [{ id: 'col-1', columnName: 'name' }])]
-      mocks.validateConnection.mockReturnValue({
-        isValid: false,
-        errorCode: 'NO_MATCHING_RULE',
-        message: 'No matching rule',
-      })
-
-      await processFrontendInstructions([makeConstraintInstruction()])
-
-      expect(mocks.addEdges).not.toHaveBeenCalled()
-      expect(mocks.loggerError).toHaveBeenCalledWith(expect.stringContaining('连接验证失败'))
-      expect(mocks.toastError).toHaveBeenCalled()
-    })
-
-    it('目标列不存在时不创建连接', async () => {
-      mocks.graphStore.nodes = [makeSchemaNode('schema-1', [])]
-
-      await processFrontendInstructions([makeConstraintInstruction()])
-
-      expect(mocks.validateConnection).not.toHaveBeenCalled()
-      expect(mocks.addEdges).not.toHaveBeenCalled()
-      expect(mocks.toastError).toHaveBeenCalled()
-    })
-  })
-
-  describe('ADD_REGEX', () => {
-    it('创建 Regex 节点并从 Schema 列连向 Regex', async () => {
-      mocks.graphStore.nodes = [makeSchemaNode('schema-1', [{ id: 'col-1', columnName: 'name' }])]
-
-      const instruction = {
-        actionType: 'ADD_REGEX',
-        constraintSpec: {
-          type: 'NOT_NULL',
-          targetNodeId: 'schema-1',
-          tableName: 'Users',
-          targetColumn: 'name',
-          constraintId: 'dummy',
-          isInline: false,
-        },
-        regexSpec: {
-          name: 'emailRegex',
-          pattern: '^.*$',
-          targetNodeId: 'schema-1',
-          targetColumn: 'name',
-        },
-      } as unknown as FrontendInstruction
-
-      await processFrontendInstructions([instruction])
-
-      expect(mocks.addNodes).toHaveBeenCalledWith(expect.objectContaining({ type: 'regex' }))
-
-      expect(mocks.validateConnection).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'schema-1', type: 'schema' }),
-        'source-right-col-1',
-        expect.objectContaining({ type: 'regex' }),
-        'regex-input'
-      )
-
-      expect(mocks.addEdges).toHaveBeenCalledWith(
-        expect.objectContaining({
-          source: 'schema-1',
-          target: 'emailRegex',
-          sourceHandle: 'source-right-col-1',
-          targetHandle: 'regex-input',
-        })
-      )
-    })
-
-    it('Regex 连接验证失败时不添加边', async () => {
-      mocks.graphStore.nodes = [makeSchemaNode('schema-1', [{ id: 'col-1', columnName: 'name' }])]
-      mocks.validateConnection.mockReturnValue({
-        isValid: false,
-        errorCode: 'TARGET_HANDLE_NOT_ALLOWED',
-        message: 'Target handle not allowed',
-      })
-
-      const instruction = {
-        actionType: 'ADD_REGEX',
-        constraintSpec: {
-          type: 'NOT_NULL',
-          targetNodeId: 'schema-1',
-          tableName: 'Users',
-          targetColumn: 'name',
-          constraintId: 'dummy',
-          isInline: false,
-        },
-        regexSpec: {
-          name: 'emailRegex',
-          targetNodeId: 'schema-1',
-          targetColumn: 'name',
-        },
-      } as unknown as FrontendInstruction
-
-      await processFrontendInstructions([instruction])
-
-      expect(mocks.addEdges).not.toHaveBeenCalled()
-      expect(mocks.loggerError).toHaveBeenCalled()
-      expect(mocks.toastError).toHaveBeenCalled()
-    })
-  })
-
-  // ============================================================
-  // DELETE 画布镜像（P1：约束文件已由后端删除，前端须同步删节点）
-  // ============================================================
-  describe('DELETE_CONSTRAINT_NODE', () => {
-    it('独立约束：按 (类型, table, column) 定位并删除节点', async () => {
-      // 画布上已有一个 notNullConstraint 节点
-      mocks.graphStore.nodes = [
-        makeSchemaNode('schema-1', [{ id: 'col_email', columnName: 'email' }]),
-        {
-          id: 'constraint-node-1',
-          type: 'notNullConstraint',
-          position: { x: 100, y: 0 },
-          data: { configName: 'nn1', table: 'Users', column: 'email' },
-        } as VueFlowNode,
-      ]
-
-      const instruction = makeConstraintInstruction({
-        type: 'NOT_NULL',
-        tableName: 'Users',
-        targetColumn: 'email',
-        isInline: false,
-      })
-      instruction.actionType = 'DELETE_CONSTRAINT_NODE'
-
-      await processFrontendInstructions([instruction])
-
-      expect(mocks.removeNodes).toHaveBeenCalledWith(['constraint-node-1'])
-      expect(mocks.graphStore.reconcileAll).toHaveBeenCalled()
-    })
-
-    it('内联约束：按 camelCase 键从列移除约束', async () => {
-      mocks.graphStore.nodes = [
-        makeSchemaNode('schema-1', [{ id: 'col_email', columnName: 'email' } as never]),
-      ]
-      // 列上已有契约格式的内联约束（camelCase 键 + 布尔值，与手动连接/Inspector 写入一致）
-      ;(mocks.graphStore.nodes[0].data as { columns: Array<Record<string, unknown>> }).columns[0] =
-        {
-          id: 'col_email',
-          columnName: 'email',
-          constraints: { notNull: true },
-        }
-
-      const instruction = makeConstraintInstruction({
-        type: 'NOT_NULL',
-        targetNodeId: 'schema-1',
-        tableName: 'Users',
-        targetColumn: 'email',
-        isInline: true,
-      })
-      instruction.actionType = 'DELETE_CONSTRAINT_NODE'
-
-      await processFrontendInstructions([instruction])
-
-      expect(mocks.graphStore.updateNodeData).toHaveBeenCalledWith(
-        'schema-1',
-        expect.objectContaining({ columns: expect.any(Array) })
-      )
-      // 断言 notNull 键确实被移除（而非旧实现那样因键格式不匹配静默返回）
-      const patches = mocks.graphStore.updateNodeData.mock.calls[0][1] as {
-        columns: Array<{ columnName: string; constraints?: Record<string, unknown> }>
+    expect(mocks.importV2ResourceToCanvas).toHaveBeenCalledTimes(1)
+    expect(mocks.importV2ResourceToCanvas).toHaveBeenCalledWith(
+      'schema',
+      'users',
+      { x: 100, y: 100 }, // 空画布默认落点
+      {
+        includeDeps: false,
+        moveIfExists: false,
+        skipRelatedConstraints: true,
+        recordHistory: false,
+        refreshExisting: false, // 节点不存在 → 创建路径
       }
-      expect(patches.columns[0].constraints).toEqual({})
-    })
+    )
+    expect(outcome.added).toEqual(['users'])
   })
 
-  describe('DELETE_SCHEMA', () => {
-    it('精确 id 匹配删除', async () => {
-      mocks.graphStore.nodes = [makeSchemaNode('sc_users')]
+  it('update 信封对已存在节点 → 原地刷新路径（refreshExisting:true），归类 updated', async () => {
+    mocks.nodes.push({ id: 'notnull_users_email', position: { x: 0, y: 0 } })
+    const outcome = await processFrontendInstructions([
+      makeEnvelope({ op: 'update', kind: 'constraint', entityId: 'notnull_users_email' }),
+    ])!
 
-      const instruction = {
-        actionType: 'DELETE_SCHEMA',
-        schemaSpec: { name: 'users', schemaId: 'sc_users' },
-      } as unknown as FrontendInstruction
-
-      await processFrontendInstructions([instruction])
-
-      expect(mocks.removeNodes).toHaveBeenCalledWith('sc_users')
-    })
-
-    it('id 不匹配时按 tableName 兜底删除', async () => {
-      // 节点 id 是 sc_xxx，但指令只给 name
-      mocks.graphStore.nodes = [makeSchemaNode('sc_users_id')]
-
-      const instruction = {
-        actionType: 'DELETE_SCHEMA',
-        schemaSpec: { name: 'Users' }, // 无 schemaId，靠 tableName 兜底
-      } as unknown as FrontendInstruction
-
-      await processFrontendInstructions([instruction])
-
-      expect(mocks.removeNodes).toHaveBeenCalledWith('sc_users_id')
-    })
+    expect(mocks.importV2ResourceToCanvas).toHaveBeenCalledWith(
+      'constraint',
+      'notnull_users_email',
+      expect.anything(),
+      expect.objectContaining({ recordHistory: false, refreshExisting: true })
+    )
+    expect(outcome.updated).toEqual(['notnull_users_email'])
+    expect(outcome.added).toEqual([])
   })
 
-  describe('DELETE_REGEX / DELETE_TRANSFORM', () => {
-    it('DELETE_REGEX 按 configName 兜底删除', async () => {
-      mocks.graphStore.nodes = [
-        {
-          id: 'some-other-id',
-          type: 'regex',
-          position: { x: 0, y: 0 },
-          data: { configName: 'emailRegex' },
-        } as VueFlowNode,
-      ]
+  it('remove 信封 → graphStore.deleteNode(entityId, recordHistory:false)；不存在则 no-op', async () => {
+    mocks.nodes.push({ id: 'users', position: { x: 0, y: 0 } })
+    const outcome = await processFrontendInstructions([makeEnvelope({ op: 'remove' })])!
 
-      const instruction = {
-        actionType: 'DELETE_REGEX',
-        regexSpec: { name: 'emailRegex', regexId: 'missing-id' },
-      } as unknown as FrontendInstruction
+    expect(mocks.deleteNode).toHaveBeenCalledWith('users', { recordHistory: false })
+    expect(outcome.removed).toEqual(['users'])
 
-      await processFrontendInstructions([instruction])
-
-      expect(mocks.removeNodes).toHaveBeenCalledWith('some-other-id')
-    })
-
-    it('DELETE_REGEX 按 configName 兜底定位 regexExtract 节点', async () => {
-      // 创建分支对 matchMode=extract 生成 regexExtract 节点，兜底类型集合须与其一致
-      mocks.graphStore.nodes = [
-        {
-          id: 'extract-node-1',
-          type: 'regexExtract',
-          position: { x: 0, y: 0 },
-          data: { configName: 'emailRegex' },
-        } as VueFlowNode,
-      ]
-
-      const instruction = {
-        actionType: 'DELETE_REGEX',
-        regexSpec: { name: 'emailRegex', regexId: 'missing-id' },
-      } as unknown as FrontendInstruction
-
-      await processFrontendInstructions([instruction])
-
-      expect(mocks.removeNodes).toHaveBeenCalledWith('extract-node-1')
-    })
-
-    it('DELETE_TRANSFORM 按 id 删除', async () => {
-      mocks.graphStore.nodes = [
-        {
-          id: 'tf-1',
-          type: 'transform',
-          position: { x: 0, y: 0 },
-          data: { configName: 'CastType_tf-1' },
-        } as VueFlowNode,
-      ]
-
-      const instruction = {
-        actionType: 'DELETE_TRANSFORM',
-        transformSpec: { transformId: 'tf-1', type: 'CastType' },
-      } as unknown as FrontendInstruction
-
-      await processFrontendInstructions([instruction])
-
-      expect(mocks.removeNodes).toHaveBeenCalledWith('tf-1')
-    })
+    // 节点不存在：no-op，不报错
+    mocks.deleteNode.mockClear()
+    const outcome2 = await processFrontendInstructions([
+      makeEnvelope({ op: 'remove', entityId: 'ghost' }),
+    ])!
+    expect(mocks.deleteNode).not.toHaveBeenCalled()
+    expect(outcome2.removed).toEqual([])
   })
 
-  // ============================================================
-  // UPDATE 画布刷新（P1：后端已改 YAML，前端刷新节点数据）
-  // ============================================================
-  describe('UPDATE_SCHEMA / UPDATE_REGEX / UPDATE_TRANSFORM', () => {
-    it('UPDATE_SCHEMA 刷新列结构', async () => {
-      mocks.graphStore.nodes = [makeSchemaNode('sc_users')]
-
-      const instruction = {
-        actionType: 'UPDATE_SCHEMA',
-        schemaSpec: {
-          name: 'Users',
-          schemaId: 'sc_users',
-          columns: [{ name: 'phone', type: 'string' }],
-        },
-      } as unknown as FrontendInstruction
-
-      await processFrontendInstructions([instruction])
-
-      expect(mocks.graphStore.updateNodeData).toHaveBeenCalledWith(
-        'sc_users',
-        expect.objectContaining({ columns: expect.any(Array) })
-      )
-    })
-
-    it('UPDATE_REGEX 刷新 pattern', async () => {
-      mocks.graphStore.nodes = [
-        {
-          id: 'regex-1',
-          type: 'regex',
-          position: { x: 0, y: 0 },
-          data: { configName: 'emailRegex' },
-        } as VueFlowNode,
-      ]
-
-      const instruction = {
-        actionType: 'UPDATE_REGEX',
-        regexSpec: {
-          name: 'emailRegex',
-          regexId: 'regex-1',
-          pattern: '^\\d+$',
-          matchMode: 'full',
-          caseSensitive: true,
-        },
-      } as unknown as FrontendInstruction
-
-      await processFrontendInstructions([instruction])
-
-      expect(mocks.graphStore.updateNodeData).toHaveBeenCalledWith(
-        'regex-1',
-        expect.objectContaining({ pattern: '^\\d+$' })
-      )
-    })
-
-    it('UPDATE_REGEX 按 configName 兜底刷新 regexExtract 节点', async () => {
-      mocks.graphStore.nodes = [
-        {
-          id: 'extract-node-1',
-          type: 'regexExtract',
-          position: { x: 0, y: 0 },
-          data: { configName: 'emailRegex' },
-        } as VueFlowNode,
-      ]
-
-      const instruction = {
-        actionType: 'UPDATE_REGEX',
-        regexSpec: {
-          name: 'emailRegex',
-          regexId: 'missing-id',
-          pattern: '^\\w+$',
-          matchMode: 'extract',
-          caseSensitive: false,
-        },
-      } as unknown as FrontendInstruction
-
-      await processFrontendInstructions([instruction])
-
-      expect(mocks.graphStore.updateNodeData).toHaveBeenCalledWith(
-        'extract-node-1',
-        expect.objectContaining({ pattern: '^\\w+$' })
-      )
-    })
-
-    it('UPDATE_TRANSFORM 刷新 params', async () => {
-      mocks.graphStore.nodes = [
-        {
-          id: 'tf-1',
-          type: 'transform',
-          position: { x: 0, y: 0 },
-          data: { configName: 'CastType_tf-1' },
-        } as VueFlowNode,
-      ]
-
-      const instruction = {
-        actionType: 'UPDATE_TRANSFORM',
-        transformSpec: { transformId: 'tf-1', type: 'CastType', params: { to: 'integer' } },
-      } as unknown as FrontendInstruction
-
-      await processFrontendInstructions([instruction])
-
-      expect(mocks.graphStore.updateNodeData).toHaveBeenCalledWith(
-        'tf-1',
-        expect.objectContaining({ params: { to: 'integer' } })
-      )
-    })
+  it('内联约束降级为 update:schema:宿主id（后端已降级，前端只重读宿主 schema）', async () => {
+    mocks.nodes.push({ id: 'users', position: { x: 0, y: 0 } })
+    const outcome = await processFrontendInstructions([
+      makeEnvelope({
+        instructionId: 'update:schema:users',
+        actionType: 'ADD_CONSTRAINT_NODE', // 内联保留原 actionType 供遥测
+        op: 'update',
+        kind: 'schema',
+        entityId: 'users',
+      }),
+    ])!
+    expect(mocks.importV2ResourceToCanvas).toHaveBeenCalledWith(
+      'schema',
+      'users',
+      expect.anything(),
+      expect.anything()
+    )
+    expect(outcome.updated).toEqual(['users'])
   })
 
-  // ============================================================
-  // 漂移回归：大小写断层 / params 丢失 / UPDATE 建副本 / 内联契约
-  //（对应后端指令类型标准化 + params 透传；防 AI 链路再次掉队）
-  // ============================================================
-  describe('约束指令漂移回归', () => {
-    it('PascalCase 类型（NotNull）可创建独立约束节点', async () => {
-      mocks.graphStore.nodes = [makeSchemaNode('schema-1', [{ id: 'col-1', columnName: 'name' }])]
+  it('非法形状丢弃：不触发画布操作，记 warn', async () => {
+    const outcome = await processFrontendInstructions([
+      { actionType: 'ADD_SCHEMA', constraintSpec: { type: 'NOT_NULL' } }, // v1 镜像形状
+      'not-an-object',
+      null,
+    ])
+    if (outcome) await outcome
+    expect(mocks.importV2ResourceToCanvas).not.toHaveBeenCalled()
+    expect(mocks.loggerWarn).toHaveBeenCalled()
+  })
 
-      await processFrontendInstructions([makeConstraintInstruction({ type: 'NotNull' })])
+  it('空数组返回 null（调用方跳过聚合）', () => {
+    expect(processFrontendInstructions([])).toBeNull()
+  })
 
-      expect(mocks.addNodes).toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'notNullConstraint' })
-      )
-    })
+  it('同实体 add+update 折叠为一次磁盘重读', async () => {
+    const outcome = await processFrontendInstructions([
+      makeEnvelope({ entityId: 'users' }),
+      makeEnvelope({ op: 'update', entityId: 'users' }),
+    ])!
+    expect(mocks.importV2ResourceToCanvas).toHaveBeenCalledTimes(1)
+    expect(outcome.added).toEqual(['users'])
+  })
 
-    it('Range 约束把 params 写进节点 data（min/max → minValue/maxValue）', async () => {
-      mocks.graphStore.nodes = [makeSchemaNode('schema-1', [{ id: 'col-1', columnName: 'age' }])]
+  it('同 instructionId 重复送达只执行一次（completed 快照兜底 + 流式双通道）', async () => {
+    const outcome = await processFrontendInstructions([
+      makeEnvelope({ entityId: 'users' }),
+      makeEnvelope({ entityId: 'users' }),
+    ])!
+    expect(mocks.importV2ResourceToCanvas).toHaveBeenCalledTimes(1)
+    expect(outcome.added).toEqual(['users'])
+  })
 
-      await processFrontendInstructions([
-        makeConstraintInstruction({
-          type: 'RANGE',
-          targetColumn: 'age',
-          params: { min: 18, max: 60 },
-        }),
-      ])
+  it('import 失败计入 failed 且不中断后续条目', async () => {
+    mocks.importV2ResourceToCanvas
+      .mockResolvedValueOnce(null) // 第一条：资源缺失
+      .mockRejectedValueOnce(new Error('disk read error')) // 第二条：异常
+    const outcome = await processFrontendInstructions([
+      makeEnvelope({ entityId: 'bad1' }),
+      makeEnvelope({ entityId: 'bad2' }),
+      makeEnvelope({ entityId: 'good' }),
+    ])!
+    expect(outcome.failed).toHaveLength(2)
+    expect(outcome.failed.map((f) => f.entityId)).toEqual(['bad1', 'bad2'])
+    expect(outcome.added).toEqual(['good'])
+  })
 
-      expect(mocks.addNodes).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'rangeConstraint',
-          data: expect.objectContaining({ minValue: 18, maxValue: 60 }),
+  it('串行队列：后一批在前一批 import 落定前不启动', async () => {
+    let resolveFirst!: (v: string | null) => void
+    mocks.importV2ResourceToCanvas.mockImplementationOnce(
+      () =>
+        new Promise((r) => {
+          resolveFirst = r
         })
-      )
-    })
+    )
 
-    it('UPDATE 独立约束：刷新已有节点参数而不是建副本', async () => {
-      mocks.graphStore.nodes = [
-        makeSchemaNode('schema-1', [{ id: 'col-1', columnName: 'age' }]),
-        {
-          id: 'range-node-1',
-          type: 'rangeConstraint',
-          position: { x: 350, y: 0 },
-          data: { configName: 'r1', table: 'Users', column: 'age', minValue: 1, maxValue: 10 },
-        } as VueFlowNode,
-      ]
+    const p1 = processFrontendInstructions([makeEnvelope({ entityId: 'a' })])
+    const p2 = processFrontendInstructions([makeEnvelope({ entityId: 'b' })])
 
-      const instruction = makeConstraintInstruction({
-        type: 'Range',
-        targetColumn: 'age',
-        constraintId: 'r2',
-        params: { min: 18, max: 60 },
-      })
-      instruction.actionType = 'UPDATE_CONSTRAINT_NODE'
+    // 第一批挂起（tail.then 微任务起动后）：第二批不得启动
+    await vi.waitFor(() => expect(mocks.importV2ResourceToCanvas).toHaveBeenCalledTimes(1))
+    await Promise.resolve()
+    expect(mocks.importV2ResourceToCanvas).toHaveBeenCalledTimes(1)
 
-      await processFrontendInstructions([instruction])
-
-      expect(mocks.addNodes).not.toHaveBeenCalled()
-      expect(mocks.graphStore.updateNodeData).toHaveBeenCalledWith(
-        'range-node-1',
-        expect.objectContaining({ minValue: 18, maxValue: 60, validationStatus: 'idle' })
-      )
-    })
-
-    it('UPDATE 独立约束找不到已有节点时回退为创建', async () => {
-      mocks.graphStore.nodes = [makeSchemaNode('schema-1', [{ id: 'col-1', columnName: 'age' }])]
-
-      const instruction = makeConstraintInstruction({
-        type: 'Range',
-        targetColumn: 'age',
-        params: { min: 18 },
-      })
-      instruction.actionType = 'UPDATE_CONSTRAINT_NODE'
-
-      await processFrontendInstructions([instruction])
-
-      expect(mocks.addNodes).toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'rangeConstraint' })
-      )
-    })
-
-    it('内联 NotNull：按契约写 camelCase 布尔键', async () => {
-      mocks.graphStore.nodes = [makeSchemaNode('schema-1', [{ id: 'col-1', columnName: 'email' }])]
-
-      await processFrontendInstructions([
-        makeConstraintInstruction({ type: 'NotNull', targetColumn: 'email', isInline: true }),
-      ])
-
-      const patches = mocks.graphStore.updateNodeData.mock.calls[0][1] as {
-        columns: Array<{ columnName: string; constraints?: Record<string, unknown> }>
-      }
-      const col = patches.columns.find((c) => c.columnName === 'email')
-      expect(col?.constraints).toEqual({ notNull: true })
-    })
-
-    it('内联 AllowedValues：写入值数组', async () => {
-      mocks.graphStore.nodes = [makeSchemaNode('schema-1', [{ id: 'col-1', columnName: 'status' }])]
-
-      await processFrontendInstructions([
-        makeConstraintInstruction({
-          type: 'ALLOWED_VALUES',
-          targetColumn: 'status',
-          isInline: true,
-          params: { allowedValues: ['active', 'inactive'] },
-        }),
-      ])
-
-      const patches = mocks.graphStore.updateNodeData.mock.calls[0][1] as {
-        columns: Array<{ columnName: string; constraints?: Record<string, unknown> }>
-      }
-      const col = patches.columns.find((c) => c.columnName === 'status')
-      expect(col?.constraints).toEqual({ allowedValues: ['active', 'inactive'] })
-    })
-
-    it('不支持内联的约束类型：拒绝写入死数据并提示', async () => {
-      mocks.graphStore.nodes = [makeSchemaNode('schema-1', [{ id: 'col-1', columnName: 'age' }])]
-
-      await processFrontendInstructions([
-        makeConstraintInstruction({
-          type: 'Range',
-          targetColumn: 'age',
-          isInline: true,
-          params: { min: 18 },
-        }),
-      ])
-
-      expect(mocks.graphStore.updateNodeData).not.toHaveBeenCalled()
-      expect(mocks.toastError).toHaveBeenCalled()
-    })
-
-    it('DELETE 内联约束跨大小写可命中（ADD 写 NotNull、DELETE 用 NOT_NULL）', async () => {
-      mocks.graphStore.nodes = [makeSchemaNode('schema-1', [{ id: 'col-1', columnName: 'email' }])]
-      // 模拟此前内联 ADD（PascalCase 归一后写入 camelCase 键）
-      ;(mocks.graphStore.nodes[0].data as { columns: Array<Record<string, unknown>> }).columns[0] =
-        { id: 'col-1', columnName: 'email', constraints: { notNull: true } }
-
-      const instruction = makeConstraintInstruction({
-        type: 'NOT_NULL',
-        targetColumn: 'email',
-        isInline: true,
-      })
-      instruction.actionType = 'DELETE_CONSTRAINT_NODE'
-
-      await processFrontendInstructions([instruction])
-
-      const patches = mocks.graphStore.updateNodeData.mock.calls[0][1] as {
-        columns: Array<{ columnName: string; constraints?: Record<string, unknown> }>
-      }
-      const col = patches.columns.find((c) => c.columnName === 'email')
-      expect(col?.constraints).toEqual({})
-    })
+    resolveFirst('a')
+    await p1
+    await p2
+    expect(mocks.importV2ResourceToCanvas).toHaveBeenCalledTimes(2)
   })
 })
