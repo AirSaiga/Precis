@@ -18,6 +18,7 @@
 功能概述:
 - 执行 AI 聊天命令的主入口
 - 辅助函数已拆分到 executor_utils.py / diff.py / display.py
+- agent 模式经 ChatStreamRenderer（stream_renderer.py）接终端流式渲染
 """
 
 from __future__ import annotations
@@ -39,6 +40,7 @@ from .executor_utils import (
 )
 from .interaction import confirm_actions as base_confirm_actions
 from .resolver import resolve_ambiguities as base_resolve_ambiguities
+from .stream_renderer import ChatStreamRenderer
 
 # 为模型回复预留的 token 预算
 RESERVED_OUTPUT_TOKENS = 8000
@@ -134,6 +136,10 @@ def execute_ai_chat(
 
         agent_apply_callbacks, agent_ask_callbacks = build_agent_interaction(spinner)
 
+    # 流式渲染器：agent 模式把 runner 的 on_chunk/on_tool_* 回调接到终端，
+    # LLM 逐字输出与工具过程实时可见；legacy JSON 路径无流式管道，保持原 spinner 体验
+    stream_renderer = ChatStreamRenderer(spinner=spinner, interactive=interactive) if agent_mode else None
+
     # 配置对话选项
     options = ChatOptions(
         history=history or [],
@@ -149,6 +155,7 @@ def execute_ai_chat(
         apply_callbacks=agent_apply_callbacks,
         ask_callbacks=agent_ask_callbacks,
         dry_run_enabled=agent_apply_callbacks is not None,
+        agent_stream_callbacks=stream_renderer.callbacks() if stream_renderer else None,
     )
 
     try:
@@ -166,19 +173,26 @@ def execute_ai_chat(
             spinner.start()
 
         # 执行 AI 对话（CLI 是同步环境：asyncio.run 创建一次性事件循环并在结束时确保关闭，
-        # 不再使用已弃用的 get_event_loop + run_until_complete，避免循环泄漏）
-        result = asyncio.run(
-            orchestrator.execute_chat(
-                message=message,
-                project_path=project_path,
-                context_nodes=context_nodes,
-                options=options,
+        # 不再使用已弃用的 get_event_loop + run_until_complete，避免循环泄漏）。
+        # 收尾走 finally：流式中途 Ctrl+C 等任何退出路径（含 BaseException）都先 finish
+        # 再 stop——spinner.stop 的清行序列从行首覆盖，必须保证光标已落在干净行首
+        try:
+            result = asyncio.run(
+                orchestrator.execute_chat(
+                    message=message,
+                    project_path=project_path,
+                    context_nodes=context_nodes,
+                    options=options,
+                )
             )
-        )
+        finally:
+            # 收尾流式文本行（先于 spinner.stop，顺序不可颠倒）
+            if stream_renderer:
+                stream_renderer.finish()
 
-        # 停止 spinner 动画
-        if spinner:
-            spinner.stop()
+            # 停止 spinner 动画
+            if spinner:
+                spinner.stop()
 
         # 处理结果：如果失败则返回错误
         if not result.success:
@@ -189,11 +203,12 @@ def execute_ai_chat(
 
         reply = result.reply
         actions = result.actions
+        # 流式已把最终回复逐字上屏时不再整段重复打印（多轮中间文本已由 on_turn 重置排除）
+        reply_streamed = bool(stream_renderer and stream_renderer.final_reply_already_shown(reply))
 
         # 在交互模式下显示 AI 的文本回复
-        if interactive:
-            if reply:
-                print(reply)
+        if interactive and reply and not reply_streamed:
+            print(reply)
 
         # 在交互模式下显示 Agent 工具轨迹（仅 Agent 模式有 tool_steps）
         if interactive and agent_mode and result.tool_steps:
@@ -208,7 +223,8 @@ def execute_ai_chat(
             _display_execution_results(result, project_path, original_files_cache)
 
         return CommandResult.ok(
-            reply if not interactive else "",
+            # 非交互（ai ask）单发模式由 main 打印 message：流式已输出过回复时置空避免重复
+            "" if interactive or reply_streamed else reply,
             data={
                 "reply": reply,
                 "actions": actions,
@@ -217,10 +233,7 @@ def execute_ai_chat(
         )
 
     except Exception as e:
-        # 发生异常时确保 spinner 停止，避免动画残留
-        if spinner:
-            spinner.stop()
-
+        # 流式收尾与 spinner 停止已由内层 finally 覆盖（任何退出路径），此处只做错误呈现
         logger.error(f"AI 对话失败: {e}", exc_info=True)
         error_msg = f"AI 对话失败: {str(e)}"
 
