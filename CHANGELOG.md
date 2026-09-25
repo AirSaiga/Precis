@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-09-25
+
 ### 2026-09
 - **TUI 停止随 Release 发布（发布面收缩，实验性降级）**：TUI 打磨度不及 CLI 与 GUI，自本条起 GitHub Release 不再包含 `precis-tui-*` 压缩包——CD（`cd.yml`）移除 `build-tui` job（`release` job 的 `needs` 同步收口），根 README 双语“四种入口”降级为“三种入口 + 实验性 TUI（源码构建）”，CONTRIBUTING / tui-rust / electron 各 README 同步标注“TUI 打包仅本地自用”（顺带修正 tui-rust README 打包章节指向根 README 的过时链接，实际在 CONTRIBUTING）。TUI 源码、测试、版本同步（`release.mjs` 仍同步 `Cargo.toml`/`Cargo.lock`）、`npm run start:tui` 开发入口**全部保留**，恢复发布只需 revert 本提交。
 

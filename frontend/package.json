@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Precis - Visual Editor Frontend (Vue 3 + Vue Flow)",
   "private": true,
   "type": "module",
