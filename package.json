@@ -1,6 +1,6 @@
 {
   "name": "precis",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Precis - Local Data Validation Tool (Electron + CLI)",
   "repository": {
     "type": "git",

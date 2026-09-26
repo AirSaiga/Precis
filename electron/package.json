@@ -1,6 +1,6 @@
 {
   "name": "precis-desktop",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Precis Desktop Application - Data Validation Tool",
   "main": "dist/main.js",
   "repository": {

@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-09-26
+
 ### 2026-09
 - **约束 ID UUID 化治本（AI/CLI 链路，数据误判级）**——AI/CLI 链路的约束 ID 此前由后端语义派生（`{类型}_{表缩写}_{列缩写}`），派生坍缩会让同表同类型两条约束产出相同 ID（全角括号列名清洗后都是 `col`），第二条被误判"约束已存在"创建失败；删除与前端信封链路还依赖"现场重新派生"还原 ID，表/列改名后必然对不上。本次治本：① **生成**——独立与内联两条路径的缺省 ID 改为 `{类型}_{UUID v4}`（保留类型前缀是 E2E `ai-fake-provider.spec.ts` 按 `charset_` 前缀定位约束文件的既有契约），LLM 显式传 `constraintId` 时经文件名安全清洗（`[A-Za-z0-9_-]` 白名单 + 穿越拒绝）后尊重，`ConstraintSpec.constraintId` 死字段激活；② **重复创建防护**——派生 ID 撞名的存在性检查随之失效，改为语义查重（同表+同列+同类型即拦截，`constraint_lookup.find_constraint_file_by_semantics` 按 refs 内容匹配，对存量语义 ID 文件同样生效），防止 UUID 不同的双份约束；③ **删除**——`delete_constraint_file` 改为显式 constraintId 优先、语义引用（表+列+类型）磁盘搜索兜底，对存量语义 ID 文件（如 `range_yg信息b_col`）与新 UUID 文件都能正确删除，成功返回被删文件真实 id；UPDATE 同理按语义定位既有文件原地覆写并保留原 id；④ **信封**——`frontend_instructions` 的约束 entityId 改为取动作执行的实际落盘结果（processor 以 `resolved_id` 回传 handler 返回的真实 id；直连生成器兜底重读磁盘定位），不再镜像派生，`entityId ≡ 磁盘文件 id` 契约不变（契约文档同步修订）；⑤ **清理**——`constraint_id.py` 派生函数与 `_chinese_to_abbr` 全仓无剩余调用方，整文件删除；提示词（legacy/agent/registry spec 说明）补 `constraintId` 可选、缺省自动生成。碰撞回归、语义查重、三类删除、信封恒等与内联路径均有 pytest 守卫（`test_constraint_uuid_and_semantics.py` 29 例）。
 
