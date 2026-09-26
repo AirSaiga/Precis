@@ -28,7 +28,7 @@
     result = execute_validate_project("/workspace", table_filter="users")
 
 输出示例:
-    (True, "notnull_users_email")
+    (True, "notnull_users_1f0c8e52-9d1e-4f0a-9b3e-6a2f5c8d7e90")
     [{"action": action, "success": True, "message": "..."}]
     {"success": True, "message": "校验通过", "details": {...}}
 """
@@ -56,7 +56,12 @@ from app.shared.services.llm.constraints.constraint_builder import (
     _build_inline_constraint_item,
 )
 from app.shared.services.llm.constraints.constraint_deletion import delete_constraint_file
-from app.shared.services.llm.constraints.constraint_id import _generate_constraint_id
+from app.shared.services.llm.constraints.constraint_lookup import (
+    default_constraint_id,
+    find_constraint_file_by_id,
+    find_constraint_file_by_semantics,
+    sanitize_constraint_id,
+)
 from app.shared.services.llm.constraints.frontend_instructions import generate_frontend_instructions
 from app.shared.services.llm.constraints.inline_batch import (
     _collect_target_schema_id,
@@ -84,7 +89,7 @@ __all__ = [
 ]
 
 
-def _ensure_manifest_constraint_ref(workspace_path: str, constraint_id: str) -> None:
+def _ensure_manifest_constraint_ref(workspace_path: str, constraint_id: str, rel_path: str | None = None) -> None:
     """确保 manifest 中包含指定独立约束的引用（镜像 _ensure_manifest_schema_ref）。
 
     失败时抛出异常 —— 避免约束文件已写盘但 manifest 未登记，
@@ -95,7 +100,7 @@ def _ensure_manifest_constraint_ref(workspace_path: str, constraint_id: str) -> 
         return
 
     manifest = load_manifest(manifest_path)
-    ensure_constraint_ref(manifest, constraint_id)
+    ensure_constraint_ref(manifest, constraint_id, default_path=rel_path)
     save_manifest(manifest, manifest_path)
 
 
@@ -174,14 +179,23 @@ def _delete_inline_constraint(
             if len(remaining) == len(constraints):
                 return False, f"未找到内联约束: {std_type} on {table_name}.{target_column}"
 
+            # 回传被删内联项自身的 id（不再派生）：信封与展示消费真实落盘结果
+            removed_id = next(
+                (
+                    str(c.get("id"))
+                    for c in constraints
+                    if c.get("column") == column_id and c.get("type") == std_type and c.get("id")
+                ),
+                f"{std_type.lower()}_{column_id or target_column}",
+            )
+
             schema_data["constraints"] = remaining
             # 必须全量替换写入：atomic_write_yaml 的 preserve_format 路径按 id
             # 合并列表（只更新/追加、不删除），会把本次删除的约束"复活"
             atomic_write_yaml(schema_file, schema_data, preserve_format=False)
 
-        constraint_id = _generate_constraint_id(std_type, table_name or "inline", target_column)
-        logger.info(f"[updateYamlConfig] 删除内联约束: {constraint_id}")
-        return True, f"inline:{constraint_id}"
+        logger.info(f"[updateYamlConfig] 删除内联约束: {removed_id}")
+        return True, f"inline:{removed_id}"
 
     except YamlUpdateError as e:
         error_msg = f"删除内联约束失败: {str(e)}"
@@ -232,14 +246,27 @@ def update_yaml_config(action: dict[str, Any], workspace_path: str) -> tuple[boo
     # 统一转换类型名
     std_type = CONSTRAINT_TYPE_MAP.get(constraint_type, constraint_type)
 
-    if not std_type or (not target_column and not target_columns):
-        error_msg = f"无效的约束规格: constraint_type={constraint_type}, std_type={std_type}, table_name={table_name}, target_column={target_column}"
-        logger.error(f"[updateYamlConfig] {error_msg}")
-        return False, error_msg
+    # LLM 显式给出的约束 ID：清洗为文件名安全形式（空串=未提供，回退自动生成）
+    try:
+        explicit_constraint_id = sanitize_constraint_id(constraint_spec.get("constraintId"))
+    except ValueError as e:
+        logger.error(f"[updateYamlConfig] {e}")
+        return False, str(e)
 
-    # 确定用于文件名的表标识符 (优先使用可读的名称)
-    filename_table = table_name or target_node_id or "unknown"
-    filename_column = (
+    # DELETE 携带显式 constraintId 时可仅凭 id 定位（无需列信息）；其余情况
+    # 类型与列（或列组合）缺一不可
+    if not std_type or (not target_column and not target_columns):
+        if not (action_type == "DELETE_CONSTRAINT_NODE" and explicit_constraint_id):
+            error_msg = (
+                f"无效的约束规格: constraint_type={constraint_type}, std_type={std_type}, "
+                f"table_name={table_name}, target_column={target_column}"
+            )
+            logger.error(f"[updateYamlConfig] {error_msg}")
+            return False, error_msg
+
+    # 内联日志与错误信息用的表/列展示标识（优先可读名称；独立约束文件名由 id 决定）
+    display_table = table_name or target_node_id or "unknown"
+    display_column = (
         target_column or target_column_id or ("_".join(str(c) for c in target_columns) if target_columns else "unknown")
     )
 
@@ -256,21 +283,21 @@ def update_yaml_config(action: dict[str, Any], workspace_path: str) -> tuple[boo
                 target_node_id=target_node_id,
                 target_column_id=target_column_id,
             )
-        # 删除独立约束文件
-        success, message = delete_constraint_file(std_type, filename_table, filename_column, workspace_path)
-        # 同步从 manifest 移除引用（避免 dangling ref）
+        # 删除独立约束文件：优先显式 constraintId，其次语义引用磁盘搜索
+        # （对存量语义 ID 文件与新 UUID 文件都能正确删除）
+        success, message = delete_constraint_file(constraint_spec, workspace_path)
+        # 同步从 manifest 移除引用（避免 dangling ref）——message 即被删文件真实 id
         if success:
             try:
-                deleted_constraint_id = _generate_constraint_id(std_type, filename_table or "inline", filename_column)
-                _remove_manifest_constraint_ref(workspace_path, deleted_constraint_id)
+                _remove_manifest_constraint_ref(workspace_path, message)
             except Exception as e:
                 # 文件已删成功，manifest 清理失败仅告警（不回滚文件删除）
                 logger.warning(f"[updateYamlConfig] 删除 manifest 引用失败（文件已删）: {e}")
         return success, message
 
     if is_inline:
-        logger.info(f"[updateYamlConfig] 内联约束: {std_type} on {filename_table}.{filename_column}")
-        constraint_id = _generate_constraint_id(std_type, filename_table or "inline", filename_column)
+        logger.info(f"[updateYamlConfig] 内联约束: {std_type} on {display_table}.{display_column}")
+        constraint_id = explicit_constraint_id or default_constraint_id(std_type)
 
         # 将内联约束添加到 schema 文件
         try:
@@ -346,7 +373,12 @@ def update_yaml_config(action: dict[str, Any], workspace_path: str) -> tuple[boo
                         break
 
                 if existing_idx is not None:
-                    # 更新现有约束
+                    # 更新现有约束：保留既有项的 id（内嵌约束全局 id 含 item id，
+                    # UUID 化后每次更新换 id 会造成无谓的引用漂移）
+                    prev_id = schema_data["constraints"][existing_idx].get("id")
+                    if prev_id:
+                        inline_constraint["id"] = prev_id
+                        constraint_id = str(prev_id)
                     schema_data["constraints"][existing_idx] = inline_constraint
                     logger.info(f"[updateYamlConfig] 更新内联约束: {constraint_id}")
                 else:
@@ -372,17 +404,58 @@ def update_yaml_config(action: dict[str, Any], workspace_path: str) -> tuple[boo
             return False, error_msg
 
     else:
-        # 添加/更新独立约束文件
-        constraint_id = _generate_constraint_id(std_type, filename_table, filename_column)
-        constraint_file_path = Path(workspace_path) / "constraints" / f"{constraint_id}.constraint.yaml"
+        # 添加/更新独立约束文件（ID 已 UUID 化：缺省自动生成，显式 constraintId 尊重）
+        constraint_file_path: Path | None = None
 
         try:
-            # §2.4: ADD 存在性检查——原实现直写覆盖，同列第二个同类型约束静默顶掉第一个。
-            # 已存在时引导走 UPDATE；删除语义（DELETE 分支在前）不受影响。
-            if action_type == "ADD_CONSTRAINT_NODE" and constraint_file_path.exists():
-                error_msg = f"约束已存在（id={constraint_id}），如需修改请用 UPDATE，如需新建请先删除现有约束。"
-                logger.warning(f"[updateYamlConfig] {error_msg}")
-                return False, error_msg
+            located: tuple[str, Path] | None = None
+            if action_type == "ADD_CONSTRAINT_NODE":
+                # 语义查重：同表 + 同列 + 同类型已存在即视为重复——UUID 化后派生
+                # ID 撞名的存在性检查失效，此处防止 LLM 重复添加产出 UUID 不同
+                # 的双份约束（口径与 _constraint_validator 的表/列/类型一致）
+                dup = find_constraint_file_by_semantics(
+                    workspace_path,
+                    std_type,
+                    table_name=table_name,
+                    target_node_id=target_node_id,
+                    target_column=target_column,
+                    target_column_id=target_column_id,
+                    target_columns=target_columns,
+                )
+                if dup:
+                    error_msg = f"约束已存在（id={dup[0]}），如需修改请用 UPDATE，如需新建请先删除现有约束。"
+                    logger.warning(f"[updateYamlConfig] {error_msg}")
+                    return False, error_msg
+                if explicit_constraint_id and find_constraint_file_by_id(workspace_path, explicit_constraint_id):
+                    error_msg = (
+                        f"约束已存在（id={explicit_constraint_id}），如需修改请用 UPDATE，如需新建请先删除现有约束。"
+                    )
+                    logger.warning(f"[updateYamlConfig] {error_msg}")
+                    return False, error_msg
+                constraint_id = explicit_constraint_id or default_constraint_id(std_type)
+            else:
+                # UPDATE：优先显式 constraintId，其次语义引用定位既有文件——命中则
+                # 保留原 id 原地覆写（含存量语义 ID 文件）；未命中保持宽容行为新建
+                if explicit_constraint_id:
+                    located = find_constraint_file_by_id(workspace_path, explicit_constraint_id)
+                if located is None:
+                    located = find_constraint_file_by_semantics(
+                        workspace_path,
+                        std_type,
+                        table_name=table_name,
+                        target_node_id=target_node_id,
+                        target_column=target_column,
+                        target_column_id=target_column_id,
+                        target_columns=target_columns,
+                    )
+                if located:
+                    constraint_id = located[0]
+                    constraint_file_path = located[1]
+                else:
+                    constraint_id = explicit_constraint_id or default_constraint_id(std_type)
+
+            if constraint_file_path is None:
+                constraint_file_path = Path(workspace_path) / "constraints" / f"{constraint_id}.constraint.yaml"
 
             # 构建约束配置
             constraint_config = ConstraintFile(
@@ -401,9 +474,14 @@ def update_yaml_config(action: dict[str, Any], workspace_path: str) -> tuple[boo
 
             # 保存约束文件
             save_constraint(constraint_config, str(constraint_file_path))
-            # 注册到 manifest（C1 修复：否则约束文件成为孤儿，校验引擎永不加载）
+            # 注册到 manifest（C1 修复：否则约束文件成为孤儿，校验引擎永不加载）；
+            # 登记路径取实际落盘文件名（UPDATE 命中的既有文件名可能与 id 不同）
             try:
-                _ensure_manifest_constraint_ref(workspace_path, constraint_id)
+                rel_path = constraint_file_path.relative_to(Path(workspace_path)).as_posix()
+            except ValueError:
+                rel_path = None
+            try:
+                _ensure_manifest_constraint_ref(workspace_path, constraint_id, rel_path)
             except Exception as e:
                 logger.error(f"[updateYamlConfig] 登记 manifest 失败，回滚约束文件: {e}")
                 constraint_file_path.unlink(missing_ok=True)

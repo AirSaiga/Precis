@@ -19,7 +19,6 @@
 覆盖目标:
 - constraint_builder.py: _build_constraint_refs, _build_constraint_params
 - inline_batch.py: _collect_target_schema_id, _is_inline_action
-- constraint_id.py: 更多分支
 """
 
 

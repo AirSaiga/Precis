@@ -252,6 +252,7 @@ def build_json_format_prompt(canvas_enabled: bool = True) -> str:
 - constraintSpec.type: 约束类型，如 NotNull, Unique, AllowedValues 等
 - constraintSpec.tableName: 目标表名（中文或英文）
 - constraintSpec.targetColumn: 目标列名（中文或英文）
+- constraintSpec.constraintId: 约束 ID（可选）。缺省由系统自动生成唯一 ID，无需填写；仅当用户明确指定 ID 或需要精确定位既有约束（更新/删除）时给出
 
 ## 约束类型与参数说明
 """

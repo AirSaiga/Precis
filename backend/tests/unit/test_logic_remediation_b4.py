@@ -16,7 +16,7 @@
 """@fileoverview 2026-09-18 逻辑漏洞治理第二轮 B4 批次（AI 链路后端）回归测试
 
 覆盖 docs/plans/2026-09-18-logic-remediation/02 规格中 B4 批次的后端修复：
-- §2.4  约束 ID 全名化（去截断/去子串匹配）+ ADD 存在性检查
+- §2.4  约束 ID 唯一性 + ADD 存在性检查（ID 已进一步 UUID 化，见 test_constraint_uuid_and_semantics.py）
 - §2.5  Transform 随机 ID 扩容（uuid4 hex[:8]）
 - §2.6  AI DELETE_SCHEMA 引用检查（与 REST 共用单一事实源）
 - §2.7  ADD_REGEX 登记失败回滚（对齐 Schema 路径）
@@ -36,38 +36,16 @@ from unittest.mock import patch
 import yaml
 
 # ============================================================
-# §2.4 约束 ID 生成
+# §2.4 约束 ID 唯一性与 ADD 存在性检查
+# （ID 生成已 UUID 化：{类型}_{UUID v4}，派生函数本体已删除，
+#  纯函数级行为见 test_constraint_uuid_and_semantics.py，
+#  此处保留写盘路径的行为回归）
 # ============================================================
 
 
 class TestConstraintIdGeneration:
-    def test_two_long_table_names_produce_distinct_ids(self):
-        """customers_eu_2024 与 customers_us_2024 同列同类型 → ID 不同（原 10 字符截断后同前缀）"""
-        from app.shared.services.llm.constraints.constraint_id import _generate_constraint_id
-
-        id1 = _generate_constraint_id("NotNull", "customers_eu_2024", "email")
-        id2 = _generate_constraint_id("NotNull", "customers_us_2024", "email")
-        assert id1 != id2
-        assert "customers_eu_2024" in id1
-        assert "customers_us_2024" in id2
-
-    def test_chinese_table_no_substring_collision(self):
-        """'订单' 与 '订单明细' 不再被子串匹配缩写成同一前缀（精确映射 + 首字母全名展开）"""
-        from app.shared.services.llm.constraints.constraint_id import _generate_constraint_id
-
-        id1 = _generate_constraint_id("NotNull", "订单", "金额")
-        id2 = _generate_constraint_id("NotNull", "订单明细", "金额")
-        assert id1 != id2
-
-    def test_exact_chinese_mapping_still_applies(self):
-        """精确命中内建映射的中文表名仍用英文缩写（可读性保持）"""
-        from app.shared.services.llm.constraints.constraint_id import _chinese_to_abbr
-
-        assert _chinese_to_abbr("订单") == "order"
-        assert _chinese_to_abbr("用户表") == "user"
-
     def test_add_existing_constraint_rejected(self, tmp_path):
-        """ADD 已存在的约束文件 → 报'已存在'不覆盖（原实现直写覆盖）"""
+        """ADD 已存在的约束文件 → 报'已存在'不覆盖（语义查重：同表+同列+同类型）"""
         from app.shared.services.llm.actions.action_handlers import update_yaml_config
 
         spec = {
@@ -87,7 +65,7 @@ class TestConstraintIdGeneration:
         assert "UPDATE" in msg2
 
     def test_update_existing_constraint_still_allowed(self, tmp_path):
-        """UPDATE 已存在的约束文件 → 正常覆盖（存在性检查只拦 ADD）"""
+        """UPDATE 已存在的约束文件 → 正常覆盖（语义查重只拦 ADD，UPDATE 定位既有文件保留 id）"""
         from app.shared.services.llm.actions.action_handlers import update_yaml_config
 
         spec = {

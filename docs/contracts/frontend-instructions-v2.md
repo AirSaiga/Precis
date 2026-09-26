@@ -25,7 +25,7 @@
 | `op` | `str` | `add` \| `update` \| `remove` |
 | `kind` | `str` | `schema` \| `constraint` \| `regex` \| `transform`（预留：`manualData` \| `template`） |
 | `entityId` | `str` | 磁盘实体的真实 id，**恒等于宿主文件名推导的 id 与画布节点 id**（见下） |
-| `filePath` | `str` | 项目相对路径（POSIX `/` 分隔），如 `constraints/notnull_users_email.constraint.yaml` |
+| `filePath` | `str` | 项目相对路径（POSIX `/` 分隔），如 `constraints/notnull_3f2a1c8e-5b4d-4e6f-9a0b-7c1d2e3f4a5b.constraint.yaml` |
 
 **不再携带**任何实体数据字段（`columns` / `params` / `config` / `constraintSpec` 等）。
 前端处理任何条目的统一动作：按 `filePath`（或 `kind` + `entityId`）从磁盘重读并重建。
@@ -43,7 +43,7 @@
 | kind | 目录 | 文件后缀 | 匹配键 |
 |------|------|---------|--------|
 | `schema` | `schemas/` | `.schema.yaml` | 内容 `id`（匹配时含 `name` 兜底） |
-| `constraint` | `constraints/` | `.constraint.yaml` | 确定性派生 id（见下） |
+| `constraint` | `constraints/` | `.constraint.yaml` | 内容 `id`（resolved_id 优先，语义定位兜底，见下） |
 | `regex` | `regex/`（历史 `regex_nodes/` 仍可命中） | `.regex.yaml` | 内容 `id`（匹配时含 `name` 兜底） |
 | `transform` | `transforms/` | `.transform.yaml` | 仅内容 `id` |
 | `manualData` / `template` | —（当前无 AI 动作产出，前端对称预留） | — | — |
@@ -55,13 +55,17 @@
 2. ADD / UPDATE 类指令由后端**重读磁盘**解析 entityId（LLM 可能只给 name，如
    `UPDATE_SCHEMA {name: "users"}` 命中 `schemas/sc_users.schema.yaml` → entityId 为
    `sc_users` 而非 `users`）。
-3. DELETE 类指令在文件删除后生成，磁盘无据可查——由 handler 在 unlink 前回传
-   `resolved_id`（schema/regex/transform），独立约束为确定性派生（见下），保证删除
-   条目的 entityId 同样是真实 id。
-4. 独立约束文件的 id 是确定性派生：`_generate_constraint_id(type, table, column)`
-   （如 NotNull + users + email → `notnull_users_email`）。生成器镜像写盘路径
-   （`update_yaml_config` / `delete_constraint_file`）的**同一套**类型映射与键优先级
-   （`CONSTRAINT_TYPE_MAP`，非更强归一化），"写出的文件名"与"指令 entityId"恒等。
+3. DELETE 类指令在文件删除后生成，磁盘无据可查——由 handler 在 unlink 前解析并回传
+   `resolved_id`（schema/regex/transform/constraint 一致），保证删除条目的 entityId
+   同样是真实 id。
+4. 独立约束文件的 id 不再语义派生：新建缺省生成 `{类型}_{UUID v4}`（LLM 显式传
+   `constraintId` 时经文件名安全清洗后尊重）。约束信封的 entityId 取**动作执行的
+   实际落盘结果**——`update_yaml_config` / `delete_constraint_file` 成功时返回的
+   message 即真实 id（processor 以 `resolved_id` 回传）；直连生成器（无
+   resolved_id）时重读磁盘按显式 `constraintId` → 语义引用（表+列+类型，
+   `constraint_lookup.find_constraint_file_by_semantics`）兜底定位，两种路径下
+   "写出的文件名"与"指令 entityId"恒等。删除与语义定位对存量语义 ID 文件
+   （如 `notnull_users_email`）与新 UUID 文件同样适用。
 
 ### 内联约束的特殊映射
 

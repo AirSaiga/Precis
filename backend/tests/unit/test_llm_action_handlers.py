@@ -523,7 +523,7 @@ class TestUpdateYamlConfig:
     @patch("app.shared.services.llm.actions.action_handlers.delete_constraint_file")
     def test_delete_constraint_removes_manifest_ref(self, mock_delete, tmp_path):
         """C1 修复：DELETE 独立约束后必须从 manifest 移除引用（避免 dangling ref）。"""
-        mock_delete.return_value = (True, "deleted")
+        mock_delete.return_value = (True, "unique_users_email")  # 被删文件的真实 id（handler 回传）
         workspace = str(tmp_path)
         os.makedirs(os.path.join(workspace, "constraints"))
         manifest_path = os.path.join(workspace, "project.precis.yaml")

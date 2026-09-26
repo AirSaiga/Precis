@@ -26,7 +26,7 @@
 
 输出示例:
     [
-        {"action": action, "success": True, "message": "inline:notnull_users_email", "frontendInstructions": {...}},
+        {"action": action, "success": True, "message": "inline:notnull_1f0c8e52-...", "frontendInstructions": {...}},
         ...
     ]
 """
@@ -43,7 +43,7 @@ from app.shared.services.llm.constraints.constraint_builder import (
     CONSTRAINT_TYPE_MAP,
     _build_inline_constraint_item,
 )
-from app.shared.services.llm.constraints.constraint_id import _generate_constraint_id
+from app.shared.services.llm.constraints.constraint_lookup import default_constraint_id, sanitize_constraint_id
 from app.shared.services.llm.constraints.frontend_instructions import generate_frontend_instructions
 from app.shared.services.llm.yaml_io import FileLock, atomic_write_yaml
 
@@ -186,14 +186,21 @@ def process_inline_batch(actions: list[dict[str, Any]], workspace_path: str) -> 
                         )
                         continue
 
-                    # 生成约束 ID
-                    filename_table = table_name or target_node_id or "unknown"
-                    filename_column = (
-                        target_column
-                        or target_column_id
-                        or ("_".join(str(c) for c in target_columns) if target_columns else "unknown")
-                    )
-                    constraint_id = _generate_constraint_id(std_type, filename_table, filename_column)
+                    # 约束 ID：显式 constraintId 尊重（文件名安全清洗），缺省自动生成
+                    # （类型前缀 + UUID v4）；LLM 给出非法 ID 时该动作失败
+                    try:
+                        explicit_constraint_id = sanitize_constraint_id(spec.get("constraintId"))
+                    except ValueError as e:
+                        results.append(
+                            {
+                                "action": action,
+                                "success": False,
+                                "message": str(e),
+                                "frontendInstructions": None,
+                            }
+                        )
+                        continue
+                    constraint_id = explicit_constraint_id or default_constraint_id(std_type)
 
                     # DELETE 动作：从内存中的 constraints 移除「同列 + 同类型」项，绝不新增。
                     # 旧实现不区分 actionType，删除动作会被当作添加处理（只增不删还报成功）。
@@ -223,18 +230,27 @@ def process_inline_batch(actions: list[dict[str, Any]], workspace_path: str) -> 
                                 {
                                     "action": action,
                                     "success": False,
-                                    "message": f"未找到内联约束: {std_type} on {filename_table}.{filename_column}",
+                                    "message": f"未找到内联约束: {std_type} on {table_name}.{target_column}",
                                     "frontendInstructions": None,
                                 }
                             )
                             continue
+                        # 回传被删内联项自身的 id（不再派生）
+                        removed_id = next(
+                            (
+                                str(c.get("id"))
+                                for c in schema_data["constraints"]
+                                if c not in remaining and c.get("id")
+                            ),
+                            constraint_id,
+                        )
                         schema_data["constraints"] = remaining
-                        logger.info(f"[批量处理] 删除内联约束: {constraint_id}")
+                        logger.info(f"[批量处理] 删除内联约束: {removed_id}")
                         results.append(
                             {
                                 "action": action,
                                 "success": True,
-                                "message": f"inline:{constraint_id}",
+                                "message": f"inline:{removed_id}",
                                 "frontendInstructions": generate_frontend_instructions(action, workspace_path),
                             }
                         )
@@ -268,7 +284,12 @@ def process_inline_batch(actions: list[dict[str, Any]], workspace_path: str) -> 
                             break
 
                     if existing_idx is not None:
-                        # 更新现有约束
+                        # 更新现有约束：保留既有项的 id（内嵌约束全局 id 含 item id，
+                        # UUID 化后每次更新换 id 会造成无谓的引用漂移）
+                        prev_id = schema_data["constraints"][existing_idx].get("id")
+                        if prev_id:
+                            inline_constraint["id"] = prev_id
+                            constraint_id = str(prev_id)
                         schema_data["constraints"][existing_idx] = inline_constraint
                         logger.info(f"[批量处理] 更新内联约束: {constraint_id}")
                     else:

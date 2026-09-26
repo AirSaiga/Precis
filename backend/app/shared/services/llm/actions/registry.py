@@ -551,7 +551,7 @@ def build_spec_field_mapping_text(exclude_categories: frozenset[str] | set[str] 
     """
     # spec 字段的中文说明（用于提示词）
     _spec_notes: dict[str, str] = {
-        "constraintSpec": "含 type, tableName, targetColumn, isInline, params 等",
+        "constraintSpec": "含 type, tableName, targetColumn, isInline, params 等；constraintId 可选，缺省系统自动生成唯一 ID",
         "schemaSpec": "含 name, columns, source",
         "regexSpec": "含 name, pattern, matchMode",
         "transformSpec": "含 type, inputColumn, params, outputColumns",

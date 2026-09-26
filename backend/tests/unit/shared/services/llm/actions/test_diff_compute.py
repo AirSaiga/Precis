@@ -363,9 +363,9 @@ class TestDiffIncludesCreatedFiles:
 
         assert result.success is True
         created_paths = {f.path.replace(os.sep, "/") for f in result.files if f.status == "created"}
-        # 真实新建的只有两个独立约束文件（ID 由 handler 按类型/表/列派生）
-        assert created_paths == {
-            "constraints/unique_users_email.constraint.yaml",
-            "constraints/notnull_users_email.constraint.yaml",
-        }
+        # 真实新建的只有两个独立约束文件（ID 由 handler 自动生成：类型前缀 + UUID，文件名不定）
+        assert len(created_paths) == 2, f"应恰好新建两个约束文件，实际: {created_paths}"
+        assert all(p.startswith("constraints/") and p.endswith(".constraint.yaml") for p in created_paths), (
+            f"新建文件应为约束文件: {created_paths}"
+        )
         assert result.summary["created"] == 2

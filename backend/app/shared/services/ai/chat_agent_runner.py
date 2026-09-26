@@ -356,7 +356,8 @@ constraintSpec.params 按类型填充对应字段：
 
 - `tableName` / `targetColumn`：可使用表名/列名（中文或英文），系统会自动解析为对应 ID。
 - 如不确定 ID，留空 `targetNodeId` / `targetColumnId`，系统从 `tableName` / `targetColumn` 解析。
-- `isInline`：默认 false（创建独立约束文件）。仅当用户明确要求"内联约束/存入表配置"时设 true。""",
+- `isInline`：默认 false（创建独立约束文件）。仅当用户明确要求"内联约束/存入表配置"时设 true。
+- `constraintId`：可选。缺省由系统自动生成唯一 ID，无需填写；仅当用户明确指定 ID 或需要精确更新/删除既有约束时给出（可从项目概览的约束清单或文件名获取）。""",
             f"""## 使用策略
 
 - **默认创建独立约束文件** (`isInline: false`)：独立文件是独立可引用的配置实体{inline_note_tail}

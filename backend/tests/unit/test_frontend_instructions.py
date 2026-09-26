@@ -124,7 +124,7 @@ class TestSchemaEnvelope:
 
 class TestConstraintEnvelope:
     def test_standalone_add_id_parity_with_written_file(self, tmp_path):
-        """独立约束 ADD：entityId 与写盘路径实际写出的文件名恒等（NOT_NULL 别名同样对齐）。"""
+        """独立约束 ADD：entityId 与写盘路径实际写出的文件恒等（缺省 id 为类型前缀 + UUID）。"""
         ws = _make_workspace(tmp_path)
         action = {
             "actionType": "ADD_CONSTRAINT_NODE",
@@ -139,28 +139,31 @@ class TestConstraintEnvelope:
         result = process_actions([action], ws)
         assert result["success"] is True
         instruction = result["results"][0]["frontendInstructions"]
+        entity_id = instruction["entityId"]
+        assert entity_id.startswith("notnull_")
         _assert_envelope(
             instruction,
             "add",
             "constraint",
-            "notnull_users_email",
-            "constraints/notnull_users_email.constraint.yaml",
+            entity_id,
+            f"constraints/{entity_id}.constraint.yaml",
             "ADD_CONSTRAINT_NODE",
         )
         # 恒等校验：磁盘上确有该文件，且内容 id == entityId
-        disk_file = os.path.join(ws, "constraints", "notnull_users_email.constraint.yaml")
+        disk_file = os.path.join(ws, "constraints", f"{entity_id}.constraint.yaml")
         assert os.path.isfile(disk_file)
         with open(disk_file, encoding="utf-8") as f:
-            assert yaml.safe_load(f)["id"] == "notnull_users_email"
+            assert yaml.safe_load(f)["id"] == entity_id
 
     def test_standalone_remove(self, tmp_path):
-        """独立约束 DELETE：op=remove，id 派生与删除路径一致。"""
+        """独立约束 DELETE：op=remove，entityId 用 handler 删前回传的真实 id（resolved_id）。"""
         instruction = generate_frontend_instructions(
             {
                 "actionType": "DELETE_CONSTRAINT_NODE",
                 "constraintSpec": {"type": "NotNull", "tableName": "users", "targetColumn": "email"},
             },
             str(tmp_path),
+            resolved_id="notnull_users_email",
         )
         _assert_envelope(
             instruction,
@@ -171,7 +174,20 @@ class TestConstraintEnvelope:
             "DELETE_CONSTRAINT_NODE",
         )
 
-    def test_standalone_update(self, tmp_path):
+    def test_standalone_update_locates_disk_by_semantics(self, tmp_path):
+        """独立约束 UPDATE：直连生成器重读磁盘按语义定位，entityId 为文件内容 id（不再派生）。"""
+        ws = _make_workspace(tmp_path)
+        _write_yaml(
+            os.path.join(ws, "constraints", "range_users_age.constraint.yaml"),
+            {
+                "version": 2,
+                "id": "range_users_age",
+                "type": "Range",
+                "enabled": True,
+                "refs": {"table_id": "sc_users", "column_id": "col_age"},
+                "params": {"min": 18},
+            },
+        )
         instruction = generate_frontend_instructions(
             {
                 "actionType": "UPDATE_CONSTRAINT_NODE",
@@ -182,7 +198,7 @@ class TestConstraintEnvelope:
                     "params": {"min": 18, "max": 60},
                 },
             },
-            str(tmp_path),
+            ws,
         )
         _assert_envelope(
             instruction,

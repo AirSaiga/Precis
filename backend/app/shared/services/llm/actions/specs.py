@@ -63,7 +63,7 @@ class ConstraintSpec(BaseModel):
     targetNodeId: str | None = Field(default=None, description="目标表 ID")
     targetColumn: str | None = Field(default=None, description="目标列名")
     targetColumnId: str | None = Field(default=None, description="目标列 ID")
-    constraintId: str | None = Field(default=None, description="约束 ID")
+    constraintId: str | None = Field(default=None, description="约束 ID（可选；缺省由系统自动生成唯一 ID）")
     # §2.11: 默认对齐消费方口径（get("isInline", False)）——原默认 True 与
     # update_yaml_config/frontend_instructions 的 get 默认 False 漂移，谁改任一侧即炸。
     # 消费方均读原始 dict，本默认值当前不参与运行时判定（行为锁定测试见 B4 回归）。

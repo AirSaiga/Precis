@@ -27,7 +27,9 @@
 - entityId 必须解析为磁盘真实 id（YAML 内容的 id 字段），与画布节点 id 相等；
   ADD/UPDATE 通过重读磁盘拿到真实 id，DELETE 由 handler 在删文件前回传 resolved_id
 - filePath 为项目相对路径（POSIX 分隔符）
-- 独立约束文件的 id 是确定性派生（类型+表+列），生成器镜像写盘路径的同一套派生
+- 独立约束文件的 entityId 取动作执行的实际落盘结果：handler 回传的 resolved_id
+  （ADD/UPDATE 为写盘返回的文件 id，DELETE 为删前解析的真实 id）优先，未回传时
+  重读磁盘（显式 constraintId → 语义引用）兜底——不再镜像派生
 - 内联约束没有独立磁盘实体：变更落在宿主 schema 文件，统一降级为 kind=schema 的
   update 条目（前端重读 schema 即可重建内嵌约束）
 """
@@ -41,7 +43,11 @@ from typing import Any
 import yaml
 
 from app.shared.services.llm.constraints.constraint_builder import CONSTRAINT_TYPE_MAP
-from app.shared.services.llm.constraints.constraint_id import _generate_constraint_id
+from app.shared.services.llm.constraints.constraint_lookup import (
+    find_constraint_file_by_id,
+    find_constraint_file_by_semantics,
+    sanitize_constraint_id,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -193,7 +199,7 @@ def generate_frontend_instructions(
     action_type = str(action.get("actionType", ""))
 
     if action_type in CONSTRAINT_ACTION_TYPES:
-        return _generate_constraint_instruction(action, workspace_path)
+        return _generate_constraint_instruction(action, workspace_path, resolved_id)
     elif action_type in SCHEMA_ACTION_TYPES:
         return _generate_schema_instruction(action, workspace_path, resolved_id)
     elif action_type in REGEX_ACTION_TYPES:
@@ -209,13 +215,16 @@ def generate_frontend_instructions(
         return None
 
 
-def _generate_constraint_instruction(action: dict[str, Any], workspace_path: str = "") -> dict[str, Any] | None:
+def _generate_constraint_instruction(
+    action: dict[str, Any], workspace_path: str = "", resolved_id: str = ""
+) -> dict[str, Any] | None:
     """
     生成约束类变更集条目
 
-    - 独立约束（constraints/*.constraint.yaml）：kind=constraint，entityId 用与
-      写盘路径（update_yaml_config / delete_constraint_file）完全相同的确定性
-      派生——同一动作下"写出的文件名"与"指令里的 entityId"恒等
+    - 独立约束（constraints/*.constraint.yaml）：kind=constraint，entityId 取
+      动作执行的实际落盘结果——handler 回传的 resolved_id（ADD/UPDATE 为写盘
+      返回的文件 id，DELETE 为删前解析的真实 id）优先；未回传时重读磁盘
+      （显式 constraintId → 语义引用）兜底定位，保持 entityId ≡ 磁盘文件 id
     - 内联约束：无独立磁盘文件，变更落在宿主 schema 文件 → 统一降级为
       kind=schema、op=update 的条目（同一 schema 的多条内联操作天然按
       instructionId 去重为一次重读）
@@ -224,7 +233,7 @@ def _generate_constraint_instruction(action: dict[str, Any], workspace_path: str
     spec = action.get("constraintSpec", {}) or {}
 
     # 与写盘路径同一映射（CONSTRAINT_TYPE_MAP，非 normalize_constraint_type）：
-    # entityId 派生必须与文件名派生逐字节一致，换更强的归一化反而制造漂移
+    # 语义定位的类型匹配必须与落盘类型一致，换更强的归一化反而制造漂移
     raw_type = spec.get("type", "")
     std_type = CONSTRAINT_TYPE_MAP.get(raw_type, raw_type)
 
@@ -249,13 +258,39 @@ def _generate_constraint_instruction(action: dict[str, Any], workspace_path: str
         # 文件级语义：schema 文件被修改（而非被删除），一律 update
         return _envelope(action_type, "update", "schema", entity_id, rel_path)
 
-    # 独立约束：镜像 update_yaml_config 的 filename_table/filename_column 派生
-    filename_table = table_name or target_node_id or "unknown"
-    filename_column = (
-        target_column or target_column_id or ("_".join(str(c) for c in target_columns) if target_columns else "unknown")
-    )
-    constraint_id = _generate_constraint_id(std_type, filename_table, filename_column)
-    return _envelope(action_type, op, "constraint", constraint_id, f"constraints/{constraint_id}.constraint.yaml")
+    # 独立约束：实际落盘结果优先（UUID 化后 id 不可派生，重算必错）
+    if resolved_id:
+        return _envelope(action_type, op, "constraint", resolved_id, f"constraints/{resolved_id}.constraint.yaml")
+
+    # 未回传 resolved_id（直连调用/兜底路径）：重读磁盘定位真实文件
+    try:
+        explicit_id = sanitize_constraint_id(spec.get("constraintId"))
+    except ValueError:
+        explicit_id = ""
+    constraint_located = find_constraint_file_by_id(workspace_path, explicit_id) if explicit_id else None
+    if constraint_located is None:
+        constraint_located = find_constraint_file_by_semantics(
+            workspace_path,
+            std_type,
+            table_name=table_name,
+            target_node_id=target_node_id,
+            target_column=target_column,
+            target_column_id=target_column_id,
+            target_columns=target_columns,
+        )
+    if constraint_located:
+        entity_id, constraint_path = constraint_located
+        try:
+            rel_path = constraint_path.relative_to(Path(workspace_path)).as_posix()
+        except ValueError:
+            rel_path = f"constraints/{constraint_path.name}"
+        return _envelope(action_type, op, "constraint", entity_id, rel_path)
+    if explicit_id:
+        return _envelope(action_type, op, "constraint", explicit_id, f"constraints/{explicit_id}.constraint.yaml")
+
+    # 无法定位实体（DELETE 后磁盘无据且无 resolved_id）：不猜测派生 id，跳过指令
+    logger.warning(f"[frontend_instructions] 无法解析约束实体 id，跳过指令生成: {action_type}")
+    return None
 
 
 def _generate_schema_instruction(

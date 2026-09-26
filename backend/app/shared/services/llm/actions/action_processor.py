@@ -196,7 +196,7 @@ def _snapshot_resource_files(workspace_path: str) -> set[str]:
     """快照工作区内的资源文件（constraints/schemas/regex*/transforms 目录下的 yaml）。
 
     用于回滚时对比前后差异，检测本次新建的文件。比按 spec 推断路径更可靠——
-    spec 可能不含 constraintFile 字段，而 handler 内部用 _generate_constraint_id 派生路径。
+    spec 可能不含 constraintFile 字段，而 handler 内部自动生成约束文件路径。
     """
     snapshot: set[str] = set()
     for sub in ("constraints", "schemas", "regex_nodes", "regex", "transforms"):
@@ -339,15 +339,18 @@ def _execute_actions(actions: list[dict[str, Any]], workspace_path: str) -> list
 
     # 1. 处理独立约束（每个约束单独读写文件）
     for action in standalone_actions:
-        action_type = action.get("actionType")
         success, message = update_yaml_config(action, workspace_path)
         results.append(
             {
                 "action": action,
                 "success": success,
                 "message": message,
-                # ADD/UPDATE/DELETE 均生成指令：前端据此增/改/删画布节点（保持画布与磁盘同步）
-                "frontendInstructions": generate_frontend_instructions(action, workspace_path) if success else None,
+                # ADD/UPDATE/DELETE 均生成指令：前端据此增/改/删画布节点（保持画布与磁盘同步）。
+                # resolved_id 传 handler 返回的真实 id（ADD/UPDATE 即落盘文件 id，DELETE 为
+                # 删前解析的真实 id）——信封 entityId 取实际落盘结果，不再重新派生
+                "frontendInstructions": (
+                    generate_frontend_instructions(action, workspace_path, resolved_id=message) if success else None
+                ),
             }
         )
 
@@ -361,7 +364,10 @@ def _execute_actions(actions: list[dict[str, Any]], workspace_path: str) -> list
                     "action": action,
                     "success": success,
                     "message": message,
-                    "frontendInstructions": generate_frontend_instructions(action, workspace_path) if success else None,
+                    # 内联分支忽略 resolved_id（信封降级为宿主 schema 的 update 条目）
+                    "frontendInstructions": (
+                        generate_frontend_instructions(action, workspace_path, resolved_id=message) if success else None
+                    ),
                 }
             )
         else:
