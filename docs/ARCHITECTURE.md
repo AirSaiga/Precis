@@ -298,3 +298,164 @@ expandOnCanvas(instanceNodeId)                    [templateExpand.ts]
 | 全生命周期/roundtrip | `full-lifecycle.spec.ts`、`roundtrip.spec.ts` |
 | 健康检查/CORS | `health.spec.ts` |
 | 正则校验 | `regex-validation.spec.ts` |
+
+---
+
+## AI 聊天画布同步（v2 变更集对账，文件唯一事实源 D1）
+
+> 自 `AGENTS.md` 搬入（原文）。红线摘要仍留在 AGENTS.md；本节是完整约定。
+
+AI 聊天（agent 模式）的画布同步走**变更集对账**架构：后端写盘后发 `frontend_instruction` 变更集**信封**（六字段：`instructionId`/`actionType`/`op`/`kind`/`entityId`/`filePath`，**不携带实体数据**，契约见 `docs/contracts/frontend-instructions-v2.md`），前端 `services/canvasReconcile/` 把信封入**全局串行对账队列**，统一动作为"从磁盘重读重建画布"（`importV2ResourceToCanvas`，幂等；remove 走 `graphStore.deleteNode` 级联清理）。旧的"镜像 handler 双写"链路（指令内嵌实体数据、前端按 actionType 各自建节点）已删除——uuid 脱钩、竞态、参数丢失三类 bug 均源于该双写。
+
+**链路**：后端提示词 → LLM action → 写盘 → `frontend_instructions.py` 生成信封 → SSE 流式逐条 emit（画布实时生长）+ completed 快照兜底 → 前端解析信封（`parseChangeSetEnvelope` 运行时校验）→ 对账队列（`planFromChangeSet` 按 instructionId **末见**去重、同实体 add+update 折叠、**保序不重排**）→ 执行结果聚合为 `canvasSync` 摘要（聊天 UI 呈现 + 失败 toast）→ 队列排空后刷新 workspaces 快照。
+
+**rebuild 的 add/update 语义（refreshExisting）**：`importV2ResourceToCanvas` 对已存在节点默认幂等早退（不重读）；对账 rebuild 在**节点已存在**时传 `refreshExisting: true` 走原地刷新——磁盘为准重读并经 `updateNodeData` 整体替换节点 data（Schema 含内嵌约束三态对账：新增物化/参数刷新/幽灵移除；regex↔regexExtract、约束类型变更等 node type 级变化按删旧建新处理），不删节点、不丢布局、不弹确认窗。contract 的"add: 已存在则幂等刷新"由此落地——**改导入器已存在分支的早退行为时必须对照 refreshExisting 路径**（测试：`tests/services/canvasReconcile/refreshExisting.integration.test.ts`，真实 v2Import 工厂 + mock vueFlowApi 边界）。
+
+**幂等与去重（两层）**：执行幂等由 `refreshExisting` 磁盘重读保证（completed 快照是权威全量列表，整批重放终态恒等于磁盘，自愈流式丢帧）；队列 pending-id coalescing 只对"仍在排队/执行中"且**同批次内该实体仅一条操作**的条目去重（多操作批次豁免，保住删后重建时序）。
+
+**AI 删除与撤销栈**：对账 remove 走 `graphStore.deleteNode(id, { recordHistory: false })`——磁盘已删的实体不入撤销栈，防 Ctrl+Z 复活后被全量保存写回磁盘（静默回滚 AI 的删除）。手动删除仍默认入栈。
+
+**改动时的触点清单**：
+
+| 改动 | AI 链路必查触点 |
+|------|----------------|
+| 新增约束类型 | 后端 registry 白名单+别名+`CONSTRAINT_PARAM_SCHEMAS` 参数文档（chat 提示词约束参数段与 MCP describe_constraints 均从它派生，漏写守卫测试即红）→ `npm run codegen` → 前端五处注册（见 AGENTS.md 约束节点自注册节）。前端无需为画布同步改代码（磁盘重读自动覆盖），但保存链路读取侧（`persistence/builders/**`）须支持该类型 |
+| 信封新增 kind（如 manualData/template 转正） | `canvasReconcile/envelope.ts` 的 KINDS 集合 + `executor.ts` 的 IMPORTABLE_KINDS（当前这两个 kind 的 rebuild 会记 failed，契约漂移可见）→ `importV2ResourceToCanvas` 增加导入工厂分支 → `tests/services/canvasReconcile/` 补用例 |
+| 修改 `importV2ResourceToCanvas` 行为/选项 | executor 的 rebuild 选项组合（与 `hydrateResourcesFromConfig` 范本一致：`recordHistory: false` + `skipRelatedConstraints: true` + `refreshExisting: 按节点是否已存在`）双侧对照；`refreshExisting` 的原地刷新实现分散在 schema.ts（`refreshSchemaNode`）/regex.ts/constraint.ts/importTransform 的已存在分支，改一处须四kind 同步 |
+| 修改对账队列/计划器语义 | `tests/services/canvasReconcile/`（plan 纯逻辑全分支 / 队列串行顺序 / remove 级联 / 失败收集）与 `tests/services/aiChatInstructionService.test.ts`（mock 边界：graphStore + vueFlowApi；**vueFlowApi mock 必须导出 `VueFlowApiNotInitializedError`**，缺导出会让 instanceof 守卫静默失效） |
+| 修改 SSE 信封契约 | 以 `docs/contracts/frontend-instructions-v2.md` 为权威先改契约文档，前后端同步（同仓库同发布硬切换） |
+
+**op 顺序语义**：`planFromChangeSet` 保持输入（到达）时间序，不做"add 先于 remove"的全局重排——磁盘是唯一事实源，同实体 remove→add（删后重建）保序执行才得到正确终态；跨实体无正确性依赖（rebuild 自带依赖处理、remove 自带级联清理）。同实体 add+update 折叠为一次磁盘重读（落在最后一次出现位置）。
+
+**确定性守卫（已就位）**：后端 `providers/fake.py` 提供 `ProviderType.FAKE` 确定性剧本（为 users.nickname 添加 chinese_mixed Charset 约束），E2E `e2e/flows/ai-fake-provider.spec.ts` 借它无 key 守卫 AI 三链路（agent 聊天两阶段确认写盘 + **v2 信封断言（entityId ≡ 磁盘文件 id）** / 配置生成 / 配置迁移）与 **GUI 保存 roundtrip**（AI 建约束 → 画布节点 id == 磁盘实体 id → 保存 → 重载无重复节点）；三个真实 Provider spec 保留不变。改 fake 剧本或三链路提示词特征字样（`build_prompt` 的 "## 输出要求"/"regex_nodes"、迁移消息的 "迁移"）时须同步该 spec 与 `backend/tests/unit/test_fake_provider.py`。
+
+---
+
+## Vue Flow 机制详解
+
+> 自 `AGENTS.md` 搬入（原文）。禁止操作表与时序红线仍留在 AGENTS.md；本节是机制背景。
+
+**数组替换 vs API 的机制差异**：`addEdges`/`removeEdges` 走 `applyChanges` 增量 splice，**触发 hooks**，仅验证新操作的边；`edges.value = [...]` 走 `setEdges` 全量替换，**不触发 hooks**，所有边重新验证——且 `createGraphEdges` 对每条边 `findNode(edge.source)` 找不到就 `continue` **静默丢弃**（即使节点在 `edges.value` 里，只要 Vue Flow 内部 `state.nodes` 没有，边就消失）。
+
+> **⚠️ 边陷阱勿外推到节点**：上述"静默丢弃"**仅适用于 `edges.value = [...]`（边的全量替换）**。节点全量替换 `nodes.value = [...]` 走 `createGraphNodes`，不会重验边、不会丢边，也不会重复建节点（`parseNode` 对同 id 做 `Object.assign` 去重，`addNodes` 的 add 分支也有 `findIndex(id)` 去重）。节点全量替换的真正代价只是冗余全量重建（性能）+ 不必要的 `setNodes` 副作用，非数据损坏。判断 Vue Flow 风险时务必区分操作的是节点数组还是边数组。
+
+### 幂等创建节点（ensureXxx 模式）
+
+`ensureSchemaNodeFromV2` 这类"先 `nodes.value.find` 判存在、不存在则创建"的幂等函数，要保证第二次调用能 `find` 到刚创建的节点：
+
+```ts
+const existing = nodes.value.find((n) => n.id === id)
+if (existing) return existing
+// ... 构造 node ...
+addNodes(node)
+await nextTick()          // ← 等 v-model model→store 回写，本 tick 后续 find 即可命中
+return node
+```
+
+不要用"addNodes 后手动追加数组"来同步（见 AGENTS.md 禁止操作表）。
+
+### undo/redo 的状态恢复
+
+`history.ts` 使用 `shallowRef` + `toRaw()` + 不可变栈操作，恢复时直接替换 `nodes.value` 和 `edges.value`（不触发 hooks），恢复后调用 `reconcileAll()` 重建连接状态。
+
+---
+
+## 测试编写细则
+
+> 自 `AGENTS.md` 搬入（原文）。核心原则与缺陷处理分级仍留在 AGENTS.md；本节是具体编写规则。
+
+### 前端单元测试规范（vitest）
+
+1. **工厂模块测试**只 mock 被测模块的边界（如 `vueFlowApi` 是外部边界），依赖注入参数用最小真实数据；**禁止** mock 被测模块内部调用的其他工厂：
+
+   ```typescript
+   // ✅ mock 边界 + 注入真实最小依赖
+   vi.mock('@/services/canvas/vueFlowApi', () => ({ addNodes: vi.fn(), addEdges: vi.fn() }))
+   const nodes = ref<CustomNode[]>([])
+   const module = createXxxModule({ nodes, selectedNodeId: ref(null) })
+   ```
+
+2. **测试数据工厂**：mock 数据必须经 `make*` 工厂函数（如 `makeNode`、`makeEdge`）生成，禁止内联硬编码完整对象。
+3. **断言验证最终状态**（`expect(nodes.value).toHaveLength(2)`），不断言内部调用细节；例外：mock 外部边界时可验证调用次数/参数，但不断言 UUID 等随机值。
+4. **测试隔离**：每个 `describe` 的 `beforeEach` 重新初始化所有状态，禁止跨 describe 共享可变状态。
+5. **禁止 snapshot 测试**：用精确字段断言替代 `toMatchSnapshot()`。
+6. **文件组织**：测试路径**镜像源文件路径**（`src/services/rules/` → `tests/services/rules/`）。
+
+### 后端测试规范（pytest）
+
+- **fixture 优先**：可复用数据用 `@pytest.fixture`，不逐函数重复构造
+- **mock 边界不 mock 内部**：`monkeypatch.setattr(os.path, "exists", ...)` 好；patch 模块内部 `_internal_helper` 坏
+- **命名描述行为**：`test_save_manifest_excludes_none_values` 好于 `test_function_calls_write_yaml`
+
+### 重构时的测试维护规则
+
+| 场景 | 做法 |
+|------|------|
+| 修改函数签名（增减参数） | 更新测试中的工厂函数和调用参数，不删除测试 |
+| 重命名函数/变量 | 全局替换即可，不影响测试逻辑 |
+| 重构内部实现（不改外部行为） | 测试不应需要修改；如果需要，说明测试耦合了实现 |
+| 新增约束类型 | 注册表完整性测试自动覆盖（如 `CONSTRAINT_TYPES.length`） |
+| 修改节点 data 结构 | 更新 `makeNode` 等工厂函数，不逐个修改测试用例 |
+| 修改 API 请求/响应格式 | 更新 API 层测试的 fixture，不修改业务逻辑测试 |
+
+---
+
+## 深拷贝规范（按数据类型选择，不一刀切）
+
+> 自 `AGENTS.md` 搬入（原文）。
+
+- 含非 JSON 类型（Date/Map/Set/RegExp 等）必须 `structuredClone()`——`JSON.parse(JSON.stringify(...))` 会静默丢类型（Date→string、RegExp→空对象、Map/Set→空）
+- 纯 JSON 配置数据（manifest / 数据源 / 快捷键等 YAML round-trip 数据）可用 JSON 方式——数据本身 JSON 安全，小对象性能更好
+- Vue reactive proxy 不可直接 `structuredClone`（抛 "could not be cloned"）；`toRaw()` 只解顶层 proxy，嵌套仍是 proxy，深拷贝需递归解包或改 JSON 方式
+- 不确定时优先 `structuredClone()` 兜底；history 模块用 `shallowRef` + `toRaw()` + 不可变数组操作避免 reactive 污染
+
+---
+
+## Electron IPC 文件路径安全（XSS → 文件读写的纵深防御）
+
+> 自 `AGENTS.md` 搬入（原文）。红线摘要仍留在 AGENTS.md；本节是完整约定。
+
+文件相关 IPC（`read-file`/`write-file`/`open-file`/`scan-directory`）由 renderer 经 `window.electronAPI.*` 调用，**一旦发生任意 XSS 即成为攻击面**，路径校验是纵深防御关键一层：
+
+- **禁止用 `resolved !== path.normalize(input)` 这类"比较 resolve 结果"的写法判穿越**——绝对路径含 `..` 时 `path.resolve` 与 `path.normalize` 输出相同，比较恒真，校验形同虚设。正确做法是**根目录包含校验**：`path.resolve(input)` 后判断是否落在白名单根（`app.getPath('userData')`、当前项目 configDir 等）之下（`resolved === root || resolved.startsWith(root + path.sep)`）
+- **`write-file` 等可写操作必须比可读更严**（写入还能 `mkdirSync({recursive:true})` 创造路径），建议落到白名单根下
+- **`open-file`（`shell.openPath`）必须限定扩展名**（数据文件 `.csv/.xlsx/.json/.yaml/...`），拒绝可执行/脚本（`.exe/.bat/.ps1/.scr/.cmd` 等）——否则配合写原语可形成 RCE 链
+- **`scan-directory` 必须限定根目录**、不跟随顶层符号链接（`fs.lstatSync`）、设递归深度上限
+- renderer 可传任意字符串的文件路径都视为不可信；路径优先取自原生 `dialog.showOpenDialog` 返回值，而非 renderer 自由构造的字符串
+
+---
+
+## i18n key 完整性守卫细则
+
+> 自 `AGENTS.md` 搬入（原文）。守卫红线仍留在 AGENTS.md；本节是操作细节。
+
+- 脚本 `frontend/scripts/audit-i18n.mjs`（frontend 目录 `npm run audit:i18n`）；allowlist `frontend/i18n-audit-exceptions.json`，含 `dynamicPrefixes`（``t(`ns.${var}`)`` 动态前缀豁免）与 `baseline*`（治理前存量快照）
+- **守卫语义**：仅"超出 baseline 的新增违规"（`[new]`）判失败；存量 `[baseline]` 不阻断，修复后从 baseline 移除即收紧
+- 动态 key（``t(`inspection.severity.${sev}`)``）需把前缀登记进 `dynamicPrefixes`，否则该命名空间叶子 key 会被误判缺失/未用
+- 刷新快照：`npm run audit:i18n -- --update-baseline` 把 missing/onlyZh/onlyEn/unused 四类基线写回 allowlist（仅当新增项确属合理存量时使用，并确认 baseline 数未增长）
+
+---
+
+## AI 动作类型契约（Codegen）细则
+
+> 自 `AGENTS.md` 搬入（原文）。
+
+- 生成物 `frontend/src/types/generated/actions.ts`（`ActionType` 联合类型 + 4 个分类 Set + 只读/写盘 Set + **约束类型映射** `CONSTRAINT_TYPE_MAP`/`CONSTRAINT_TYPE_ALIASES`/`CANONICAL_CONSTRAINT_TYPES`）——**禁止手改**
+- 脚本 `frontend/scripts/codegen.mjs`（frontend 目录 `npm run codegen`）；CI 后端 job 末尾跑 codegen 并 `git diff` 校验生成物与提交一致
+- **修改 `registry.py` 的 `ACTIONS`/`CONSTRAINT_TYPES`/`CONSTRAINT_TYPE_ALIASES` 后必须跑 `npm run codegen` 重新生成并提交 `actions.ts`**，否则 CI 失败。前端业务代码从 `@/types/generated/actions` import，**禁止硬编码动作类型集合与约束类型映射**（`services/aiChatInstructions/connectionOps.ts` 的 `CONSTRAINT_TYPE_MAP` 即是 re-export 生成物，勿回退为手写表）
+
+---
+
+## AI Provider 预设（国内大模型）细则
+
+> 自 `AGENTS.md` 搬入（原文）。
+
+AI Provider 预设的**单一事实源**是 `backend/app/shared/services/llm/config/presets.py`——前端设置页"添加 AI 模型"预设下拉、CLI `provider add` 菜单、TUI 均经 `GET /providers/presets` 消费，前端零硬编码。新增/更新国内大模型支持只改该文件数据（`type` 仅 `openai`/`ollama`，国内厂商一律 `openai`，base_url 须为 OpenAI 兼容端点且版本路径带全、无尾斜杠）。**更新时务必搜索核对模型型号是否最新**（厂商迭代快：GLM-5.1→5.3、MiniMax M2→M3 均数月内换代）。各家 base_url/模型 ID/鉴权陷阱（MiniMax 双 i 域名、GLM 旧模型名自动路由等）、收录范围决策与新增/更新 SOP 见 `backend/app/shared/services/llm/config/AI_PROVIDER_PRESETS.md`——**改预设必须同步该文档的表格与核对日期**；`TestPresetCatalog` 单测守卫国内主流厂商覆盖与字段不变量。
+
+---
+
+## npm workspaces 与依赖钉版细则
+
+> 自 `AGENTS.md` 搬入（原文）。红线摘要仍留在 AGENTS.md；本节是完整说明。
+
+`frontend` / `electron` / `e2e` 是根 package.json 的 workspaces，依赖统一 hoist 到根 `node_modules`，子包 lockfile 已合并为根单一 `package-lock.json`——**不要在子目录单独 `npm install`/`npm ci`**（会整树重装），安装/CI 一律在根目录执行一次。`overrides` 只在根 package.json 生效（子包中的 overrides 会被 npm 忽略并告警），安全补丁与版本钉版统一加在根。其中 `vue` 被钉在 `3.5.22`：更新版本（≥3.5.23）的类型与 graphStore 深层泛型叠加触发 `TS2589`（type instantiation excessively deep），升级 vue 前须先解决该类型深度问题；`vue-tsc` 被钉在 `3.1.1`：3.3.x 在 `composite` 构建下会把 `.js` 产物直接 emit 进 `src/`（污染源码树、被 eslint 扫到、可能 shadow `.ts` 导入），升级 vue-tsc 前须确认不再 emit。electron 镜像配置在根 `.npmrc`（workspace 安装不读 `electron/.npmrc`）。electron-builder 两个 hoist 适配（`electron/package.json` 的 build 字段，勿随意移除）：`electronVersion` 显式固定（版本探测只查 `electron/node_modules`，hoist 后读不到；**升级 electron 依赖时必须同步该字段**）；`npmRebuild: false`（否则 electron-builder 发现 `electron/node_modules` 不存在会在 electron 目录执行 `npm install --production`，workspaces 下这会**清掉整棵依赖树的全部 devDependencies**；sharp 等 N-API 预编译二进制无需 rebuild）。
