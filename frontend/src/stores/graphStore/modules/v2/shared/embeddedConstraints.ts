@@ -110,6 +110,13 @@ export function materializeV2EmbeddedConstraints(params: {
     | undefined
   updateNodeData?: (id: string, data: Record<string, unknown>) => void
   removeNode?: (id: string) => void
+  /**
+   * 双持久化去重（可选）：宿主 Schema 的独立约束 id 集合。
+   * 同一逻辑约束同时存在于 constraints/ 独立文件（manifest 登记）与本内嵌段时，
+   * 独立文件为准，跳过内嵌物化（消费端一次性迁移；下次保存 schema 内嵌段自愈）。
+   * 匹配内嵌条目的 rawId 或其去 `<schemaId>_` 前缀后的裸 id。
+   */
+  standaloneTwinIds?: ReadonlySet<string>
 }) {
   const {
     schemaNode,
@@ -122,6 +129,7 @@ export function materializeV2EmbeddedConstraints(params: {
     getNode,
     updateNodeData,
     removeNode,
+    standaloneTwinIds,
   } = params
 
   // 名称字段严格解析：顶层裸名 / 嵌套「父.子」全限定路径（与后端 embedded_constraints 同约定）
@@ -142,6 +150,17 @@ export function materializeV2EmbeddedConstraints(params: {
 
     const rawId = String(item.id)
     const id = rawId.startsWith(`${schemaNode.id}_`) ? rawId : `${schemaNode.id}_${rawId}`
+
+    // 双持久化去重：独立文件已登记同一逻辑约束时跳过内嵌物化（保留独立副本）
+    const strippedId = rawId.startsWith(`${schemaNode.id}_`)
+      ? rawId.slice(schemaNode.id.length + 1)
+      : rawId
+    if (standaloneTwinIds && (standaloneTwinIds.has(rawId) || standaloneTwinIds.has(strippedId))) {
+      logger.info(
+        `[embeddedConstraints] 内嵌约束 ${id} 与独立约束 ${strippedId} 同源双持久化，跳过物化（保留独立副本）`
+      )
+      return
+    }
 
     const nodeType = getConstraintNodeTypeByV2Type(item.type ?? '') ?? 'constraint'
     const basePos = { x: schemaNode.position.x + 420, y: schemaNode.position.y + idx * 160 }

@@ -119,6 +119,12 @@ export function createV2SchemaImporter(params: {
     excludeConstraintId: string,
     schemaPosition: { x: number; y: number }
   ) => Promise<void>
+  /**
+   * 查询某 Schema 的独立约束 id 集合（双持久化去重数据源，可选）。
+   * 内嵌约束物化时跳过有独立孪生的条目（见 embeddedConstraints.standaloneTwinIds）。
+   * 数据源由调用方注入：水合期用 full config 构建，交互期回退资源树。
+   */
+  getStandaloneConstraintIdsForSchema?: (schemaId: string) => ReadonlySet<string> | undefined
 }) {
   const {
     nodes,
@@ -128,6 +134,7 @@ export function createV2SchemaImporter(params: {
     ensureSchemaToConstraintEdge,
     updateNodeData,
     importRelatedIndependentConstraints,
+    getStandaloneConstraintIdsForSchema,
   } = params
 
   /**
@@ -296,6 +303,7 @@ export function createV2SchemaImporter(params: {
         addNodes(node)
       },
       addConstraintEdge: ensureSchemaToConstraintEdge,
+      standaloneTwinIds: getStandaloneConstraintIdsForSchema?.(schemaNodeId),
       // 刷新支持（可选回调，仅对账刷新路径传入）：已存在且类型未变 → 原地刷新；类型已变 → 删旧建新
       getNode: (id: string) => {
         const found = nodes.value.find((n) => n.id === id)
@@ -332,6 +340,7 @@ export function createV2SchemaImporter(params: {
         addNodes(node)
       },
       addConstraintEdge: ensureSchemaToConstraintEdge,
+      standaloneTwinIds: getStandaloneConstraintIdsForSchema?.(schemaNode.id),
     })
     // addNodes 是增量 API，store ref 的回写在 nextTick 才完成；
     // 物化后等待一拍，调用方（导入编排 / 批次重排）随后通过 nodes.value 查找新节点才可见

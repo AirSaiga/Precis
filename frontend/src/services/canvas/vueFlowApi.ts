@@ -163,6 +163,23 @@ export function updateNodeInternals(...args: Parameters<UpdateNodeInternals>) {
   requireApi().updateNodeInternals(...args)
 }
 
+/**
+ * 强制重新测量全部节点尺寸（updateNodeInternals 无参 = 所有节点）。
+ *
+ * 兜底场景：受控模式下全量替换 nodes（快照恢复/项目加载/水合）期间，
+ * store→model 同步可能把 ResizeObserver 刚写入的 dimensions 覆盖回 0×0
+ * （内部节点对象被替换），而静态内容节点此后不再触发 resize 事件，
+ * 导致节点永久卡在 visibility:hidden（VF 以 dimensions 非零判定可见）。
+ * 在恢复链路的稳定点调用本函数强制重测，使卡住的节点恢复可见。
+ *
+ * 与 updateNodeInternals 的区别：VF 未初始化（测试环境/画布未挂载）时静默跳过，
+ * 供 store 层等无法保证画布已挂载的调用方使用。
+ */
+export function forceRemeasureAllNodes(): void {
+  if (!_api) return
+  _api.updateNodeInternals()
+}
+
 export function updateEdgeData(...args: Parameters<UpdateEdgeData>) {
   requireApi().updateEdgeData(...args)
 }

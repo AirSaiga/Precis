@@ -49,9 +49,10 @@ import { createV2SchemaImporter } from './schema'
 import { createV2RegexImporter } from './regex'
 import { createV2ConstraintImporter } from './constraint'
 import { getV2FullConfig, getV2ProjectView } from '@/api/projectV2Api'
-import type { ManualDataFileV2, PatternRegistryTypeV2 } from '@/types/projectV2'
+import type { ConstraintFileV2, ManualDataFileV2, PatternRegistryTypeV2 } from '@/types/projectV2'
 import type { ManualDataNodeData } from '@/types/nodes'
 import { addNodes, updateNode } from '@/services/canvas/vueFlowApi'
+import { markHydrationFallbackNodes } from '@/services/canvas/hydrationFallbackMarks'
 import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
 import {
   computeClearanceShift,
@@ -256,6 +257,19 @@ export function createV2ImportToCanvas(params: {
     }
   }
 
+  // 双持久化去重的数据源：水合期从 full config 构建"schema → 独立约束 id 集合"
+  // （资源树在水合窗口可能尚未就绪）；交互期回退资源树查询
+  // （getIndependentConstraintIdsForSchema，constraintSource === 'independent'）。
+  const hydrationStandaloneBySchema = new Map<string, Set<string>>()
+  const getStandaloneConstraintIdsForSchema = (
+    schemaId: string
+  ): ReadonlySet<string> | undefined => {
+    const fromHydration = hydrationStandaloneBySchema.get(schemaId)
+    if (fromHydration) return fromHydration
+    const ids = getIndependentConstraintIdsForSchema?.(schemaId)
+    return ids && ids.length > 0 ? new Set(ids) : undefined
+  }
+
   const { ensureSchemaNode, importSchema, refreshSchemaNode } = createV2SchemaImporter({
     nodes,
     edges,
@@ -264,6 +278,7 @@ export function createV2ImportToCanvas(params: {
     ensureSchemaToConstraintEdge,
     importRelatedIndependentConstraints,
     updateNodeData,
+    getStandaloneConstraintIdsForSchema,
   })
   const { importRegex } = createV2RegexImporter({
     nodes,
@@ -651,6 +666,11 @@ export function createV2ImportToCanvas(params: {
    * 时机性丢节点问题；而已保存到 config 的实体不会从配置重建画布节点，导致
    * "保存成功、重开项目节点消失"。本函数以 config 为事实源补齐缺失节点，
    * 位置优先取 view.json 中保存的坐标。
+   *
+   * fallback 网格善后：view.json 无坐标的新建节点会落入下方 fallback 双尺寸
+   * 网格（不考虑连线关系）。本次新建且无保存坐标的节点 id 经
+   * markHydrationFallbackNodes 登记，由加载适配（useCanvasLoadAdaptation）在
+   * markContentLoaded 触发的适配窗口内一次性消费并做关系感知重排。
    */
   async function hydrateResourcesFromConfig(): Promise<{ hydrated: number; skipped: number }> {
     const configPath = getEffectiveProjectConfigPath()
@@ -659,6 +679,24 @@ export function createV2ImportToCanvas(params: {
     try {
       const config = await getV2FullConfig(configPath, { inspect: true })
       const manifest = config.manifest
+
+      // 双持久化去重登记：旧链路曾把同一逻辑约束同时写进 schema 内嵌段与
+      // constraints/ 独立文件。水合按 schema → 约束 的顺序导入，内嵌物化早于
+      // 独立约束落画布，故先用 full config 构建归属表供物化跳过孪生条目
+      // （embeddedConstraints.standaloneTwinIds），水合结束后清空避免陈旧。
+      hydrationStandaloneBySchema.clear()
+      for (const [constraintId, file] of Object.entries(config.constraints || {})) {
+        const tableId = (file as ConstraintFileV2 | undefined)?.refs?.table_id
+        if (typeof tableId !== 'string' || !tableId) continue
+        let set = hydrationStandaloneBySchema.get(tableId)
+        if (!set) {
+          set = new Set()
+          hydrationStandaloneBySchema.set(tableId, set)
+        }
+        set.add(constraintId)
+        const fileId = (file as ConstraintFileV2 | undefined)?.id
+        if (typeof fileId === 'string' && fileId) set.add(fileId)
+      }
 
       let view: { nodes?: Record<string, { x: number; y: number }> } | undefined
       try {
@@ -698,6 +736,9 @@ export function createV2ImportToCanvas(params: {
         }
       }
       const exists = (id: string) => nodes.value.some((n) => n.id === id)
+      // 水合前节点 id 快照：导入结束后用于差集识别"本次水合新建"的节点，
+      // 供 fallback 网格登记（见下方 hydrated > 0 分支）
+      const preHydrationNodeIds = new Set(nodes.value.map((n) => n.id))
       const posFor = (kind: string, id: string) => {
         const saved = view?.nodes?.[id]
         if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') return saved
@@ -824,6 +865,20 @@ export function createV2ImportToCanvas(params: {
       if (hydrated > 0) {
         await nextTick()
         await reconcileAll()
+        // 登记"本次新建且 view.json 无保存坐标"的节点（即落入上方 fallback 网格
+        // 或导入工厂固定偏移的节点），供加载适配（useCanvasLoadAdaptation）在
+        // 水合稳定后做关系感知重排（Schema 中心化布局），消除 fallback 网格
+        // "schema 挤顶部、约束底部一字排开"的首开乱局。
+        // 判定用"新建差集 + 无保存坐标"而非逐个包装 posFor：可一并覆盖 Schema
+        // 导入时物化的内嵌约束节点（固定偏移落点、同样无 view 坐标），无需改
+        // 导入工厂内部；快照恢复/幂等跳过的既有节点不误标（其位置来自快照，
+        // 是真实位置）。
+        const fallbackIds = nodes.value
+          .filter((n) => !preHydrationNodeIds.has(n.id) && !view?.nodes?.[n.id])
+          .map((n) => n.id)
+        if (fallbackIds.length > 0) {
+          markHydrationFallbackNodes(fallbackIds)
+        }
       }
       logger.info(
         `[hydrateResourcesFromConfig] 实体回显完成：新增 ${hydrated}，画布已存在跳过 ${skipped}`
@@ -832,6 +887,10 @@ export function createV2ImportToCanvas(params: {
     } catch (error) {
       logger.warn('[hydrateResourcesFromConfig] 实体回显失败（不影响项目加载）:', error)
       return { hydrated: 0, skipped: 0 }
+    } finally {
+      // 双持久化去重归属表仅服务水合窗口；清空后交互期回退资源树查询，
+      // 避免磁盘保存后内嵌段已自愈而本表陈旧导致误跳过
+      hydrationStandaloneBySchema.clear()
     }
   }
 

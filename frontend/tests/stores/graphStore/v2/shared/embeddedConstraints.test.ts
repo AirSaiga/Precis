@@ -575,3 +575,50 @@ describe('B3 旧格式兼容', () => {
     ])
   })
 })
+
+describe('materializeV2EmbeddedConstraints：双持久化孪生跳过（standaloneTwinIds）', () => {
+  function runWithTwins(
+    embeddedConstraints: Parameters<
+      typeof materializeV2EmbeddedConstraints
+    >[0]['embeddedConstraints'],
+    standaloneTwinIds: Set<string>
+  ) {
+    const addedNodes: CustomNode[] = []
+    const addedEdges: Array<{ tableId: string; constraintId: string; columnId: string }> = []
+    materializeV2EmbeddedConstraints({
+      schemaNode: makeSchemaNode(),
+      schemaTableName: 'users',
+      embeddedConstraints,
+      columnTree: makeColumnTree(),
+      hasNode: () => false,
+      addNode: (node) => addedNodes.push(node),
+      addConstraintEdge: (tableId, constraintId, columnId) =>
+        addedEdges.push({ tableId, constraintId, columnId }),
+      standaloneTwinIds,
+    })
+    return { addedNodes, addedEdges }
+  }
+
+  it('内嵌条目命中独立约束（前缀 id 与裸 id 两形态）时跳过物化，无孪生的正常物化', () => {
+    const { addedNodes, addedEdges } = runWithTwins(
+      [
+        // 前缀形态（旧双写残留）：schema-users_notnull_email，裸 id notnull_email 命中
+        { id: 'schema-users_notnull_email', type: 'NotNull', column: 'email' },
+        // 裸 id 形态直接命中独立约束 id
+        { id: 'unique_uid', type: 'Unique', column: 'user_id' },
+        // 无孪生：正常物化
+        { id: 'range_age', type: 'Range', column: 'country', params: { min: 1, max: 5 } },
+      ],
+      new Set(['notnull_email', 'unique_uid'])
+    )
+    expect(addedNodes.map((n) => n.id)).toEqual(['schema-users_range_age'])
+    expect(addedEdges.map((e) => e.constraintId)).toEqual(['schema-users_range_age'])
+  })
+
+  it('未传 standaloneTwinIds 时保持历史行为（全部物化）', () => {
+    const { addedNodes } = runMaterialize(makeSchemaNode(), [
+      { id: 'schema-users_notnull_email', type: 'NotNull', column: 'email' },
+    ])
+    expect(addedNodes.map((n) => n.id)).toEqual(['schema-users_notnull_email'])
+  })
+})

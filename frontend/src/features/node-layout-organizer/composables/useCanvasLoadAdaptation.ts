@@ -19,15 +19,22 @@
  * @file useCanvasLoadAdaptation.ts
  * @description 画布加载后自动适配组合式函数
  *
- * 职责（修复两个加载期缺陷）：
+ * 职责（修复三类加载期布局问题）：
  * 1. 项目/工作区首次加载完成、节点渲染后自动执行一次 fitView —— 消除
  *    "加载示例项目后节点聚在左上角、画布大面积空白"的问题。
  * 2. 检测"零位置/缺失位置/同位置堆叠"节点，仅对受影响节点应用一次自动布局
  *    （复用 LayoutCalculator 的 Schema 中心化策略；策略未覆盖的类型用列式排布），
  *    并整体平移避开位置正常节点 —— 用户手动摆放的布局绝不被打乱。
+ * 3. 首开水合 fallback 网格节点重排：水合（hydrateResourcesFromConfig）时落入
+ *    fallback 网格（view.json 无保存坐标）的新建节点经 hydrationFallbackMarks
+ *    登记，在此取出（一次性消费）并与位置异常节点走同一条重排管线 ——
+ *    fallback 网格位置合法且互异、不命中异常检测，但完全不考虑连线关系，
+ *    不重排会呈现"schema 挤顶部、约束底部一字排开"的首开乱局。
  *
  * 触发时机（一次性守卫，避免重复触发）：
- * - canvasStore.contentLoadedEpoch 变化（项目加载/工作区恢复完成的统一信号）
+ * - canvasStore.contentLoadedEpoch 变化（项目加载/工作区恢复完成的统一信号；
+ *   两个水合调用点 useAppBootstrap / ProjectManagementModal 在水合后都会
+ *   markContentLoaded，保证登记的消费一定发生在水合完成之后）
  * - 工作区首次激活（activeWorkspaceId 变为会话内未见过的 id）
  * 命中后进入"待稳定"状态：节点数组再有变化会重置防抖计时器，待节点稳定
  * （加载链路上可能有多次全量替换）后执行一次适配。
@@ -40,7 +47,8 @@ import { watch, nextTick, onUnmounted } from 'vue'
 import { useVueFlow } from '@vue-flow/core'
 import { useGraphStore } from '@/stores/graphStore'
 import { useCanvasStore } from '@/stores/canvasStore'
-import { updateNode } from '@/services/canvas/vueFlowApi'
+import { updateNode, forceRemeasureAllNodes } from '@/services/canvas/vueFlowApi'
+import { consumeHydrationFallbackNodeIds } from '@/services/canvas/hydrationFallbackMarks'
 import { logger } from '@/core/utils/logger'
 import { LayoutCalculator } from '../core/layoutCalculator'
 import { DEFAULT_ORGANIZE_OPTIONS, LAYOUT_CONSTANTS, SAFE_FITVIEW_PADDING } from '../constants'
@@ -156,7 +164,7 @@ export function useCanvasLoadAdaptation(): void {
     armed = false
   })
 
-  /** 适配主流程：先修复位置异常（如有），再自动取景 */
+  /** 适配主流程：先修复布局问题（位置异常/首开 fallback 网格节点，如有），再自动取景 */
   async function runAdaptation(): Promise<void> {
     // 无节点时不取景（空画布 fitView 无意义且可能视口跳变）
     if (store.nodes.length === 0) return
@@ -165,12 +173,20 @@ export function useCanvasLoadAdaptation(): void {
       // 遵守时序纪律：修复可能移动了节点，等 Vue Flow 完成处理与渲染后再取景
       await nextTick()
       if (moved) await nextTick()
+      // 兜底重测：加载链路多次全量替换 nodes，store→model 同步可能覆盖
+      // ResizeObserver 的测量写回，使节点卡在 visibility:hidden（实测：
+      // projectRoot 重启后恒不可见，内部 dimensions 恒为 0×0）。fitView 的
+      // 包围盒同样依赖 dimensions，未测量节点会被漏出取景范围。
+      forceRemeasureAllNodes()
       // 安全留白见 SAFE_FITVIEW_PADDING 注释（右下 MiniMap/右侧检查器/底部状态栏）。
       // duration: 0 瞬时完成，不留动画窗口（慢环境下动画会与用户/测试的画布交互
       // 重叠，导致点击落点漂移）。
       fitView({ padding: { ...SAFE_FITVIEW_PADDING }, duration: 0 })
       if (moved) {
-        logger.info('[useCanvasLoadAdaptation] 已修复 %d 个位置异常节点并自动取景', moved)
+        logger.info(
+          '[useCanvasLoadAdaptation] 已重排 %d 个布局问题节点（位置异常/首开 fallback 网格）并自动取景',
+          moved
+        )
       }
     } catch (err) {
       logger.warn('[useCanvasLoadAdaptation] 加载适配失败:', err)
@@ -226,10 +242,15 @@ export function useCanvasLoadAdaptation(): void {
   }
 
   /**
-   * 修复位置异常：仅移动受影响节点，返回移动的节点数。
+   * 修复布局问题：仅移动受影响节点，返回移动的节点数。
+   *
+   * 受影响集合 = 位置异常节点 ∪ 首开水合 fallback 网格节点：
+   * - 位置异常：零/缺失位置、同位置堆叠（detectPositionAnomalies）
+   * - fallback 网格：水合登记（hydrationFallbackMarks）的"view.json 无保存
+   *   坐标的本次新建节点"，取出即消费（同一批节点只重排一次）
    *
    * 流程：
-   * 1. detectPositionAnomalies 找出受影响节点（零/缺失位置、同位置堆叠）
+   * 1. 汇总上述两类受影响节点（fallback 登记需 ∩ 画布现有节点，中途被删的 id 过滤）
    * 2. 策略支持的类型复用 LayoutCalculator（Schema 中心化布局）计算理想位置
    * 3. 策略未覆盖的类型（templateInstance 等）列式排布在已算内容的右侧净空处
    * 4. 整体平移避开位置正常节点（用户手动布局不受干扰）
@@ -237,9 +258,18 @@ export function useCanvasLoadAdaptation(): void {
    */
   function fixPositionAnomalies(): number {
     const anomalies = detectPositionAnomalies(store.nodes)
-    if (anomalies.affectedIds.length === 0) return 0
+    // 首开水合 fallback 网格节点：一次性消费登记，并与画布现有节点求交
+    //（水合到适配执行之间可能发生节点删除，过期 id 自然失效）
+    const canvasIds = new Set(store.nodes.map((n) => n.id))
+    const fallbackIds = consumeHydrationFallbackNodeIds().filter((id) => canvasIds.has(id))
+    if (anomalies.affectedIds.length === 0 && fallbackIds.length === 0) return 0
+    logger.debug(
+      '[useCanvasLoadAdaptation] 布局重排集合：位置异常 %d 个，水合 fallback 网格 %d 个',
+      anomalies.affectedIds.length,
+      fallbackIds.length
+    )
 
-    const affectedSet = new Set(anomalies.affectedIds)
+    const affectedSet = new Set([...anomalies.affectedIds, ...fallbackIds])
     const affected = store.nodes.filter((n) => affectedSet.has(n.id))
     const unaffected = store.nodes.filter((n) => !affectedSet.has(n.id))
 

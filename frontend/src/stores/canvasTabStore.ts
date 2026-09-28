@@ -58,6 +58,7 @@ import { getV2Workspaces, putV2Workspaces } from '@/api/projectV2Api'
 import { sanitizeRestoredCanvas } from '@/stores/graphStore/modules/canvasSanitize'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import { useProjectStore } from './projectStore'
+import { forceRemeasureAllNodes } from '@/services/canvas/vueFlowApi'
 
 /**
  * 单个工作区（Tab）的数据结构
@@ -422,6 +423,9 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
         await nextTick()
         await graphStore.reconcileAll()
       }
+      // 兜底重测：快照全量替换期间 store→model 同步可能覆盖 RO 的测量写回，
+      // 使节点 dimensions 恒为 0×0 卡在 visibility:hidden（VF 可见性判据）。
+      forceRemeasureAllNodes()
       return
     }
     ensureProjectRootInCanvas(graphStore)
@@ -603,6 +607,8 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
         await nextTick()
         await graphStore.reconcileAll()
       }
+      // 兜底重测：同 initialize 恢复分支，防止节点卡在 visibility:hidden
+      forceRemeasureAllNodes()
     } else if (graphStore) {
       // 分支 B：目标 Tab 无画布数据，重置画布并创建 projectRoot
       graphStore.resetCanvas()
