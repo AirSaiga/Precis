@@ -700,12 +700,18 @@ class TestProcessSchemaAction:
         assert "穿越" in result["message"] or "绝对路径" in result["message"]
 
     def test_add_schema_already_exists(self, tmp_path):
+        """文件已存在且已登记 manifest → 失败（孤儿收养语义只针对未登记文件）。"""
         workspace = str(tmp_path)
         schemas_dir = os.path.join(workspace, "schemas")
         os.makedirs(schemas_dir)
         schema_file = os.path.join(schemas_dir, "existing.schema.yaml")
         with open(schema_file, "w", encoding="utf-8") as f:
             f.write("version: 2\nid: existing\nname: existing\ncolumns: []\n")
+        with open(os.path.join(workspace, "project.precis.yaml"), "w", encoding="utf-8") as f:
+            f.write(
+                "version: 2\nproject:\n  id: p1\n  name: p1\n"
+                "schemas:\n  - id: existing\n    path: schemas/existing.schema.yaml\n"
+            )
 
         result = process_schema_action(
             {
@@ -716,6 +722,8 @@ class TestProcessSchemaAction:
         )
         assert result["success"] is False
         assert "已存在" in result["message"]
+        # 有画布默认：引导 ADD_TO_CANVAS
+        assert "ADD_TO_CANVAS" in result["message"]
 
     def test_update_schema_missing_id(self, tmp_path):
         result = process_schema_action(
@@ -1390,12 +1398,18 @@ class TestProcessRegexAction:
         assert data["match_mode"] == "full"
 
     def test_add_regex_already_exists(self, tmp_path):
+        """文件已存在且已登记 → 失败（收养语义只针对未登记孤儿文件）。"""
         workspace = str(tmp_path)
         regex_dir = os.path.join(workspace, "regex_nodes")
         os.makedirs(regex_dir)
         regex_file = os.path.join(regex_dir, "exists.regex.yaml")
         with open(regex_file, "w", encoding="utf-8") as f:
             f.write("version: 2\n")
+        with open(os.path.join(workspace, "project.precis.yaml"), "w", encoding="utf-8") as f:
+            f.write(
+                "version: 2\nproject:\n  id: p1\n  name: p1\n"
+                "regex_nodes:\n  - id: exists\n    path: regex_nodes/exists.regex.yaml\n"
+            )
 
         result = process_regex_action(
             {
@@ -1408,13 +1422,18 @@ class TestProcessRegexAction:
         assert "已存在" in result["message"]
 
     def test_add_regex_already_exists_in_new_dir(self, tmp_path):
-        """已存在检测同样覆盖新 regex/ 目录。"""
+        """已存在检测同样覆盖新 regex/ 目录（已登记 → 失败）。"""
         workspace = str(tmp_path)
         regex_dir = os.path.join(workspace, "regex")
         os.makedirs(regex_dir)
         regex_file = os.path.join(regex_dir, "exists.regex.yaml")
         with open(regex_file, "w", encoding="utf-8") as f:
             f.write("version: 2\n")
+        with open(os.path.join(workspace, "project.precis.yaml"), "w", encoding="utf-8") as f:
+            f.write(
+                "version: 2\nproject:\n  id: p1\n  name: p1\n"
+                "regex_nodes:\n  - id: exists\n    path: regex/exists.regex.yaml\n"
+            )
 
         result = process_regex_action(
             {
@@ -1610,12 +1629,18 @@ class TestProcessTransformAction:
         assert "非法" in result["message"]
 
     def test_add_transform_already_exists(self, tmp_path):
+        """文件已存在且已登记 → 失败（收养语义只针对未登记孤儿文件）。"""
         workspace = str(tmp_path)
         tf_dir = os.path.join(workspace, "transforms")
         os.makedirs(tf_dir)
         tf_file = os.path.join(tf_dir, "exists.transform.yaml")
         with open(tf_file, "w", encoding="utf-8") as f:
             f.write("version: 2\n")
+        with open(os.path.join(workspace, "project.precis.yaml"), "w", encoding="utf-8") as f:
+            f.write(
+                "version: 2\nproject:\n  id: p1\n  name: p1\n"
+                "transforms:\n  - id: exists\n    path: transforms/exists.transform.yaml\n"
+            )
 
         result = process_transform_action(
             {
@@ -2042,3 +2067,265 @@ class TestTransformSanitize:
     def test_backslash_rejected(self):
         with pytest.raises(ValueError, match="非法"):
             transform_sanitize("foo\\bar")
+
+
+# ============================================================
+# 孤儿收养与 manifest 登记对称（Fix A）+ canvas_enabled 文案分流（Fix C）
+# ============================================================
+
+
+def _write_manifest(tmp_path, sections: str):
+    """Helper: 写入最小 project.precis.yaml（拼接各资源区段）。"""
+    with open(os.path.join(str(tmp_path), "project.precis.yaml"), "w", encoding="utf-8") as f:
+        f.write("version: 2\nproject:\n  id: p1\n  name: p1\n" + sections)
+
+
+def _read_manifest(tmp_path) -> dict:
+    with open(os.path.join(str(tmp_path), "project.precis.yaml"), encoding="utf-8") as f:
+        return yaml.safe_load(f) or {}
+
+
+class TestSchemaOrphanAdoption:
+    """schema 线：ADD 遇孤儿转登记 / UPDATE 写盘后自动登记 / 已登记仍失败。"""
+
+    def _make_orphan(self, tmp_path, filename="产品库存表.schema.yaml", content_id="sc_inv_001"):
+        schemas_dir = tmp_path / "schemas"
+        schemas_dir.mkdir(parents=True, exist_ok=True)
+        schema_file = schemas_dir / filename
+        schema_file.write_text(
+            f"version: 2\nid: {content_id}\nname: 产品库存表\ncolumns:\n"
+            "  - id: col_qty\n    name: qty\n    type: integer\n",
+            encoding="utf-8",
+        )
+        return schema_file
+
+    def test_add_schema_adopts_orphan_with_actual_path(self, tmp_path):
+        """孤儿文件（文件名与 id 不同）：ADD 不失败，按实际路径 + 文件真实 id 登记。"""
+        workspace = str(tmp_path)
+        _write_manifest(tmp_path, "schemas: []\n")
+        self._make_orphan(tmp_path)
+
+        result = process_schema_action(
+            {
+                "actionType": "ADD_SCHEMA",
+                "schemaSpec": {"name": "产品库存表", "schemaId": "产品库存表"},
+            },
+            workspace,
+        )
+
+        assert result["success"] is True, result["message"]
+        assert "已登记" in result["message"]
+        assert result["resolved_id"] == "sc_inv_001"
+        refs = _read_manifest(tmp_path)["schemas"]
+        assert refs == [{"id": "sc_inv_001", "path": "schemas/产品库存表.schema.yaml"}]
+
+    def test_add_schema_on_registered_file_fails_without_canvas_wording(self, tmp_path):
+        """已登记文件 ADD 失败：canvas_enabled=False 时文案不得出现画布/ADD_TO_CANVAS。"""
+        workspace = str(tmp_path)
+        _write_manifest(tmp_path, "schemas:\n  - id: existing\n    path: schemas/existing.schema.yaml\n")
+        self._make_orphan(tmp_path, "existing.schema.yaml", "existing")
+
+        result = process_schema_action(
+            {
+                "actionType": "ADD_SCHEMA",
+                "schemaSpec": {"name": "existing", "schemaId": "existing"},
+            },
+            workspace,
+            canvas_enabled=False,
+        )
+
+        assert result["success"] is False
+        assert "已存在" in result["message"]
+        assert "ADD_TO_CANVAS" not in result["message"]
+        assert "画布" not in result["message"]
+        assert "UPDATE_SCHEMA" in result["message"]
+
+    def test_add_schema_on_registered_file_with_canvas_mentions_canvas(self, tmp_path):
+        """已登记文件 ADD 失败：canvas_enabled=True（默认）保持 ADD_TO_CANVAS 引导。"""
+        workspace = str(tmp_path)
+        _write_manifest(tmp_path, "schemas:\n  - id: existing\n    path: schemas/existing.schema.yaml\n")
+        self._make_orphan(tmp_path, "existing.schema.yaml", "existing")
+
+        result = process_schema_action(
+            {
+                "actionType": "ADD_SCHEMA",
+                "schemaSpec": {"name": "existing", "schemaId": "existing"},
+            },
+            workspace,
+            canvas_enabled=True,
+        )
+
+        assert result["success"] is False
+        assert "ADD_TO_CANVAS" in result["message"]
+
+    def test_update_schema_registers_orphan_into_manifest(self, tmp_path):
+        """孤儿文件 UPDATE 成功后自动登记（运行时装载器只按 manifest 加载）。"""
+        workspace = str(tmp_path)
+        _write_manifest(tmp_path, "schemas: []\n")
+        self._make_orphan(tmp_path)
+
+        result = process_schema_action(
+            {
+                "actionType": "UPDATE_SCHEMA",
+                "schemaSpec": {"schemaId": "产品库存表"},
+            },
+            workspace,
+        )
+
+        assert result["success"] is True, result["message"]
+        refs = _read_manifest(tmp_path)["schemas"]
+        assert refs == [{"id": "sc_inv_001", "path": "schemas/产品库存表.schema.yaml"}]
+
+    def test_update_schema_registration_idempotent(self, tmp_path):
+        """已登记文件的 UPDATE 不重复追加引用（幂等）。"""
+        workspace = str(tmp_path)
+        _write_manifest(tmp_path, "schemas:\n  - id: sc_inv_001\n    path: schemas/产品库存表.schema.yaml\n")
+        self._make_orphan(tmp_path)
+
+        result = process_schema_action(
+            {
+                "actionType": "UPDATE_SCHEMA",
+                "schemaSpec": {"schemaId": "sc_inv_001", "columns": [{"name": "qty", "type": "float"}]},
+            },
+            workspace,
+        )
+
+        assert result["success"] is True
+        refs = _read_manifest(tmp_path)["schemas"]
+        assert len(refs) == 1
+
+
+class TestRegexOrphanAdoption:
+    """regex 线：ADD 遇孤儿转登记 / UPDATE 写盘后自动登记。"""
+
+    def _make_orphan(self, tmp_path):
+        regex_dir = tmp_path / "regex"
+        regex_dir.mkdir(parents=True, exist_ok=True)
+        regex_file = regex_dir / "手机号.regex.yaml"
+        regex_file.write_text(
+            "version: 2\nid: rx_phone\nname: 手机号\npattern: ^1\\d{10}$\nmatch_mode: full\n",
+            encoding="utf-8",
+        )
+        return regex_file
+
+    def test_add_regex_adopts_orphan(self, tmp_path):
+        workspace = str(tmp_path)
+        _write_manifest(tmp_path, "regex_nodes: []\n")
+        self._make_orphan(tmp_path)
+
+        result = process_regex_action(
+            {
+                "actionType": "ADD_REGEX",
+                "regexSpec": {"name": "手机号", "regexId": "手机号", "pattern": "^1\\d{10}$"},
+            },
+            workspace,
+        )
+
+        assert result["success"] is True, result["message"]
+        assert result["resolved_id"] == "rx_phone"
+        refs = _read_manifest(tmp_path)["regex_nodes"]
+        assert refs == [{"id": "rx_phone", "path": "regex/手机号.regex.yaml"}]
+
+    def test_add_regex_registered_file_fails_without_canvas_wording(self, tmp_path):
+        workspace = str(tmp_path)
+        _write_manifest(tmp_path, "regex_nodes:\n  - id: rx_phone\n    path: regex/手机号.regex.yaml\n")
+        self._make_orphan(tmp_path)
+
+        result = process_regex_action(
+            {
+                "actionType": "ADD_REGEX",
+                "regexSpec": {"name": "手机号", "regexId": "手机号", "pattern": ".*"},
+            },
+            workspace,
+            canvas_enabled=False,
+        )
+
+        assert result["success"] is False
+        assert "ADD_TO_CANVAS" not in result["message"]
+        assert "画布" not in result["message"]
+
+    def test_update_regex_registers_orphan(self, tmp_path):
+        workspace = str(tmp_path)
+        _write_manifest(tmp_path, "regex_nodes: []\n")
+        self._make_orphan(tmp_path)
+
+        result = process_regex_action(
+            {
+                "actionType": "UPDATE_REGEX",
+                "regexSpec": {"regexId": "rx_phone", "pattern": "^1[3-9]\\d{9}$"},
+            },
+            workspace,
+        )
+
+        assert result["success"] is True, result["message"]
+        refs = _read_manifest(tmp_path)["regex_nodes"]
+        assert refs == [{"id": "rx_phone", "path": "regex/手机号.regex.yaml"}]
+
+
+class TestTransformOrphanAdoption:
+    """transform 线：ADD 遇孤儿转登记 / UPDATE 写盘后自动登记。"""
+
+    def _make_orphan(self, tmp_path):
+        tf_dir = tmp_path / "transforms"
+        tf_dir.mkdir(parents=True, exist_ok=True)
+        tf_file = tf_dir / "清洗手机号.transform.yaml"
+        tf_file.write_text(
+            "version: 2\nid: tf_clean_phone\ntype: Strip\nenabled: true\n",
+            encoding="utf-8",
+        )
+        return tf_file
+
+    def test_add_transform_adopts_orphan(self, tmp_path):
+        workspace = str(tmp_path)
+        _write_manifest(tmp_path, "transforms: []\n")
+        self._make_orphan(tmp_path)
+
+        result = process_transform_action(
+            {
+                "actionType": "ADD_TRANSFORM",
+                "transformSpec": {"type": "Strip", "transformId": "清洗手机号"},
+            },
+            workspace,
+        )
+
+        assert result["success"] is True, result["message"]
+        assert result["resolved_id"] == "tf_clean_phone"
+        refs = _read_manifest(tmp_path)["transforms"]
+        assert refs == [{"id": "tf_clean_phone", "path": "transforms/清洗手机号.transform.yaml"}]
+
+    def test_add_transform_registered_file_fails_without_canvas_wording(self, tmp_path):
+        workspace = str(tmp_path)
+        _write_manifest(
+            tmp_path, "transforms:\n  - id: tf_clean_phone\n    path: transforms/清洗手机号.transform.yaml\n"
+        )
+        self._make_orphan(tmp_path)
+
+        result = process_transform_action(
+            {
+                "actionType": "ADD_TRANSFORM",
+                "transformSpec": {"type": "Strip", "transformId": "tf_clean_phone"},
+            },
+            workspace,
+            canvas_enabled=False,
+        )
+
+        assert result["success"] is False
+        assert "ADD_TO_CANVAS" not in result["message"]
+        assert "画布" not in result["message"]
+
+    def test_update_transform_registers_orphan(self, tmp_path):
+        workspace = str(tmp_path)
+        _write_manifest(tmp_path, "transforms: []\n")
+        self._make_orphan(tmp_path)
+
+        result = process_transform_action(
+            {
+                "actionType": "UPDATE_TRANSFORM",
+                "transformSpec": {"transformId": "tf_clean_phone", "params": {"strip": "both"}},
+            },
+            workspace,
+        )
+
+        assert result["success"] is True, result["message"]
+        refs = _read_manifest(tmp_path)["transforms"]
+        assert refs == [{"id": "tf_clean_phone", "path": "transforms/清洗手机号.transform.yaml"}]

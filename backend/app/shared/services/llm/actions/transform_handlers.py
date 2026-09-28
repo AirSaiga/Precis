@@ -36,11 +36,12 @@ from typing import Any
 import yaml
 
 from app.shared.core.project.manifest.reader import load_manifest
-from app.shared.core.project.manifest.types import TransformRef
-from app.shared.core.project.manifest.writer import save_manifest
+from app.shared.core.project.manifest.types import ProjectManifest
+from app.shared.core.project.manifest.writer import ensure_transform_ref, save_manifest
 from app.shared.core.project.scaffold import ensure_manifest_exists
 from app.shared.core.project.transform.types import TransformFile
 from app.shared.core.project.transform.writer import save_transform
+from app.shared.services.llm.actions.schema_handlers import _file_exists_failure_message
 from app.shared.services.llm.yaml_io import FileLock, atomic_write_yaml, read_entity_id
 
 logger = logging.getLogger(__name__)
@@ -56,7 +57,9 @@ def _sanitize_resource_id(resource_id: str) -> str:
     return cleaned
 
 
-def process_transform_action(action: dict[str, Any], workspace_path: str) -> dict[str, Any]:
+def process_transform_action(
+    action: dict[str, Any], workspace_path: str, canvas_enabled: bool = True
+) -> dict[str, Any]:
     """
     @methoddesc 处理 Transform 动作
 
@@ -65,6 +68,8 @@ def process_transform_action(action: dict[str, Any], workspace_path: str) -> dic
     参数:
         action: 动作字典，包含 actionType 和 transformSpec
         workspace_path: 项目工作区路径
+        canvas_enabled: 当前环境是否有画布。无画布（CLI 等）时"文件已存在"
+            错误文案引导 UPDATE_* 路径，不出现 ADD_TO_CANVAS/画布字样
 
     返回:
         处理结果字典 {"success": bool, "message": str}
@@ -73,17 +78,17 @@ def process_transform_action(action: dict[str, Any], workspace_path: str) -> dic
     spec = action.get("transformSpec", {})
 
     if action_type == "ADD_TRANSFORM":
-        return _add_transform(spec, workspace_path)
+        return _add_transform(spec, workspace_path, canvas_enabled=canvas_enabled)
     elif action_type == "UPDATE_TRANSFORM":
-        return _update_transform(spec, workspace_path)
+        return _update_transform(spec, workspace_path, canvas_enabled=canvas_enabled)
     elif action_type == "DELETE_TRANSFORM":
         return _delete_transform(spec, workspace_path)
     else:
         return {"success": False, "message": f"未知的 Transform 动作类型: {action_type}"}
 
 
-def _add_transform(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
-    """创建新的 Transform YAML 文件"""
+def _add_transform(spec: dict[str, Any], workspace_path: str, canvas_enabled: bool = True) -> dict[str, Any]:
+    """创建新的 Transform YAML 文件（遇未登记的孤儿文件转为收养登记）"""
     transform_type = spec.get("type", "")
     transform_id = spec.get("transformId") or spec.get("id") or _generate_transform_id(transform_type)
     try:
@@ -107,16 +112,24 @@ def _add_transform(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
     transforms_dir.mkdir(parents=True, exist_ok=True)
 
     transform_file = transforms_dir / f"{transform_id}.transform.yaml"
-    if transform_file.exists():
-        # 提示 Agent 改用 ADD_TO_CANVAS（同 schema_handlers 的引导逻辑）
-        return {
-            "success": False,
-            "message": (
-                f"Transform 文件已存在: {transform_id}.transform.yaml。"
-                f"若用户想把已存在的资源显示到画布，请改用 actionType=ADD_TO_CANVAS"
-                f"（canvasSpec.resourceKind='transform'），它不会重复创建文件。"
-            ),
-        }
+    located = transform_file if transform_file.exists() else _find_transform_file(workspace_path, transform_id)
+    if located is not None:
+        # (a) 已存在且已登记 manifest → 失败（文案按画布能力分流，见 Fix C）
+        # (b) 已存在但未登记（孤儿文件）→ 不失败，收养登记进 manifest
+        actual_id = read_entity_id(located, default=transform_id)
+        rel_path = located.relative_to(workspace).as_posix()
+        if _transform_registered_in_manifest(workspace_path, actual_id, rel_path):
+            return {
+                "success": False,
+                "message": _file_exists_failure_message("Transform", "transform", located.name, canvas_enabled),
+            }
+        try:
+            _ensure_manifest_transform_ref(workspace_path, actual_id, default_path=rel_path)
+        except Exception as e:
+            logger.error(f"[TransformHandler] 收养孤儿 transform 登记失败: {located} -> {e}")
+            return {"success": False, "message": f"Transform 文件已存在但登记进项目清单失败: {e}"}
+        logger.info(f"[TransformHandler] 收养孤儿 Transform: {actual_id}（{rel_path}）")
+        return {"success": True, "message": f"{actual_id}（文件已存在，已登记进项目清单）", "resolved_id": actual_id}
 
     try:
         transform = TransformFile(
@@ -151,8 +164,12 @@ def _add_transform(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
     return {"success": True, "message": transform_id, "resolved_id": transform_id}
 
 
-def _update_transform(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
-    """更新现有 Transform"""
+def _update_transform(spec: dict[str, Any], workspace_path: str, canvas_enabled: bool = True) -> dict[str, Any]:
+    """更新现有 Transform（成功写盘后确保已登记进 manifest，收养孤儿文件）
+
+    canvas_enabled 仅为签名对齐透传（UPDATE 路径不产生"文件已存在"文案）。
+    """
+    _ = canvas_enabled
     transform_id = spec.get("transformId") or spec.get("id", "")
     try:
         transform_id = _sanitize_resource_id(transform_id)
@@ -191,12 +208,22 @@ def _update_transform(spec: dict[str, Any], workspace_path: str) -> dict[str, An
     except Exception as e:
         return {"success": False, "message": f"更新 Transform 失败: {e}"}
 
+    # 写盘成功后确保登记进 manifest（幂等，收养孤儿）：文件可能按文件名兜底命中
+    # （内容 id 与传入 key 不同），登记用文件真实 id + 实际落盘相对路径
+    resolved_id = read_entity_id(transform_file, default=transform_id)
+    try:
+        rel_path = transform_file.relative_to(Path(workspace_path)).as_posix()
+        _ensure_manifest_transform_ref(workspace_path, resolved_id, default_path=rel_path)
+    except Exception as e:
+        logger.error(f"[TransformHandler] UPDATE_TRANSFORM 登记 manifest 失败: {e}")
+        return {"success": False, "message": f"更新成功但登记进项目清单失败（已回滚）: {e}"}
+
     logger.info(f"[TransformHandler] 更新 Transform: {transform_id}")
     # resolved_id：文件可能按文件名兜底命中（内容 id 与传入 key 不同），回传真实 id
     return {
         "success": True,
         "message": transform_id,
-        "resolved_id": read_entity_id(transform_file, default=transform_id),
+        "resolved_id": resolved_id,
     }
 
 
@@ -269,20 +296,49 @@ def _short_hash() -> str:
     return uuid.uuid4().hex[:8]
 
 
-def _ensure_manifest_transform_ref(workspace_path: str, transform_id: str) -> None:
-    """确保 manifest 中包含指定 Transform 引用。
+def _transform_already_listed(manifest: ProjectManifest, transform_id: str, rel_path: str | None) -> bool:
+    """判断 transform 是否已在 manifest 中登记（按 id 与按归一化路径双重口径）。"""
+    normalized = (rel_path or "").replace("\\", "/").lower()
+    for ref in manifest.transforms:
+        if ref.id == transform_id:
+            return True
+        if normalized and (ref.path or "").replace("\\", "/").lower() == normalized:
+            return True
+    return False
+
+
+def _transform_registered_in_manifest(workspace_path: str, transform_id: str, rel_path: str | None = None) -> bool:
+    """读取 manifest 判断 transform 是否已登记（缺失/不可读按未登记处理）。"""
+    manifest_path = Path(workspace_path) / "project.precis.yaml"
+    if not manifest_path.exists():
+        return False
+    try:
+        manifest = load_manifest(manifest_path)
+    except Exception as e:
+        logger.warning(f"[TransformHandler] 读取 manifest 失败，按未登记处理: {e}")
+        return False
+    return _transform_already_listed(manifest, transform_id, rel_path)
+
+
+def _ensure_manifest_transform_ref(workspace_path: str, transform_id: str, default_path: str | None = None) -> None:
+    """确保 manifest 中包含指定 Transform 引用（幂等：已按 id 或路径登记则 no-op）。
 
     §2.7 对齐（Schema/Regex 路径）：异常向上传播——调用方据此回滚已写的
     Transform 文件，避免孤儿文件。manifest 缺失时先创建最小脚手架清单再登记
     （兜底防孤儿，见 schema_handlers 同名函数）。
+
+    参数:
+        workspace_path: 项目工作区路径
+        transform_id: transform 的实体 id（须与文件内容 id 一致）
+        default_path: 引用路径缺省值；登记孤儿文件时传实际落盘相对路径
     """
     manifest_path = ensure_manifest_exists(workspace_path)
 
     manifest = load_manifest(manifest_path)
-    existing = next((t for t in manifest.transforms if t.id == transform_id), None)
-    if not existing:
-        manifest.transforms.append(TransformRef(id=transform_id, path=f"transforms/{transform_id}.transform.yaml"))
-        save_manifest(manifest, manifest_path)
+    if _transform_already_listed(manifest, transform_id, default_path):
+        return
+    ensure_transform_ref(manifest, transform_id, default_path)
+    save_manifest(manifest, manifest_path)
 
 
 def _remove_manifest_transform_ref(workspace_path: str, transform_id: str) -> None:

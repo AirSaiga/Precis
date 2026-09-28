@@ -29,6 +29,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
+from collections.abc import Callable
 from typing import Any
 
 from app.cli.shell.commands.ai.executor_utils import SpinnerController
@@ -51,7 +52,13 @@ def build_agent_interaction(spinner: SpinnerController | None) -> tuple[ApplyCal
 
     返回:
         (ApplyCallbacks, AskCallbacks)，注入 ChatOptions 后经 ChatAgentRunner 生效
+
+    会话级授权（[a] 选项）：用户在确认门选择"本会话始终确认"后，闭包内标志置位，
+    本次 CLI 会话内的后续 apply 自动 confirm（仍打印动作摘要，用户可见发生了什么）。
+    默认 fail-closed：未授权前每次写盘都逐批询问，空输入仍 reject。
     """
+    # 闭包持有的会话级可变标志：选择 [a] 后置 True，作用于整个 CLI 会话
+    session_always_confirm = {"enabled": False}
 
     def on_apply_pending(payload: dict[str, Any]) -> None:
         # 回调在事件循环协程内同步触发，捕获运行中的 loop 供工作线程 resolve
@@ -61,8 +68,17 @@ def build_agent_interaction(spinner: SpinnerController | None) -> tuple[ApplyCal
             spinner.pause()
         _print_apply_summary(payload)
 
+        # 会话级授权已开启：摘要仍打印（用户能看到 AI 在写什么），直接 confirm
+        if session_always_confirm["enabled"]:
+            print(Formatter.info("（本会话已授权自动确认写入，跳过询问）"))
+            loop.create_task(_resolve_apply(apply_id, "confirm"))
+            return
+
         def _worker() -> None:
-            decision = _read_apply_decision(payload)
+            decision = _read_apply_decision(
+                payload,
+                on_session_confirm=lambda: session_always_confirm.__setitem__("enabled", True),
+            )
             try:
                 future = asyncio.run_coroutine_threadsafe(_resolve_apply(apply_id, decision), loop)
                 future.result(timeout=10)
@@ -175,19 +191,39 @@ def _print_full_diff(payload: dict[str, Any]) -> None:
         print(diff if diff else "  （无 diff 内容）")
 
 
-def _read_apply_decision(payload: dict[str, Any]) -> str:
-    """三态决策循环：y 确认写入 / d 查看全量 diff 后回到提示 / 其余（含空输入）拒绝。
+def _read_apply_decision(
+    payload: dict[str, Any],
+    on_session_confirm: Callable[[], None] | None = None,
+) -> str:
+    """四态决策循环：y 确认写入 / a 本会话始终确认 / d 查看全量 diff 后回到提示 / 其余（含空输入）拒绝。
 
     空输入与非 y 输入一律 reject（写盘默认保守），与旧版语义一致。
+    选择 [a] 时：返回 confirm（本次写入放行），并经 on_session_confirm 回调
+    通知调用方置位会话级授权标志（后续 apply 不再询问）。
+
+    参数:
+        payload: apply_pending 事件载荷（[d] 查看全量 diff 用）
+        on_session_confirm: 选择 [a] 时的回调（置位会话授权标志），可缺省
     """
     while True:
         try:
             raw = (
-                input(Formatter.warning("确认写入以上变更？[y]确认写入 / [d]查看详细 diff / [N]拒绝: ")).strip().lower()
+                input(
+                    Formatter.warning(
+                        "确认写入以上变更？[y]确认写入 / [a]本会话始终确认 / [d]查看详细 diff / [N]拒绝: "
+                    )
+                )
+                .strip()
+                .lower()
             )
         except EOFError:
             return "reject"
         if raw in ("y", "yes", "是"):
+            return "confirm"
+        if raw in ("a", "always", "始终"):
+            if on_session_confirm is not None:
+                on_session_confirm()
+            print(Formatter.info("已授权：本会话后续写入将自动确认（不再逐次询问）"))
             return "confirm"
         if raw in ("d", "diff", "查看"):
             _print_full_diff(payload)

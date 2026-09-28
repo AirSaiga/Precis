@@ -36,10 +36,12 @@ from typing import Any
 import yaml
 
 from app.shared.core.project.manifest.reader import load_manifest
+from app.shared.core.project.manifest.types import ProjectManifest
 from app.shared.core.project.manifest.writer import ensure_regex_ref, save_manifest
 from app.shared.core.project.regex.types import RegexNodeFile, RegexSourceRef
 from app.shared.core.project.regex.writer import save_regex_node
 from app.shared.core.project.scaffold import ensure_manifest_exists
+from app.shared.services.llm.actions.schema_handlers import _file_exists_failure_message
 from app.shared.services.llm.yaml_io import FileLock, atomic_write_yaml, read_entity_id
 
 logger = logging.getLogger(__name__)
@@ -54,7 +56,7 @@ def _sanitize_resource_id(resource_id: str) -> str:
     return cleaned
 
 
-def process_regex_action(action: dict[str, Any], workspace_path: str) -> dict[str, Any]:
+def process_regex_action(action: dict[str, Any], workspace_path: str, canvas_enabled: bool = True) -> dict[str, Any]:
     """
     @methoddesc 处理 Regex 动作
 
@@ -63,6 +65,8 @@ def process_regex_action(action: dict[str, Any], workspace_path: str) -> dict[st
     参数:
         action: 动作字典，包含 actionType 和 regexSpec
         workspace_path: 项目工作区路径
+        canvas_enabled: 当前环境是否有画布。无画布（CLI 等）时"文件已存在"
+            错误文案引导 UPDATE_* 路径，不出现 ADD_TO_CANVAS/画布字样
 
     返回:
         处理结果字典 {"success": bool, "message": str}
@@ -71,17 +75,17 @@ def process_regex_action(action: dict[str, Any], workspace_path: str) -> dict[st
     spec = action.get("regexSpec", {})
 
     if action_type == "ADD_REGEX":
-        return _add_regex(spec, workspace_path)
+        return _add_regex(spec, workspace_path, canvas_enabled=canvas_enabled)
     elif action_type == "UPDATE_REGEX":
-        return _update_regex(spec, workspace_path)
+        return _update_regex(spec, workspace_path, canvas_enabled=canvas_enabled)
     elif action_type == "DELETE_REGEX":
         return _delete_regex(spec, workspace_path)
     else:
         return {"success": False, "message": f"未知的 Regex 动作类型: {action_type}"}
 
 
-def _add_regex(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
-    """创建新的 Regex YAML 文件"""
+def _add_regex(spec: dict[str, Any], workspace_path: str, canvas_enabled: bool = True) -> dict[str, Any]:
+    """创建新的 Regex YAML 文件（遇未登记的孤儿文件转为收养登记）"""
     regex_name = spec.get("name", "")
     regex_id = spec.get("regexId") or spec.get("id") or regex_name
     try:
@@ -111,16 +115,24 @@ def _add_regex(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
 
     regex_file = regex_dir / f"{regex_id}.regex.yaml"
     # 已存在检测同时覆盖新旧目录（历史版本曾写入 regex_nodes/），避免跨目录产生同 ID 重复文件
-    if regex_file.exists() or _find_regex_file(workspace_path, regex_id):
-        # 提示 Agent 改用 ADD_TO_CANVAS（同 schema_handlers 的引导逻辑）
-        return {
-            "success": False,
-            "message": (
-                f"Regex 文件已存在: {regex_id}.regex.yaml。"
-                f"若用户想把已存在的资源显示到画布，请改用 actionType=ADD_TO_CANVAS"
-                f"（canvasSpec.resourceKind='regex'），它不会重复创建文件。"
-            ),
-        }
+    located = regex_file if regex_file.exists() else _find_regex_file(workspace_path, regex_id)
+    if located is not None:
+        # (a) 已存在且已登记 manifest → 失败（文案按画布能力分流，见 Fix C）
+        # (b) 已存在但未登记（孤儿文件）→ 不失败，收养登记进 manifest
+        actual_id = read_entity_id(located, default=regex_id)
+        rel_path = located.relative_to(workspace).as_posix()
+        if _regex_registered_in_manifest(workspace_path, actual_id, rel_path):
+            return {
+                "success": False,
+                "message": _file_exists_failure_message("Regex", "regex", located.name, canvas_enabled),
+            }
+        try:
+            _ensure_manifest_regex_ref(workspace_path, actual_id, default_path=rel_path)
+        except Exception as e:
+            logger.error(f"[RegexHandler] 收养孤儿 regex 登记失败: {located} -> {e}")
+            return {"success": False, "message": f"Regex 文件已存在但登记进项目清单失败: {e}"}
+        logger.info(f"[RegexHandler] 收养孤儿 Regex: {actual_id}（{rel_path}）")
+        return {"success": True, "message": f"{actual_id}（文件已存在，已登记进项目清单）", "resolved_id": actual_id}
 
     # 构建 source_ref
     source_ref = None
@@ -160,8 +172,12 @@ def _add_regex(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
     return {"success": True, "message": regex_id}
 
 
-def _update_regex(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
-    """更新现有 Regex"""
+def _update_regex(spec: dict[str, Any], workspace_path: str, canvas_enabled: bool = True) -> dict[str, Any]:
+    """更新现有 Regex（成功写盘后确保已登记进 manifest，收养孤儿文件）
+
+    canvas_enabled 仅为签名对齐透传（UPDATE 路径不产生"文件已存在"文案）。
+    """
+    _ = canvas_enabled
     regex_id = spec.get("regexId") or spec.get("id") or spec.get("name", "")
     try:
         regex_id = _sanitize_resource_id(regex_id)
@@ -200,8 +216,18 @@ def _update_regex(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
     except Exception as e:
         return {"success": False, "message": f"更新 Regex 失败: {e}"}
 
+    # 写盘成功后确保登记进 manifest（幂等，收养孤儿）：登记路径取实际落盘文件
+    # （regex 文件可能在旧版 regex_nodes/ 目录），id 取文件真实 id
+    resolved_id = read_entity_id(regex_file, default=regex_id)
+    try:
+        rel_path = regex_file.relative_to(Path(workspace_path)).as_posix()
+        _ensure_manifest_regex_ref(workspace_path, resolved_id, default_path=rel_path)
+    except Exception as e:
+        logger.error(f"[RegexHandler] UPDATE_REGEX 登记 manifest 失败: {e}")
+        return {"success": False, "message": f"更新成功但登记进项目清单失败（已回滚）: {e}"}
+
     logger.info(f"[RegexHandler] 更新 Regex: {regex_id}")
-    return {"success": True, "message": regex_id}
+    return {"success": True, "message": regex_id, "resolved_id": resolved_id}
 
 
 def _delete_regex(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
@@ -260,16 +286,48 @@ def _find_regex_file(workspace_path: str, regex_id: str) -> Path | None:
     return None
 
 
-def _ensure_manifest_regex_ref(workspace_path: str, regex_id: str) -> None:
-    """确保 manifest 中包含指定 Regex 引用。
+def _regex_already_listed(manifest: ProjectManifest, regex_id: str, rel_path: str | None) -> bool:
+    """判断 regex 是否已在 manifest 中登记（按 id 与按归一化路径双重口径）。"""
+    normalized = (rel_path or "").replace("\\", "/").lower()
+    for ref in manifest.regex_nodes:
+        if ref.id == regex_id:
+            return True
+        if normalized and (ref.path or "").replace("\\", "/").lower() == normalized:
+            return True
+    return False
+
+
+def _regex_registered_in_manifest(workspace_path: str, regex_id: str, rel_path: str | None = None) -> bool:
+    """读取 manifest 判断 regex 是否已登记（缺失/不可读按未登记处理）。"""
+    manifest_path = Path(workspace_path) / "project.precis.yaml"
+    if not manifest_path.exists():
+        return False
+    try:
+        manifest = load_manifest(manifest_path)
+    except Exception as e:
+        logger.warning(f"[RegexHandler] 读取 manifest 失败，按未登记处理: {e}")
+        return False
+    return _regex_already_listed(manifest, regex_id, rel_path)
+
+
+def _ensure_manifest_regex_ref(workspace_path: str, regex_id: str, default_path: str | None = None) -> None:
+    """确保 manifest 中包含指定 Regex 引用（幂等：已按 id 或路径登记则 no-op）。
 
     §2.7: 异常向上传播（不再吞掉只留 warning）——调用方据此回滚已写的 Regex 文件。
     manifest 缺失时先创建最小脚手架清单再登记（兜底防孤儿，见 schema_handlers 同名函数）。
+
+    参数:
+        workspace_path: 项目工作区路径
+        regex_id: regex 的实体 id（须与文件内容 id 一致）
+        default_path: 引用路径缺省值；登记孤儿文件时传实际落盘相对路径
+            （如旧版 regex_nodes/ 目录下的文件）
     """
     manifest_path = ensure_manifest_exists(workspace_path)
 
     manifest = load_manifest(manifest_path)
-    ensure_regex_ref(manifest, regex_id)
+    if _regex_already_listed(manifest, regex_id, default_path):
+        return
+    ensure_regex_ref(manifest, regex_id, default_path)
     save_manifest(manifest, manifest_path)
 
 

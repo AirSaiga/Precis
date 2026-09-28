@@ -140,10 +140,24 @@ class ActionValidator:
         self._project_schema: dict[str, Any] | None = None
 
     def _load_project_schema(self) -> dict[str, Any]:
-        """加载项目结构信息
+        """加载项目结构信息（manifest 为权威事实源）
 
-        读取 schemas 目录下的 YAML 文件，构建表和字段索引。
-        结果会被缓存。
+        事实源收敛（与运行时装载器 load_project 对齐）：
+        - manifest 存在时：只有登记进 project.precis.yaml 的 schema 才进
+          tables / table_name_to_id（权威表集合）；磁盘 glob 到但未登记的进
+          unlisted_tables 映射（id/name → 路径）——预验证引用这类表时给出
+          table_unlisted 针对性错误（引导先 UPDATE_SCHEMA 登记），而不是
+          放行后让运行时 ReferenceIntegrityError 爆炸。
+        - manifest 不存在时：退回磁盘全量口径（项目未初始化场景由
+          manifest_missing 门拦截写动作，VALIDATE_PROJECT 等只读动作按
+          磁盘可见表放行，保持既有行为）。
+
+        结果会被缓存。结构：
+            {
+                "tables": {id: {"name", "columns": {col_id: {"name","type"}}}},
+                "table_name_to_id": {name: [id, ...]},
+                "unlisted_tables": {id或name: {"id", "name", "path"}},
+            }
         """
         if self._project_schema is not None:
             return self._project_schema
@@ -151,6 +165,7 @@ class ActionValidator:
         schema: dict[str, Any] = {
             "tables": {},
             "table_name_to_id": {},
+            "unlisted_tables": {},
         }
 
         schemas_dir = self.project_path / "schemas"
@@ -158,6 +173,25 @@ class ActionValidator:
             logger.warning(f"Schemas 目录不存在: {schemas_dir}")
             self._project_schema = schema
             return schema
+
+        # manifest 登记的 schema 引用路径集合（归一化比对，与 coverage.py 口径一致）
+        listed_paths: set[str] | None = None
+        manifest_path = self.project_path / "project.precis.yaml"
+        if manifest_path.is_file():
+            listed_paths = set()
+            try:
+                import yaml
+
+                with open(manifest_path, encoding="utf-8") as f:
+                    manifest_data = yaml.safe_load(f) or {}
+                for ref in manifest_data.get("schemas", []) or []:
+                    p = ref.get("path") if isinstance(ref, dict) else None
+                    if isinstance(p, str) and p:
+                        listed_paths.add(p.replace("\\", "/").lower())
+            except Exception as e:
+                # manifest 不可读：按"无清单"退化处理（磁盘全量口径），避免误杀
+                logger.warning(f"读取 manifest schemas 失败，预验证退回磁盘口径: {e}")
+                listed_paths = None
 
         try:
             import yaml
@@ -171,18 +205,25 @@ class ActionValidator:
                     table_name = data.get("name", "")
                     columns = data.get("columns", [])
 
-                    if table_id:
-                        column_info = {}
-                        for col in columns:
-                            col_id = col.get("id", col.get("name", ""))
-                            col_name = col.get("name", col_id)
-                            col_type = col.get("type", "string")
-                            if col_id:
-                                column_info[col_id] = {
-                                    "name": col_name,
-                                    "type": col_type,
-                                }
+                    if not table_id:
+                        continue
 
+                    # manifest 存在时按登记路径判定权威性（None = 无清单，全量权威）
+                    rel_path = f"schemas/{schema_file.name}".replace("\\", "/").lower()
+                    listed = listed_paths is None or rel_path in listed_paths
+
+                    column_info = {}
+                    for col in columns:
+                        col_id = col.get("id", col.get("name", ""))
+                        col_name = col.get("name", col_id)
+                        col_type = col.get("type", "string")
+                        if col_id:
+                            column_info[col_id] = {
+                                "name": col_name,
+                                "type": col_type,
+                            }
+
+                    if listed:
                         schema["tables"][table_id] = {
                             "name": table_name,
                             "columns": column_info,
@@ -192,6 +233,16 @@ class ActionValidator:
                             if table_name not in schema["table_name_to_id"]:
                                 schema["table_name_to_id"][table_name] = []
                             schema["table_name_to_id"][table_name].append(table_id)
+                    else:
+                        # 未登记（孤儿文件）：进 unlisted 映射，id 与 name 双键索引
+                        entry = {
+                            "id": table_id,
+                            "name": table_name,
+                            "path": f"schemas/{schema_file.name}",
+                        }
+                        schema["unlisted_tables"][table_id] = entry
+                        if table_name and table_name != table_id:
+                            schema["unlisted_tables"].setdefault(table_name, entry)
 
                 except Exception as e:
                     logger.debug(f"读取 schema 文件失败 {schema_file}: {e}")

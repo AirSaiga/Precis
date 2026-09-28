@@ -611,9 +611,10 @@ class AIChatOrchestrator:
 
         # B-async: process_actions 做大量同步文件 I/O（mkdtemp/读写多 YAML/快照/回滚），
         # 在 async 编排器中直接调用会阻塞事件循环。agent 路径（apply_actions.py:441）
-        # 已用 asyncio.to_thread 包裹同一函数，这里对齐。
+        # 已用 asyncio.to_thread 包裹同一函数，这里对齐。canvas_enabled 透传给
+        # handler 层（"文件已存在"文案按环境分流）。
         self._notify_progress(options, "executing", "执行操作...")
-        process_result = await asyncio.to_thread(process_actions, actions, project_path)
+        process_result = await asyncio.to_thread(process_actions, actions, project_path, options.canvas_enabled)
         action_results = process_result.get("results", [])
 
         if not process_result.get("success", False):

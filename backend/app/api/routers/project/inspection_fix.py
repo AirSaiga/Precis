@@ -19,11 +19,13 @@
 功能概述:
 - 提供自检发现问题的自动修复端点
 - 支持表引用修正、列引用修正、正则引用修正、ID 不一致修正
+- 支持把磁盘已存在但未入清单的资源"收养"登记进 manifest（adopt-unlisted）
 - 所有修复操作使用文件锁保证并发安全
 
 修复策略:
 - 表/列引用修正: 直接修改约束/正则文件中的 refs 字段
 - ID 不一致修正: 更新 manifest 中的引用 ID 为文件实际 ID
+- 收养登记: 在 manifest 中追加引用（id/path 取文件实际值，幂等）
 """
 
 from __future__ import annotations
@@ -38,6 +40,15 @@ from pydantic import BaseModel
 
 from app.api.dependencies import get_project_config_path
 from app.shared.core.io.yaml import read_yaml, write_yaml_atomic
+from app.shared.core.project.manifest.reader import load_manifest
+from app.shared.core.project.manifest.writer import (
+    ensure_constraint_ref,
+    ensure_manual_data_ref,
+    ensure_regex_ref,
+    ensure_schema_ref,
+    ensure_transform_ref,
+    save_manifest,
+)
 
 from .base import StandardResponse, _v2_manifest_path
 from .helpers import project_lock
@@ -79,6 +90,22 @@ class FixIdMismatchRequest(BaseModel):
     resource_type: str
     manifest_id: str
     file_id: str
+
+
+class AdoptUnlistedRequest(BaseModel):
+    """收养孤儿资源的请求体：按 id 或相对路径定位磁盘上已存在但未入清单的资源。"""
+
+    resource_type: str  # schema / constraint / regex / transform / manual_data
+    resource_id: str | None = None
+    resource_path: str | None = None
+
+
+class AdoptUnlistedResponse(BaseModel):
+    """收养结果：already_listed=True 表示资源本就已登记（幂等语义）。"""
+
+    message: str
+    already_listed: bool
+    resource_id: str
 
 
 def _find_constraint_file(config_path: str, constraint_id: str) -> Path | None:
@@ -283,6 +310,164 @@ def fix_regex_column_ref(
         )
 
     return {"message": f"已将正则列引用从 '{req.old_column_id}' 修正为 '{req.new_column_id}'"}
+
+
+# 收养资源类型 → 磁盘子目录映射（与 compute_manifest_coverage 的扫描口径一致）
+_ADOPT_DIR_MAP = {
+    "schema": "schemas",
+    "constraint": "constraints",
+    "regex": "regex",
+    "transform": "transforms",
+    "manual_data": "manual_data",
+}
+
+# 资源文件命名后缀（长后缀在前，避免 .yaml 提前截断）
+_RESOURCE_SUFFIXES = (
+    ".schema.yaml",
+    ".constraint.yaml",
+    ".regex.yaml",
+    ".transform.yaml",
+    ".manual_data.yaml",
+    ".yaml",
+    ".yml",
+)
+
+
+def _stem_resource_id(filename: str) -> str:
+    """按资源命名规范从文件名推导资源 id（去掉类型后缀）。"""
+    lower = filename.lower()
+    for suffix in _RESOURCE_SUFFIXES:
+        if lower.endswith(suffix):
+            return filename[: -len(suffix)]
+    return filename
+
+
+def _find_resource_file(config_path: str, req: AdoptUnlistedRequest) -> Path:
+    """按 path 或 id 定位磁盘上的资源文件。
+
+    路径必须相对项目根且不允许穿越（可写操作从严）；按 id 查找时先匹配文件
+    内容 id，再兜底匹配文件名推导 id（内容不可解析的坏文件也可收养）。
+
+    异常:
+        HTTPException 400（输入非法）/ 404（文件不存在）
+    """
+    if req.resource_path:
+        raw = req.resource_path.replace("\\", "/")
+        if not raw or os.path.isabs(raw) or ".." in raw.split("/"):
+            raise HTTPException(status_code=400, detail=f"非法的资源路径: {req.resource_path}")
+        candidate = Path(os.path.join(config_path, *raw.split("/")))
+        if not candidate.is_file():
+            raise HTTPException(status_code=404, detail=f"资源文件不存在: {req.resource_path}")
+        return candidate
+
+    # 按 id 定位（resource_path 未提供）
+    target_dir = os.path.join(config_path, _ADOPT_DIR_MAP[req.resource_type])
+    if not os.path.isdir(target_dir):
+        raise HTTPException(
+            status_code=404, detail=f"未找到 {req.resource_type} '{req.resource_id}'（目录 {target_dir} 不存在）"
+        )
+    fallback_by_stem: Path | None = None
+    for filename in sorted(os.listdir(target_dir)):
+        if not filename.endswith((".yaml", ".yml")):
+            continue
+        file_path = Path(os.path.join(target_dir, filename))
+        if _stem_resource_id(filename) == req.resource_id:
+            fallback_by_stem = fallback_by_stem or file_path
+        try:
+            file_data = read_yaml(file_path)
+        except Exception:
+            continue
+        if isinstance(file_data, dict) and file_data.get("id") == req.resource_id:
+            return file_path
+    if fallback_by_stem is not None:
+        return fallback_by_stem
+    raise HTTPException(status_code=404, detail=f"未找到 {req.resource_type} '{req.resource_id}' 对应的文件")
+
+
+def _manifest_refs_for_type(manifest: Any, resource_type: str) -> list[Any]:
+    """取 manifest 中指定资源类型的引用列表（带 id/path 属性的对象）。"""
+    field_map = {
+        "schema": manifest.schemas,
+        "constraint": manifest.constraints,
+        "regex": manifest.regex_nodes,
+        "transform": manifest.transforms,
+        "manual_data": manifest.manual_data,
+    }
+    return list(field_map[resource_type])
+
+
+def _ensure_ref_for_type(manifest: Any, resource_type: str, resource_id: str, rel_path: str) -> None:
+    """把资源引用登记进 manifest 对象（由调用方统一 save_manifest 落盘）。"""
+    ensure_map = {
+        "schema": ensure_schema_ref,
+        "constraint": ensure_constraint_ref,
+        "regex": ensure_regex_ref,
+        "transform": ensure_transform_ref,
+        "manual_data": ensure_manual_data_ref,
+    }
+    ensure_map[resource_type](manifest, resource_id, rel_path)
+
+
+@router.post(
+    "/inspection/adopt-unlisted",
+    response_model=AdoptUnlistedResponse,
+    summary="把磁盘已存在但未入清单的资源登记进项目清单",
+)
+def adopt_unlisted(
+    req: AdoptUnlistedRequest,
+    config_path: str = Depends(get_project_config_path),
+) -> dict:
+    """收养孤儿资源：把磁盘上已存在但未登记进 project.precis.yaml 的资源登记进清单。
+
+    幂等：资源已登记（按 id 或路径命中）时返回 200 + already_listed=True，不重复追加。
+    登记引用的 id/path 均取文件实际值（孤儿文件名可能与 id 不同）。
+    """
+    if req.resource_type not in _ADOPT_DIR_MAP:
+        raise HTTPException(status_code=400, detail=f"不支持的资源类型: {req.resource_type}")
+    if not req.resource_id and not req.resource_path:
+        raise HTTPException(status_code=400, detail="需要提供 resource_id 或 resource_path 之一")
+
+    manifest_path = _v2_manifest_path(config_path)
+    if not os.path.isfile(manifest_path):
+        raise HTTPException(status_code=404, detail="项目配置文件不存在，请先保存项目")
+
+    with project_lock(config_path):
+        file_path = _find_resource_file(config_path, req)
+
+        # 登记引用取文件实际 id（内容 id 优先，坏文件回退文件名推导）
+        actual_id = ""
+        try:
+            raw = read_yaml(file_path)
+            if isinstance(raw, dict) and raw.get("id"):
+                actual_id = str(raw["id"])
+        except Exception as e:
+            logger.warning("[adopt_unlisted] 读取资源文件失败，id 回退文件名推导: %s -> %s", file_path, e)
+        if not actual_id:
+            actual_id = _stem_resource_id(file_path.name)
+
+        rel_path = os.path.relpath(file_path, config_path).replace("\\", "/")
+        normalized = rel_path.lower()
+
+        manifest = load_manifest(Path(manifest_path))
+        # 幂等判定：按 id 或按归一化路径，任一命中即视为已登记
+        for ref in _manifest_refs_for_type(manifest, req.resource_type):
+            if ref.id == actual_id or (ref.path or "").replace("\\", "/").lower() == normalized:
+                logger.info("[adopt_unlisted] %s '%s' 已在清单中（幂等跳过）", req.resource_type, actual_id)
+                return {
+                    "message": f"{req.resource_type} '{actual_id}' 已在项目清单中，无需重复登记",
+                    "already_listed": True,
+                    "resource_id": actual_id,
+                }
+
+        _ensure_ref_for_type(manifest, req.resource_type, actual_id, rel_path)
+        save_manifest(manifest, Path(manifest_path))
+        logger.info("[adopt_unlisted] 已登记 %s '%s' -> %s", req.resource_type, actual_id, rel_path)
+
+    return {
+        "message": f"已把 {req.resource_type} '{actual_id}' 登记进项目清单（{rel_path}）",
+        "already_listed": False,
+        "resource_id": actual_id,
+    }
 
 
 @router.post(

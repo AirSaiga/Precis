@@ -227,7 +227,9 @@ def _detect_created_files(pre_snapshot: set[str], post_snapshot: set[str]) -> se
     return post_snapshot - pre_snapshot
 
 
-def process_actions(actions: list[dict[str, Any]], workspace_path: str = "") -> dict[str, Any]:
+def process_actions(
+    actions: list[dict[str, Any]], workspace_path: str = "", canvas_enabled: bool = True
+) -> dict[str, Any]:
     """
     @methoddesc 处理动作列表（支持批量优化和文件级备份回滚）
 
@@ -246,6 +248,8 @@ def process_actions(actions: list[dict[str, Any]], workspace_path: str = "") -> 
     参数:
         actions: LLM 返回的动作列表
         workspace_path: 项目工作区路径
+        canvas_enabled: 当前环境是否有画布（透传给各 handler——"文件已存在"
+            错误文案据此分流：无画布时引导 UPDATE_* 而非 ADD_TO_CANVAS）
 
     返回:
         处理结果字典，格式为 {"success": bool, "results": [...]}
@@ -261,7 +265,7 @@ def process_actions(actions: list[dict[str, Any]], workspace_path: str = "") -> 
         logger.info(f"[process_actions] 已备份 {len(backups)} 个文件到 {backup_dir}")
 
     try:
-        results = _execute_actions(actions, workspace_path)
+        results = _execute_actions(actions, workspace_path, canvas_enabled=canvas_enabled)
 
         # 检查是否有失败的动作
         all_success = all(r["success"] for r in results)
@@ -302,7 +306,9 @@ def process_actions(actions: list[dict[str, Any]], workspace_path: str = "") -> 
                 pass
 
 
-def _execute_actions(actions: list[dict[str, Any]], workspace_path: str) -> list[dict[str, Any]]:
+def _execute_actions(
+    actions: list[dict[str, Any]], workspace_path: str, canvas_enabled: bool = True
+) -> list[dict[str, Any]]:
     """执行动作列表的内部函数（不含备份回滚逻辑）。"""
     # 按类型分类 actions
     inline_actions_by_schema: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -404,7 +410,7 @@ def _execute_actions(actions: list[dict[str, Any]], workspace_path: str) -> list
 
     # 3. 处理 Schema 动作
     for action in schema_actions:
-        result = process_schema_action(action, workspace_path)
+        result = process_schema_action(action, workspace_path, canvas_enabled=canvas_enabled)
         results.append(
             {
                 "action": action,
@@ -422,7 +428,7 @@ def _execute_actions(actions: list[dict[str, Any]], workspace_path: str) -> list
 
     # 4. 处理 Regex 动作
     for action in regex_actions:
-        result = process_regex_action(action, workspace_path)
+        result = process_regex_action(action, workspace_path, canvas_enabled=canvas_enabled)
         results.append(
             {
                 "action": action,
@@ -439,7 +445,7 @@ def _execute_actions(actions: list[dict[str, Any]], workspace_path: str) -> list
 
     # 5. 处理 Transform 动作
     for action in transform_actions:
-        result = process_transform_action(action, workspace_path)
+        result = process_transform_action(action, workspace_path, canvas_enabled=canvas_enabled)
         results.append(
             {
                 "action": action,

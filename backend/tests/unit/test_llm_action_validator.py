@@ -50,8 +50,13 @@ def _initialized_project(tmp_path):
         )
 
 
-def _create_schema_dir(tmp_path, schemas: list[dict]):
-    """Helper: 在 tmp_path 下创建 schemas 目录和文件"""
+def _create_schema_dir(tmp_path, schemas: list[dict], register: bool = True):
+    """Helper: 在 tmp_path 下创建 schemas 目录和文件。
+
+    预验证以 manifest 为权威表集合（Fix B）：manifest 存在且 register=True 时，
+    把创建的 schema 同步登记进 manifest（本文件聚焦各子验证器业务规则，
+    非 manifest 语义本身）；构造 unlisted 场景的用例传 register=False。
+    """
     schemas_dir = tmp_path / "schemas"
     schemas_dir.mkdir()
     import yaml
@@ -60,6 +65,16 @@ def _create_schema_dir(tmp_path, schemas: list[dict]):
         filepath = schemas_dir / f"{s['id']}.schema.yaml"
         with open(filepath, "w", encoding="utf-8") as f:
             yaml.safe_dump(s, f)
+
+    manifest_path = tmp_path / "project.precis.yaml"
+    if register and manifest_path.exists():
+        manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
+        existing = {(r.get("id"), r.get("path")) for r in manifest.get("schemas", []) or []}
+        for s in schemas:
+            ref = {"id": s["id"], "path": f"schemas/{s['id']}.schema.yaml"}
+            if (ref["id"], ref["path"]) not in existing:
+                manifest.setdefault("schemas", []).append(ref)
+        manifest_path.write_text(yaml.safe_dump(manifest), encoding="utf-8")
 
 
 # ============================================================
@@ -193,7 +208,7 @@ class TestLoadProjectSchema:
     def test_no_schemas_dir(self, tmp_path):
         validator = ActionValidator(str(tmp_path))
         schema = validator._load_project_schema()
-        assert schema == {"tables": {}, "table_name_to_id": {}}
+        assert schema == {"tables": {}, "table_name_to_id": {}, "unlisted_tables": {}}
 
     def test_loads_schema_files(self, tmp_path):
         _create_schema_dir(
@@ -1590,3 +1605,182 @@ class TestMultiActionScenarios:
         assert result1.has_warnings is True
         assert result2.has_warnings is False
         assert result2.all_valid is True
+
+
+# ============================================================
+# manifest 权威事实源（Fix B）：unlisted 表的针对性错误
+# ============================================================
+
+
+def _create_manifest(tmp_path, schema_refs):
+    """Helper: 在 tmp_path 下创建 project.precis.yaml（登记给定 schema 引用）。"""
+    import yaml
+
+    manifest = {"version": 2, "project": {"id": "p1", "name": "p1"}, "schemas": schema_refs}
+    with open(tmp_path / "project.precis.yaml", "w", encoding="utf-8") as f:
+        yaml.safe_dump(manifest, f)
+
+
+def _make_listed_and_unlisted_workspace(tmp_path):
+    """构造"一张已登记表 + 一张孤儿表"的工作区（事故现场的最小复现）。
+
+    autouse fixture 已预置空 manifest；此处显式重写为只登记 orders——
+    users 保持磁盘孤儿（_create_schema_dir 传 register=False 不自动登记）。
+    """
+    _create_manifest(
+        tmp_path,
+        [{"id": "sc_orders", "path": "schemas/sc_orders.schema.yaml"}],
+    )
+    _create_schema_dir(
+        tmp_path,
+        [
+            {
+                "version": 2,
+                "id": "sc_orders",
+                "name": "orders",
+                "columns": [{"id": "col_amount", "name": "amount", "type": "float"}],
+            },
+            {
+                "version": 2,
+                "id": "sc_users",
+                "name": "users",
+                "columns": [{"id": "col_email", "name": "email", "type": "string"}],
+            },
+        ],
+        register=False,
+    )
+    # orders 已登记，users 是磁盘孤儿（manifest 的 schemas 列表没有它）
+
+
+class TestManifestAuthoritativeTables:
+    """_load_project_schema 以 manifest 为权威：未登记文件进 unlisted_tables。"""
+
+    def test_unlisted_schema_excluded_from_tables(self, tmp_path):
+        _make_listed_and_unlisted_workspace(tmp_path)
+        validator = ActionValidator(str(tmp_path))
+        schema = validator._load_project_schema()
+
+        assert "sc_orders" in schema["tables"]
+        assert "sc_users" not in schema["tables"]
+        # unlisted 映射：id 与 name 双键索引，携带磁盘路径
+        assert schema["unlisted_tables"]["sc_users"]["path"] == "schemas/sc_users.schema.yaml"
+        assert schema["unlisted_tables"]["users"]["id"] == "sc_users"
+
+    def test_manifest_empty_schemas_marks_all_unlisted(self, tmp_path):
+        """事故现场：manifest 存在但 schemas: [] 为空，磁盘全部文件都是孤儿。"""
+        _create_schema_dir(
+            tmp_path,
+            [{"version": 2, "id": "sc_users", "name": "users", "columns": []}],
+            register=False,
+        )
+        validator = ActionValidator(str(tmp_path))
+        schema = validator._load_project_schema()
+
+        assert schema["tables"] == {}
+        assert "sc_users" in schema["unlisted_tables"]
+
+    def test_no_manifest_falls_back_to_disk(self, tmp_path):
+        """manifest 缺失（项目未初始化）：退回磁盘全量口径，保持既有行为。"""
+        (tmp_path / "project.precis.yaml").unlink()  # 移除 autouse fixture 预置的 manifest
+        _create_schema_dir(
+            tmp_path,
+            [{"version": 2, "id": "sc_users", "name": "users", "columns": []}],
+        )
+        validator = ActionValidator(str(tmp_path))
+        schema = validator._load_project_schema()
+
+        assert "sc_users" in schema["tables"]
+        assert schema["unlisted_tables"] == {}
+
+
+class TestUnlistedTableErrors:
+    """引用 unlisted 表的动作报 table_unlisted；引用已登记表通过；不存在保持原错误。"""
+
+    def test_constraint_referencing_unlisted_table_reports_table_unlisted(self, tmp_path):
+        _make_listed_and_unlisted_workspace(tmp_path)
+        validator = ActionValidator(str(tmp_path))
+        result = validator.validate(
+            [
+                {
+                    "actionType": "ADD_CONSTRAINT_NODE",
+                    "constraintSpec": {
+                        "type": "NotNull",
+                        "tableName": "users",
+                        "targetColumn": "email",
+                    },
+                }
+            ]
+        )
+
+        assert result.has_errors
+        err = result.errors[0]
+        assert err.error_type == "table_unlisted"
+        # 建议引导 UPDATE_SCHEMA 登记路径（同名同 id、可不传 columns）
+        assert "UPDATE_SCHEMA" in err.suggestion
+        assert "project.precis.yaml" in err.message
+
+    def test_constraint_referencing_listed_table_passes(self, tmp_path):
+        _make_listed_and_unlisted_workspace(tmp_path)
+        validator = ActionValidator(str(tmp_path))
+        result = validator.validate(
+            [
+                {
+                    "actionType": "ADD_CONSTRAINT_NODE",
+                    "constraintSpec": {
+                        "type": "Range",
+                        "tableName": "orders",
+                        "targetColumn": "amount",
+                        "params": {"min": 0},
+                    },
+                }
+            ]
+        )
+
+        assert result.all_valid is True
+
+    def test_constraint_referencing_nonexistent_table_keeps_not_found(self, tmp_path):
+        _make_listed_and_unlisted_workspace(tmp_path)
+        validator = ActionValidator(str(tmp_path))
+        result = validator.validate(
+            [
+                {
+                    "actionType": "ADD_CONSTRAINT_NODE",
+                    "constraintSpec": {
+                        "type": "NotNull",
+                        "tableName": "ghost_table",
+                        "targetColumn": "x",
+                    },
+                }
+            ]
+        )
+
+        assert result.has_errors
+        assert result.errors[0].error_type == "table_not_found"
+
+    def test_validate_action_referencing_unlisted_table_reports_table_unlisted(self, tmp_path):
+        _make_listed_and_unlisted_workspace(tmp_path)
+        validator = ActionValidator(str(tmp_path))
+        result = validator.validate([{"actionType": "VALIDATE_PROJECT", "constraintSpec": {"tableName": "users"}}])
+
+        assert result.has_errors
+        assert result.errors[0].error_type == "table_unlisted"
+
+    def test_foreign_key_to_unlisted_table_reports_table_unlisted(self, tmp_path):
+        _make_listed_and_unlisted_workspace(tmp_path)
+        validator = ActionValidator(str(tmp_path))
+        result = validator.validate(
+            [
+                {
+                    "actionType": "ADD_CONSTRAINT_NODE",
+                    "constraintSpec": {
+                        "type": "ForeignKey",
+                        "tableName": "orders",
+                        "targetColumn": "amount",
+                        "params": {"toTableId": "users", "toColumnId": "email"},
+                    },
+                }
+            ]
+        )
+
+        assert result.has_errors
+        assert any(e.error_type == "table_unlisted" for e in result.errors)

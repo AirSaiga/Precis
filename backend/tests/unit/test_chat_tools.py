@@ -292,19 +292,31 @@ async def test_list_data_files_discovers_unregistered_files(tmp_path):
 
 @pytest.mark.asyncio
 async def test_list_data_files_marks_registered_and_sorts(tmp_path):
-    """被 schema source.path 引用的文件标 registered + registered_by，未注册排前面。"""
+    """被 schema source.path 引用的文件标 referenced_by_schema + referencing_schema，未引用排前面。"""
     root = _make_project_tree(tmp_path)
     tool = ListDataFilesTool(project_path=str(root))
     result = await tool.run({})
 
     files = {f["path"]: f for f in result["data_files"]}
-    assert files["data/users.csv"]["registered"] is True
-    assert files["data/users.csv"]["registered_by"] == "用户表"
-    assert files["订单明细.csv"]["registered"] is False
-    assert result["unregistered_count"] == 3
+    assert files["data/users.csv"]["referenced_by_schema"] is True
+    assert files["data/users.csv"]["referencing_schema"] == "用户表"
+    assert files["订单明细.csv"]["referenced_by_schema"] is False
+    assert result["unreferenced_count"] == 3
 
-    # 未注册的排前面（待初始化候选优先）
-    assert result["data_files"][0]["registered"] is False
+    # 未被引用的排前面（待初始化候选优先）
+    assert result["data_files"][0]["referenced_by_schema"] is False
+
+
+@pytest.mark.asyncio
+async def test_list_data_files_description_disambiguates_manifest(tmp_path):
+    """工具描述点明"被 schema 引用 ≠ 已登记进清单"，登记状态以 read_project 为准。"""
+    tool = ListDataFilesTool(project_path=str(tmp_path))
+    description = tool.get_definition()["function"]["description"]
+
+    assert "read_project" in description
+    assert "referenced_by_schema" in description
+    # 术语消歧：不再用"注册"混淆清单登记语义
+    assert "注册" not in description
 
 
 @pytest.mark.asyncio

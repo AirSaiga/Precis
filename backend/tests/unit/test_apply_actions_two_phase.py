@@ -64,12 +64,16 @@ def make_diff_result(success: bool = True, files: list | None = None, instructio
 def make_test_workspace(tmp_path) -> str:
     """创建临时项目目录(含真实可校验的 schema 文件)。
 
-    schema 必须含 id + columns，否则接入 ActionValidator 后合法动作会被误判为 table/column_not_found。
+    schema 必须含 id + columns，且登记进 manifest（预验证以 manifest 为权威表集合，
+    只写文件不登记会被判 table_unlisted），否则接入 ActionValidator 后合法动作
+    会被误判为 table/column_not_found。
     """
     ws = tmp_path / "project"
     ws.mkdir()
     (ws / "project.precis.yaml").write_text(
-        "version: 2\nproject:\n  id: test\n  name: Test\nschemas: []\n", encoding="utf-8"
+        "version: 2\nproject:\n  id: test\n  name: Test\n"
+        "schemas:\n  - id: sc_users\n    path: schemas/users.schema.yaml\n",
+        encoding="utf-8",
     )
     schemas_dir = ws / "schemas"
     schemas_dir.mkdir()
@@ -845,7 +849,7 @@ class TestPendingPayloadActions:
         }
         write_action = make_inline_not_null_action()
 
-        def tracking_process(actions, path):
+        def tracking_process(actions, path, canvas_enabled=True):
             return {
                 "success": True,
                 "results": [{"action": a, "success": True, "message": "ok"} for a in actions],
@@ -1229,7 +1233,7 @@ class TestReadOnlyBypass:
         # process_actions 被 _run_legacy（只读）和 _run_two_phase（写盘确认后）调用
         process_call_args: list = []
 
-        def tracking_process(actions, path):
+        def tracking_process(actions, path, canvas_enabled=True):
             process_call_args.append(actions)
             return {
                 "success": True,
@@ -1294,11 +1298,13 @@ class TestReadOnlyBypass:
 
 
 def make_test_workspace_with_email_and_age(tmp_path) -> str:
-    """创建含 users 表（email、age 两列）的临时项目目录。"""
+    """创建含 users 表（email、age 两列）的临时项目目录（schema 登记进 manifest）。"""
     ws = tmp_path / "project"
     ws.mkdir()
     (ws / "project.precis.yaml").write_text(
-        "version: 2\nproject:\n  id: test\n  name: Test\nschemas: []\n", encoding="utf-8"
+        "version: 2\nproject:\n  id: test\n  name: Test\n"
+        "schemas:\n  - id: sc_users\n    path: schemas/users.schema.yaml\n",
+        encoding="utf-8",
     )
     schemas_dir = ws / "schemas"
     schemas_dir.mkdir()

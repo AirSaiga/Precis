@@ -203,6 +203,87 @@ class TestApplySummaryDisplay:
         assert len(calls) == 1
 
 
+class TestSessionAlwaysConfirm:
+    """[a] 会话级授权：本次 confirm + 后续批次自动 confirm（摘要仍打印）。"""
+
+    def test_decision_a_confirms_and_grants_session(self, monkeypatch, capsys):
+        """选 a：返回 confirm，回调置位授权标志，并打印授权说明。"""
+        monkeypatch.setattr("builtins.input", lambda *a, **k: "a")
+        granted: list[bool] = []
+        decision = _read_apply_decision(
+            {"apply_id": "x", "files": []},
+            on_session_confirm=lambda: granted.append(True),
+        )
+        assert decision == "confirm"
+        assert granted == [True]
+        assert "自动确认" in capsys.readouterr().out
+
+    def test_decision_a_without_callback_still_confirms(self, monkeypatch):
+        """未注入回调（向后兼容调用）时选 a 仍 confirm，不抛异常。"""
+        monkeypatch.setattr("builtins.input", lambda *a, **k: "a")
+        assert _read_apply_decision({"apply_id": "x", "files": []}) == "confirm"
+
+    def test_session_grant_auto_confirms_subsequent_batches(self, monkeypatch, capsys):
+        """授权后：同会话第二次 apply 不再读终端输入，摘要仍打印并直接 confirm。"""
+        apply_cbs, _ = build_agent_interaction(None)
+        # 第一次：用户选 [a] 授权
+        monkeypatch.setattr("builtins.input", lambda *a, **k: "a")
+        decision1 = _run_gate_scenario(
+            apply_cbs.on_apply_pending,
+            {
+                "apply_id": "job-a#apply#1",
+                "actions": [make_pending_action("第一批动作")],
+                "files": [make_pending_file("constraints/c1.yaml")],
+            },
+            ConfirmController(request_id="job-a#apply#1"),
+            "job-a#apply#1",
+        )
+        assert decision1 == "confirm"
+
+        # 第二次：不提供任何终端输入（input 若被调用则报错）——授权后必须跳过询问
+        def _no_input(*a, **k):
+            raise AssertionError("会话已授权，不应再读取终端输入")
+
+        monkeypatch.setattr("builtins.input", _no_input)
+        decision2 = _run_gate_scenario(
+            apply_cbs.on_apply_pending,
+            {
+                "apply_id": "job-a#apply#2",
+                "actions": [make_pending_action("第二批动作")],
+                "files": [make_pending_file("constraints/c2.yaml")],
+            },
+            ConfirmController(request_id="job-a#apply#2"),
+            "job-a#apply#2",
+        )
+        assert decision2 == "confirm"
+        out = capsys.readouterr().out
+        # 摘要仍打印（用户可见 AI 在写什么）+ 授权提示
+        assert "第二批动作" in out
+        assert "constraints/c2.yaml" in out
+        assert "自动确认" in out
+
+    def test_no_grant_keeps_per_batch_prompt(self, monkeypatch):
+        """未授权时每次批次都询问（选 y 只 confirm 当次，不授权后续）。"""
+        apply_cbs, _ = build_agent_interaction(None)
+        inputs = iter(["y", "n"])
+        monkeypatch.setattr("builtins.input", lambda *a, **k: next(inputs))
+
+        decision1 = _run_gate_scenario(
+            apply_cbs.on_apply_pending,
+            {"apply_id": "job-b#apply#1", "files": []},
+            ConfirmController(request_id="job-b#apply#1"),
+            "job-b#apply#1",
+        )
+        decision2 = _run_gate_scenario(
+            apply_cbs.on_apply_pending,
+            {"apply_id": "job-b#apply#2", "files": []},
+            ConfirmController(request_id="job-b#apply#2"),
+            "job-b#apply#2",
+        )
+        assert decision1 == "confirm"
+        assert decision2 == "reject"  # 第二次仍询问，输入 n → 拒绝
+
+
 class TestAskUserGate:
     def test_choice_single(self, monkeypatch):
         monkeypatch.setattr("builtins.input", lambda *a, **k: "2")

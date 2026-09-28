@@ -38,6 +38,7 @@ import yaml
 from pydantic import ValidationError
 
 from app.shared.core.project.manifest.reader import load_manifest
+from app.shared.core.project.manifest.types import ProjectManifest
 from app.shared.core.project.manifest.writer import ensure_schema_ref, save_manifest
 from app.shared.core.project.scaffold import ensure_manifest_exists
 from app.shared.core.project.schema.types import SourceSpec
@@ -164,18 +165,20 @@ def _sanitize_resource_id(resource_id: str) -> str:
     return cleaned
 
 
-def process_schema_action(action: dict[str, Any], workspace_path: str) -> dict[str, Any]:
+def process_schema_action(action: dict[str, Any], workspace_path: str, canvas_enabled: bool = True) -> dict[str, Any]:
     """
     @methoddesc 处理 Schema 动作
 
     根据 actionType 分发到对应的处理函数：
-    - ADD_SCHEMA: 创建新的 Schema YAML 文件
-    - UPDATE_SCHEMA: 修改现有 Schema 的列定义或数据源
+    - ADD_SCHEMA: 创建新的 Schema YAML 文件（遇未登记的孤儿文件转为收养登记）
+    - UPDATE_SCHEMA: 修改现有 Schema 的列定义或数据源，并确保已登记进 manifest
     - DELETE_SCHEMA: 删除 Schema YAML 文件并移除 manifest 引用
 
     参数:
         action: 动作字典，包含 actionType 和 schemaSpec
         workspace_path: 项目工作区路径
+        canvas_enabled: 当前环境是否有画布。无画布（CLI 等）时"文件已存在"
+            错误文案引导 UPDATE_* 登记路径，不出现 ADD_TO_CANVAS/画布字样
 
     返回:
         处理结果字典 {"success": bool, "message": str}
@@ -184,17 +187,72 @@ def process_schema_action(action: dict[str, Any], workspace_path: str) -> dict[s
     spec = action.get("schemaSpec", {})
 
     if action_type == "ADD_SCHEMA":
-        return _add_schema(spec, workspace_path)
+        return _add_schema(spec, workspace_path, canvas_enabled=canvas_enabled)
     elif action_type == "UPDATE_SCHEMA":
-        return _update_schema(spec, workspace_path)
+        return _update_schema(spec, workspace_path, canvas_enabled=canvas_enabled)
     elif action_type == "DELETE_SCHEMA":
         return _delete_schema(spec, workspace_path)
     else:
         return {"success": False, "message": f"未知的 Schema 动作类型: {action_type}"}
 
 
-def _add_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
-    """创建新的 Schema YAML 文件"""
+def _file_exists_failure_message(resource_label: str, resource_kind: str, filename: str, canvas_enabled: bool) -> str:
+    """构造"资源文件已存在（且已登记）"的失败文案（Fix C：按画布能力分流）。
+
+    有画布（GUI）：引导 ADD_TO_CANVAS（用户意图常是"把已存在资源显示到画布"）。
+    无画布（CLI 等）：引导 UPDATE_* 修改路径——该环境下 ADD_TO_CANVAS 必被
+    预验证拦截，画布指引只会形成误导死循环。
+
+    参数:
+        resource_label: 资源类型中文名（如 "Schema"）
+        resource_kind: 资源种类英文标识（schema/regex/transform）
+        filename: 已存在的文件名
+        canvas_enabled: 当前环境是否有画布
+    """
+    base = f"{resource_label} 文件已存在: {filename}。"
+    if canvas_enabled:
+        return (
+            base + f"若用户想把已存在的资源显示到画布，请改用 actionType=ADD_TO_CANVAS"
+            f"（canvasSpec.resourceKind='{resource_kind}'），它不会重复创建文件。"
+        )
+    update_action = {
+        "schema": "UPDATE_SCHEMA",
+        "regex": "UPDATE_REGEX",
+        "transform": "UPDATE_TRANSFORM",
+    }.get(resource_kind, "")
+    guide = f"如需修改其内容，请改用 actionType={update_action}。" if update_action else ""
+    return base + f"该文件已登记进项目清单，可直接被约束等动作引用。{guide}"
+
+
+def _adopt_orphan_schema(workspace_path: str, schema_id: str, located: Path) -> dict[str, Any]:
+    """把磁盘已存在但未登记进 manifest 的孤儿 schema 文件收养登记。
+
+    ADD_SCHEMA 遇孤儿文件不再失败：用户意图常是"让这张表可用"，登记进
+    project.precis.yaml 即可（运行时装载器只按 manifest 加载，不登记等于
+    校验永远看不到这张表）。登记 id/path 均取文件实际值（孤儿文件名可能与
+    传入 id 不同，如中文文件名 + uuid 内容 id）。
+
+    参数:
+        workspace_path: 项目工作区路径
+        schema_id: LLM 传入的 schema 标识（仅作 read_entity_id 的兜底值）
+        located: 孤儿文件路径
+
+    返回:
+        处理结果字典（成功时含 resolved_id 供变更集指令定位画布节点）
+    """
+    actual_id = read_entity_id(located, default=schema_id)
+    rel_path = located.relative_to(Path(workspace_path)).as_posix()
+    try:
+        _ensure_manifest_schema_ref(workspace_path, actual_id, default_path=rel_path)
+    except Exception as e:
+        logger.error(f"[SchemaHandler] 收养孤儿 schema 登记失败: {located} -> {e}")
+        return {"success": False, "message": f"Schema 文件已存在但登记进项目清单失败: {e}"}
+    logger.info(f"[SchemaHandler] 收养孤儿 Schema: {actual_id}（{rel_path}）")
+    return {"success": True, "message": f"{actual_id}（文件已存在，已登记进项目清单）", "resolved_id": actual_id}
+
+
+def _add_schema(spec: dict[str, Any], workspace_path: str, canvas_enabled: bool = True) -> dict[str, Any]:
+    """创建新的 Schema YAML 文件（遇孤儿文件转为收养登记）"""
     schema_name = spec.get("name", "")
     schema_id = spec.get("schemaId") or spec.get("id") or schema_name
     try:
@@ -221,6 +279,25 @@ def _add_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
         if source_error:
             return {"success": False, "message": source_error}
 
+    workspace = Path(workspace_path)
+
+    # 已存在检测（先于列推断：孤儿收养不需要推断，不能被推断失败阻断）：
+    # 1. 先按 "{id}.schema.yaml" 直查；2. 再按文件内容 id/name 定位——孤儿文件名
+    #    可能与传入 id 不同（如 infer-schema 产出的中文文件名）
+    candidate = workspace / "schemas" / f"{schema_id}.schema.yaml"
+    located = candidate if candidate.exists() else _find_schema_file(workspace_path, schema_id)
+    if located is not None:
+        actual_id = read_entity_id(located, default=schema_id)
+        rel_path = located.relative_to(workspace).as_posix()
+        # (a) 已存在且已登记 manifest → 失败（文案按画布能力分流，见 Fix C）
+        # (b) 已存在但未登记（孤儿文件）→ 不失败，收养登记进 manifest
+        if _schema_registered_in_manifest(workspace_path, actual_id, rel_path):
+            return {
+                "success": False,
+                "message": _file_exists_failure_message("Schema", "schema", located.name, canvas_enabled),
+            }
+        return _adopt_orphan_schema(workspace_path, schema_id, located)
+
     # 列为空但给了 source.path：从数据文件推断兜底。LLM 常只给表名+路径，
     # 空壳 schema 会让后续约束动作全部挂在"字段不存在"预验证上；文件读不了
     # 则直接失败并把修正指引回灌给 LLM（静默建空壳等于把坑留给下一轮）
@@ -232,22 +309,17 @@ def _add_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
         columns = inferred
         inferred_note = f"；{note}"
 
-    workspace = Path(workspace_path)
     schemas_dir = workspace / "schemas"
     schemas_dir.mkdir(parents=True, exist_ok=True)
 
     # 检查是否已存在同名 Schema
     schema_file = schemas_dir / f"{schema_id}.schema.yaml"
     if schema_file.exists():
-        # 提示 Agent 改用 ADD_TO_CANVAS：用户的意图很可能是"把已存在的资源显示到画布"
-        # 而非"创建新文件"。把建议写进 message 让 LLM 自我修正。
+        # 已在前置已存在检测中处理（登记判定 + 孤儿收养），此处不可达；
+        # 保留防御性分支防未来调用序变化
         return {
             "success": False,
-            "message": (
-                f"Schema 文件已存在: {schema_id}.schema.yaml。"
-                f"若用户想把已存在的资源显示到画布，请改用 actionType=ADD_TO_CANVAS"
-                f"（canvasSpec.resourceKind='schema'），它不会重复创建文件。"
-            ),
+            "message": _file_exists_failure_message("Schema", "schema", schema_file.name, canvas_enabled),
         }
 
     # 构建列定义
@@ -296,8 +368,13 @@ def _add_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
     return {"success": True, "message": f"{schema_id}{inferred_note}"}
 
 
-def _update_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
-    """更新现有 Schema"""
+def _update_schema(spec: dict[str, Any], workspace_path: str, canvas_enabled: bool = True) -> dict[str, Any]:
+    """更新现有 Schema（成功写盘后确保已登记进 manifest，收养孤儿文件）
+
+    canvas_enabled 仅为签名对齐透传（UPDATE 路径不产生"文件已存在"文案），
+    避免 handler 家族签名分叉。
+    """
+    _ = canvas_enabled
     schema_id = spec.get("schemaId") or spec.get("id") or spec.get("name", "")
     try:
         schema_id = _sanitize_resource_id(schema_id)
@@ -388,8 +465,21 @@ def _update_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
     except Exception as e:
         return {"success": False, "message": f"更新 Schema 失败: {e}"}
 
+    # 写盘成功后确保登记进 manifest（幂等）：UPDATE 历史上从不登记，孤儿文件
+    # 更新后仍是孤儿（运行时装载器只按 manifest 加载，约束引用会全部悬空）。
+    # 登记路径取实际落盘文件（孤儿文件名可能与传入 id 不同），id 取文件真实 id
+    resolved_id = read_entity_id(schema_file, default=schema_id)
+    try:
+        rel_path = schema_file.relative_to(Path(workspace_path)).as_posix()
+        _ensure_manifest_schema_ref(workspace_path, resolved_id, default_path=rel_path)
+    except Exception as e:
+        # 登记失败让动作失败 → process_actions 整批回滚（文件/manifest 均在备份集），
+        # 维持"文件写入与 manifest 登记同一事务语义"
+        logger.error(f"[SchemaHandler] UPDATE_SCHEMA 登记 manifest 失败: {e}")
+        return {"success": False, "message": f"更新成功但登记进项目清单失败（已回滚）: {e}"}
+
     logger.info(f"[SchemaHandler] 更新 Schema: {schema_id}")
-    return {"success": True, "message": schema_id}
+    return {"success": True, "message": schema_id, "resolved_id": resolved_id}
 
 
 def _delete_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
@@ -468,8 +558,45 @@ def _find_schema_file(workspace_path: str, schema_id: str) -> Path | None:
     return None
 
 
-def _ensure_manifest_schema_ref(workspace_path: str, schema_id: str) -> None:
-    """确保 manifest 中包含指定 Schema 引用。
+def _normalize_manifest_rel_path(rel_path: str | None) -> str:
+    """归一化 manifest 引用路径用于比对（posix 分隔 + 小写，与 coverage.py 口径一致）。"""
+    return (rel_path or "").replace("\\", "/").lower()
+
+
+def _schema_already_listed(manifest: ProjectManifest, schema_id: str, rel_path: str | None) -> bool:
+    """判断 schema 是否已在 manifest 中登记（按 id 与按路径双重口径）。
+
+    与 utils.py / coverage.py 的 unlisted 判定口径对齐：路径按归一化（posix +
+    小写）比对，覆盖"文件名与 id 不同"的孤儿登记场景。
+    """
+    normalized = _normalize_manifest_rel_path(rel_path)
+    for ref in manifest.schemas:
+        if ref.id == schema_id:
+            return True
+        if normalized and _normalize_manifest_rel_path(ref.path) == normalized:
+            return True
+    return False
+
+
+def _schema_registered_in_manifest(workspace_path: str, schema_id: str, rel_path: str | None = None) -> bool:
+    """读取 manifest 判断 schema 是否已登记。
+
+    manifest 缺失或不可读时返回 False（视为未登记——收养路径的登记会重建/
+    修复 manifest；ensure_manifest_exists 兜底补建脚手架）。
+    """
+    manifest_path = Path(workspace_path) / "project.precis.yaml"
+    if not manifest_path.exists():
+        return False
+    try:
+        manifest = load_manifest(manifest_path)
+    except Exception as e:
+        logger.warning(f"[SchemaHandler] 读取 manifest 失败，按未登记处理: {e}")
+        return False
+    return _schema_already_listed(manifest, schema_id, rel_path)
+
+
+def _ensure_manifest_schema_ref(workspace_path: str, schema_id: str, default_path: str | None = None) -> None:
+    """确保 manifest 中包含指定 Schema 引用（幂等：已按 id 或路径登记则 no-op）。
 
     失败时抛出异常而非吞掉 —— 避免 schema 文件已写盘但 manifest 未登记，
     从而产生孤儿文件（会触发后续 inspect 的 id 冲突 blocker）。
@@ -477,11 +604,19 @@ def _ensure_manifest_schema_ref(workspace_path: str, schema_id: str) -> None:
     manifest 缺失时不再静默跳过（历史行为，产出孤儿文件的根源），而是先创建
     最小脚手架清单再登记——正常 AI 流程会被预验证引导先 INIT_PROJECT，
     此处是绕过验证器直接调用 process_actions 时的纵深防御。
+
+    参数:
+        workspace_path: 项目工作区路径
+        schema_id: schema 的实体 id（须与文件内容 id 一致）
+        default_path: 引用路径缺省值；登记孤儿文件时传实际落盘相对路径
+            （文件名可能与 id 不同，缺省会错指 schemas/{id}.schema.yaml）
     """
     manifest_path = ensure_manifest_exists(workspace_path)
 
     manifest = load_manifest(manifest_path)
-    ensure_schema_ref(manifest, schema_id)
+    if _schema_already_listed(manifest, schema_id, default_path):
+        return
+    ensure_schema_ref(manifest, schema_id, default_path)
     save_manifest(manifest, manifest_path)
 
 

@@ -167,13 +167,15 @@ def _build_tool_guide(canvas_enabled: bool) -> str:
 
 ### 2. list_data_files（查询，无参数）
 扫描项目目录，列出磁盘上所有数据文件（CSV/Excel/JSON 等），并标注每个文件
-是否已被 schema 注册（registered/registered_by）。
+是否被某 schema 的 source.path 引用（referenced_by_schema / referencing_schema）。
+注意：被 schema 引用 ≠ 已登记进项目清单——资源是否入清单以 read_project 返回的
+unlisted 标注为准。
 **使用时机**：用户说"根据目录下的文件/表初始化项目或校验配置"、"分析文件夹里的数据"，
 或 read_project 显示项目为空但用户提到了数据文件时，先调用此工具发现文件，
-再为未注册（registered=false）的文件建表（先 infer_schema 出列定义草稿，
+再为未被引用（referenced_by_schema=false）的文件建表（先 infer_schema 出列定义草稿，
 ADD_SCHEMA 的 source.path 用返回的 path 值，详见"工作流程"第 {init_workflow_num} 条）。
-**与 read_project 的关键区别**：read_project 只读已注册到 manifest 的配置；
-list_data_files 看的是磁盘上实际存在的文件——包括还没注册进项目的。
+**与 read_project 的关键区别**：read_project 只读已登记到 manifest 的配置；
+list_data_files 看的是磁盘上实际存在的文件——包括还没进项目配置的。
 
 ### 3. read_table（查询，参数: table_name, sample_rows?）
 读取指定表的数据样本（前 N 行）和列结构。
@@ -232,8 +234,8 @@ read_project 返回的是解析后的结构化概览，本工具读的是文件�
      （actionType=INIT_PROJECT，projectSpec 可省略——缺省用目录名作项目名）创建
      项目清单，成功后再继续；manifest 已存在则跳过此步。INIT_PROJECT 不要与
      其他写动作混在同一批次
-   - 先 list_data_files 发现磁盘上的数据文件（未注册的 registered=false）
-   - 对每个未注册文件建表：先 infer_schema 获得列定义草稿（列名+推断类型），
+   - 先 list_data_files 发现磁盘上的数据文件（未被引用的 referenced_by_schema=false）
+   - 对每个未被 schema 引用的文件建表：先 infer_schema 获得列定义草稿（列名+推断类型），
      按业务语义微调（金额/单价列把 float 改 decimal、主键列补 primary_key: true）
      后 ADD_SCHEMA（schemaSpec 给 name + source.path 用返回的 path，columns 用
      微调后的列定义）。**不要凭记忆手写列类型**——必须以推断草稿为基准做增量调整。

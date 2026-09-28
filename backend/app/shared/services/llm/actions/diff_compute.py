@@ -65,12 +65,14 @@ class DiffResult:
     error: str | None = None
 
 
-def compute_action_diff(actions: list[dict[str, Any]], workspace_path: str) -> DiffResult:
+def compute_action_diff(actions: list[dict[str, Any]], workspace_path: str, canvas_enabled: bool = True) -> DiffResult:
     """计算 actions 对配置文件的预期变更(dry-run)。
 
     参数:
         actions: LLM 生成的 actions 列表
         workspace_path: 项目配置目录路径
+        canvas_enabled: 当前环境是否有画布（透传给 process_actions → handler，
+            使 shadow-copy 上的执行与真实写盘产出一致的错误文案）
 
     返回:
         DiffResult: 含 file diffs、summary、frontend_instructions
@@ -97,7 +99,7 @@ def compute_action_diff(actions: list[dict[str, Any]], workspace_path: str) -> D
     tmp_root = tempfile.mkdtemp(prefix="precis_dryrun_")
     try:
         _shadow_copy(workspace_path, tmp_root)
-        proc = process_actions(actions, tmp_root)
+        proc = process_actions(actions, tmp_root, canvas_enabled=canvas_enabled)
 
         if not proc.get("success"):
             result.success = False

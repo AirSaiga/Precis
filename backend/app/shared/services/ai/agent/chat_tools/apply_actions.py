@@ -570,7 +570,7 @@ class ApplyActionsTool:
     async def _run_legacy(self, actions: list[dict[str, Any]]) -> dict[str, Any]:
         """legacy 直写模式：仅用于纯读动作（VALIDATE_PROJECT），直接执行。"""
         try:
-            process_result = await asyncio.to_thread(process_actions, actions, self.project_path)
+            process_result = await asyncio.to_thread(process_actions, actions, self.project_path, self._canvas_enabled)
         except Exception as e:
             logger.exception("apply_actions 工具执行失败")
             return {"success": False, "error": f"执行动作失败: {e}", "results": []}
@@ -629,9 +629,12 @@ class ApplyActionsTool:
         pending_store.put(apply_id, controller)
 
         try:
-            # 阶段 1: dry-run 计算 diff
+            # 阶段 1: dry-run 计算 diff（shadow-copy 副本上以同画布环境执行，
+            # 保证 handler 文案与真实写盘一致）
             try:
-                diff_result = await asyncio.to_thread(compute_action_diff, actions, self.project_path)
+                diff_result = await asyncio.to_thread(
+                    compute_action_diff, actions, self.project_path, self._canvas_enabled
+                )
             except Exception as e:
                 logger.exception("apply_actions dry-run 失败")
                 return {"success": False, "error": f"dry-run 失败: {e}", "results": []}
@@ -688,7 +691,9 @@ class ApplyActionsTool:
 
             # 确认：真实写盘
             try:
-                process_result = await asyncio.to_thread(process_actions, actions, self.project_path)
+                process_result = await asyncio.to_thread(
+                    process_actions, actions, self.project_path, self._canvas_enabled
+                )
             except Exception as e:
                 logger.exception("apply_actions 确认后写盘失败")
                 return {"success": False, "error": f"写盘失败: {e}", "results": []}

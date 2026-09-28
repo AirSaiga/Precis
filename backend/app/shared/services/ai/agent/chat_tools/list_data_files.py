@@ -29,8 +29,8 @@ Chat mini-agent 可调用的工具：扫描项目目录，发现磁盘上的数�
   templates、patterns、.precis）与常见噪音目录（.git、node_modules 等）；
   data/ 是标准数据目录，正常扫描
 - 递归深度与总量上限防爆（超大目录只报前 N 个 + truncated 计数）
-- 每个文件标注注册状态（是否被某 schema 的 source.path 引用），未注册的
-  排前面——那是"待初始化"的候选，agent 最关心的信息
+- 每个文件标注 schema 引用状态（是否被某 schema 的 source.path 引用），
+  未被引用的排前面——那是"待初始化"的候选，agent 最关心的信息
 - Excel 文件附带可用工作表清单（sheets，读取失败的损坏文件静默省略该字段）
 """
 
@@ -103,7 +103,10 @@ class ListDataFilesTool:
                 "name": self.NAME,
                 "description": (
                     "扫描项目目录，列出磁盘上所有数据文件（CSV/Excel/JSON 等），"
-                    "并标注每个文件是否已被 schema 注册（source.path 引用）。"
+                    "并标注每个文件是否被某 schema 的 source.path 引用"
+                    "（referenced_by_schema / referencing_schema）。"
+                    "注意：被 schema 引用 ≠ 已登记进项目清单 project.precis.yaml，"
+                    "资源的清单登记状态以 read_project 返回的 unlisted 标注为准。"
                     "Excel 文件附带可用工作表列表（sheets 字段）。"
                     "当用户说'根据目录下的文件/表初始化项目/校验配置'、或项目里还没有"
                     "schema 但用户提到数据文件时，先调用此工具发现文件，"
@@ -126,9 +129,9 @@ class ListDataFilesTool:
 
         返回:
             {"success": bool, "data_files": [...], "total_count": int,
-             "unregistered_count": int, "truncated_count": int, "error": str}
+             "unreferenced_count": int, "truncated_count": int, "error": str}
             data_files 每项含 path（posix 相对路径）/name/extension/size_bytes/
-            registered/registered_by（注册它的表名或表 id）；
+            referenced_by_schema/referencing_schema（引用它的表名或表 id）；
             Excel 文件额外含 sheets（可用工作表名列表，读取失败时省略该字段）
         """
         # arguments 无参数，但保留接口一致性
@@ -144,7 +147,7 @@ class ListDataFilesTool:
             logger.exception("list_data_files 工具执行失败")
             return {"success": False, "error": f"扫描数据文件失败: {e}", "data_files": []}
 
-    def _registered_file_map(self) -> dict[str, str]:
+    def _referenced_file_map(self) -> dict[str, str]:
         """读 schemas/*.yaml 构建 {source.path(posix 相对) -> 表名/id} 映射。
 
         只取 name/id/source 三个字段，解析失败的文件跳过（发现工具不做校验，
@@ -192,7 +195,7 @@ class ListDataFilesTool:
             结果字典（结构见 run 文档）
         """
         root = Path(self.project_path)
-        registered_map = self._registered_file_map()
+        referenced_map = self._referenced_file_map()
 
         collected: list[dict[str, Any]] = []
         truncated_count = 0
@@ -217,14 +220,14 @@ class ListDataFilesTool:
                     size = os.path.getsize(abs_path)
                 except OSError:
                     size = 0
-                registered_by = registered_map.get(rel_posix) or registered_map.get(rel_posix.lower())
+                referencing_schema = referenced_map.get(rel_posix) or referenced_map.get(rel_posix.lower())
                 entry: dict[str, Any] = {
                     "path": rel_posix,
                     "name": os.path.splitext(fname)[0],
                     "extension": ext,
                     "size_bytes": size,
-                    "registered": registered_by is not None,
-                    "registered_by": registered_by,
+                    "referenced_by_schema": referencing_schema is not None,
+                    "referencing_schema": referencing_schema,
                 }
                 # Excel 文件附带工作表清单：agent 无需再试错即可知道该为哪些 sheet 建 schema
                 if ext in _EXCEL_EXTENSIONS:
@@ -233,14 +236,14 @@ class ListDataFilesTool:
                         entry["sheets"] = sheets
                 collected.append(entry)
 
-        # 未注册的排前面：那是"待初始化"候选，agent 最关心的信息
-        collected.sort(key=lambda f: (f["registered"], f["path"]))
+        # 未被引用的排前面：那是"待初始化"候选，agent 最关心的信息
+        collected.sort(key=lambda f: (f["referenced_by_schema"], f["path"]))
 
-        unregistered = [f for f in collected if not f["registered"]]
+        unreferenced = [f for f in collected if not f["referenced_by_schema"]]
         return {
             "success": True,
             "data_files": collected,
             "total_count": len(collected),
-            "unregistered_count": len(unregistered),
+            "unreferenced_count": len(unreferenced),
             "truncated_count": truncated_count,
         }

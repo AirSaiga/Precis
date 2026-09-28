@@ -23,6 +23,7 @@
  * - shared: 共享错误类型与工具
  * - manifest: 项目清单
  * - fullConfig: 全量配置
+ * - inspectionFix: 自检修复（孤儿资源收养登记）
  * - schema: 表结构
  * - constraint: 约束
  * - regex/transform: 正则/转换节点
@@ -39,6 +40,7 @@
 export * from './shared'
 export * from './manifest'
 export * from './fullConfig'
+export * from './inspectionFix'
 export * from './schema'
 export * from './constraint'
 export * from './regex'

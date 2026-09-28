@@ -43,7 +43,7 @@ from pathlib import Path
 
 from app.shared.core.io.yaml import write_yaml_atomic
 
-from .types import ConstraintRef, ManualDataRef, ProjectManifest, RegexRef, SchemaRef
+from .types import ConstraintRef, ManualDataRef, ProjectManifest, RegexRef, SchemaRef, TransformRef
 
 
 def save_manifest(manifest: ProjectManifest, manifest_path: str | Path) -> None:
@@ -234,6 +234,35 @@ def ensure_regex_ref(manifest: ProjectManifest, regex_id: str, default_path: str
     manifest.regex_nodes.append(new_ref)
 
     # Step 5: 返回引用
+    return new_ref
+
+
+def ensure_transform_ref(
+    manifest: ProjectManifest,
+    transform_id: str,
+    default_path: str | None = None,
+) -> TransformRef:
+    """@methoddesc 确保清单中包含指定 transform_id 的转换引用。
+
+    如果引用已存在（按 id 或按路径匹配）则直接返回，否则创建新引用并添加到清单。
+    与 ensure_schema_ref / ensure_constraint_ref / ensure_regex_ref 保持同一模式。
+
+    参数:
+        manifest: 目标 ProjectManifest 对象
+        transform_id: Transform 节点 ID，必须与 transform 文件内部的 id 一致
+        default_path: 当引用不存在时使用的默认路径（缺省 "transforms/{id}.transform.yaml"）；
+            登记孤儿文件时传实际落盘路径（文件名可能与 id 不同）
+
+    返回:
+        找到或创建的 TransformRef 对象
+    """
+    ref = next((t for t in manifest.transforms if t.id == transform_id), None)
+
+    if ref:
+        return ref
+
+    new_ref = TransformRef(id=transform_id, path=default_path or f"transforms/{transform_id}.transform.yaml")
+    manifest.transforms.append(new_ref)
     return new_ref
 
 

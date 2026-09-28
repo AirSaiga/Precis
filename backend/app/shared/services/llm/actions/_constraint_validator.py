@@ -34,6 +34,47 @@ from app.shared.services.llm.suggestion_utils import (
     suggest_similar_table,
 )
 
+# table_unlisted 错误的统一 suggestion 文案：引导先登记进 manifest。
+# UPDATE_SCHEMA 在写盘后会自动登记（含孤儿文件收养），同名同 id、可不传 columns
+_UNLISTED_TABLE_SUGGESTION = (
+    "该表文件存在但未登记进项目清单 project.precis.yaml（运行时校验引擎只按清单加载）。"
+    "请先单独提交 UPDATE_SCHEMA（schemaSpec 的 schemaId/name 用该表的 id 或名称，可不传 columns）"
+    "将其登记进清单，成功后再提交本动作"
+)
+
+
+def _find_unlisted_table(schema: dict[str, Any], *refs: Any) -> dict[str, Any] | None:
+    """在 unlisted 映射中查找表引用（按 id/name 双键）。
+
+    参数:
+        schema: _load_project_schema 产出的项目结构（含 unlisted_tables）
+        refs: 待查的表引用（id 或名称，None/空串跳过）
+
+    返回:
+        命中的 unlisted 条目（{"id", "name", "path"}），未命中返回 None
+    """
+    unlisted = schema.get("unlisted_tables") or {}
+    for ref in refs:
+        if ref and str(ref) in unlisted:
+            entry: dict[str, Any] = unlisted[str(ref)]
+            return entry
+    return None
+
+
+def _table_unlisted_error(index: int, action_type: str, table_ref: str, entry: dict[str, Any]) -> ValidationError:
+    """构造 table_unlisted 针对性错误（区别于表完全不存在的 not_found）。"""
+    return ValidationError(
+        action_index=index,
+        action_type=action_type,
+        error_type="table_unlisted",
+        message=(
+            f"表 '{table_ref}' 的文件存在于磁盘（{entry.get('path', '')}），"
+            "但未登记进项目清单 project.precis.yaml，运行时校验看不到该表"
+        ),
+        suggestion=_UNLISTED_TABLE_SUGGESTION,
+        auto_fixable=False,
+    )
+
 
 def validate_constraint_action(
     action: dict[str, Any],
@@ -88,6 +129,12 @@ def validate_constraint_action(
             return errors
 
     if not table_info:
+        # 表不在权威集合中：先区分"文件存在但未登记"（table_unlisted）与
+        # "完全不存在"（table_not_found）——前者的修正路径是先登记清单
+        unlisted_entry = _find_unlisted_table(schema, table_id, table_name)
+        if unlisted_entry is not None:
+            errors.append(_table_unlisted_error(index, action_type, table_name or table_id, unlisted_entry))
+            return errors
         suggestion = suggest_similar_table(table_name or table_id, schema)
         errors.append(
             ValidationError(
@@ -256,6 +303,11 @@ def validate_validate_action(action: dict[str, Any], schema: dict[str, Any], ind
             table_exists = True
 
         if not table_exists:
+            # 文件存在但未登记 → table_unlisted（引导先登记，而非误报"不存在"）
+            unlisted_entry = _find_unlisted_table(schema, table_ref)
+            if unlisted_entry is not None:
+                errors.append(_table_unlisted_error(index, action_type, table_ref, unlisted_entry))
+                continue
             suggestion = suggest_similar_table(table_ref, schema)
             errors.append(
                 ValidationError(
@@ -394,16 +446,21 @@ def validate_foreign_key_reference(
 
     if to_table_id:
         if to_table_id not in schema["tables"]:
-            suggestion = suggest_similar_table(to_table_id, schema)
-            errors.append(
-                ValidationError(
-                    action_index=index,
-                    action_type=action_type,
-                    error_type="foreign_key_table_not_found",
-                    message=f"外键引用的表 '{to_table_id}' 不存在",
-                    suggestion=suggestion,
+            # 外键目标：区分未登记（table_unlisted）与完全不存在
+            unlisted_entry = _find_unlisted_table(schema, to_table_id)
+            if unlisted_entry is not None:
+                errors.append(_table_unlisted_error(index, action_type, to_table_id, unlisted_entry))
+            else:
+                suggestion = suggest_similar_table(to_table_id, schema)
+                errors.append(
+                    ValidationError(
+                        action_index=index,
+                        action_type=action_type,
+                        error_type="foreign_key_table_not_found",
+                        message=f"外键引用的表 '{to_table_id}' 不存在",
+                        suggestion=suggestion,
+                    )
                 )
-            )
         else:
             ref_table = schema["tables"][to_table_id]
             if to_column_id:
