@@ -1572,8 +1572,10 @@ class TestProcessTransformAction:
         manifest_path = os.path.join(workspace, "project.precis.yaml")
         import yaml
 
+        # project.name 是 ProjectManifest 必填字段——畸形 manifest 在登记引用时
+        # 即刻暴露并回滚（§2.7 对齐后不再静默吞掉）
         with open(manifest_path, "w") as f:
-            yaml.safe_dump({"version": 2, "project": {"id": "p1"}, "transforms": []}, f)
+            yaml.safe_dump({"version": 2, "project": {"id": "p1", "name": "p1"}, "transforms": []}, f)
 
         result = process_transform_action(
             {
@@ -1630,8 +1632,9 @@ class TestProcessTransformAction:
         manifest_path = os.path.join(workspace, "project.precis.yaml")
         import yaml
 
+        # project.name 必填——畸形 manifest 在登记引用时即刻暴露并回滚（§2.7 对齐后不再静默吞掉）
         with open(manifest_path, "w") as f:
-            yaml.safe_dump({"version": 2, "project": {"id": "p1"}, "transforms": []}, f)
+            yaml.safe_dump({"version": 2, "project": {"id": "p1", "name": "p1"}, "transforms": []}, f)
 
         result = process_transform_action(
             {

@@ -73,7 +73,14 @@ def execute_validate_project(workspace_path: str, table_filter: str | list[str] 
     data_dir = workspace_path
 
     if not os.path.exists(manifest_path):
-        return {"success": False, "message": f"项目配置文件不存在: {manifest_path}", "details": None}
+        return {
+            "success": False,
+            "message": (
+                f"项目配置文件不存在: {manifest_path}"
+                "（项目未初始化；请先用 apply_actions 提交 INIT_PROJECT 动作创建项目清单，再执行校验）"
+            ),
+            "details": None,
+        }
 
     try:
         from app.shared.services.validation.executor import ValidationExecutor, ValidationOptions

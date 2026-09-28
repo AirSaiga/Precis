@@ -39,6 +39,7 @@ from pydantic import ValidationError
 
 from app.shared.core.project.manifest.reader import load_manifest
 from app.shared.core.project.manifest.writer import ensure_schema_ref, save_manifest
+from app.shared.core.project.scaffold import ensure_manifest_exists
 from app.shared.core.project.schema.types import SourceSpec
 from app.shared.core.project.schema_ref_check import find_schema_references, format_reference_report
 from app.shared.core.pydantic_messages import localize_pydantic_msg
@@ -472,10 +473,12 @@ def _ensure_manifest_schema_ref(workspace_path: str, schema_id: str) -> None:
 
     失败时抛出异常而非吞掉 —— 避免 schema 文件已写盘但 manifest 未登记，
     从而产生孤儿文件（会触发后续 inspect 的 id 冲突 blocker）。
+
+    manifest 缺失时不再静默跳过（历史行为，产出孤儿文件的根源），而是先创建
+    最小脚手架清单再登记——正常 AI 流程会被预验证引导先 INIT_PROJECT，
+    此处是绕过验证器直接调用 process_actions 时的纵深防御。
     """
-    manifest_path = Path(workspace_path) / "project.precis.yaml"
-    if not manifest_path.exists():
-        return
+    manifest_path = ensure_manifest_exists(workspace_path)
 
     manifest = load_manifest(manifest_path)
     ensure_schema_ref(manifest, schema_id)

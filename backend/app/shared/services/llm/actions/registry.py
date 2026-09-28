@@ -21,7 +21,7 @@
 enum 漏条目、spec 字段映射不一致）。
 
 四类内容在此收敛：
-1. 动作类型（15种）及其 spec 字段、分类、读写性
+1. 动作类型（16种）及其 spec 字段、分类、读写性
 2. 派生集合：ALL_ACTION_TYPES / BY_CATEGORY / READ_ONLY_TYPES / SPEC_FIELD_FOR 等
 3. 子类型白名单：约束类型、转换子类型、数据类型、设置分类（原散落 2-4 处）
 4. 约束参数文档（CONSTRAINT_PARAM_SCHEMAS）：chat 提示词与 MCP describe_constraints
@@ -425,6 +425,9 @@ ACTIONS: dict[str, ActionTypeDef] = {
     "DELETE_TRANSFORM": ActionTypeDef("DELETE_TRANSFORM", "transformSpec", "transform", False),
     # 设置（写盘）
     "UPDATE_SETTINGS": ActionTypeDef("UPDATE_SETTINGS", "settingsSpec", "settings", False),
+    # 项目初始化（写盘）：创建 project.precis.yaml 脚手架——"从零引导项目"的入口动作，
+    # 其余写动作均要求 manifest 已存在（预验证拦截并引导先 INIT_PROJECT）
+    "INIT_PROJECT": ActionTypeDef("INIT_PROJECT", "projectSpec", "project", False),
     # 校验（只读）
     "VALIDATE_PROJECT": ActionTypeDef("VALIDATE_PROJECT", "constraintSpec", "validate", True),
     # 显示到画布（只读，不写盘）
@@ -456,6 +459,7 @@ CONSTRAINT_ACTION_TYPES: frozenset[str] = BY_CATEGORY["constraint"]
 SCHEMA_ACTION_TYPES: frozenset[str] = BY_CATEGORY["schema"]
 REGEX_ACTION_TYPES: frozenset[str] = BY_CATEGORY["regex"]
 TRANSFORM_ACTION_TYPES: frozenset[str] = BY_CATEGORY["transform"]
+PROJECT_ACTION_TYPES: frozenset[str] = BY_CATEGORY["project"]
 # canvas 类动作（category="canvas"，当前仅 ADD_TO_CANVAS）。无画布客户端（CLI）经
 # canvas_enabled 开关按此集合裁剪动作面，不在各消费方硬编码动作名清单
 CANVAS_ACTION_TYPES: frozenset[str] = BY_CATEGORY["canvas"]
@@ -508,6 +512,7 @@ _CATEGORY_LABELS: dict[str, str] = {
     "regex": "正则",
     "transform": "转换",
     "settings": "设置",
+    "project": "项目初始化",
     "validate": "校验",
     "canvas": "显示到画布",
 }
@@ -556,6 +561,7 @@ def build_spec_field_mapping_text(exclude_categories: frozenset[str] | set[str] 
         "regexSpec": "含 name, pattern, matchMode",
         "transformSpec": "含 type, inputColumn, params, outputColumns",
         "settingsSpec": "含 category, settings",
+        "projectSpec": "含 name（可选，缺省用项目目录名）；仅 INIT_PROJECT 使用，创建项目清单 project.precis.yaml",
         "canvasSpec": "含 resourceKind: schema/regex/constraint/transform, resourceId 或 resourceName",
     }
     lines: list[str] = []

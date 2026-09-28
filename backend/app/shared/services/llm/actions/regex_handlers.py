@@ -39,6 +39,7 @@ from app.shared.core.project.manifest.reader import load_manifest
 from app.shared.core.project.manifest.writer import ensure_regex_ref, save_manifest
 from app.shared.core.project.regex.types import RegexNodeFile, RegexSourceRef
 from app.shared.core.project.regex.writer import save_regex_node
+from app.shared.core.project.scaffold import ensure_manifest_exists
 from app.shared.services.llm.yaml_io import FileLock, atomic_write_yaml, read_entity_id
 
 logger = logging.getLogger(__name__)
@@ -263,10 +264,9 @@ def _ensure_manifest_regex_ref(workspace_path: str, regex_id: str) -> None:
     """确保 manifest 中包含指定 Regex 引用。
 
     §2.7: 异常向上传播（不再吞掉只留 warning）——调用方据此回滚已写的 Regex 文件。
+    manifest 缺失时先创建最小脚手架清单再登记（兜底防孤儿，见 schema_handlers 同名函数）。
     """
-    manifest_path = Path(workspace_path) / "project.precis.yaml"
-    if not manifest_path.exists():
-        return
+    manifest_path = ensure_manifest_exists(workspace_path)
 
     manifest = load_manifest(manifest_path)
     ensure_regex_ref(manifest, regex_id)

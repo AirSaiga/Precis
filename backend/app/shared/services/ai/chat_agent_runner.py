@@ -190,7 +190,8 @@ decimal、主键列补 primary_key: true、按业务语义命名表名（table_n
 
 ### 5. apply_actions（修改，参数: actions）
 执行配置修改动作。actions 是动作列表，每个动作含 actionType 和对应 spec。
-**使用时机**：用户明确要求添加/修改/删除约束、表结构、正则、转换或设置时。
+**使用时机**：用户明确要求初始化项目（manifest 缺失时的 INIT_PROJECT）、
+添加/修改/删除约束、表结构、正则、转换或设置时。
 **关键区分**：
 - 想创建新配置文件（磁盘上没有）→ 用 ADD_SCHEMA/ADD_REGEX 等。
 {apply_canvas_note}**注意**：纯查询类问题绝不调用此工具。
@@ -226,6 +227,11 @@ read_project 返回的是解析后的结构化概览，本工具读的是文件�
    - 用自然语言总结结果
 3. **校验类问题**（如"校验数据"）：直接 validate_table → 用自然语言汇报结果。
 {canvas_workflow}{init_workflow_num}. **初始化类问题**（如"根据目录下的文件初始化校验配置"、"分析文件夹里的数据"）：
+   - **先确认项目已初始化**：read_project 返回 manifest_exists=false（项目清单
+     project.precis.yaml 缺失）时，必须先单独提交一次 apply_actions
+     （actionType=INIT_PROJECT，projectSpec 可省略——缺省用目录名作项目名）创建
+     项目清单，成功后再继续；manifest 已存在则跳过此步。INIT_PROJECT 不要与
+     其他写动作混在同一批次
    - 先 list_data_files 发现磁盘上的数据文件（未注册的 registered=false）
    - 对每个未注册文件建表：先 infer_schema 获得列定义草稿（列名+推断类型），
      按业务语义微调（金额/单价列把 float 改 decimal、主键列补 primary_key: true）

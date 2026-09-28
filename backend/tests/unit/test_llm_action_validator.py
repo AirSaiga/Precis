@@ -22,12 +22,32 @@ ValidationError、ValidationResult 数据结构，和 format_validation_result�
 
 from __future__ import annotations
 
+import pytest
+
 from app.shared.services.llm.actions.action_validator import (
     ActionValidator,
     ValidationError,
     ValidationResult,
     format_validation_result,
 )
+
+
+@pytest.fixture(autouse=True)
+def _initialized_project(tmp_path):
+    """预置最小 manifest。
+
+    写动作预验证要求项目已初始化——manifest 缺失时会被 manifest_missing 拦截并
+    引导 INIT_PROJECT（本文件聚焦各子验证器的业务规则，非初始化防线本身，
+    防线行为见 test_project_init_action.py）。
+    """
+    import yaml
+
+    manifest = tmp_path / "project.precis.yaml"
+    if not manifest.exists():
+        manifest.write_text(
+            yaml.safe_dump({"version": 2, "project": {"id": "p1", "name": "p1"}, "schemas": []}),
+            encoding="utf-8",
+        )
 
 
 def _create_schema_dir(tmp_path, schemas: list[dict]):

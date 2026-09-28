@@ -898,24 +898,10 @@ def test_apply_actions_schema_has_action_type_enum():
     items = definition["function"]["parameters"]["properties"]["actions"]["items"]
     assert "actionType" in items["properties"]
     enum_values = items["properties"]["actionType"]["enum"]
-    # 必须包含全部 15 种动作类型
-    expected = {
-        "ADD_CONSTRAINT_NODE",
-        "UPDATE_CONSTRAINT_NODE",
-        "DELETE_CONSTRAINT_NODE",
-        "ADD_SCHEMA",
-        "UPDATE_SCHEMA",
-        "DELETE_SCHEMA",
-        "ADD_REGEX",
-        "UPDATE_REGEX",
-        "DELETE_REGEX",
-        "ADD_TRANSFORM",
-        "UPDATE_TRANSFORM",
-        "DELETE_TRANSFORM",
-        "UPDATE_SETTINGS",
-        "VALIDATE_PROJECT",
-        "ADD_TO_CANVAS",
-    }
+    # 必须包含全部动作类型（从注册表派生，防手抄清单漂移）
+    from app.shared.services.llm.actions.registry import ALL_ACTION_TYPES
+
+    expected = set(ALL_ACTION_TYPES)
     assert set(enum_values) == expected, f"enum 不完整: 缺少 {expected - set(enum_values)}"
 
 

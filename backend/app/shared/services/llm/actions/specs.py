@@ -164,6 +164,14 @@ class SettingsSpec(BaseModel):
     settings: dict[str, Any] = Field(..., description="设置键值")
 
 
+class ProjectSpec(BaseModel):
+    """INIT_PROJECT 动作的 spec（projectSpec）。全部可选——缺省用项目目录名。"""
+
+    model_config = ConfigDict(extra="ignore")
+
+    name: str | None = Field(default=None, description="项目名（可选，缺省用项目目录名）")
+
+
 class CanvasSpec(BaseModel):
     """ADD_TO_CANVAS 动作的 spec（canvasSpec）。
 
@@ -199,6 +207,7 @@ _SPEC_MODEL_FOR: dict[str, type[BaseModel]] = {
     "UPDATE_TRANSFORM": TransformSpec,
     "DELETE_TRANSFORM": TransformSpec,
     "UPDATE_SETTINGS": SettingsSpec,
+    "INIT_PROJECT": ProjectSpec,
     "ADD_TO_CANVAS": CanvasSpec,
 }
 
@@ -219,6 +228,7 @@ _SPEC_FIELD_ZH: dict[str, str] = {
     "regexSpec": "正则配置",
     "transformSpec": "数据转换配置",
     "settingsSpec": "项目设置",
+    "projectSpec": "项目初始化配置",
     "canvasSpec": "画布配置",
 }
 
@@ -256,8 +266,9 @@ def parse_action_spec(action: dict[str, Any]) -> BaseModel:
 
     spec_data = action.get(spec_field)
     if spec_data is None:
-        # spec 缺失：对于 VALIDATE_PROJECT 是合法的（可空壳），其余视为结构错误
-        if action_type == "VALIDATE_PROJECT":
+        # spec 缺失：VALIDATE_PROJECT 可空壳（校验全部表）；INIT_PROJECT 的
+        # projectSpec 全部字段可选，允许整个 spec 省略（缺省用目录名）。其余视为结构错误
+        if action_type in ("VALIDATE_PROJECT", "INIT_PROJECT"):
             return EmptyParams()
         raise SpecParseError(f"动作 {_spec_field_zh(spec_field)}缺失，请补全后重试")
 

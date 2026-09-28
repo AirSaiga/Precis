@@ -76,10 +76,12 @@ from app.shared.services.llm.actions._transform_validator import validate_transf
 from app.shared.services.llm.actions.registry import (
     ALL_CONSTRAINT_TYPES,
     CANVAS_ACTION_TYPES,
+    PROJECT_ACTION_TYPES,
     REGEX_ACTION_TYPES,
     SCHEMA_ACTION_TYPES,
     SETTINGS_CATEGORIES,
     TRANSFORM_ACTION_TYPES,
+    is_read_only,
 )
 from app.shared.services.llm.actions.registry import CONSTRAINT_REQUIRED_PARAMS as CONSTRAINT_REQUIRED_PARAMS_REGISTRY
 from app.shared.services.llm.actions.specs import SpecParseError, parse_action_spec
@@ -218,6 +220,10 @@ class ActionValidator:
         result = ValidationResult()
         schema = self._load_project_schema()
 
+        # 项目清单存在性（一次性判定）：INIT_PROJECT 仅在缺失时合法；其余写动作
+        # 在缺失时整批拦截并引导先初始化——否则资源文件写盘后无处登记，产出孤儿
+        manifest_missing = not (self.project_path / "project.precis.yaml").is_file()
+
         for index, action in enumerate(actions):
             action_type = action.get("actionType", "")
 
@@ -239,7 +245,37 @@ class ActionValidator:
                 result.invalid_action_indices.add(index)
                 continue
 
-            if action_type in [
+            if action_type in PROJECT_ACTION_TYPES:
+                if not manifest_missing:
+                    result.errors.append(
+                        ValidationError(
+                            action_index=index,
+                            action_type=action_type,
+                            error_type="manifest_already_exists",
+                            message="项目清单 project.precis.yaml 已存在，无需初始化",
+                            suggestion="请改用 UPDATE_SETTINGS 修改设置，或 read_project 查看现有配置",
+                        )
+                    )
+                    result.invalid_action_indices.add(index)
+                else:
+                    result.valid_actions.append(action)
+
+            # 项目未初始化：除 INIT_PROJECT 外的写动作一律拦截（写盘必然产出孤儿文件）。
+            # 只读动作（VALIDATE_PROJECT/ADD_TO_CANVAS）放行——执行侧会给出带指引的失败信息
+            elif manifest_missing and not is_read_only(action_type):
+                result.errors.append(
+                    ValidationError(
+                        action_index=index,
+                        action_type=action_type,
+                        error_type="manifest_missing",
+                        message="项目清单 project.precis.yaml 不存在（项目未初始化），无法执行写动作",
+                        suggestion="请先单独提交 INIT_PROJECT 动作（projectSpec 可省略）创建项目清单，"
+                        "成功后再提交本动作；INIT_PROJECT 与其他写动作不要混在同一批次",
+                    )
+                )
+                result.invalid_action_indices.add(index)
+
+            elif action_type in [
                 "ADD_CONSTRAINT_NODE",
                 "UPDATE_CONSTRAINT_NODE",
                 "DELETE_CONSTRAINT_NODE",

@@ -95,7 +95,13 @@ def process_settings_action(action: dict[str, Any], workspace_path: str) -> dict
 
     manifest_path = Path(workspace_path) / "project.precis.yaml"
     if not manifest_path.exists():
-        return {"success": False, "message": "project.precis.yaml 不存在"}
+        return {
+            "success": False,
+            "message": (
+                "project.precis.yaml 不存在（项目未初始化；"
+                "请先用 apply_actions 提交 INIT_PROJECT 动作创建项目清单，再修改设置）"
+            ),
+        }
 
     yaml_key = CATEGORY_TO_YAML_KEY[category]
 

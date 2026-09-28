@@ -45,6 +45,7 @@ from app.shared.core.project.constraint.types import ConstraintFile
 from app.shared.core.project.constraint.writer import save_constraint
 from app.shared.core.project.manifest.reader import load_manifest
 from app.shared.core.project.manifest.writer import ensure_constraint_ref, save_manifest
+from app.shared.core.project.scaffold import ensure_manifest_exists
 from app.shared.services.llm.actions.regex_handlers import process_regex_action
 from app.shared.services.llm.actions.schema_handlers import process_schema_action
 from app.shared.services.llm.actions.settings_handlers import process_settings_action
@@ -94,10 +95,10 @@ def _ensure_manifest_constraint_ref(workspace_path: str, constraint_id: str, rel
 
     失败时抛出异常 —— 避免约束文件已写盘但 manifest 未登记，
     导致校验引擎永不加载该约束（C1：静默失效）。
+
+    manifest 缺失时先创建最小脚手架清单再登记（兜底防孤儿，见 schema_handlers 同名函数）。
     """
-    manifest_path = Path(workspace_path) / "project.precis.yaml"
-    if not manifest_path.exists():
-        return
+    manifest_path = ensure_manifest_exists(workspace_path)
 
     manifest = load_manifest(manifest_path)
     ensure_constraint_ref(manifest, constraint_id, default_path=rel_path)

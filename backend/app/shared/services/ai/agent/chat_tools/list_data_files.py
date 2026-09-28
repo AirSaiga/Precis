@@ -52,7 +52,7 @@ _DATA_EXTENSIONS = {".csv", ".tsv", ".xlsx", ".xls", ".json", ".jsonl", ".ndjson
 # 附带工作表清单的 Excel 扩展名（与 excel_loader 的引擎映射同口径，含 .xlsm 备查）
 _EXCEL_EXTENSIONS = {".xlsx", ".xls", ".xlsm"}
 
-# 整棵跳过的目录：配置脚手架（create.py _REQUIRED_SUBDIRS 中的非数据目录）+ 常见噪音
+# 整棵跳过的目录：配置脚手架（core/project/scaffold.py REQUIRED_SUBDIRS 中的非数据目录）+ 常见噪音
 _EXCLUDED_DIRS = {
     "schemas",
     "constraints",

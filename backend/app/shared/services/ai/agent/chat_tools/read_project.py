@@ -30,12 +30,17 @@ schemas/constraints/transforms/regex_nodes 各保留前 N 项 + 计数，每张�
 本工具完整透传该清单（同样截断到前 N 项）——
 坏文件从概览里消失会让 agent 产生"一切正常"的假信心，必须显式可见，
 agent 再用 read_config_file 读原文定位问题、用 UPDATE_* 动作修复。
+
+初始化状态透出：TUI/CLI 允许打开没有 project.precis.yaml 的目录（项目未初始化），
+此时 overview 为空但不代表"项目本来就是空的"——返回值附 manifest_exists=false
+与 manifest_hint，提示 agent 必须先 INIT_PROJECT 再做任何写操作。
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from typing import Any
 
 from app.shared.services.ai.utils import get_project_overview
@@ -49,6 +54,12 @@ _MAX_CONSTRAINTS_IN_OBSERVATION = 30
 _MAX_OTHER_NODES_IN_OBSERVATION = 10  # transforms / regex_nodes 共用
 _MAX_COLUMNS_PER_SCHEMA = 50
 _MAX_PARSE_ERRORS_IN_OBSERVATION = 20  # parse_errors 同样截断（每项自带错误摘要，不能静默丢）
+
+# manifest 缺失时的提示文案（回灌给 LLM，引导先初始化再写盘）
+_MANIFEST_MISSING_HINT = (
+    "项目清单 project.precis.yaml 不存在（项目未初始化）——除 INIT_PROJECT 外的写动作、"
+    "设置修改与数据校验都会失败。请先单独提交 INIT_PROJECT 动作创建项目清单。"
+)
 
 
 class ReadProjectTool:
@@ -82,6 +93,8 @@ class ReadProjectTool:
                     "解析失败的配置文件会列入 parse_errors（文件路径+错误摘要）——"
                     "含 YAML 语法错误，也含缺必填字段等严格校验失败（如 source.mode: Field required）；"
                     "发现坏文件时用 read_config_file 读取原文定位问题，可用对应 UPDATE_* 动作修复。"
+                    "返回的 manifest_exists=false 表示项目清单缺失（项目未初始化）——"
+                    "任何写动作前必须先用 INIT_PROJECT 初始化。"
                     "当用户询问'有哪些表'、'某个表有哪些约束'、'当前项目配置'等查询类问题时，"
                     "先调用此工具获取信息，再用自然语言回答。无需参数。"
                 ),
@@ -143,18 +156,23 @@ class ReadProjectTool:
             arguments: tool 参数（本工具无参数）
 
         返回:
-            {"success": bool, "overview": {...}, "summary": {...}, "error": str}
+            {"success": bool, "overview": {...}, "summary": {...}, "error": str,
+             "manifest_exists": bool, "manifest_hint"?: str}
             overview 形如 {"schemas": [...], "constraints": [...], "transforms": [...],
             "regex_nodes": [...], "settings": {...}, "parse_errors": [...],
             "truncated_*_count": int}
             parse_errors 列出解析失败的配置文件（{"path", "error"}），诊断入口不静默裁掉；
             大项目会语义截断（列表前 N 项 + 计数），详见 _truncate_overview。
+            manifest_exists=false（项目未初始化）时附 manifest_hint 引导先 INIT_PROJECT。
         """
         # arguments 无参数，但保留接口一致性
         _ = arguments
 
         if not self.project_path:
-            return {"success": False, "error": "未配置项目路径", "overview": {}}
+            return {"success": False, "error": "未配置项目路径", "overview": {}, "manifest_exists": False}
+
+        # 初始化状态判定：与空项目区分（TUI/CLI 允许打开无 manifest 的目录）
+        manifest_exists = os.path.isfile(os.path.join(self.project_path, "project.precis.yaml"))
 
         try:
             # get_project_overview 是同步函数，放到线程池避免阻塞事件循环
@@ -171,7 +189,20 @@ class ReadProjectTool:
                 "regex_count": len(raw_overview.get("regex_nodes", [])),
                 "parse_error_count": len(raw_overview.get("parse_errors") or []),
             }
-            return {"success": True, "overview": overview, "summary": summary}
+            result: dict[str, Any] = {
+                "success": True,
+                "overview": overview,
+                "summary": summary,
+                "manifest_exists": manifest_exists,
+            }
+            if not manifest_exists:
+                result["manifest_hint"] = _MANIFEST_MISSING_HINT
+            return result
         except Exception as e:
             logger.exception("read_project 工具执行失败")
-            return {"success": False, "error": f"读取项目概览失败: {e}", "overview": {}}
+            return {
+                "success": False,
+                "error": f"读取项目概览失败: {e}",
+                "overview": {},
+                "manifest_exists": manifest_exists,
+            }

@@ -162,12 +162,12 @@ def test_action_validator_whitelists_match_registry():
 
 
 def test_build_action_type_list_contains_all_categories():
-    """build_action_type_list_text 覆盖全部 7 个 category。"""
+    """build_action_type_list_text 覆盖全部 8 个 category。"""
     text = registry.build_action_type_list_text()
     # 每个 category 的标签都应出现
-    for label in ["约束", "Schema", "正则", "转换", "设置", "校验", "显示到画布"]:
+    for label in ["约束", "Schema", "正则", "转换", "设置", "项目初始化", "校验", "显示到画布"]:
         assert label in text
-    # 全部 15 个动作类型都应出现
+    # 全部动作类型都应出现
     for action_type in registry.ALL_ACTION_TYPES:
         assert action_type in text, f"动作 {action_type} 未出现在提示词清单中"
 
@@ -182,7 +182,15 @@ def test_build_action_type_list_marks_canvas_readonly():
 def test_build_spec_field_mapping_covers_all_specs():
     """build_spec_field_mapping_text 覆盖全部 spec 字段。"""
     text = registry.build_spec_field_mapping_text()
-    for spec_field in ["constraintSpec", "schemaSpec", "regexSpec", "transformSpec", "settingsSpec", "canvasSpec"]:
+    for spec_field in [
+        "constraintSpec",
+        "schemaSpec",
+        "regexSpec",
+        "transformSpec",
+        "settingsSpec",
+        "projectSpec",
+        "canvasSpec",
+    ]:
         assert spec_field in text, f"spec 字段 {spec_field} 未出现在映射清单中"
 
 

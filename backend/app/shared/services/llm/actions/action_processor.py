@@ -47,9 +47,11 @@ from app.shared.services.llm.actions.action_handlers import (
     process_inline_batch,
     update_yaml_config,
 )
+from app.shared.services.llm.actions.project_handlers import process_project_action
 from app.shared.services.llm.actions.regex_handlers import process_regex_action
 from app.shared.services.llm.actions.registry import (
     CONSTRAINT_ACTION_TYPES,
+    PROJECT_ACTION_TYPES,
     REGEX_ACTION_TYPES,
     SCHEMA_ACTION_TYPES,
     TRANSFORM_ACTION_TYPES,
@@ -156,6 +158,11 @@ def _collect_affected_files(actions: list[dict[str, Any]], workspace_path: str) 
         elif action_type == "UPDATE_SETTINGS":
             has_file_modifications = True
 
+        elif action_type in PROJECT_ACTION_TYPES:
+            # INIT_PROJECT 创建 manifest 本体（不存在的文件不会被备份，但需计入
+            # "有写盘动作"标记，供回滚/快照逻辑统一处理）
+            has_file_modifications = True
+
     # 所有资源操作都可能修改 manifest，始终备份
     if has_file_modifications:
         manifest_path = os.path.join(workspace_path, "project.precis.yaml")
@@ -197,6 +204,7 @@ def _snapshot_resource_files(workspace_path: str) -> set[str]:
 
     用于回滚时对比前后差异，检测本次新建的文件。比按 spec 推断路径更可靠——
     spec 可能不含 constraintFile 字段，而 handler 内部自动生成约束文件路径。
+    manifest 也纳入快照：INIT_PROJECT 创建的清单在回滚时同样要被检测删除。
     """
     snapshot: set[str] = set()
     for sub in ("constraints", "schemas", "regex_nodes", "regex", "transforms"):
@@ -205,6 +213,9 @@ def _snapshot_resource_files(workspace_path: str) -> set[str]:
             for name in os.listdir(d):
                 if name.endswith((".yaml", ".yml")):
                     snapshot.add(os.path.join(d, name))
+    manifest_path = os.path.join(workspace_path, "project.precis.yaml")
+    if os.path.isfile(manifest_path):
+        snapshot.add(manifest_path)
     return snapshot
 
 
@@ -301,6 +312,7 @@ def _execute_actions(actions: list[dict[str, Any]], workspace_path: str) -> list
     transform_actions: list[dict[str, Any]] = []
     settings_actions: list[dict[str, Any]] = []
     canvas_actions: list[dict[str, Any]] = []
+    project_actions: list[dict[str, Any]] = []
     other_actions: list[dict[str, Any]] = []
 
     # 从注册表派生分类集合（单一事实源）
@@ -332,10 +344,25 @@ def _execute_actions(actions: list[dict[str, Any]], workspace_path: str) -> list
         elif action_type == "ADD_TO_CANVAS":
             # ADD_TO_CANVAS 是纯读动作（只读现有配置 + 发指令，不写盘），独立处理
             canvas_actions.append(action)
+        elif action_type in PROJECT_ACTION_TYPES:
+            project_actions.append(action)
         else:
             other_actions.append(action)
 
     results = []
+
+    # 0. 处理项目初始化动作（最先执行：其余写动作的 manifest 登记依赖它创建的清单）
+    for action in project_actions:
+        result = process_project_action(action, workspace_path)
+        results.append(
+            {
+                "action": action,
+                "success": result["success"],
+                "message": result["message"],
+                # manifest 不是画布资源实体，不产生变更集指令（同 UPDATE_SETTINGS）
+                "frontendInstructions": None,
+            }
+        )
 
     # 1. 处理独立约束（每个约束单独读写文件）
     for action in standalone_actions:

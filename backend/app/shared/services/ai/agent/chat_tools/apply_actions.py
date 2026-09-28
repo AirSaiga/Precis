@@ -139,6 +139,14 @@ def _post_write_self_check(workspace_path: str) -> str:
         workspace_path: 项目工作区路径（含 project.precis.yaml）
     """
     manifest_path = os.path.join(workspace_path, "project.precis.yaml")
+    if not os.path.exists(manifest_path):
+        # manifest 缺失：load_project 会抛裸 FileNotFoundError（Errno 2），
+        # 降级为可行动的结构化提示而非 errno 文本
+        return (
+            f"{_SELF_CHECK_HEADER}\n"
+            "- 状态: 项目清单 project.precis.yaml 不存在（项目未初始化），装载检查与数据校验均无法执行。"
+            "请先用 INIT_PROJECT 动作创建项目清单。"
+        )
     loaded = load_project(manifest_path)
     loading_errors = [err.to_dict() for err in loaded.loading_errors or []]
 
@@ -388,7 +396,8 @@ class ApplyActionsTool:
             "function": {
                 "name": self.NAME,
                 "description": (
-                    "执行配置修改动作。当用户明确要求添加/修改/删除约束、表结构、"
+                    "执行配置修改动作。当用户明确要求初始化项目（INIT_PROJECT，创建项目清单）、"
+                    "添加/修改/删除约束、表结构、"
                     f"正则节点、转换节点{canvas_resource_clause}或修改项目设置时调用此工具。"
                     "actions 数组中的每个元素必须包含 actionType 和对应的 spec 字段。"
                     f"执行成功后，改动会立即写入项目文件{canvas_sync_clause}"
@@ -409,6 +418,9 @@ class ApplyActionsTool:
                                 "- 正则动作（actionType=ADD/UPDATE/DELETE_REGEX）→ regexSpec\n"
                                 "- 转换动作（actionType=ADD/UPDATE/DELETE_TRANSFORM）→ transformSpec\n"
                                 "- 设置动作（actionType=UPDATE_SETTINGS）→ settingsSpec\n"
+                                "- 项目初始化（actionType=INIT_PROJECT）→ projectSpec（可选 name，"
+                                "缺省用目录名；在缺少 project.precis.yaml 的目录创建项目清单，"
+                                "其余写动作要求清单已存在）\n"
                                 "- 校验动作（actionType=VALIDATE_PROJECT）→ constraintSpec（含 tableName）\n"
                                 f"{canvas_spec_line}"
                                 "注意字段名是 constraintSpec/schemaSpec 等（不是 spec）。"

@@ -29,57 +29,15 @@
 from __future__ import annotations
 
 import os
-import re
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
 
 from app.api.models.projects import CreateProjectRequest, CreateProjectResponse
 from app.shared.core.io.yaml import write_yaml_atomic
+from app.shared.core.project.scaffold import REQUIRED_SUBDIRS, build_min_manifest
 
 router = APIRouter(prefix="", tags=["Projects-Create"])
-
-# 标准项目子目录
-_REQUIRED_SUBDIRS = [
-    "schemas",
-    "constraints",
-    "regex_nodes",
-    "transforms",
-    "patterns",
-    "templates",
-    "data",
-    ".precis",
-]
-
-
-# 最小空项目 manifest 模板（与 qa_simple 结构对齐）
-def _build_min_manifest(project_name: str) -> dict:
-    """根据项目名构造最小可用 manifest。"""
-    # id 由项目名派生：小写 + 仅保留字母数字与下划线
-    raw_id = re.sub(r"[^a-zA-Z0-9_]", "_", project_name.strip().lower()) or "project"
-    return {
-        "version": 2,
-        "project": {"id": raw_id, "name": project_name},
-        "settings": {
-            "validation": {
-                "auto_validate": False,
-                "strict_mode": False,
-                "error_handling": "continue",
-                "timeout_seconds": 30,
-            },
-            "file_processing": {"default_encoding": "utf-8"},
-            "script_security": {"allow_eval": False, "allow_exec": False},
-        },
-        "schemas": [],
-        "constraints": [],
-        "regex_nodes": [],
-        "transforms": [],
-        "data_sources": [],
-        "templates": [],
-        "template_instances": [],
-        "patterns_dir": "patterns",
-        "warnings": [],
-    }
 
 
 @router.post(
@@ -108,11 +66,11 @@ def create_project(
 
     # 创建目录与标准子目录
     os.makedirs(project_path, exist_ok=True)
-    for sub in _REQUIRED_SUBDIRS:
+    for sub in REQUIRED_SUBDIRS:
         os.makedirs(os.path.join(project_path, sub), exist_ok=True)
 
     # 写入最小 manifest
-    write_yaml_atomic(Path(manifest_path), _build_min_manifest(name))
+    write_yaml_atomic(Path(manifest_path), build_min_manifest(name))
 
     # 设为当前项目（与 open 行为一致）
     http_request.app.state.current_project_path = project_path

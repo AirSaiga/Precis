@@ -38,6 +38,7 @@ import yaml
 from app.shared.core.project.manifest.reader import load_manifest
 from app.shared.core.project.manifest.types import TransformRef
 from app.shared.core.project.manifest.writer import save_manifest
+from app.shared.core.project.scaffold import ensure_manifest_exists
 from app.shared.core.project.transform.types import TransformFile
 from app.shared.core.project.transform.writer import save_transform
 from app.shared.services.llm.yaml_io import FileLock, atomic_write_yaml, read_entity_id
@@ -133,8 +134,17 @@ def _add_transform(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
     except Exception as e:
         return {"success": False, "message": f"写入 Transform 文件失败: {e}"}
 
-    # 更新 manifest
-    _ensure_manifest_transform_ref(workspace_path, transform_id)
+    # 更新 manifest —— §2.7: 登记失败时回滚删除已写文件（对齐 Schema/Regex 路径），
+    # 避免 Transform 文件成为校验引擎永不加载的孤儿
+    try:
+        _ensure_manifest_transform_ref(workspace_path, transform_id)
+    except Exception as e:
+        logger.error(f"[TransformHandler] 登记到 manifest 失败，回滚 Transform 文件: {e}")
+        try:
+            transform_file.unlink(missing_ok=True)
+        except OSError as unlink_err:
+            logger.warning(f"[TransformHandler] 回滚删除 Transform 文件失败: {transform_file} -> {unlink_err}")
+        return {"success": False, "message": f"更新 manifest 引用失败（已回滚 Transform 文件）: {e}"}
 
     logger.info(f"[TransformHandler] 创建 Transform: {transform_id}")
     # resolved_id：写盘侧实际使用的 id（spec 未显式给 id 时是自动生成的，变更集指令须用它）
@@ -260,19 +270,19 @@ def _short_hash() -> str:
 
 
 def _ensure_manifest_transform_ref(workspace_path: str, transform_id: str) -> None:
-    """确保 manifest 中包含指定 Transform 引用"""
-    manifest_path = Path(workspace_path) / "project.precis.yaml"
-    if not manifest_path.exists():
-        return
+    """确保 manifest 中包含指定 Transform 引用。
 
-    try:
-        manifest = load_manifest(manifest_path)
-        existing = next((t for t in manifest.transforms if t.id == transform_id), None)
-        if not existing:
-            manifest.transforms.append(TransformRef(id=transform_id, path=f"transforms/{transform_id}.transform.yaml"))
-            save_manifest(manifest, manifest_path)
-    except Exception as e:
-        logger.warning(f"[TransformHandler] 更新 manifest 引用失败: {e}")
+    §2.7 对齐（Schema/Regex 路径）：异常向上传播——调用方据此回滚已写的
+    Transform 文件，避免孤儿文件。manifest 缺失时先创建最小脚手架清单再登记
+    （兜底防孤儿，见 schema_handlers 同名函数）。
+    """
+    manifest_path = ensure_manifest_exists(workspace_path)
+
+    manifest = load_manifest(manifest_path)
+    existing = next((t for t in manifest.transforms if t.id == transform_id), None)
+    if not existing:
+        manifest.transforms.append(TransformRef(id=transform_id, path=f"transforms/{transform_id}.transform.yaml"))
+        save_manifest(manifest, manifest_path)
 
 
 def _remove_manifest_transform_ref(workspace_path: str, transform_id: str) -> None:

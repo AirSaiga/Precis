@@ -47,6 +47,7 @@ ACTION_TYPE_DESCRIPTIONS: dict[str, str] = {
     "UPDATE_TRANSFORM": "更新数据转换",
     "DELETE_TRANSFORM": "删除数据转换",
     "UPDATE_SETTINGS": "修改项目设置",
+    "INIT_PROJECT": "初始化项目",
 }
 
 
@@ -155,6 +156,10 @@ def summarize_action(action: dict[str, Any]) -> dict[str, Any]:
         spec = action.get("settingsSpec") or {}
         category = spec.get("category")
         description = f"{desc}：{category}" if category else desc
+    elif action_type == "INIT_PROJECT":
+        spec = action.get("projectSpec") or {}
+        name = spec.get("name")
+        description = f"{desc}：{name}" if name else desc
     elif action_type == "ADD_TO_CANVAS":
         spec = action.get("canvasSpec") or {}
         resource_kind = spec.get("resourceKind", "未知")
@@ -217,4 +222,8 @@ def format_confirm_lines(action: dict[str, Any], index: int) -> list[str]:
             f"  {index}. {action_desc}: {category}",
             f"     设置: {settings}",
         ]
+    if action_type == "INIT_PROJECT":
+        spec = action.get("projectSpec", {})
+        name = spec.get("name")
+        return [f"  {index}. {action_desc}: {name}"] if name else [f"  {index}. {action_desc}"]
     return [f"  {index}. {action_desc}"]
