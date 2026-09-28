@@ -31,6 +31,7 @@ Chat mini-agent 可调用的工具：扫描项目目录，发现磁盘上的数�
 - 递归深度与总量上限防爆（超大目录只报前 N 个 + truncated 计数）
 - 每个文件标注注册状态（是否被某 schema 的 source.path 引用），未注册的
   排前面——那是"待初始化"的候选，agent 最关心的信息
+- Excel 文件附带可用工作表清单（sheets，读取失败的损坏文件静默省略该字段）
 """
 
 from __future__ import annotations
@@ -47,6 +48,9 @@ logger = logging.getLogger(__name__)
 
 # 数据文件扩展名白名单（与 infer_schema/read_table 的支持面一致）
 _DATA_EXTENSIONS = {".csv", ".tsv", ".xlsx", ".xls", ".json", ".jsonl", ".ndjson"}
+
+# 附带工作表清单的 Excel 扩展名（与 excel_loader 的引擎映射同口径，含 .xlsm 备查）
+_EXCEL_EXTENSIONS = {".xlsx", ".xls", ".xlsm"}
 
 # 整棵跳过的目录：配置脚手架（create.py _REQUIRED_SUBDIRS 中的非数据目录）+ 常见噪音
 _EXCLUDED_DIRS = {
@@ -100,6 +104,7 @@ class ListDataFilesTool:
                 "description": (
                     "扫描项目目录，列出磁盘上所有数据文件（CSV/Excel/JSON 等），"
                     "并标注每个文件是否已被 schema 注册（source.path 引用）。"
+                    "Excel 文件附带可用工作表列表（sheets 字段）。"
                     "当用户说'根据目录下的文件/表初始化项目/校验配置'、或项目里还没有"
                     "schema 但用户提到数据文件时，先调用此工具发现文件，"
                     "再决定为哪些文件创建 schema。无需参数。"
@@ -123,7 +128,8 @@ class ListDataFilesTool:
             {"success": bool, "data_files": [...], "total_count": int,
              "unregistered_count": int, "truncated_count": int, "error": str}
             data_files 每项含 path（posix 相对路径）/name/extension/size_bytes/
-            registered/registered_by（注册它的表名或表 id）
+            registered/registered_by（注册它的表名或表 id）；
+            Excel 文件额外含 sheets（可用工作表名列表，读取失败时省略该字段）
         """
         # arguments 无参数，但保留接口一致性
         _ = arguments
@@ -164,6 +170,20 @@ class ListDataFilesTool:
                 logger.debug(f"解析 schema 文件失败 {schema_file}: {e}")
         return mapping
 
+    def _read_sheet_names(self, abs_path: str) -> list[str] | None:
+        """读取 Excel 文件的全部工作表名，失败返回 None（调用方静默省略 sheets 字段）。
+
+        发现阶段不允许单个损坏/被占用的文件炸掉整个扫描——清单读不出来
+        就不附该字段，文件本身仍正常列出。
+        """
+        try:
+            from app.shared.core.data_source.loaders.excel_loader import get_excel_sheet_names
+
+            return get_excel_sheet_names(abs_path)
+        except Exception as e:
+            logger.debug(f"读取 Excel 工作表列表失败 {abs_path}: {e}")
+            return None
+
     def _scan_data_files(self) -> dict[str, Any]:
         """
         @methoddesc 同步扫描项目目录（在线程池中执行）
@@ -198,16 +218,20 @@ class ListDataFilesTool:
                 except OSError:
                     size = 0
                 registered_by = registered_map.get(rel_posix) or registered_map.get(rel_posix.lower())
-                collected.append(
-                    {
-                        "path": rel_posix,
-                        "name": os.path.splitext(fname)[0],
-                        "extension": ext,
-                        "size_bytes": size,
-                        "registered": registered_by is not None,
-                        "registered_by": registered_by,
-                    }
-                )
+                entry: dict[str, Any] = {
+                    "path": rel_posix,
+                    "name": os.path.splitext(fname)[0],
+                    "extension": ext,
+                    "size_bytes": size,
+                    "registered": registered_by is not None,
+                    "registered_by": registered_by,
+                }
+                # Excel 文件附带工作表清单：agent 无需再试错即可知道该为哪些 sheet 建 schema
+                if ext in _EXCEL_EXTENSIONS:
+                    sheets = self._read_sheet_names(abs_path)
+                    if sheets is not None:
+                        entry["sheets"] = sheets
+                collected.append(entry)
 
         # 未注册的排前面：那是"待初始化"候选，agent 最关心的信息
         collected.sort(key=lambda f: (f["registered"], f["path"]))

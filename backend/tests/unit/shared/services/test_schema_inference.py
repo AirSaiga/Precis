@@ -16,7 +16,8 @@
 """@fileoverview schema 推断服务单元测试（P2-2 headless infer_schema）
 
 覆盖：6 种类型推断、混合类型回退、空列默认、CSV/Excel/JSON/JSONL 输入、
-ID/名称/源路径覆盖、错误路径（文件不存在/扩展名不支持）。
+ID/名称/源路径覆盖、sheet_name/header_row 定位（多 sheet 与表头偏移）、
+错误路径（文件不存在/扩展名不支持）。
 """
 
 from __future__ import annotations
@@ -146,6 +147,24 @@ class TestInferSchemaCsv:
         types = {c["name"]: c["type"] for c in schema["columns"]}
         assert types["remark"] == "string"
 
+    def test_tsv_input_tab_delimited(self, tmp_path):
+        """G4：.tsv 按制表符切列推断（扩展名即分隔符声明）。"""
+        tsv = tmp_path / "orders.tsv"
+        tsv.write_text(
+            "order_id\tquantity\tunit_price\tproduct\nORD-0001\t1\t299.00\t机械键盘\nORD-0002\t2\t89.50\t无线鼠标\n",
+            encoding="utf-8",
+        )
+        schema = infer_schema(tsv)
+
+        assert schema["name"] == "orders"
+        types = {c["name"]: c["type"] for c in schema["columns"]}
+        assert types == {
+            "order_id": "string",
+            "quantity": "integer",
+            "unit_price": "float",
+            "product": "string",
+        }
+
 
 class TestInferSchemaOtherFormats:
     """Excel / JSON / JSONL 输入"""
@@ -176,6 +195,83 @@ class TestInferSchemaOtherFormats:
         schema = infer_schema(jf)
         types = {c["name"]: c["type"] for c in schema["columns"]}
         assert types == {"a": "integer"}
+
+    def test_ndjson_input(self, tmp_path):
+        """G4：.ndjson 走 .jsonl 同款逐行解析路径。"""
+        jf = tmp_path / "t.ndjson"
+        jf.write_text('{"a": 1, "b": "x"}\n{"a": 2, "b": "y"}\n', encoding="utf-8")
+        schema = infer_schema(jf)
+        types = {c["name"]: c["type"] for c in schema["columns"]}
+        assert types == {"a": "integer", "b": "string"}
+
+
+class TestSheetAndHeaderRow:
+    """sheet_name / header_row 参数（G1：多 sheet 与表头偏移的列错位）"""
+
+    @staticmethod
+    def _make_two_sheet_xlsx(tmp_path):
+        """造两张 sheet 的 xlsx：Sheet1 与 数据表 列名完全不同。"""
+        import pandas as pd
+
+        xlsx = tmp_path / "book.xlsx"
+        with pd.ExcelWriter(xlsx, engine="openpyxl") as writer:
+            pd.DataFrame({"first_a": ["1"], "first_b": ["x"]}).to_excel(writer, sheet_name="Sheet1", index=False)
+            pd.DataFrame({"second_a": ["2"], "第二列": ["y"]}).to_excel(writer, sheet_name="数据表", index=False)
+        return xlsx
+
+    def test_sheet_name_selects_second_sheet(self, tmp_path):
+        """sheet_name 指向第二张表 → 推断出第二张表的列。"""
+        pytest.importorskip("openpyxl")
+        xlsx = self._make_two_sheet_xlsx(tmp_path)
+
+        schema = infer_schema(xlsx, sheet_name="数据表")
+
+        assert [c["name"] for c in schema["columns"]] == ["second_a", "第二列"]
+
+    def test_sheet_name_none_reads_first_sheet(self, tmp_path):
+        """sheet_name=None → 读第一张表（与历史行为兼容；pandas 的 None 语义是读全部
+        sheet 返回 dict，实现必须翻译为第一张表）。"""
+        pytest.importorskip("openpyxl")
+        xlsx = self._make_two_sheet_xlsx(tmp_path)
+
+        schema = infer_schema(xlsx, sheet_name=None)
+
+        assert [c["name"] for c in schema["columns"]] == ["first_a", "first_b"]
+
+    def test_excel_header_row_skips_title_row(self, tmp_path):
+        """header_row=1 → 跳过标题行取第 2 行为表头；缺省 0 会把标题行当列名。"""
+        pytest.importorskip("openpyxl")
+        import pandas as pd
+
+        xlsx = tmp_path / "report.xlsx"
+        rows = [["订单明细表", "", ""], ["编号", "数量", "品名"], ["A1", "10", "键盘"]]
+        pd.DataFrame(rows).to_excel(xlsx, header=False, index=False)
+
+        schema = infer_schema(xlsx, header_row=1)
+        assert [c["name"] for c in schema["columns"]] == ["编号", "数量", "品名"]
+        # 数据行从表头之后开始（标题行不再混入采样值）
+        types = {c["name"]: c["type"] for c in schema["columns"]}
+        assert types["数量"] == "integer"
+
+    def test_csv_header_row_skips_title_row(self, tmp_path):
+        """CSV 路径同样支持 header_row：跳过标题行取正确列名。"""
+        csv = tmp_path / "report.csv"
+        csv.write_text("订单明细表\n编号,数量\nA1,10\n", encoding="utf-8")
+
+        schema = infer_schema(csv, header_row=1)
+
+        assert [c["name"] for c in schema["columns"]] == ["编号", "数量"]
+        types = {c["name"]: c["type"] for c in schema["columns"]}
+        assert types["数量"] == "integer"
+
+    def test_csv_header_row_zero_matches_legacy_behavior(self, tmp_path):
+        """header_row=0（默认）→ 首行为表头，与历史行为一致。"""
+        csv = tmp_path / "t.csv"
+        csv.write_text("编号,数量\nA1,10\n", encoding="utf-8")
+
+        schema = infer_schema(csv)
+
+        assert [c["name"] for c in schema["columns"]] == ["编号", "数量"]
 
 
 class TestInferSchemaErrors:

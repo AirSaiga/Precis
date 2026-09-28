@@ -41,6 +41,8 @@ _MAX_CELL_CHARS = 200
 _DEFAULT_SAMPLE_ROWS = 10
 # 最大采样行数上限，防止 LLM 传入过大值
 _MAX_SAMPLE_ROWS = 100
+# Excel 扩展名集合：加载失败时的工作表名自愈判定口径
+_EXCEL_EXTENSIONS = {".xlsx", ".xls", ".xlsm"}
 
 
 class ReadTableTool:
@@ -162,11 +164,13 @@ class ReadTableTool:
             }
 
         # 步骤 4: 加载数据文件
-        df = self._load_data_file(data_file, source_config)
-        if df is None:
+        try:
+            df = self._load_data_file(data_file, source_config)
+        except Exception as e:
+            logger.warning(f"load_file_data 加载失败 {data_file}: {e}")
             return {
                 "success": False,
-                "error": f"无法加载数据文件: {data_file}",
+                "error": self._build_load_error(data_file, e),
                 "table_name": table_name,
             }
 
@@ -260,25 +264,57 @@ class ReadTableTool:
         target = table_name.strip().lower()
         return self._schema_index.get(target)
 
-    def _load_data_file(self, data_file: str, source_config: dict[str, Any]) -> pd.DataFrame | None:
+    def _load_data_file(self, data_file: str, source_config: dict[str, Any]) -> pd.DataFrame:
         """
         @methoddesc 根据文件扩展名加载数据文件
 
         使用 load_file_data 统一入口，避免重复实现格式适配逻辑。
-        """
-        try:
-            from app.shared.services.validation.loader import load_file_data
+        source 的 options（delimiter/encoding/format/json_path 等）拍平后
+        随 source_config 透传——与校验链路（SourceSpec.to_loader_config 产物）
+        同口径，保证 read_table 与 validate_table 读到同一份数据。
 
-            sheet_name = source_config.get("sheet")
-            header_row = source_config.get("header_row", 0)
-            return load_file_data(
-                source_file_path=data_file,
-                sheet_name=sheet_name,
-                header_row=header_row,
-            )
+        加载失败时直接抛出异常，由调用方 _load_table_sample 统一构造
+        带根因的 error 返回（含 Excel 工作表名自愈）。
+        """
+        from app.shared.services.validation.loader import load_file_data
+
+        sheet_name = source_config.get("sheet")
+        # YAML 中 header_row 为 null 时回退 0，避免 None 参与比较崩溃
+        header_row = source_config.get("header_row") or 0
+        # options 嵌套字典拍平合并到顶层（顶层键优先级低于 options，
+        # 与 to_loader_config 的 update 语义一致），loader 只读取认识的键
+        loader_config = dict(source_config)
+        options = source_config.get("options")
+        if isinstance(options, dict):
+            loader_config.update(options)
+        return load_file_data(
+            source_file_path=data_file,
+            sheet_name=sheet_name,
+            header_row=header_row,
+            source_config=loader_config,
+        )
+
+    def _build_load_error(self, data_file: str, exc: Exception) -> str:
+        """
+        @methoddesc 构造数据加载失败的 error 文案
+
+        基础文案带出异常根因（此前吞异常只报"无法加载"，LLM 无法定位）。
+        自愈增强：Excel 文件遇到工作表名错误（pandas 的 Worksheet not found）
+        时附带可用工作表清单，LLM 可据此直接修正 sheet 重试，无需追问用户。
+        读取清单本身失败（文件损坏/被占用）则返回基础文案。
+        """
+        message = f"无法加载数据文件: {data_file}（{exc}）"
+        ext = os.path.splitext(data_file)[1].lower()
+        if ext not in _EXCEL_EXTENSIONS or "Worksheet" not in str(exc):
+            return message
+        try:
+            from app.shared.core.data_source.loaders.excel_loader import get_excel_sheet_names
+
+            sheets = get_excel_sheet_names(data_file)
         except Exception as e:
-            logger.warning(f"load_file_data 加载失败 {data_file}: {e}")
-            return None
+            logger.debug(f"读取可用工作表列表失败 {data_file}: {e}")
+            return message
+        return f"{message}；可用工作表: {sheets}"
 
     @staticmethod
     def _dataframe_to_records(df: pd.DataFrame) -> list[dict[str, Any]]:

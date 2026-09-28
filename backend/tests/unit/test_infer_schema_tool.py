@@ -20,18 +20,34 @@
 - 路径白名单：绝对路径与 .. 穿越被拒（与 ADD_SCHEMA source.path 口径一致）
 - 文件不存在/未配置项目路径的错误回灌（含 list_data_files 修正指引）
 - tool 定义契约（OpenAI function 格式 + 必填参数）
+- sheet/header_row 透传与防御回退（G1：多 sheet / 表头偏移的列错位）
+- sheet 名错误的可用工作表清单自愈（与 read_table._build_load_error 同口径）
 
-测试策略：不 mock infer_schema（被测工具就是对它的薄封装，推断本身已有
-独立测试），用 tmp_path 造真实 CSV 走完整链路。
+测试策略：不 mock infer_schema 的正常链路（被测工具就是对它的薄封装，
+推断本身已有独立测试），用 tmp_path 造真实 CSV/Excel 走完整链路；
+透传与防御分支用 mock 边界（替换工具模块内引用的 infer_schema /
+excel_loader.get_excel_sheet_names），不 mock 工具内部。
 """
 
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import pytest
 
 from app.shared.services.ai.agent.chat_tools import InferSchemaTool
+
+
+def _make_multi_sheet_xlsx(project: str) -> None:
+    """造两张 sheet 的 xlsx：Sheet1/Sheet2 列名完全不同。"""
+    pytest.importorskip("openpyxl")
+    import pandas as pd
+
+    xlsx = Path(project) / "data" / "book.xlsx"
+    with pd.ExcelWriter(xlsx, engine="openpyxl") as writer:
+        pd.DataFrame({"first_a": ["1"], "first_b": ["x"]}).to_excel(writer, sheet_name="Sheet1", index=False)
+        pd.DataFrame({"second_a": ["2"], "备注": ["y"]}).to_excel(writer, sheet_name="Sheet2", index=False)
 
 
 @pytest.fixture
@@ -164,5 +180,179 @@ class TestInferSchemaDefinition:
         func = definition["function"]
         assert func["name"] == "infer_schema"
         assert "推断" in func["description"]
+        assert "多 sheet" in func["description"]
         assert func["parameters"]["required"] == ["file_path"]
-        assert set(func["parameters"]["properties"]) == {"file_path", "table_name"}
+        assert set(func["parameters"]["properties"]) == {"file_path", "table_name", "sheet", "header_row"}
+        assert func["parameters"]["properties"]["sheet"]["type"] == "string"
+        assert func["parameters"]["properties"]["header_row"]["type"] == "integer"
+
+
+class TestInferSchemaSheetAndHeaderRow:
+    """sheet/header_row 参数：透传、防御回退与真实文件端到端"""
+
+    @pytest.mark.asyncio
+    async def test_sheet_and_header_row_passed_through(self, tool, monkeypatch):
+        """sheet/header_row 原样透传给底层 infer_schema（参数名映射 sheet→sheet_name）。"""
+        captured: dict = {}
+
+        def fake_infer_schema(data_file, **kwargs):
+            captured["data_file"] = data_file
+            captured.update(kwargs)
+            return {"name": "t", "columns": [{"name": "c1", "type": "string"}]}
+
+        monkeypatch.setattr("app.shared.services.ai.agent.chat_tools.infer_schema.infer_schema", fake_infer_schema)
+
+        result = await tool.run({"file_path": "data/users.csv", "sheet": "Sheet2", "header_row": 2})
+
+        assert result["success"] is True
+        assert captured["sheet_name"] == "Sheet2"
+        assert captured["header_row"] == 2
+
+    @pytest.mark.asyncio
+    async def test_new_params_default_to_none_and_zero(self, tool, monkeypatch):
+        """不传新参数 → 透传 None/0（与历史行为完全一致）。"""
+        captured: dict = {}
+
+        def fake_infer_schema(data_file, **kwargs):
+            captured.update(kwargs)
+            return {"name": "t", "columns": [{"name": "c1", "type": "string"}]}
+
+        monkeypatch.setattr("app.shared.services.ai.agent.chat_tools.infer_schema.infer_schema", fake_infer_schema)
+
+        result = await tool.run({"file_path": "data/users.csv"})
+
+        assert result["success"] is True
+        assert captured["sheet_name"] is None
+        assert captured["header_row"] == 0
+
+    @pytest.mark.asyncio
+    async def test_invalid_header_row_falls_back_to_zero(self, tool, monkeypatch):
+        """header_row 非 int（字符串/浮点）或负数 → 回退 0（与 schema_handlers 防御口径一致）。"""
+        captured: dict = {}
+
+        def fake_infer_schema(data_file, **kwargs):
+            captured.update(kwargs)
+            return {"name": "t", "columns": [{"name": "c1", "type": "string"}]}
+
+        monkeypatch.setattr("app.shared.services.ai.agent.chat_tools.infer_schema.infer_schema", fake_infer_schema)
+
+        for bad_value in ("2", 1.5, -1, None):
+            captured.clear()
+            result = await tool.run({"file_path": "data/users.csv", "header_row": bad_value})
+            assert result["success"] is True, f"header_row={bad_value!r} 不应导致失败"
+            assert captured["header_row"] == 0, f"header_row={bad_value!r} 应回退 0"
+
+    @pytest.mark.asyncio
+    async def test_non_string_sheet_treated_as_absent(self, tool, monkeypatch):
+        """sheet 非 str（LLM 偶发传数字）→ 按 None 处理，不传给 pandas。"""
+        captured: dict = {}
+
+        def fake_infer_schema(data_file, **kwargs):
+            captured.update(kwargs)
+            return {"name": "t", "columns": [{"name": "c1", "type": "string"}]}
+
+        monkeypatch.setattr("app.shared.services.ai.agent.chat_tools.infer_schema.infer_schema", fake_infer_schema)
+
+        result = await tool.run({"file_path": "data/users.csv", "sheet": 2})
+
+        assert result["success"] is True
+        assert captured["sheet_name"] is None
+
+    @pytest.mark.asyncio
+    async def test_multi_sheet_xlsx_sheet_selects_second_sheet(self, tool, project):
+        """端到端：多 sheet xlsx 传 sheet → 推断出指定表的列（而非第一张表）。"""
+        _make_multi_sheet_xlsx(project)
+
+        result = await tool.run({"file_path": "data/book.xlsx", "sheet": "Sheet2"})
+
+        assert result["success"] is True
+        assert [c["name"] for c in result["columns"]] == ["second_a", "备注"]
+
+    @pytest.mark.asyncio
+    async def test_multi_sheet_xlsx_default_reads_first_sheet(self, tool, project):
+        """端到端：不传 sheet → 读第一张表（与历史行为兼容）。"""
+        _make_multi_sheet_xlsx(project)
+
+        result = await tool.run({"file_path": "data/book.xlsx"})
+
+        assert result["success"] is True
+        assert [c["name"] for c in result["columns"]] == ["first_a", "first_b"]
+
+    @pytest.mark.asyncio
+    async def test_header_row_skips_title_row(self, tool, project):
+        """端到端：header_row=1 → 跳过标题行取真实表头。"""
+        pytest.importorskip("openpyxl")
+        import pandas as pd
+
+        xlsx = Path(project) / "data" / "report.xlsx"
+        rows = [["订单明细表", "", ""], ["编号", "数量", "品名"], ["A1", "10", "键盘"]]
+        pd.DataFrame(rows).to_excel(xlsx, header=False, index=False)
+
+        result = await tool.run({"file_path": "data/report.xlsx", "header_row": 1})
+
+        assert result["success"] is True
+        assert [c["name"] for c in result["columns"]] == ["编号", "数量", "品名"]
+        types = {c["name"]: c["type"] for c in result["columns"]}
+        assert types["数量"] == "integer"
+
+    @pytest.mark.asyncio
+    async def test_invalid_header_row_real_file_reads_row_zero(self, tool, project):
+        """端到端：非法 header_row（字符串）→ 回退 0，标题行被当表头（防御行为可见）。"""
+        pytest.importorskip("openpyxl")
+        import pandas as pd
+
+        xlsx = Path(project) / "data" / "report.xlsx"
+        rows = [["订单明细表", "", ""], ["编号", "数量", "品名"], ["A1", "10", "键盘"]]
+        pd.DataFrame(rows).to_excel(xlsx, header=False, index=False)
+
+        result = await tool.run({"file_path": "data/report.xlsx", "header_row": "1"})
+
+        # 回退 0：标题行成了列名（正是调用方必须传合法 header_row 的原因）
+        assert result["success"] is True
+        assert result["columns"][0]["name"] == "订单明细表"
+
+
+class TestInferSchemaSheetErrorSelfHeal:
+    """sheet 名错误的自愈：error 附可用工作表清单（LLM 可直接修正重试）"""
+
+    @pytest.mark.asyncio
+    async def test_wrong_sheet_error_lists_available_sheets(self, tool, project):
+        """sheet 名错误（pandas Worksheet not found）→ error 附可用工作表清单。"""
+        _make_multi_sheet_xlsx(project)
+
+        result = await tool.run({"file_path": "data/book.xlsx", "sheet": "不存在的表"})
+
+        assert result["success"] is False
+        assert "Worksheet" in result["error"]
+        assert "可用工作表" in result["error"]
+        assert "Sheet1" in result["error"]
+        assert "Sheet2" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_sheet_list_read_failure_returns_root_cause_only(self, tool, project, monkeypatch):
+        """工作表清单读取失败（文件损坏/被占用）→ 只返回根因，不追加自愈信息。"""
+        _make_multi_sheet_xlsx(project)
+
+        def broken_get_sheet_names(file_path):
+            raise OSError("file locked by another process")
+
+        monkeypatch.setattr(
+            "app.shared.core.data_source.loaders.excel_loader.get_excel_sheet_names", broken_get_sheet_names
+        )
+
+        result = await tool.run({"file_path": "data/book.xlsx", "sheet": "不存在的表"})
+
+        assert result["success"] is False
+        assert "Worksheet" in result["error"]
+        assert "可用工作表" not in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_non_worksheet_error_has_no_sheet_list(self, tool, project):
+        """非工作表类错误（如不支持的扩展名）→ 不触发自愈清单（口径与 read_table 一致）。"""
+        Path(project, "data", "notes.txt").write_text("hello", encoding="utf-8")
+
+        result = await tool.run({"file_path": "data/notes.txt"})
+
+        assert result["success"] is False
+        assert "推断失败" in result["error"]
+        assert "可用工作表" not in result["error"]

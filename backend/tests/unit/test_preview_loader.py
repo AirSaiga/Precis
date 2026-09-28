@@ -96,6 +96,16 @@ class TestLoadPreviewDataCSV:
         assert spec.encoding == "utf-8"
         assert spec.delimiter == ","
 
+    def test_tsv_default_delimiter_is_tab(self):
+        """G4：.tsv 预览缺省按制表符切列（扩展名即分隔符声明）。"""
+        mock_df = pd.DataFrame({"a": [1]})
+
+        with patch("app.shared.services.preview.loader.load_source_data", return_value=mock_df) as mock_load:
+            load_preview_data("data.tsv", "csv", 100)
+
+        spec = mock_load.call_args[0][0]
+        assert spec.delimiter == "\t"
+
 
 class TestLoadPreviewDataJSON:
     def test_json_array_format(self):

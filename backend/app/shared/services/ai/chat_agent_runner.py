@@ -180,7 +180,7 @@ list_data_files 看的是磁盘上实际存在的文件——包括还没注册�
 **使用时机**：需要为某列设计约束（如 Range/AllowedValues）时，先看真实数据分布再决定参数。
 
 ### 4. infer_schema（查询，参数: file_path, table_name?）
-对项目内的数据文件（CSV/Excel/JSON）确定性推断 schema 草稿：返回每列的名称和
+对项目内的数据文件（CSV/TSV/Excel/JSON/JSONL/NDJSON）确定性推断 schema 草稿：返回每列的名称和
 推断类型（string/integer/float/boolean/date）。
 **使用时机**：为数据文件建表（ADD_SCHEMA）前，**必须**先调用本工具获得列定义草稿，
 再按业务语义微调后作为 schemaSpec.columns 提交。典型微调：金额/单价列把 float 改

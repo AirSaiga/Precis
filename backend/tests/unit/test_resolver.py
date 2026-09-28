@@ -164,6 +164,21 @@ class TestResolveSourcePath:
         path, sheet = resolver.resolve_source_path(str(tmp_path), schema_file)
         assert path == str(csv_file)
 
+    def test_auto_discover_tsv_and_ndjson(self, tmp_path):
+        """G4：自动发现扩展名白名单含 .tsv/.ndjson（与核心加载注册表支持面一致）。"""
+        tsv_file = tmp_path / "metrics.tsv"
+        tsv_file.write_text("id\tvalue\n1\t10\n", encoding="utf-8")
+        ndjson_file = tmp_path / "events.ndjson"
+        ndjson_file.write_text('{"id": 1}\n', encoding="utf-8")
+
+        resolver = DataSourceResolver(str(tmp_path), _make_manifest(), {})
+
+        path, _ = resolver.resolve_source_path(str(tmp_path), _make_schema_file(name="metrics", source=None))
+        assert path == str(tsv_file)
+
+        path, _ = resolver.resolve_source_path(str(tmp_path), _make_schema_file(name="events", source=None))
+        assert path == str(ndjson_file)
+
     def test_auto_discover_in_subdirectory(self, tmp_path):
         """自动发现：在子目录中找到数据文件。"""
         sub = tmp_path / "subdir"

@@ -64,10 +64,14 @@ class ValidateTableArgs(_ToolArgsBase):
 
 
 class InferSchemaArgs(_ToolArgsBase):
-    """infer_schema 入参：file_path 必填（项目相对路径），table_name 可选。"""
+    """infer_schema 入参：file_path 必填（项目相对路径），table_name/sheet/header_row 可选。"""
 
     file_path: str = Field(..., description="数据文件相对项目根的路径（list_data_files 返回的 path 值）")
     table_name: str | None = Field(default=None, description="表显示名；不传则取文件名去扩展名")
+    sheet: str | None = Field(default=None, description="Excel 工作表名；多 sheet 文件必须指定，否则读第一张表")
+    header_row: int | None = Field(
+        default=None, ge=0, description="表头行索引（默认 0 即首行为表头）；报表标题行场景跳过标题取真实表头"
+    )
 
 
 class ReadConfigFileArgs(_ToolArgsBase):

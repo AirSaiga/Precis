@@ -115,7 +115,7 @@ def preview_file_by_path(request: FilePathPreviewRequest) -> FilePreviewResponse
 
         if file_ext in [".xlsx", ".xls"]:
             file_type = "excel"
-        elif file_ext == ".csv":
+        elif file_ext in (".csv", ".tsv"):
             file_type = "csv"
         elif file_ext in [".json", ".jsonl", ".ndjson"]:
             file_type = "json"

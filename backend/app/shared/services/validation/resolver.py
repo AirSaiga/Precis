@@ -176,7 +176,9 @@ class DataSourceResolver:
         if sheet_name:
             extensions = [".xlsx", ".xls"]
         else:
-            extensions = [".xlsx", ".xls", ".csv", ".json", ".jsonl"]
+            # 与核心加载注册表（data_source/loader._LOADER_FNS）支持面一致，
+            # 含 .tsv（制表符分隔）与 .ndjson（JSON Lines）
+            extensions = [".xlsx", ".xls", ".csv", ".tsv", ".json", ".jsonl", ".ndjson"]
 
         # 确定搜索目录，优先使用 manifest 中配置的数据源目录
         search_directory = data_directory

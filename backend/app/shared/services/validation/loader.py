@@ -17,7 +17,7 @@ r"""
 @fileoverview 校验加载器模块
 
 功能概述:
-- 提供数据文件加载功能,支持 Excel、CSV、JSON、JSON Lines 格式
+- 提供数据文件加载功能,支持 Excel、CSV/TSV、JSON、JSON Lines 格式
 - 提供数据文件加载(load_file_data)，支持 FileProcessingSettings 配置
 - 支持编码自动检测、CSV 自定义分隔符
 - 支持 JSONPath 提取和嵌套 JSON 扁平化
@@ -73,6 +73,7 @@ def load_file_data(
     支持的文件格式：
     - Excel (.xlsx, .xls): 使用 openpyxl 引擎，支持多 sheet
     - CSV (.csv): 默认 UTF-8 编码
+    - TSV (.tsv): 走 CSV 加载分支，默认制表符分隔（source_config 显式 delimiter 可覆盖）
     - JSON (.json): 支持对象数组和嵌套对象（自动扁平化）
     - JSON Lines (.jsonl, .ndjson): 每行一个 JSON 对象，适合大文件
 
@@ -116,13 +117,16 @@ def load_file_data(
             header_row=effective_header_row,
             header_enabled=header_enabled,
         )
-    elif file_ext == ".csv":
+    elif file_ext in (".csv", ".tsv"):
+        # .tsv（Tab-Separated Values）扩展名即分隔符声明：缺省分隔符固定制表符，
+        # settings/默认值的逗号对 .tsv 不适用；source_config 显式 delimiter 始终优先
+        default_delimiter = "\t" if file_ext == ".tsv" else delimiter
         spec = CSVSourceSpec(
             path=source_file_path,
             header_row=effective_header_row,
             header_enabled=header_enabled,
             encoding=sc.get("encoding", encoding),
-            delimiter=sc.get("delimiter", delimiter),
+            delimiter=sc.get("delimiter", default_delimiter),
         )
     elif file_ext in [".json", ".jsonl", ".ndjson"]:
         # 前端使用 json_format 字段透传 JSON 解析格式，兼容 format 别名

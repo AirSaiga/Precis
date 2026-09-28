@@ -40,6 +40,10 @@ class TestCanLoad:
     def test_json(self):
         assert can_load("data.json") is True
 
+    def test_tsv_and_ndjson(self):
+        assert can_load("data.tsv") is True
+        assert can_load("data.ndjson") is True
+
     def test_unsupported(self):
         assert can_load("data.txt") is False
         assert can_load("data") is False

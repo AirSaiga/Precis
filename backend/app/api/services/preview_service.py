@@ -60,7 +60,7 @@ def detect_file_type(file_ext: str) -> str:
     """
     if file_ext in [".xlsx", ".xls"]:
         return "excel"
-    if file_ext == ".csv":
+    if file_ext in (".csv", ".tsv"):
         return "csv"
     if file_ext in [".json", ".jsonl", ".ndjson"]:
         return "json"

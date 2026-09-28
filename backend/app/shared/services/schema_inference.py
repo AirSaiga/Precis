@@ -16,7 +16,7 @@
 """@fileoverview 数据文件 → Schema YAML 推断服务（headless infer_schema）
 
 功能概述:
-- 读取 CSV/Excel/JSON 数据文件的头部样本，推断每列的 V2 数据类型
+- 读取 CSV/TSV/Excel/JSON 数据文件的头部样本，推断每列的 V2 数据类型
 - 产出可直接落盘的 schema 文件内容（dict 形式，YAML 序列化由调用方决定）
 - 供 CLI 子命令 `precis infer-schema` 与 MCP tool `infer_schema` 复用
 
@@ -34,7 +34,7 @@
   后续如支持，需引入启发式（如全部字面量 ≤2 位小数且无科学计数法）评估
 
 设计说明:
-- CSV/Excel 以 dtype=str 读入，避免 pandas 预转换掩盖原始格式
+- CSV/TSV/Excel 以 dtype=str 读入，避免 pandas 预转换掩盖原始格式
   （"1.0" 与 "1" 的区别、日期字符串等）；JSON 值为原生类型，
   分类器同时接受 str 与原生标量
 - 只采样头部（默认 1000 行）控制大文件成本；类型冲突按保守回退 string
@@ -55,10 +55,10 @@ import pandas as pd
 # V2 支持的 6 种数据类型（与 backend schema 类型定义一致）
 DATA_TYPES = ("string", "integer", "float", "decimal", "boolean", "date")
 
-# 支持的输入扩展名
-_CSV_EXTS = {".csv"}
+# 支持的输入扩展名（.tsv 走 CSV 推断路径、分隔符固定制表符；.ndjson 走 .jsonl 同款逐行解析）
+_CSV_EXTS = {".csv", ".tsv"}
 _EXCEL_EXTS = {".xlsx", ".xls"}
-_JSON_EXTS = {".json", ".jsonl"}
+_JSON_EXTS = {".json", ".jsonl", ".ndjson"}
 
 # boolean 字面量集合（大小写不敏感）
 _BOOL_LITERALS = {"true", "false"}
@@ -168,15 +168,22 @@ def infer_column_type(values: list[Any], dominant_ratio: float = 0.9) -> str:
     return "string"
 
 
-def _read_head(data_file: Path, sample_rows: int) -> pd.DataFrame:
+def _read_head(
+    data_file: Path,
+    sample_rows: int,
+    sheet_name: str | None = None,
+    header_row: int = 0,
+) -> pd.DataFrame:
     """按扩展名读取数据文件头部样本。
 
-    CSV/Excel 以 dtype=str 读入保留原始格式；JSON 解析原生类型。
-    JSONL（.jsonl / 逐行 JSON 对象）按行解析。
+    CSV/TSV/Excel 以 dtype=str 读入保留原始格式（.tsv 分隔符固定制表符）；
+    JSON 解析原生类型。JSONL（.jsonl/.ndjson 逐行 JSON 对象）按行解析。
 
     Args:
         data_file: 数据文件路径
         sample_rows: 采样行数上限
+        sheet_name: Excel 工作表名（None 读第一张表，与 SourceSpec.sheet 缺省一致）
+        header_row: 表头行索引（pandas header 语义，0 表示首行为表头）
 
     Returns:
         采样 DataFrame（空数据返回空 DataFrame）
@@ -194,10 +201,20 @@ def _read_head(data_file: Path, sample_rows: int) -> pd.DataFrame:
             # latin1）。中文 Windows 导出的 CSV 常为 GBK，硬编码 utf-8 会直接
             # UnicodeDecodeError，让推断链路（MCP/CLI infer_schema、ADD_SCHEMA
             # 列推断兜底）对这类文件完全失效
+            # .tsv（Tab-Separated Values）扩展名即分隔符声明，固定按制表符切列
+            sep = "\t" if suffix == ".tsv" else ","
             last_err: UnicodeDecodeError | None = None
             for encoding in ("utf-8", "gbk", "latin1"):
                 try:
-                    return pd.read_csv(data_file, dtype=str, nrows=sample_rows, keep_default_na=True, encoding=encoding)
+                    return pd.read_csv(
+                        data_file,
+                        dtype=str,
+                        nrows=sample_rows,
+                        keep_default_na=True,
+                        sep=sep,
+                        encoding=encoding,
+                        header=header_row,
+                    )
                 except UnicodeDecodeError as e:
                     last_err = e
                     continue
@@ -206,12 +223,20 @@ def _read_head(data_file: Path, sample_rows: int) -> pd.DataFrame:
         if suffix in _EXCEL_EXTS:
             # 2026-09-21：Excel 走 nrows 头部截断（此前整体读入后取头部，
             # 大文件在推断场景被全量物化——MCP infer_schema 可被任意数据文件触发）
-            return pd.read_excel(data_file, dtype=str, nrows=sample_rows)
+            # sheet_name 未指定时译为 0（第一张表）：pandas 的 None 语义是
+            # "读全部 sheet 并返回 dict"，直接透传会让调用方拿到 dict 而非 DataFrame
+            return pd.read_excel(
+                data_file,
+                dtype=str,
+                nrows=sample_rows,
+                sheet_name=sheet_name if sheet_name is not None else 0,
+                header=header_row,
+            )
         if suffix in _JSON_EXTS:
             return _read_json_head(data_file, sample_rows)
     except pd.errors.EmptyDataError as e:
         raise ValueError(f"数据文件无表头或无数据行，无法推断 schema: {data_file}") from e
-    raise ValueError(f"不支持的文件扩展名: {suffix}（支持 CSV/Excel/JSON）")
+    raise ValueError(f"不支持的文件扩展名: {suffix}（支持 CSV/TSV/Excel/JSON/JSONL/NDJSON）")
 
 
 def _read_json_head(data_file: Path, sample_rows: int) -> pd.DataFrame:
@@ -220,7 +245,7 @@ def _read_json_head(data_file: Path, sample_rows: int) -> pd.DataFrame:
     JSONL 按行流式截断（凑满 sample_rows 即停，不把大文件全文读入）；
     .json 顶层对象数组无法部分解析，仅对结果截断。
     """
-    if data_file.suffix.lower() == ".jsonl":
+    if data_file.suffix.lower() in {".jsonl", ".ndjson"}:
         records: list[Any] = []
         with data_file.open(encoding="utf-8") as f:
             for line in f:
@@ -245,6 +270,8 @@ def infer_schema(
     table_id: str | None = None,
     table_name: str | None = None,
     source_path: str | None = None,
+    sheet_name: str | None = None,
+    header_row: int = 0,
 ) -> dict[str, Any]:
     """推断数据文件的 V2 schema 结构。
 
@@ -254,6 +281,9 @@ def infer_schema(
         table_id: 表 ID（默认生成 UUID v4；替换既有 schema 时传入原 id 保持引用不变）
         table_name: 表显示名（默认取文件名去扩展名）
         source_path: 写入 schema 的 source.path（默认为 data_file 原样路径）
+        sheet_name: Excel 工作表名（None 读第一张表；对 CSV/JSON 无效）
+        header_row: 表头行索引（pandas header 语义，默认 0 即首行为表头；
+            报表类文件常有标题行占位，需跳过取真实表头）
 
     Returns:
         schema 文件结构的字典（version/id/name/source/columns），
@@ -263,7 +293,7 @@ def infer_schema(
         ValueError: 文件不存在、扩展名不支持或无任何列可推断
     """
     path = Path(data_file)
-    df = _read_head(path, sample_rows)
+    df = _read_head(path, sample_rows, sheet_name=sheet_name, header_row=header_row)
 
     if df.empty or len(df.columns) == 0:
         raise ValueError(f"数据文件无表头或无数据行，无法推断 schema: {data_file}")

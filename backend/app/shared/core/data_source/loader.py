@@ -185,11 +185,17 @@ def _load_csv_with_new_loader(
     if source_config.get("on_bad_lines") in ("error", "warn", "skip"):
         on_bad_lines = source_config["on_bad_lines"]  # type: ignore[assignment]  # 白名单校验后收窄
 
+    # 分隔符回退链：source_config 显式值 > 扩展名缺省 > 调用方传入的 csv_delimiter。
+    # .tsv（Tab-Separated Values）扩展名即分隔符声明，缺省固定制表符——manifest 级
+    # csv_delimiter 是 .csv 家族的通用默认、对 .tsv 不适用；仅 schema source_config
+    # 的显式 delimiter 可覆盖
+    fallback_delimiter = "\t" if os.path.splitext(filepath)[1].lower() == ".tsv" else csv_delimiter
+
     spec = CSVSourceSpec.model_construct(
         path=filepath,
         header_row=info.header_row,
         encoding=source_config.get("encoding", default_encoding),
-        delimiter=source_config.get("delimiter", csv_delimiter),
+        delimiter=source_config.get("delimiter", fallback_delimiter),
         skip_rows=int(source_config.get("skip_rows", 0) or 0),
         quotechar=source_config.get("quotechar", '"'),
         on_bad_lines=on_bad_lines,
@@ -219,7 +225,7 @@ def _load_json_with_new_loader(
         如果 schemas 为空，会抛出 IndexError（调用方应确保非空）
 
     示例:
-        >>> schemas = [DataSourceInfo(schema_id="users", source_config={"format": "auto", "json_path": "$.data"})]
+        >>> schemas = [DataSourceInfo(schema_id="users", source_config={"format": "object", "json_path": "$.data"})]
         >>> result = _load_json_with_new_loader("data.json", schemas)
         >>> # result: {"users": DataFrame}
     """
@@ -229,9 +235,16 @@ def _load_json_with_new_loader(
     info = schemas[0]
     source_config = info.source_config or {}
 
+    # .jsonl/.ndjson 扩展名即 JSON Lines 语义，format 一律强制 lines（与
+    # validation/loader.py、preview/loader.py 按扩展名强制 lines 的豁免同口径）；
+    # 此处 model_construct 跳过校验，"auto" 若透传到 get_parser 会被硬拒
+    fmt = source_config.get("format", "auto")
+    if os.path.splitext(filepath)[1].lower() in (".jsonl", ".ndjson"):
+        fmt = "lines"
+
     spec = JSONSourceSpec.model_construct(
         path=filepath,
-        format=source_config.get("format", "auto"),
+        format=fmt,
         json_path=source_config.get("json_path"),
         record_path=source_config.get("record_path"),
         meta_prefix=source_config.get("meta_prefix", "meta."),
@@ -246,12 +259,16 @@ def _load_json_with_new_loader(
 
 # 文件扩展名到加载函数的映射
 # 每个扩展名对应一个私有加载函数，负责将文件路径和 schema 列表转换为 {schema_id: DataFrame}
+# .tsv 复用 CSV 加载（分隔符缺省制表符，见 _load_csv_with_new_loader）；
+# .ndjson 复用 JSON Lines 加载（format 强制 lines）
 _LOADER_FNS = {
     ".xlsx": _load_excel_with_new_loader,
     ".xls": _load_excel_with_new_loader,
     ".csv": _load_csv_with_new_loader,
+    ".tsv": _load_csv_with_new_loader,
     ".json": _load_json_with_new_loader,
     ".jsonl": _load_json_with_new_loader,
+    ".ndjson": _load_json_with_new_loader,
 }
 
 # 公开的加载器注册表，与 _LOADER_FNS 内容相同

@@ -72,8 +72,24 @@ def _infer_columns_from_source(source: dict[str, Any], workspace_path: str) -> t
     data_file = Path(workspace_path) / rel
     if not data_file.is_file():
         return None, f"source.path 指向的数据文件不存在: {rel}（请用相对项目根的路径，可用 list_data_files 工具确认）"
+    # 兜底推断必须带上 source 的 sheet/header_row（SourceSpec 顶层字段）：
+    # 多 sheet Excel 指向 Sheet2 却推 Sheet1 的列、header_row>0 的报表把标题行
+    # 当列名，落盘 schema 都会与真实数据错位（G1 数据误判）
+    sheet = source.get("sheet")
+    header_row = source.get("header_row", 0)
+    # UPDATE 回填路径的 effective_source 可能取自手写 YAML（未经 SourceSpec 校验），
+    # 异常类型回退安全默认，避免 pandas 拿到非法 header 抛晦涩错误
+    sheet_name = sheet if isinstance(sheet, str) and sheet else None
+    row_index = header_row if isinstance(header_row, int) and header_row >= 0 else 0
     try:
-        draft = infer_schema(data_file, table_id="_infer", table_name="_infer", source_path=rel)
+        draft = infer_schema(
+            data_file,
+            table_id="_infer",
+            table_name="_infer",
+            source_path=rel,
+            sheet_name=sheet_name,
+            header_row=row_index,
+        )
     except Exception as e:
         return None, f"从数据文件推断列失败（{rel}）: {e}"
     cols = draft.get("columns") or []

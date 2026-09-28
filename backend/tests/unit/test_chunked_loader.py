@@ -254,6 +254,30 @@ class TestChunkedDataLoaderDataFrameChunked:
         finally:
             os.unlink(tmp_path)
 
+    def test_tsv_dispatch_tab_delimiter(self):
+        """G4：.tsv 分派到 CSV 分块路径，缺省按制表符切列。"""
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".tsv", newline="") as f:
+            f.write("id\tname\n")
+            for i in range(3):
+                f.write(f"{i}\tname_{i}\n")
+            tmp_path = f.name
+
+        try:
+
+            class MockSchema:
+                header_row = 0
+                source_config = {}
+
+            loader = ChunkedDataLoader.__new__(ChunkedDataLoader)
+            chunks = loader._load_dataframe_chunked(tmp_path, MockSchema(), chunk_size=2)
+
+            assert len(chunks) == 2
+            merged = pd.concat(chunks)
+            assert list(merged.columns) == ["id", "name"]
+            assert merged["name"].tolist() == ["name_0", "name_1", "name_2"]
+        finally:
+            os.unlink(tmp_path)
+
     def test_unsupported_format_raises(self):
         """不支持的文件格式应抛出 ValueError。"""
         loader = ChunkedDataLoader.__new__(ChunkedDataLoader)

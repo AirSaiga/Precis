@@ -38,6 +38,9 @@ from app.shared.services.schema_inference import infer_schema
 
 logger = logging.getLogger(__name__)
 
+# Excel 扩展名集合：推断失败时的工作表名自愈判定口径（与 read_table 同集合）
+_EXCEL_EXTENSIONS = {".xlsx", ".xls", ".xlsm"}
+
 
 class InferSchemaTool:
     """
@@ -70,7 +73,8 @@ class InferSchemaTool:
                     "为数据文件建表（ADD_SCHEMA）前应先调用本工具获得列定义草稿，"
                     "再按业务语义微调（如金额列把 float 改 decimal、主键列补 primary_key）"
                     "后作为 schemaSpec.columns 提交，不要凭记忆手写列类型。"
-                    "file_path 用 list_data_files 返回的相对项目根路径。"
+                    "file_path 用 list_data_files 返回的相对项目根路径；"
+                    "多 sheet Excel 必须传 sheet 指定工作表（不传读第一张表，可能推错列）。"
                 ),
                 "parameters": {
                     "type": "object",
@@ -82,6 +86,17 @@ class InferSchemaTool:
                         "table_name": {
                             "type": "string",
                             "description": "表显示名（可选；不传则取文件名去扩展名）",
+                        },
+                        "sheet": {
+                            "type": "string",
+                            "description": (
+                                "Excel 工作表名（可选）。多 sheet 文件必须指定，"
+                                "否则读第一张表可能推错列；可用 list_data_files 返回的 sheets 字段查看可用工作表"
+                            ),
+                        },
+                        "header_row": {
+                            "type": "integer",
+                            "description": "表头行索引（可选，默认 0 即首行为表头）；有标题行的报表设为标题行之后的行号",
                         },
                     },
                     "required": ["file_path"],
@@ -102,7 +117,9 @@ class InferSchemaTool:
         @methoddesc 执行 schema 推断
 
         参数:
-            arguments: tool 参数，含 file_path（必填）与 table_name（可选）
+            arguments: tool 参数，含 file_path（必填）与 table_name / sheet /
+                header_row（可选；sheet 多 sheet Excel 必填，header_row 报表
+                标题行场景用于跳过标题取真实表头）
 
         返回:
             {"success": bool, "file_path": str, "table_name": str,
@@ -114,6 +131,13 @@ class InferSchemaTool:
         # 归一化为 posix 相对路径（与 list_data_files / source.path 口径一致）
         rel = file_path.strip().replace("\\", "/")
         table_name = str(arguments.get("table_name") or "").strip() or None
+        # sheet/header_row 透传给底层推断：多 sheet 指向 Sheet2 却读第一张表、
+        # 标题行被当表头，都会让草稿列与真实数据错位（G1 数据误判）。
+        # 防御口径与 schema_handlers._infer_columns_from_source 一致
+        sheet = arguments.get("sheet")
+        sheet_name = sheet.strip() if isinstance(sheet, str) and sheet.strip() else None
+        raw_header_row = arguments.get("header_row", 0)
+        header_row = raw_header_row if isinstance(raw_header_row, int) and raw_header_row >= 0 else 0
 
         if not self.project_path:
             return {"success": False, "error": "未配置项目路径", "file_path": file_path}
@@ -143,10 +167,12 @@ class InferSchemaTool:
                 data_file,
                 table_name=table_name,
                 source_path=rel,
+                sheet_name=sheet_name,
+                header_row=header_row,
             )
         except Exception as e:
             logger.warning(f"[infer_schema] 推断失败（{rel}）: {e}")
-            return {"success": False, "error": f"schema 推断失败: {e}", "file_path": file_path}
+            return {"success": False, "error": self._build_infer_error(data_file, e), "file_path": file_path}
 
         columns = [
             {"name": str(c.get("name") or c.get("id") or ""), "type": str(c.get("type") or "string")}
@@ -159,3 +185,24 @@ class InferSchemaTool:
             "column_count": len(columns),
             "columns": columns,
         }
+
+    def _build_infer_error(self, data_file: Path, exc: Exception) -> str:
+        """
+        @methoddesc 构造推断失败的 error 文案（含 Excel 工作表名自愈）
+
+        与 read_table._build_load_error 同口径：Excel 遇到工作表名错误
+        （pandas 的 Worksheet not found）时附带可用工作表清单，LLM 可据此
+        直接修正 sheet 参数重试，无需追问用户；读取清单本身失败
+        （文件损坏/被占用）则只返回根因。
+        """
+        message = f"schema 推断失败: {exc}"
+        if data_file.suffix.lower() not in _EXCEL_EXTENSIONS or "Worksheet" not in str(exc):
+            return message
+        try:
+            from app.shared.core.data_source.loaders.excel_loader import get_excel_sheet_names
+
+            sheets = get_excel_sheet_names(str(data_file))
+        except Exception as e:
+            logger.debug(f"读取可用工作表列表失败 {data_file}: {e}")
+            return message
+        return f"{message}；可用工作表: {sheets}"

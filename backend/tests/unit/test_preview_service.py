@@ -48,6 +48,10 @@ class TestDetectFileType:
     def test_csv_returns_csv(self):
         assert detect_file_type(".csv") == "csv"
 
+    def test_tsv_returns_csv(self):
+        """G4：.tsv 归入 CSV 预览类型（加载层缺省制表符分隔）。"""
+        assert detect_file_type(".tsv") == "csv"
+
     def test_json_returns_json(self):
         assert detect_file_type(".json") == "json"
 

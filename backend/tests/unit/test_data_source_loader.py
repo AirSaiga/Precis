@@ -36,6 +36,8 @@ class TestCanLoad:
         assert can_load("data.csv") is True
         assert can_load("data.json") is True
         assert can_load("data.jsonl") is True
+        assert can_load("data.tsv") is True
+        assert can_load("data.ndjson") is True
 
     def test_unsupported_extension(self):
         assert can_load("data.txt") is False
@@ -145,6 +147,68 @@ class TestLoadGroupedSources:
         spec = mock_csv_loader_cls.call_args.args[0]
         assert spec.encoding == "gbk"
         assert spec.delimiter == ";"
+
+    @patch("app.shared.core.data_source.loader.CSVLoader")
+    @patch("app.shared.core.data_source.loader.os.path.exists")
+    def test_tsv_default_delimiter_is_tab(self, mock_exists, mock_csv_loader_cls):
+        """G4：.tsv 无显式 delimiter 时缺省制表符（manifest 级通用逗号不适用）。"""
+        from app.shared.core.data_source.loader import DataSourceInfo
+
+        mock_exists.return_value = True
+        mock_loader = MagicMock()
+        mock_loader.load.return_value = pd.DataFrame({"col": [1]})
+        mock_csv_loader_cls.return_value = mock_loader
+
+        info = DataSourceInfo(schema_id="users", name="users", header_row=0, source_config={})
+        datasets, errors = load_grouped_sources(
+            {"data.tsv": [info]},
+            default_encoding="utf-8",
+            csv_delimiter=",",
+        )
+
+        assert len(errors) == 0
+        assert "users" in datasets
+        spec = mock_csv_loader_cls.call_args.args[0]
+        assert spec.delimiter == "\t"
+
+    @patch("app.shared.core.data_source.loader.CSVLoader")
+    @patch("app.shared.core.data_source.loader.os.path.exists")
+    def test_tsv_source_config_delimiter_wins(self, mock_exists, mock_csv_loader_cls):
+        """G4：.tsv 的 source_config 显式 delimiter 覆盖扩展名缺省。"""
+        from app.shared.core.data_source.loader import DataSourceInfo
+
+        mock_exists.return_value = True
+        mock_loader = MagicMock()
+        mock_loader.load.return_value = pd.DataFrame({"col": [1]})
+        mock_csv_loader_cls.return_value = mock_loader
+
+        info = DataSourceInfo(schema_id="users", name="users", header_row=0, source_config={"delimiter": ";"})
+        datasets, errors = load_grouped_sources({"data.tsv": [info]})
+
+        assert len(errors) == 0
+        spec = mock_csv_loader_cls.call_args.args[0]
+        assert spec.delimiter == ";"
+
+    def test_tsv_and_ndjson_end_to_end(self, tmp_path):
+        """G4：.tsv/.ndjson 真实文件经核心注册表加载成功（validate_table 链路）。"""
+        from app.shared.core.data_source.loader import DataSourceInfo
+
+        tsv = tmp_path / "users.tsv"
+        tsv.write_text("id\tname\n1\talice\n2\tbob\n", encoding="utf-8")
+        ndjson = tmp_path / "events.ndjson"
+        ndjson.write_text('{"id": 1}\n{"id": 2}\n', encoding="utf-8")
+
+        datasets, errors = load_grouped_sources(
+            {
+                str(tsv): [DataSourceInfo(schema_id="users", name="users", header_row=0)],
+                str(ndjson): [DataSourceInfo(schema_id="events", name="events", header_row=0)],
+            }
+        )
+
+        assert errors == []
+        assert list(datasets["users"].columns) == ["id", "name"]
+        assert datasets["users"].iloc[1]["name"] == "bob"
+        assert len(datasets["events"]) == 2
 
     @patch("app.shared.core.data_source.loader.ExcelLoader")
     @patch("app.shared.core.data_source.loader.os.path.exists")

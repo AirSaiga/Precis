@@ -107,13 +107,17 @@ def load_preview_data(
     # ======== CSV 格式处理 ========
     if file_type == "csv":
         # 从 source_config 提取编码和分隔符，使用默认值兜底
+        # .tsv 缺省分隔符为制表符（扩展名即分隔符声明，仅显式 delimiter 可覆盖）
         sc = source_config or {}
+        import os
+
+        csv_ext = os.path.splitext(file_path)[1].lower()
         spec = CSVSourceSpec(
             path=file_path,
             header_enabled=False,
             nrows=max_rows,
             encoding=sc.get("encoding", "utf-8"),
-            delimiter=sc.get("delimiter", ","),
+            delimiter=sc.get("delimiter", "\t" if csv_ext == ".tsv" else ","),
         )
         df = load_source_data(spec)
         return df, None

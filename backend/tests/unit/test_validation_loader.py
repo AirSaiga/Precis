@@ -63,6 +63,36 @@ class TestLoadFileDataCSV:
         assert df.iloc[0]["name"] is None or (isinstance(df.iloc[0]["name"], float) and pd.isna(df.iloc[0]["name"]))
         assert df.iloc[1]["name"] == "bob"
 
+    def test_tsv_default_tab_delimiter(self, tmp_path):
+        """G4：.tsv 走 CSV 加载分支，缺省分隔符为制表符。"""
+        tsv_file = tmp_path / "test.tsv"
+        tsv_file.write_text("id\tname\n1\talice\n2\tbob\n", encoding="utf-8")
+        df = load_file_data(str(tsv_file))
+        assert list(df.columns) == ["id", "name"]
+        assert len(df) == 2
+        assert df.iloc[1]["name"] == "bob"
+
+    def test_tsv_explicit_delimiter_overrides_default(self, tmp_path):
+        """G4：source_config 显式 delimiter 覆盖 .tsv 的制表符缺省。"""
+        tsv_file = tmp_path / "test.tsv"
+        tsv_file.write_text("id;name\n1;alice\n", encoding="utf-8")
+        df = load_file_data(str(tsv_file), source_config={"delimiter": ";"})
+        assert list(df.columns) == ["id", "name"]
+        assert len(df) == 1
+
+    def test_tsv_ignores_generic_csv_delimiter_setting(self, tmp_path):
+        """G4：settings 的 CSV 通用分隔符（逗号）对 .tsv 不适用，仍按制表符切列。"""
+        tsv_file = tmp_path / "test.tsv"
+        tsv_file.write_text("id\tname\n1\talice\n", encoding="utf-8")
+
+        class MockSettings:
+            default_encoding = "utf-8"
+            csv_delimiter = ","
+
+        df = load_file_data(str(tsv_file), settings=MockSettings())
+        assert list(df.columns) == ["id", "name"]
+        assert df.iloc[0]["name"] == "alice"
+
 
 class TestLoadFileDataExcel:
     def test_basic_excel(self, tmp_path):
@@ -96,6 +126,14 @@ class TestLoadFileDataJSON:
         jsonl_file.write_text('{"id": 1}\n{"id": 2}\n', encoding="utf-8")
         df = load_file_data(str(jsonl_file))
         assert len(df) == 2
+
+    def test_ndjson(self, tmp_path):
+        """G4：.ndjson 按 JSON Lines 逐行加载。"""
+        ndjson_file = tmp_path / "test.ndjson"
+        ndjson_file.write_text('{"id": 1}\n{"id": 2}\n', encoding="utf-8")
+        df = load_file_data(str(ndjson_file))
+        assert len(df) == 2
+        assert df.iloc[1]["id"] == 2
 
     def test_json_nested_object(self, tmp_path):
         json_file = tmp_path / "test.json"

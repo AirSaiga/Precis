@@ -141,10 +141,12 @@ class ChunkedDataLoader:
             if on_bad_lines not in ("error", "warn", "skip"):
                 on_bad_lines = "error"
 
+            # .tsv 缺省分隔符为制表符（扩展名即分隔符声明，仅 source_config 显式值可覆盖）
+            fallback_delimiter = "\t" if os.path.splitext(file_path)[1].lower() == ".tsv" else ","
             read_kwargs = build_csv_read_kwargs(
                 header_row=schema.header_row if schema.header_row is not None else 0,
                 encoding=source_config.get("encoding") or "utf-8",
-                delimiter=source_config.get("delimiter", ","),
+                delimiter=source_config.get("delimiter", fallback_delimiter),
                 quotechar=source_config.get("quotechar", '"'),
                 on_bad_lines=on_bad_lines,
                 escapechar=source_config.get("escapechar"),
@@ -308,7 +310,7 @@ class ChunkedDataLoader:
         """
         ext = os.path.splitext(file_path)[1].lower()
 
-        if ext == ".csv":
+        if ext in (".csv", ".tsv"):
             return self._load_csv_chunked(file_path, schema, chunk_size)
         elif ext in (".xlsx", ".xls"):
             sheet_name = getattr(schema, "sheet_name", None) or "Sheet1"

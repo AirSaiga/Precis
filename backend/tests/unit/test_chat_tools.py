@@ -17,8 +17,8 @@
 
 覆盖 6 个 chat 工具的边界行为：
 - ReadProjectTool: 项目概览读取
-- ListDataFilesTool: 项目目录数据文件发现（含注册状态标注与截断）
-- ReadTableTool: 表数据采样
+- ListDataFilesTool: 项目目录数据文件发现（含注册状态标注、截断与 Excel 工作表清单）
+- ReadTableTool: 表数据采样（含 source.options 透传与 Excel 工作表名自愈）
 - ApplyActionsTool: 动作执行 + frontend_instructions 旁路累积
 - ValidateTableTool: 数据校验
 - ReadCanvasTool: 画布节点快照读取（区别于 read_project 读磁盘）
@@ -335,6 +335,47 @@ async def test_list_data_files_truncates_large_directory(tmp_path):
     assert result["truncated_count"] == 10
 
 
+@pytest.mark.asyncio
+async def test_list_data_files_includes_excel_sheets(tmp_path):
+    """G2：Excel 文件条目附带 sheets 工作表清单，非 Excel 文件无该字段。"""
+    root = tmp_path / "proj"
+    root.mkdir()
+    _write_multi_sheet_xlsx(root / "考勤.xlsx", ["Sheet1", "考勤记录"])
+    (root / "users.csv").write_text("a\n1\n", encoding="utf-8")
+
+    tool = ListDataFilesTool(project_path=str(root))
+    result = await tool.run({})
+
+    assert result["success"] is True
+    files = {f["path"]: f for f in result["data_files"]}
+    assert files["考勤.xlsx"]["sheets"] == ["Sheet1", "考勤记录"]
+    assert "sheets" not in files["users.csv"]
+
+
+@pytest.mark.asyncio
+async def test_list_data_files_corrupt_xlsx_skips_sheets_field(tmp_path):
+    """损坏的 xlsx 静默省略 sheets 字段，不炸整个扫描（其他文件正常列出）。"""
+    root = tmp_path / "proj"
+    root.mkdir()
+    (root / "broken.xlsx").write_bytes(b"fake-xlsx")
+    (root / "ok.csv").write_text("a\n1\n", encoding="utf-8")
+
+    tool = ListDataFilesTool(project_path=str(root))
+    result = await tool.run({})
+
+    assert result["success"] is True
+    files = {f["path"]: f for f in result["data_files"]}
+    assert set(files) == {"broken.xlsx", "ok.csv"}
+    assert "sheets" not in files["broken.xlsx"]
+
+
+def test_list_data_files_definition_mentions_sheets():
+    """工具描述说明会返回 Excel 工作表清单，引导 LLM 直接使用 sheets 字段。"""
+    tool = ListDataFilesTool(project_path="/fake")
+    description = tool.get_definition()["function"]["description"]
+    assert "工作表" in description
+
+
 # =============================================================================
 # ReadTableTool 测试
 # =============================================================================
@@ -379,6 +420,135 @@ async def test_read_table_clamps_sample_rows():
 
     # 即使请求 9999 行，也不会因越界崩溃
     assert result["success"] is True
+
+
+# =============================================================================
+# ReadTableTool 测试：G3 source.options 透传 + G2 工作表名自愈
+# =============================================================================
+
+
+def _make_table_project(tmp_path, source_extra: dict, filename: str, content) -> str:
+    """构造带单表 schema 的真实项目树（真实文件 + 真实 loader，不 mock）。
+
+    source_extra 合并进 schema 的 source 段（options/sheet/header_row 等）。
+    content 为 str 时按 UTF-8 写入，为 bytes 时原样写入（构造非默认编码文件）。
+    """
+    import yaml
+
+    root = tmp_path / "proj"
+    (root / "schemas").mkdir(parents=True)
+    (root / "data").mkdir()
+    data_file = root / "data" / filename
+    if isinstance(content, bytes):
+        data_file.write_bytes(content)
+    else:
+        data_file.write_text(content, encoding="utf-8")
+    schema = {
+        "version": 2,
+        "id": "t1",
+        "name": "测试表",
+        "source": {"mode": "relative_file", "path": f"data/{filename}", **source_extra},
+        "columns": [{"id": "c0", "name": "col", "type": "string"}],
+    }
+    (root / "schemas" / "t1.schema.yaml").write_text(yaml.safe_dump(schema), encoding="utf-8")
+    return str(root)
+
+
+def _write_multi_sheet_xlsx(path, sheet_names: list[str]) -> None:
+    """生成多 sheet 真实 xlsx（openpyxl 引擎）。"""
+    with pd.ExcelWriter(path, engine="openpyxl") as writer:
+        for i, name in enumerate(sheet_names):
+            pd.DataFrame({"col": [i]}).to_excel(writer, sheet_name=name, index=False)
+
+
+@pytest.mark.asyncio
+async def test_read_table_reads_semicolon_csv_via_source_options(tmp_path):
+    """G3：source.options.delimiter 透传给加载器，分号 CSV 列结构读取正确（与 validate_table 同口径）。"""
+    root = _make_table_project(
+        tmp_path,
+        {"options": {"delimiter": ";"}},
+        "users.csv",
+        "name;age\n张三;20\n李四;30\n",
+    )
+    tool = ReadTableTool(project_path=root)
+    result = await tool.run({"table_name": "测试表"})
+
+    assert result["success"] is True, result.get("error")
+    # 分号被识别为分隔符：两列而非误并成一列
+    assert [c["name"] for c in result["columns"]] == ["name", "age"]
+    assert result["total_rows"] == 2
+    assert result["sample_rows"][0]["name"] == "张三"
+
+
+@pytest.mark.asyncio
+async def test_read_table_flattens_source_options_into_loader_config(tmp_path):
+    """G3：options 嵌套键拍平后随 source_config 透传，sheet/header_row 走独立参数（同校验链路口径）。"""
+    root = _make_table_project(
+        tmp_path,
+        {"sheet": "Sheet1", "options": {"delimiter": ";", "encoding": "gbk"}},
+        "users.csv",
+        "a;b\n1;2\n",
+    )
+    tool = ReadTableTool(project_path=root)
+
+    with patch(
+        "app.shared.services.validation.loader.load_file_data",
+        return_value=make_sample_df(),
+    ) as mock_load:
+        result = await tool.run({"table_name": "t1"})
+
+    assert result["success"] is True
+    kwargs = mock_load.call_args.kwargs
+    assert kwargs["sheet_name"] == "Sheet1"
+    assert kwargs["header_row"] == 0
+    # options 拍平进 source_config 顶层（to_loader_config 产物形态）
+    assert kwargs["source_config"]["delimiter"] == ";"
+    assert kwargs["source_config"]["encoding"] == "gbk"
+    # 顶层键保留（loader 只读取认识的键，多余键无害）
+    assert kwargs["source_config"]["path"] == "data/users.csv"
+
+
+@pytest.mark.asyncio
+async def test_read_table_worksheet_error_lists_available_sheets(tmp_path):
+    """G2：Excel 工作表名错误时 error 附带可用工作表清单，LLM 可据此修正重试。"""
+    import yaml
+
+    root = tmp_path / "proj"
+    (root / "schemas").mkdir(parents=True)
+    (root / "data").mkdir()
+    _write_multi_sheet_xlsx(root / "data" / "attend.xlsx", ["Sheet1", "考勤记录"])
+    schema = {
+        "version": 2,
+        "id": "t1",
+        "name": "考勤表",
+        "source": {"mode": "relative_file", "path": "data/attend.xlsx", "sheet": "不存在的表"},
+        "columns": [],
+    }
+    (root / "schemas" / "t1.schema.yaml").write_text(yaml.safe_dump(schema), encoding="utf-8")
+
+    tool = ReadTableTool(project_path=str(root))
+    result = await tool.run({"table_name": "考勤表"})
+
+    assert result["success"] is False
+    assert "无法加载数据文件" in result["error"]
+    assert "可用工作表" in result["error"]
+    assert "Sheet1" in result["error"]
+    assert "考勤记录" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_read_table_load_failure_error_includes_root_cause(tmp_path):
+    """加载失败不再吞异常根因：error 带出底层错误信息；非工作表错误不附可用清单。"""
+    root = _make_table_project(tmp_path, {}, "bad.xlsx", b"not an excel file")
+    tool = ReadTableTool(project_path=root)
+    result = await tool.run({"table_name": "测试表"})
+
+    assert result["success"] is False
+    assert "无法加载数据文件" in result["error"]
+    # 底层 DataLoadError 的根因带出（此前只报"无法加载数据文件"一句话）
+    assert "Excel 加载失败" in result["error"]
+    # 非工作表名错误不触发自愈清单
+    assert "可用工作表" not in result["error"]
 
 
 # =============================================================================
