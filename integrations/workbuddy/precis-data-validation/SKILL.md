@@ -5,7 +5,7 @@ display_name_en: Precis Data Validation
 description: "检查/校验 CSV、Excel、JSON 数据质量，或交付前验收数据时使用：生成 V2 校验配置（表结构 + 约束规则）、执行校验、按行解读违规结果并迭代修复至通过。"
 description_zh: "用 Precis 校验表格数据质量：自动生成约束配置、执行校验、逐条汇报违规并迭代修复。"
 description_en: "Validate CSV/Excel/JSON data quality with Precis: generate constraint configs, run validation, report violations row by row, and iterate to a clean pass."
-version: 0.1.8
+version: 0.1.10
 author: Precis Team
 ---
 
@@ -22,9 +22,8 @@ Precis 是一个数据校验引擎：你为数据文件写一份 V2 YAML 配置�
 1. `precis --version` —— 用户已 pip 安装
    （`precis-cli` 是等价别名命令；探测与后续执行统一用 `precis` 为准）
 2. `uvx --from precis-cli precis --version` —— 用户装有 [uv](https://docs.astral.sh/uv/)，
-   免安装运行（首次会下载依赖，需等待）。此后所有 `precis ...` 命令都加
+   免安装运行（从 PyPI 官方源下载，首次需等待）。此后所有 `precis ...` 命令都加
    `uvx --from precis-cli` 前缀执行
-   （开发机也可 `uvx --from <Precis 仓库>/backend precis ...` 从源码跑）
 
 两个都不可用时，告诉用户安装方式后**停止**（不要尝试其他替代方案）：
 
@@ -67,8 +66,7 @@ precis infer-schema <数据文件> --output <项目目录>/schemas/<表名>.sche
 - 所有 ID（schema/constraint 的 `id`）用 **UUID v4**（如
   `8f3d2a1c-4b5e-4f6a-9c8d-1e2f3a4b5c6d`），**禁止** `sc_` 前缀旧格式。
 - 约束优先用 6 种简单类型：NotNull / Unique / AllowedValues / Range /
-  ForeignKey / Charset。Scripted / Conditional / DateLogic / Composite
-  按需使用（Scripted 需项目开启 allow_eval，见 @references/v2-format.md）。
+  ForeignKey / Charset。Conditional / DateLogic / Composite 按需使用。
 - 写完配置即可执行；配置自身的错误会以 `loading_warnings` 透出，无需单独校验。
 
 ## 第 3 步：执行校验
@@ -123,9 +121,8 @@ precis validate --manifest <项目目录>/project.precis.yaml --format json
 - 不要手改或美化 JSON 输出，只做解析与转述。
 - 不要绕过确认直接写配置文件到用户目录。
 - 不要在交互式命令行（REPL）中使用 `--format json`。
-- **不要替用户开启 `script_security.allow_eval`**——Scripted 约束需要执行
-  表达式，属用户显式授权的安全决策；只在用户明确同意时由用户自己修改
-  settings，并把风险（脚本执行）讲清楚。默认用其他约束类型替代。
+- 不要使用 Scripted 约束——它需要在用户机器上执行表达式，本技能一律用其余
+  约束类型替代（正则格式类校验无法覆盖时，向用户说明限制即可）。
 - 环境配置了 MCP（`precis-mcp` server）时，优先直接调用 MCP 工具
   （validate_data / infer_schema / check_config / describe_constraints），
   其返回结构与 CLI JSON 契约一致；无 MCP 时走 Bash + CLI。

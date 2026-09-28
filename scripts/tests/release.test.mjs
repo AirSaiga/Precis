@@ -16,6 +16,8 @@ import {
   writeCargoLockVersion,
   writeJsonVersion,
   writePackageLockVersions,
+  readFrontmatterVersion,
+  writeFrontmatterVersion,
   latestVersionTag,
   releaseCommitFiles,
   rollbackGuidance,
@@ -202,10 +204,48 @@ test('writeJsonVersion 只改 version、保持字段序与格式', () => {
 });
 
 // ---------------------------------------------------------------------------
+// SKILL.md frontmatter 版本读写（WorkBuddy 技能包）
+// ---------------------------------------------------------------------------
+
+const SAMPLE_SKILL_MD = [
+  '---',
+  'name: precis-data-validation',
+  'description: 校验数据质量',
+  'version: 0.1.8',
+  'author: Precis Team',
+  '---',
+  '',
+  '# 正文提到 version: 9.9.9 不应受影响',
+  '',
+].join('\n');
+
+test('SKILL.md frontmatter version 读写，正文不受影响', () => {
+  assert.equal(readFrontmatterVersion(SAMPLE_SKILL_MD), '0.1.8');
+  const updated = writeFrontmatterVersion(SAMPLE_SKILL_MD, '0.2.0');
+  assert.equal(readFrontmatterVersion(updated), '0.2.0');
+  // 正文与其余字段原样保留
+  assert.match(updated, /name: precis-data-validation/);
+  assert.match(updated, /# 正文提到 version: 9\.9\.9 不应受影响/);
+  // 幂等：同版本再写一次输出不变
+  assert.equal(writeFrontmatterVersion(updated, '0.2.0'), updated);
+});
+
+test('SKILL.md frontmatter 支持带引号的 version 并保留引号', () => {
+  const quoted = SAMPLE_SKILL_MD.replace('version: 0.1.8', 'version: "0.1.8"');
+  const updated = writeFrontmatterVersion(quoted, '0.2.0');
+  assert.match(updated, /^version: "0\.2\.0"$/m);
+});
+
+test('SKILL.md 缺 frontmatter 或缺 version 字段时抛错', () => {
+  assert.throws(() => readFrontmatterVersion('# 无 frontmatter\n'), /frontmatter/);
+  assert.throws(() => writeFrontmatterVersion('---\nname: x\n---\n', '0.2.0'), /version/);
+});
+
+// ---------------------------------------------------------------------------
 // 发布提交清单
 // ---------------------------------------------------------------------------
 
-test('releaseCommitFiles 覆盖全部 manifest（含插件双 JSON）+ 根 package-lock.json + CHANGELOG', () => {
+test('releaseCommitFiles 覆盖全部 manifest（含插件双 JSON 与 WorkBuddy 上架材料）+ 根 package-lock.json + CHANGELOG', () => {
   const files = releaseCommitFiles();
   // npm workspaces：子包 lockfile 已合并为根单一 lockfile，sync 连带补丁其版本条目，
   // 漏提交会残留脏工作树阻塞下次发布（v0.1.1 实证）
@@ -213,6 +253,9 @@ test('releaseCommitFiles 覆盖全部 manifest（含插件双 JSON）+ 根 packa
   // 插件双 manifest（integrations + 仓库根垫片）必须随发布同步提交，marketplace 更新才可见
   assert.ok(files.includes('integrations/kimi.plugin.json'), '发布提交清单缺少插件 manifest');
   assert.ok(files.includes('.kimi-plugin/plugin.json'), '发布提交清单缺少插件根垫片 manifest');
+  // WorkBuddy 技能包/连接器版本跟应用走，市场重新提交时版本即与发布对齐
+  assert.ok(files.includes('integrations/workbuddy/precis-data-validation/SKILL.md'), '发布提交清单缺少 WorkBuddy 技能包');
+  assert.ok(files.includes('integrations/workbuddy/precis/connector-meta.json'), '发布提交清单缺少 WorkBuddy 连接器元信息');
   assert.deepEqual(files, [
     'package.json',
     'frontend/package.json',
@@ -222,6 +265,9 @@ test('releaseCommitFiles 覆盖全部 manifest（含插件双 JSON）+ 根 packa
     'tui-rust/Cargo.lock',
     'integrations/kimi.plugin.json',
     '.kimi-plugin/plugin.json',
+    'integrations/workbuddy/precis-data-validation/SKILL.md',
+    'integrations/workbuddy/precis/skills/precis-data-validation/SKILL.md',
+    'integrations/workbuddy/precis/connector-meta.json',
     'package-lock.json',
     'CHANGELOG.md',
   ]);

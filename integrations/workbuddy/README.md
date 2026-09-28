@@ -17,9 +17,15 @@
 
 ## 同步纪律
 
+- **版本号禁止手工修改**：两个 SKILL.md 的 frontmatter `version` 与
+  `connector-meta.json` 的 `version` 已纳入根 `scripts/release.mjs` 的 MANIFESTS，
+  跟 Precis 发布版本走，一律经 `npm run release` 同步（发布后需重新打 zip）。
 - 内容单一事实源是 `../skills/precis-data-validation/`（harness 中立）。
   两个适配副本（技能包根目录与连接器包内 `skills/`）只改 frontmatter 与
   references 引用语法（`@references/xxx.md`），正文改动一律先改单一事实源再同步。
+  **例外**（WorkBuddy 安全审核要求，v0.1.10 起）：副本不提供 Scripted 约束——
+  SKILL.md 禁令改为"不要使用 Scripted 约束"，v2-format.md 删去 Scripted 章节、
+  `script_security` settings 及相关条目；单一事实源保留完整内容。
 - 连接器内嵌的 `skills/precis-data-validation/` 是技能包目录的**直接拷贝**，
   重新打包前确认两者一致（`diff -r`）。
 - 规范依据：https://open.workbuddy.cn/docs/skill 与

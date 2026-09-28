@@ -1,6 +1,7 @@
 # Precis V2 配置格式速查
 
-> 供 agent 编写配置使用。覆盖全部 10 种约束、schema 内嵌约束、转换节点与常用 settings。
+> 供 agent 编写配置使用。覆盖 9 种约束、schema 内嵌约束、转换节点与常用 settings。
+> （Scripted 脚本约束涉及表达式执行，本分发版本不提供。）
 > 格式处于 Alpha 阶段，可能调整。
 > （面向源码仓库开发者：完整类型定义见 `backend/app/shared/` 下的 `ConstraintFile`、
 > `TableSchemaFile`、`TransformFile` 等。）
@@ -52,18 +53,7 @@ settings:
   file_processing:
     default_encoding: utf-8  # utf-8 / gbk / auto（中文 CSV 乱码时改 gbk 或 auto）
     csv_delimiter: ','       # CSV 分隔符
-  script_security:
-    allow_eval: false       # Scripted 约束需要表达式求值时设 true
-    sandbox_mode: true
 ```
-
-> **Scripted 双重开关**：Scripted 约束必须**同时满足以下两个条件**才会执行——
-> 1. 项目配置 `settings.script_security.allow_eval: true`；
-> 2. 运行 precis 的**进程环境变量** `PRECIS_ALLOW_UNSAFE_EVAL=1`（服务端总开关，默认关闭）。
->
-> 只满足条件 1 时，Scripted 约束会逐行报权限错误——这是安全设计而非 bug。
-> 无法控制宿主进程环境变量时，优先用其他约束类型替代（正则格式校验可参照
-> 下文第 9 节 Scripted + `re_match` 的写法，但同样受此限制）。
 
 ## schema 文件（schemas/*.schema.yaml）
 
@@ -95,7 +85,7 @@ columns:
 ### schema 内嵌约束（可选）
 
 约束也可以直接写在 schema 文件的 `constraints:` 列表里（不必建独立 constraint 文件），
-加载时会自动展开为独立约束（ID 加 `{schema_id}_` 前缀）。支持全部 10 种类型；
+加载时会自动展开为独立约束（ID 加 `{schema_id}_` 前缀）。支持 9 种类型；
 列引用用**列名或列 ID**（`column`/`columns`），ForeignKey 用 `from_column`/`to_table`/`to_column`：
 
 ```yaml
@@ -319,28 +309,7 @@ params:
 
 - 非空但无法解析的日期会报"日期无效"错误（目标列与参考列同口径）。
 
-### 9. Scripted 脚本约束（需双重开关，见上文 settings 一节）
-
-```yaml
-version: 2
-id: <uuid>
-type: Scripted
-enabled: true
-description: 手机号必须是 11 位数字且以 1 开头
-refs:
-  table_id: customers
-  column_id: phone
-params:
-  name: phone_format_check
-  expression: 're_match(r"^1[3-9]\d{9}$", str(value))'
-```
-
-- `expression` 逐行求值，`value` 为当前单元格值，返回真值表示通过。
-- **双重开关**：除项目 `allow_eval: true` 外，运行 precis 的进程还需环境变量
-  `PRECIS_ALLOW_UNSAFE_EVAL=1`（见上文 settings 一节）；只开一边会逐行报权限错误。
-  无法控制宿主环境变量时优先用其他约束类型替代。
-
-### 10. Composite 组合约束
+### 9. Composite 组合约束
 
 ```yaml
 version: 2
@@ -416,5 +385,4 @@ transforms:
 | `loading_warnings` 出现 IdMismatchWarning | manifest 引用的 id 与文件内部 id 不一致 |
 | 报"表不在数据集中" | `refs.table_id` 写的不是 schema 的 `id` |
 | 报"列不存在" | `column_id` 写的不是 schema columns 里的 `id`（要用列 ID，不是随便的列名） |
-| Scripted 约束报权限错误 | 双重开关缺一：`settings.script_security.allow_eval` 未开启，或进程环境变量 `PRECIS_ALLOW_UNSAFE_EVAL=1` 未设置 |
 | 数据文件找不到 | schema `source.path` 相对 manifest 所在目录解析 |

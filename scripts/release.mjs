@@ -18,7 +18,10 @@
  *           backend/pyproject.toml、tui-rust/Cargo.toml、tui-rust/Cargo.lock（precis-tui 包块）+
  *           Kimi Code 插件双 manifest（integrations/kimi.plugin.json 与仓库根垫片
  *           .kimi-plugin/plugin.json，全端统一版本号的组成部分——插件版本跟应用走，
- *           marketplace 更新记录才与应用发布对齐；两文件由 plugin_golden_test 守卫一致）。
+ *           marketplace 更新记录才与应用发布对齐；两文件由 plugin_golden_test 守卫一致）+
+ *           WorkBuddy 上架材料（integrations/workbuddy/ 的技能包 SKILL.md frontmatter、
+ *           连接器内嵌 SKILL.md 副本与 connector-meta.json——技能/连接器版本跟应用走，
+ *           市场重新提交时版本即与应用发布对齐）。
  *           连带更新的根 package-lock.json 也随发布提交入库（releaseCommitFiles），
  *           漏提交会残留脏工作树，把下一次发布挡在干净树检查上（v0.1.1 实证）。
  */
@@ -31,7 +34,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const ROOT = path.resolve(path.dirname(SCRIPT_PATH), '..');
 
-/** 版本载体清单（npm 三处直接写 JSON 并连带根 lockfile，TOML 正则替换，插件 JSON 直接读写） */
+/** 版本载体清单（npm 三处直接写 JSON 并连带根 lockfile，TOML 正则替换，插件 JSON 直接读写，SKILL.md 改 frontmatter） */
 export const MANIFESTS = [
   { file: 'package.json', kind: 'npm' },
   { file: 'frontend/package.json', kind: 'npm' },
@@ -41,6 +44,9 @@ export const MANIFESTS = [
   { file: 'tui-rust/Cargo.lock', kind: 'cargo-lock' },
   { file: 'integrations/kimi.plugin.json', kind: 'json' },
   { file: '.kimi-plugin/plugin.json', kind: 'json' },
+  { file: 'integrations/workbuddy/precis-data-validation/SKILL.md', kind: 'skill-md' },
+  { file: 'integrations/workbuddy/precis/skills/precis-data-validation/SKILL.md', kind: 'skill-md' },
+  { file: 'integrations/workbuddy/precis/connector-meta.json', kind: 'json' },
 ];
 
 /**
@@ -138,6 +144,33 @@ export function writeJsonVersion(content, version) {
   const data = JSON.parse(content);
   data.version = version;
   return `${JSON.stringify(data, null, 2)}\n`;
+}
+
+/** 抽取 Markdown 文件开头的 YAML frontmatter 块（含首尾 --- 行）；缺失抛错 */
+function extractFrontmatter(content) {
+  const fm = /^---\r?\n[\s\S]*?\r?\n---/.exec(content);
+  if (!fm) throw new Error('缺少 YAML frontmatter 块');
+  return fm[0];
+}
+
+/** 读取 SKILL.md frontmatter 中的 version 字段（WorkBuddy 技能包） */
+export function readFrontmatterVersion(content) {
+  const block = extractFrontmatter(content);
+  const ver = /^version:[ \t]*"?([^"\s]+)"?[ \t]*$/m.exec(block);
+  if (!ver) throw new Error('frontmatter 缺少 version 字段');
+  return ver[1];
+}
+
+/**
+ * 替换 SKILL.md frontmatter 中的 version 字段（纯函数）：
+ * 只在 frontmatter 块内替换，正文与其余字段原样保留。
+ */
+export function writeFrontmatterVersion(content, version) {
+  const block = extractFrontmatter(content);
+  const re = /^(version:[ \t]*"?)[^"\r\n]+("?[ \t]*)$/m;
+  if (!re.test(block)) throw new Error('frontmatter 缺少 version 字段，无法替换');
+  const updatedBlock = block.replace(re, `$1${version}$2`);
+  return updatedBlock + content.slice(block.length);
 }
 
 /**
@@ -248,6 +281,8 @@ export function readManifestVersion(manifest) {
       return readTomlSectionVersion(content, 'package');
     case 'cargo-lock':
       return readCargoLockVersion(content, 'precis-tui');
+    case 'skill-md':
+      return readFrontmatterVersion(content);
     default:
       throw new Error(`未知 manifest 类型: ${manifest.kind}`);
   }
@@ -338,7 +373,9 @@ function syncAllManifests(version, { dryRun = false } = {}) {
           ? writeTomlSectionVersion(content, 'project', version)
           : manifest.kind === 'cargo'
             ? writeTomlSectionVersion(content, 'package', version)
-            : writeCargoLockVersion(content, 'precis-tui', version);
+            : manifest.kind === 'skill-md'
+              ? writeFrontmatterVersion(content, version)
+              : writeCargoLockVersion(content, 'precis-tui', version);
       if (!dryRun) fs.writeFileSync(filePath, updated, 'utf-8');
     }
     changes.push({ file: manifest.file, before, after: version, applied: dryRun ? 'dry-run' : 'done' });

@@ -7,7 +7,7 @@
   "description_en": "Validate CSV/Excel/JSON data quality in natural language: infer schemas, configure constraints, report violations row by row, and iterate to a clean pass.",
   "source": "precis",
   "type": "cli",
-  "version": "0.1.8",
+  "version": "0.1.10",
   "minWorkbuddyVersion": "5.0.0",
   "examples_zh": [
     "帮我检查这个 CSV 文件的数据质量",
