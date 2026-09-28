@@ -21,10 +21,11 @@ import {
   getDefaultDimension,
   getSchemaPersistedDimension,
   readMeasuredDimension,
+  readNodeDensity,
   resolveMeasuredDimension,
 } from '@/features/node-layout-organizer/utils/nodeDimensionHelper'
 import { getFallbackDimension } from '@/features/node-layout-organizer/strategies/familyLayout'
-import { LAYOUT_CONSTANTS } from '@/features/node-layout-organizer/constants'
+import { LAYOUT_CONSTANTS, NODE_DIMENSIONS } from '@/features/node-layout-organizer/constants'
 
 describe('readMeasuredDimension（Vue Flow dimensions 只读提取）', () => {
   it('读取节点上的 dimensions 字段', () => {
@@ -117,5 +118,51 @@ describe('兜底尺寸校准（DEF-14）', () => {
 
   it('网格对齐粒度必须小于默认间距（不重叠不变量）', () => {
     expect(LAYOUT_CONSTANTS.GRID_SIZE).toBeLessThan(LAYOUT_CONSTANTS.DEFAULT_GAP)
+  })
+})
+
+describe('密度感知维度解析（折叠态约束参与布局的尺寸）', () => {
+  /**
+   * 复现 schemaCentricStrategy.buildNodeDimensions 的链路：
+   * 实测候选（readMeasuredDimension）→ 密度感知兜底（getFallbackDimension + readNodeDensity）
+   * → resolveMeasuredDimension 合成最终参与布局的尺寸。测行为不测实现。
+   */
+  const resolveForNode = (node: unknown) => {
+    const record = node as { type?: string }
+    return resolveMeasuredDimension(
+      [readMeasuredDimension(node)],
+      getFallbackDimension(record.type ?? '', readNodeDensity(node))
+    )
+  }
+
+  it('compact 约束 + 实测 36px：参与布局高度落在 36~40px 区间（而非 ~137px）', () => {
+    const resolved = resolveForNode({
+      type: 'notNullConstraint',
+      data: { density: 'compact' },
+      dimensions: { width: 240, height: 36 },
+    })
+    expect(resolved.height).toBeGreaterThanOrEqual(36)
+    expect(resolved.height).toBeLessThanOrEqual(40)
+    expect(resolved.height).toBeCloseTo(36 * MEASURED_DIMENSION_SAFETY_FACTOR)
+  })
+
+  it('full/缺省密度约束 + 实测 36px：仍被 max 钳制抬到全卡兜底（保守方向不变）', () => {
+    const resolved = resolveForNode({
+      type: 'notNullConstraint',
+      data: {},
+      dimensions: { width: 240, height: 36 },
+    })
+    expect(resolved.height).toBeCloseTo(130 * MEASURED_DIMENSION_SAFETY_FACTOR)
+  })
+
+  it('无实测候选的 compact 约束：直接返回紧凑条兜底（不再放大）', () => {
+    const resolved = resolveForNode({
+      type: 'notNullConstraint',
+      data: { density: 'compact' },
+    })
+    expect(resolved).toEqual({
+      width: NODE_DIMENSIONS.CONSTRAINT_COMPACT_WIDTH,
+      height: NODE_DIMENSIONS.CONSTRAINT_COMPACT_HEIGHT,
+    })
   })
 })

@@ -42,15 +42,27 @@ import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
 import { isRegexNodeType } from '@/utils/nodes/regex'
 /**
  * 获取节点类型的回退尺寸
+ *
+ * @param density 约束密度档：'compact' 折叠紧凑条（240×36）/ 'full'·缺省全卡（260×130）。
+ *   仅约束类型生效；拿不到 density 的调用方不传即可——保守回退全卡档（宁可高估）。
  */
-export function getFallbackDimension(nodeType: string): NodeDimension {
+export function getFallbackDimension(nodeType: string, density?: string): NodeDimension {
   // 与 useSchemaResizable 的 DEFAULT_WIDTH(360) 对齐；实测大卡可达 690 宽
   // （DEF-14），优先走 node.dimensions / data.width 实测路径，这里仅兜底
   if (nodeType === 'schema') return { width: 360, height: 400 }
   if (isRegexNodeType(nodeType))
     return { width: NODE_DIMENSIONS.DEFAULT_WIDTH, height: NODE_DIMENSIONS.DEFAULT_HEIGHT }
-  if (isConstraintNodeType(nodeType))
+  if (isConstraintNodeType(nodeType)) {
+    // 密度两态：compact 折叠条按紧凑高度兜底，否则实测 36px 会被
+    // resolveMeasuredDimension 的 max 钳制抬到全卡高度，留出垂直死空白
+    if (density === 'compact') {
+      return {
+        width: NODE_DIMENSIONS.CONSTRAINT_COMPACT_WIDTH,
+        height: NODE_DIMENSIONS.CONSTRAINT_COMPACT_HEIGHT,
+      }
+    }
     return { width: NODE_DIMENSIONS.CONSTRAINT_WIDTH, height: NODE_DIMENSIONS.CONSTRAINT_HEIGHT }
+  }
   const dim = getDefaultDimension(nodeType)
   return { width: dim.width, height: dim.height }
 }

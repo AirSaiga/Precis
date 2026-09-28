@@ -31,7 +31,7 @@ import { useGraphStore } from '@/stores/graphStore'
 import { LayoutCalculator } from '../core/layoutCalculator'
 import { DEFAULT_ORGANIZE_OPTIONS, SAFE_FITVIEW_PADDING } from '../constants'
 import type { OrganizeOptions, ConnectionInfo, ZoneGroup } from '../types'
-import { getNodeDimensionsFromDOM } from '../utils/nodeDimensionHelper'
+import { getNodeDimensionsFromDOM, readNodeDensity } from '../utils/nodeDimensionHelper'
 import { getFallbackDimension } from '../strategies/familyLayout'
 import { useVueFlow } from '@vue-flow/core'
 
@@ -268,13 +268,16 @@ export function useNodeOrganizer() {
     const nodeIds = Array.from(nodePositions.keys())
     const domDimensions = getNodeDimensionsFromDOM(nodeIds)
     const zoom = viewport.value.zoom || 1
+    const nodeById = new Map(nodes.value.map((n) => [n.id, n]))
 
     const getDim = (nodeId: string) => {
       const nodeType = nodeTypeById.get(nodeId) || ''
       const domDim = domDimensions.get(nodeId)
       // 兜底统一走 getFallbackDimension（单一事实源），
       // 旧实现在此内联了另一套手写尺寸（schema 360×440 等），与布局侧漂移
-      const fallback = getFallbackDimension(nodeType)
+      // 密度感知：compact 折叠条按 240×36 兜底（与 buildNodeDimensions 同构），
+      // 否则下方 max 钳制会把实测 36px 抬到全卡 130，分组框底部留出死空白
+      const fallback = getFallbackDimension(nodeType, readNodeDensity(nodeById.get(nodeId)))
       if (domDim) {
         const scaled = { width: domDim.width / zoom, height: domDim.height / zoom }
         return {

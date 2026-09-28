@@ -41,6 +41,7 @@ import {
   getNodeDimensionsFromDOM,
   getSchemaPersistedDimension,
   readMeasuredDimension,
+  readNodeDensity,
   resolveMeasuredDimension,
   type NodeDimension,
 } from '../utils/nodeDimensionHelper'
@@ -419,8 +420,10 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
 
     for (const nodeId of nodeIds) {
       const nodeType = nodeTypeById.get(nodeId) || ''
-      const defaultDim = getFallbackDimension(nodeType)
       const node = nodeDataById.get(nodeId)
+      // 密度感知兜底：compact 折叠条按 240×36 兜底，否则实测 36px 会被
+      // max 钳制抬到全卡 130，导致折叠态约束间出现垂直死空白
+      const defaultDim = getFallbackDimension(nodeType, readNodeDensity(node))
 
       // 1. Vue Flow 实测（渲染前为 {0,0}，readMeasuredDimension 视为无效候选）
       const measured = readMeasuredDimension(node)

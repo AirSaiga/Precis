@@ -55,6 +55,24 @@ describe('getFallbackDimension', () => {
     expect(dim.height).toBe(NODE_DIMENSIONS.CONSTRAINT_HEIGHT)
   })
 
+  it('compact 密度返回紧凑条尺寸（240×36）', () => {
+    const dim = getFallbackDimension('notNullConstraint', 'compact')
+    expect(dim.width).toBe(NODE_DIMENSIONS.CONSTRAINT_COMPACT_WIDTH)
+    expect(dim.height).toBe(NODE_DIMENSIONS.CONSTRAINT_COMPACT_HEIGHT)
+  })
+
+  it('full 或缺省密度保持全卡尺寸（260×130，保守方向不变）', () => {
+    const withoutDensity = getFallbackDimension('notNullConstraint')
+    expect(withoutDensity.width).toBe(NODE_DIMENSIONS.CONSTRAINT_WIDTH)
+    expect(withoutDensity.height).toBe(NODE_DIMENSIONS.CONSTRAINT_HEIGHT)
+    expect(getFallbackDimension('notNullConstraint', 'full')).toEqual(withoutDensity)
+  })
+
+  it('非约束类型不受 density 影响', () => {
+    expect(getFallbackDimension('schema', 'compact')).toEqual(getFallbackDimension('schema'))
+    expect(getFallbackDimension('regex', 'compact')).toEqual(getFallbackDimension('regex'))
+  })
+
   it('falls back to default dimension helper for unknown types', () => {
     const dim = getFallbackDimension('unknownType')
     expect(dim.width).toBeGreaterThan(0)
