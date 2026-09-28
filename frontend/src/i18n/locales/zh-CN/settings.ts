@@ -150,8 +150,7 @@ const settings = {
     title: '项目校验设置',
     description: '维护任务型校验的默认运行参数，不影响画布节点的即时校验。',
     defaultRunParamsSectionTitle: '默认校验参数',
-    defaultRunParamsHint:
-      '这里的参数只影响全量/单表/单文件等任务型校验，不影响画布节点的即时单次校验。',
+    defaultRunParamsHint: '这里的参数只影响全量/单表等任务型校验，不影响画布节点的即时单次校验。',
     validation: {
       title: '校验行为',
     },

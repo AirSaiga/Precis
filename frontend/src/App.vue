@@ -488,12 +488,23 @@ limitations under the License.
     void appApi.saveRecentProject({ configPath: '', dataPath: '' }).catch(() => undefined)
   }
 
+  /**
+   * 展开右侧属性检查器面板（校验错误 L2 列级定位前发出 expand-inspector-panel）。
+   * 仅折叠时展开，已展开不动（避免把用户手动折叠的面板强行拉开之外的副作用）。
+   */
+  const handleExpandInspectorPanel = () => {
+    if (layout.rightCollapsed.value) {
+      layout.toggleRightPanel()
+    }
+  }
+
   /** 注册全局事件监听 */
   const registerGlobalListeners = () => {
     window.addEventListener('mousemove', handleMouseMove as EventListener)
     window.addEventListener('resize', handleResize)
     eventBus.on('viewchange', handleViewChange)
     eventBus.on('project-closed', handleProjectClosedEvent)
+    eventBus.on('expand-inspector-panel', handleExpandInspectorPanel)
   }
 
   /** 移除全局事件监听 */
@@ -501,6 +512,7 @@ limitations under the License.
     eventBus.off('viewchange', handleViewChange)
     eventBus.off('project-closed', handleProjectClosedEvent)
     eventBus.off('project-path-invalid', handleProjectPathInvalid)
+    eventBus.off('expand-inspector-panel', handleExpandInspectorPanel)
     window.removeEventListener('mousemove', handleMouseMove as EventListener)
     window.removeEventListener('resize', handleResize)
   }

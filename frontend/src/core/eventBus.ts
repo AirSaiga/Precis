@@ -107,6 +107,22 @@ export interface AppEvents {
     item: ResourceItem
   }
   /**
+   * 请求展开右侧属性检查器面板（折叠状态下）。
+   * 由校验错误导航等画布外逻辑发出，App 层（持有 useAppLayout 实例）监听后展开。
+   */
+  'expand-inspector-panel': undefined
+  /**
+   * 校验错误列级定位：请求 Schema 检查器滚动到并高亮指定列。
+   * columnId（列机器 ID）优先匹配，columnName（显示名）兜底；均缺失时监听方忽略。
+   * 注意 InspectorPanel 按节点 id 重挂载 + 异步加载，事件可能在检查器挂载前发出——
+   * 挂载侧需结合 services/validation/errorColumnFocus 的 pending 信箱消费。
+   */
+  'inspector-focus-column': {
+    nodeId: string
+    columnId?: string
+    columnName?: string
+  }
+  /**
    * 全量校验"全绿"完成（0 错误 0 阻塞且全部通过）。
    * 由 useValidationTaskRunner 在结果落地后发出，状态栏监听后
    * 给成功计数一次 status-pulse 动画（一次性、不循环）。

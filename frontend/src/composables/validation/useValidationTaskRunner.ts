@@ -31,10 +31,12 @@
  * ====================================================================
  * 校验目标类型
  * ====================================================================
- * 支持三种校验范围：
+ * UI 提供两种校验范围：
  * - full_project: 全量校验（整个项目）
  * - single_table: 单表校验（指定 Schema）
- * - single_file: 单文件校验（计划中，暂不支持）
+ *
+ * 注：后端契约另有 single_file（文件→schema 反查，退化为 table_filter），
+ * 因与单表语义高度重叠，UI 入口已撤下；target 类型保留以兼容后端契约。
  *
  * ====================================================================
  * 执行阶段（Task Stages）
@@ -145,10 +147,10 @@ interface ValidationTaskStageItem {
 }
 
 interface ValidationTaskTargetDescriptor {
-  type: 'full_project' | 'single_table' | 'single_file'
+  type: 'full_project' | 'single_table'
   label: string
   description: string
-  status: 'active' | 'available' | 'planned'
+  status: 'active' | 'available'
 }
 
 interface ValidationTaskTableOption {
@@ -342,12 +344,6 @@ export function useValidationTaskRunner() {
       description: t('common.fullValidation.task.scope.singleTableDesc'),
       status: validationTaskStore.target.type === 'single_table' ? 'active' : 'available',
     },
-    {
-      type: 'single_file',
-      label: t('common.fullValidation.task.targets.singleFile'),
-      description: t('common.fullValidation.task.scope.singleFileDesc'),
-      status: validationTaskStore.target.type === 'single_file' ? 'active' : 'planned',
-    },
   ])
 
   const preflightIssueCount = computed(() => {
@@ -505,32 +501,25 @@ export function useValidationTaskRunner() {
 
   /**
    * 选择校验目标类型
-   * @param type - 目标类型：全项目 / 单表 / 单文件
+   * @param type - 目标类型：全项目 / 单表
    */
-  function selectTargetType(type: 'full_project' | 'single_table' | 'single_file'): void {
+  function selectTargetType(type: 'full_project' | 'single_table'): void {
     if (type === 'full_project') {
       validationTaskStore.openFullProject()
       return
     }
 
-    if (type === 'single_table') {
-      const firstTable = availableTableTargets.value[0]
-      if (!firstTable) {
-        errorMessage.value = t('common.fullValidation.task.scope.singleTableUnavailable')
-        return
-      }
-
-      const current = availableTableTargets.value.find(
-        (item) => item.value === currentTableId.value
-      )
-      validationTaskStore.openSingleTable(
-        (current || firstTable).value,
-        (current || firstTable).label
-      )
+    const firstTable = availableTableTargets.value[0]
+    if (!firstTable) {
+      errorMessage.value = t('common.fullValidation.task.scope.singleTableUnavailable')
       return
     }
 
-    errorMessage.value = t('common.fullValidation.task.unsupportedTarget')
+    const current = availableTableTargets.value.find((item) => item.value === currentTableId.value)
+    validationTaskStore.openSingleTable(
+      (current || firstTable).value,
+      (current || firstTable).label
+    )
   }
 
   /**

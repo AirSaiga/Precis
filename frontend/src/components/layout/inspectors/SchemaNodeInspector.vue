@@ -32,7 +32,7 @@ limitations under the License.
 -->
 <template>
   <!-- 整个属性检查器容器 -->
-  <div class="schema-inspector">
+  <div ref="rootEl" class="schema-inspector">
     <!-- 1. 表格定义区块（可编辑） -->
     <InspectorSection
       :title="t('inspector.schemaNode.groups.definition')"
@@ -140,9 +140,16 @@ limitations under the License.
         </div>
       </div>
 
-      <!-- 列定义编辑列表（每行可编辑列名、数据类型、内嵌约束） -->
+      <!-- 列定义编辑列表（每行可编辑列名、数据类型、内嵌约束）；
+           data-column-id/name 为校验错误 L2 列级定位的滚动锚点 -->
       <div v-if="data.columns && data.columns.length > 0" class="columns-editor">
-        <div class="column-edit-row" v-for="(column, index) in data.columns" :key="column.id">
+        <div
+          class="column-edit-row"
+          v-for="(column, index) in data.columns"
+          :key="column.id"
+          :data-column-id="column.id"
+          :data-column-name="column.columnName"
+        >
           <div class="column-edit-row-header">
             <span class="column-index">{{ index + 1 }}</span>
             <input
@@ -325,11 +332,16 @@ limitations under the License.
 
 <script setup lang="ts">
   import { logger } from '@/core/utils/logger'
-  import { computed } from 'vue'
+  import { computed, onMounted, onUnmounted, ref } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { storeToRefs } from 'pinia'
   import { useGraphStore } from '@/stores/graphStore'
   import { useValidationTaskStore } from '@/stores/validationTaskStore'
+  import { eventBus } from '@/core/eventBus'
+  import {
+    pendingErrorColumnFocus,
+    type ErrorColumnFocusRequest,
+  } from '@/services/validation/errorColumnFocus'
   import InspectorSection from './InspectorSection.vue'
   import { InspectorField } from '@/components/ui/inspector'
   import AppIcon from '@/components/icons/AppIcon.vue'
@@ -798,6 +810,62 @@ limitations under the License.
       second: '2-digit',
     })
   }
+
+  // ===== 校验错误 L2 列级定位锚点（inspector-focus-column / pending 信箱） =====
+
+  const rootEl = ref<HTMLElement | null>(null)
+  // 高亮闪烁定时器：卸载时必须清理（资源泄漏红线）
+  let flashTimer: number | null = null
+
+  /**
+   * 滚动到指定列并短暂高亮。
+   * columnId（列机器 ID）优先匹配，columnName（显示名）兜底；
+   * 列不存在（schema 已改、列名对不上）静默返回——L1 表级聚焦仍然生效。
+   */
+  function focusColumn(request: { columnId?: string; columnName?: string }): void {
+    const container = rootEl.value
+    if (!container) return
+    let target: Element | null = null
+    if (request.columnId) {
+      target = container.querySelector(`[data-column-id="${CSS.escape(request.columnId)}"]`)
+    }
+    if (!target && request.columnName) {
+      target = container.querySelector(`[data-column-name="${CSS.escape(request.columnName)}"]`)
+    }
+    if (!target) return
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    target.classList.add('is-column-focus-flash')
+    if (flashTimer !== null) window.clearTimeout(flashTimer)
+    flashTimer = window.setTimeout(() => {
+      target?.classList.remove('is-column-focus-flash')
+      flashTimer = null
+    }, 2000)
+  }
+
+  /** 同节点已选中（检查器不重挂载）时经 eventBus 直达的列定位请求 */
+  const handleFocusColumn = (payload: ErrorColumnFocusRequest) => {
+    if (payload.nodeId !== props.nodeId) return
+    focusColumn(payload)
+  }
+
+  onMounted(() => {
+    eventBus.on('inspector-focus-column', handleFocusColumn)
+    // 消费 navigator 留下的 pending 请求：检查器因节点切换重挂载/异步加载而错过事件时兜底。
+    // 信箱一次性：无论是否匹配本节点都清空，避免残留请求在后续无关节点挂载时误触发。
+    const pending = pendingErrorColumnFocus.value
+    pendingErrorColumnFocus.value = null
+    if (pending && pending.nodeId === props.nodeId) {
+      focusColumn(pending)
+    }
+  })
+
+  onUnmounted(() => {
+    eventBus.off('inspector-focus-column', handleFocusColumn)
+    if (flashTimer !== null) {
+      window.clearTimeout(flashTimer)
+      flashTimer = null
+    }
+  })
 </script>
 
 <style scoped src="./SchemaNodeInspector.css"></style>

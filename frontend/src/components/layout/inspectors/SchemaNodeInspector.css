@@ -194,6 +194,12 @@
   overflow: hidden;
 }
 
+/* 校验错误 L2 列级定位：滚动到位后的短暂高亮闪烁（2s 后由 JS 移除） */
+.column-edit-row.is-column-focus-flash {
+  border-color: var(--ui-accent-strong);
+  box-shadow: 0 0 0 2px var(--ui-accent-weak);
+}
+
 .column-edit-row-header {
   display: flex;
   align-items: center;

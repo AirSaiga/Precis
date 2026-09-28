@@ -166,7 +166,7 @@ const common = {
       defaultRunParamsDescription: 'Manage default runtime parameters for task-based validation',
       defaultRunParamsSectionTitle: 'Default Validation Parameters',
       defaultRunParamsHint:
-        'These parameters only affect task-based validation such as full/table/file runs. They do not affect instant validation on canvas nodes.',
+        'These parameters only affect task-based validation such as full/table runs. They do not affect instant validation on canvas nodes.',
       validation: {
         title: 'Validation Behavior',
       },
@@ -317,8 +317,6 @@ const common = {
     tablesLoaded: 'Table {count}',
     stageLabel: 'Stage',
     task: {
-      subtitle:
-        'Complete preparation, execution, and result review in one task panel. Future table/file validation will reuse the same model.',
       prepareHint:
         'Confirm the validation target, project context, and preflight checks before execution.',
       runHint:
@@ -336,15 +334,9 @@ const common = {
       },
       scope: {
         title: 'Validation Scope',
-        desc: 'This task panel already reserves a unified model for full project, single table, and single file targets. This round implements full project validation first.',
-        active: 'Current Entry',
-        available: 'Available',
-        planned: 'Planned',
         fullProjectDesc:
           'Run a complete validation against the current project configuration, data sources, and constraints.',
         singleTableDesc: 'Validate only one schema/table for quick local verification.',
-        singleFileDesc:
-          'Future support for running task-based validation against a single input file with the same runtime options.',
         tableSelector: 'Target Table',
         selectTablePlaceholder: 'Select a table to validate',
         singleTableUnavailable:
@@ -506,6 +498,13 @@ const common = {
       interrupted: 'Validation stopped (stop on first error)',
       exportHint: 'You can preview the full report or export as HTML/PDF.',
       suggestion: 'Suggestion',
+      locateOnCanvas: 'Locate on canvas',
+      located: 'Located',
+      navigateFailed: 'Cannot locate the node on canvas',
+      backToOverview: 'Back to Overview',
+      minimizePanel: 'Minimize',
+      capsuleLabel: 'Results · {count} errors',
+      nodeCreated: 'Created node "{name}" on canvas',
     },
     table: {
       stage: 'Stage',

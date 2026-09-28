@@ -35,6 +35,12 @@
 .fv-modal {
   width: min(880px, calc(100vw - 64px));
   max-height: calc(100vh - 64px);
+  /* 水平居中由 auto margin 承担（覆盖 overlay 的 justify-content），
+     为面板模式的 margin-left:auto 右移过渡铺路；形态切换宽度/位移 200ms 克制动效 */
+  margin: 0 auto;
+  transition:
+    width 200ms ease,
+    margin 200ms ease;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -42,6 +48,12 @@
   border: 1px solid var(--ui-border);
   border-radius: var(--ui-radius-xl);
   box-shadow: var(--ui-shadow-2xl);
+}
+
+.fv-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-xs);
 }
 
 /* ---- Header ---- */
@@ -82,6 +94,88 @@
   color: var(--ui-text-strong);
   border-color: var(--ui-border-strong);
   background: var(--ui-bg-hover);
+}
+
+/* ---- 面板模式（右侧 dock）与最小化胶囊 ----
+   同一 DOM 实例经 overlay 修饰类切换形态：
+   - is-panel-mode：遮罩透明且点击穿透（画布可交互），modal 收缩为右侧 360px 全高面板
+   - is-minimized：整个 overlay 隐藏，由独立的 fv-result-capsule 胶囊承接 */
+.fv-overlay.is-panel-mode {
+  padding: 16px;
+  background: transparent;
+  backdrop-filter: none;
+  pointer-events: none;
+}
+
+.fv-overlay.is-panel-mode .fv-modal {
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  max-height: none;
+  /* auto margin 从两侧均分改为全部推向左侧 → 平滑右移贴边 */
+  margin-left: auto;
+  margin-right: 0;
+  align-self: stretch;
+  pointer-events: auto;
+}
+
+/* 面板为结果专注视图：隐藏步骤导航与目标徽标，头部/内边距收紧 */
+.fv-overlay.is-panel-mode .fv-steps,
+.fv-overlay.is-panel-mode .fv-header-main .ui-badge {
+  display: none;
+}
+
+.fv-overlay.is-panel-mode .fv-header {
+  padding: var(--ui-space-sm) var(--ui-space-md);
+}
+
+.fv-overlay.is-panel-mode .fv-body {
+  padding: var(--ui-space-md);
+}
+
+/* 360px 窄面板密度适配：统计 2 列、结果操作按钮换行（对齐 960px 视口断点的处理） */
+.fv-overlay.is-panel-mode .fv-stats {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.fv-overlay.is-panel-mode .fv-footer-actions {
+  flex-wrap: wrap;
+}
+
+.fv-overlay.is-minimized {
+  display: none;
+}
+
+.fv-result-capsule {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: var(--ui-z-modal);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ui-space-sm);
+  padding: var(--ui-space-sm) var(--ui-space-lg);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-full);
+  background: var(--ui-bg-elevated);
+  box-shadow: var(--ui-shadow-lg);
+  color: var(--ui-text-body);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-medium);
+  cursor: pointer;
+  transition:
+    color var(--ui-transition-fast),
+    border-color var(--ui-transition-fast),
+    background var(--ui-transition-fast);
+}
+
+.fv-result-capsule:hover {
+  color: var(--ui-danger-strong);
+  border-color: var(--ui-danger-strong);
+  background: var(--ui-danger-weak);
+}
+
+.fv-result-capsule-icon {
+  color: var(--ui-danger-strong);
 }
 
 /* ---- Steps ---- */
@@ -716,6 +810,71 @@
 
 .fv-error-navigate:hover {
   color: var(--ui-accent-strong);
+}
+
+.fv-error-item.is-selected {
+  background: var(--ui-bg-subtle);
+}
+
+/* 已定位（定位成功过）的错误行：不淡化整行，定位图标变实色 + 行尾"已定位"徽标表示"已在画布确认" */
+.fv-error-item.is-located .fv-error-navigate {
+  color: var(--ui-accent-strong);
+}
+
+.fv-error-located-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  align-self: center;
+  flex-shrink: 0;
+  padding: 2px var(--ui-space-xs);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-success-weak);
+  color: var(--ui-success-strong);
+  font-size: var(--ui-font-xs);
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+/* 单击行展开的详情区：完整位置 / 原始值 / 错误码（缩进一块） */
+.fv-error-detail {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ui-space-xs);
+  margin-top: var(--ui-space-xs);
+  margin-left: var(--ui-space-sm);
+  padding: var(--ui-space-sm) var(--ui-space-md);
+  border: 1px solid var(--ui-border-light);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-bg-panel);
+  max-width: 100%;
+}
+
+.fv-error-detail-location {
+  font-size: var(--ui-font-size-xs);
+  font-family: var(--ui-font-mono);
+  color: var(--ui-text-muted);
+  word-break: break-all;
+}
+
+.fv-error-detail-value {
+  font-family: var(--ui-font-mono);
+  font-size: var(--ui-font-size-xs);
+  color: var(--ui-text-body);
+  background: var(--ui-bg-subtle);
+  border: 1px solid var(--ui-border-light);
+  border-radius: var(--ui-radius-sm);
+  padding: 1px 6px;
+  word-break: break-all;
+}
+
+.fv-error-detail-code {
+  font-family: var(--ui-font-mono);
+  font-size: var(--ui-font-size-xs);
+  color: var(--ui-text-muted);
+  letter-spacing: 0.02em;
+  word-break: break-all;
 }
 
 /* ============================================================================

@@ -163,8 +163,7 @@ const common = {
       defaultRunParamsTitle: '项目默认运行参数',
       defaultRunParamsDescription: '维护任务型校验的默认运行参数',
       defaultRunParamsSectionTitle: '默认校验参数',
-      defaultRunParamsHint:
-        '这里的参数只影响全量/单表/单文件等任务型校验，不影响画布节点的即时单次校验。',
+      defaultRunParamsHint: '这里的参数只影响全量/单表等任务型校验，不影响画布节点的即时单次校验。',
       validation: {
         title: '校验行为',
       },
@@ -315,7 +314,6 @@ const common = {
     tablesLoaded: '表 {count}',
     stageLabel: '阶段',
     task: {
-      subtitle: '以任务方式完成准备、执行和结果查看，未来可统一承载全量 / 单表 / 单文件校验。',
       prepareHint: '先确认校验对象、工程上下文与运行前检查，再决定是否直接执行。',
       runHint: '项目默认参数会作为基础值，本次可临时覆盖运行参数。',
       resultHint: '保留本次任务的摘要、失败概览与报告入口。',
@@ -331,13 +329,8 @@ const common = {
       },
       scope: {
         title: '校验范围',
-        desc: '当前任务面板已统一预留全项目、单表、单文件三类目标，本次先落地全项目校验。',
-        active: '当前入口',
-        available: '可用',
-        planned: '规划中',
         fullProjectDesc: '对当前项目配置、数据源与约束执行完整校验。',
         singleTableDesc: '仅校验单个 schema / table，适合快速局部验证。',
-        singleFileDesc: '未来支持针对单个输入文件执行任务校验，并复用同一套运行参数。',
         tableSelector: '目标数据表',
         selectTablePlaceholder: '选择要执行校验的表',
         singleTableUnavailable: '当前项目中没有可用于单表校验的表。',
@@ -493,6 +486,13 @@ const common = {
       interrupted: '校验已停止（遇错即停）',
       exportHint: '您可以预览完整报告或导出为 HTML/PDF 文件',
       suggestion: '建议',
+      locateOnCanvas: '在画布中定位',
+      located: '已定位',
+      navigateFailed: '无法定位到画布节点',
+      backToOverview: '返回总览',
+      minimizePanel: '最小化',
+      capsuleLabel: '校验结果 · {count} 错误',
+      nodeCreated: '已在画布创建节点「{name}」',
     },
     table: {
       stage: '阶段',

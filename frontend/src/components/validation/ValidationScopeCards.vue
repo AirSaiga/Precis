@@ -19,10 +19,10 @@ limitations under the License.
   import { useI18n } from 'vue-i18n'
 
   interface ScopeItem {
-    type: 'full_project' | 'single_table' | 'single_file'
+    type: 'full_project' | 'single_table'
     label: string
     description: string
-    status: 'active' | 'available' | 'planned'
+    status: 'active' | 'available'
   }
 
   interface Props {
@@ -34,7 +34,7 @@ limitations under the License.
   defineProps<Props>()
 
   const emit = defineEmits<{
-    (e: 'selectType', type: 'full_project' | 'single_table' | 'single_file'): void
+    (e: 'selectType', type: 'full_project' | 'single_table'): void
     (e: 'selectTable', tableId: string): void
   }>()
 
@@ -57,12 +57,8 @@ limitations under the License.
         v-for="item in items"
         :key="item.type"
         class="scope-option"
-        :class="{
-          'is-active': item.status === 'active',
-          'is-planned': item.status === 'planned',
-        }"
+        :class="{ 'is-active': item.status === 'active' }"
         type="button"
-        :disabled="item.status === 'planned'"
         @click="emit('selectType', item.type)"
       >
         <div class="scope-option-icon">
@@ -82,7 +78,7 @@ limitations under the License.
             <line x1="12" y1="17" x2="12" y2="21" />
           </svg>
           <svg
-            v-else-if="item.type === 'single_table'"
+            v-else
             width="16"
             height="16"
             viewBox="0 0 24 24"
@@ -96,27 +92,10 @@ limitations under the License.
             <line x1="3" y1="9" x2="21" y2="9" />
             <line x1="9" y1="21" x2="9" y2="9" />
           </svg>
-          <svg
-            v-else
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <polyline points="14 2 14 8 20 8" />
-          </svg>
         </div>
         <div class="scope-option-content">
           <div class="scope-option-header">
             <span class="scope-option-name">{{ item.label }}</span>
-            <span v-if="item.status === 'planned'" class="scope-option-badge">
-              {{ t('common.fullValidation.task.scope.planned') }}
-            </span>
           </div>
           <p class="scope-option-desc">{{ item.description }}</p>
         </div>
@@ -198,7 +177,7 @@ limitations under the License.
     transition: background 0.15s ease;
   }
 
-  .scope-option:hover:not(.is-planned) {
+  .scope-option:hover {
     background: var(--ui-bg-subtle);
     border-color: var(--ui-border);
   }
@@ -210,11 +189,6 @@ limitations under the License.
 
   .scope-option.is-active::before {
     background: var(--ui-accent-strong);
-  }
-
-  .scope-option.is-planned {
-    opacity: 0.5;
-    cursor: not-allowed;
   }
 
   .scope-option-icon {
@@ -245,15 +219,6 @@ limitations under the License.
     font-size: var(--ui-font-size-sm);
     font-weight: var(--ui-font-weight-semibold);
     color: var(--ui-text-strong);
-  }
-
-  .scope-option-badge {
-    padding: 1px 6px;
-    border-radius: var(--ui-radius-full);
-    font-size: var(--ui-font-size-xs);
-    color: var(--ui-text-muted);
-    background: var(--ui-bg-elevated);
-    border: 1px solid var(--ui-border-light);
   }
 
   .scope-option-desc {

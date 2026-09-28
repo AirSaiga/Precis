@@ -31,8 +31,11 @@ limitations under the License.
   import { useValidationReportExport } from '@/composables/useValidationReportExport'
   import { useValidationErrorFilter } from '@/composables/validation/useValidationErrorFilter'
   import { useValidationErrorNavigator } from '@/composables/validation/useValidationErrorNavigator'
-  import { createValidationReportViewModel } from '@/services/validationReportViewModel'
-  import type { FullValidationErrorItem } from '@/api/projectValidationApi'
+  import { useToast } from '@/composables/shared'
+  import {
+    createValidationReportViewModel,
+    type ValidationReportErrorRow,
+  } from '@/services/validationReportViewModel'
   import AppIcon from '@/components/icons/AppIcon.vue'
   import ValidationScopeCards from '@/components/validation/ValidationScopeCards.vue'
   import ValidationContextBar from '@/components/validation/ValidationContextBar.vue'
@@ -55,7 +58,9 @@ limitations under the License.
   const { t, locale } = useI18n()
   const graphStore = useGraphStore()
   const { exportReport: exportValidationReport } = useValidationReportExport()
-  const { navigateErrorToCanvas } = useValidationErrorNavigator()
+  const { navigateErrorToCanvas, locatedErrorKeys, markErrorLocated, clearLocatedErrors } =
+    useValidationErrorNavigator()
+  const { error: errorToast, success: successToast } = useToast()
 
   const {
     running,
@@ -79,6 +84,7 @@ limitations under the License.
     resultHighlights,
     showMergeConfirm,
     showSaveConfirm,
+    initializeTask,
     refreshPreflight,
     resetRuntimeOverrides,
     selectTargetType,
@@ -95,6 +101,13 @@ limitations under the License.
   const showPreview = ref(false)
   const showExportMenu = ref(false)
   const currentView = ref<'config' | 'running' | 'results'>('config')
+  // 结果页形态：modal 全屏总览（默认）/ panel 右侧 dock 面板 / minimized 右下角胶囊。
+  // 仅对 results 视图有意义；同一 DOM 实例经 class 切换形态，不重建组件。
+  const resultDisplayMode = ref<'modal' | 'panel' | 'minimized'>('modal')
+  // 面板/胶囊形态下发起重跑：新结果产出后恢复面板形态（0 错误成功页除外）
+  const restorePanelAfterRun = ref(false)
+
+  const isPanelMode = computed(() => resultDisplayMode.value === 'panel')
 
   // 报告视图模型（转换原始错误数据为展示友好的格式）
   const reportViewModel = computed(() =>
@@ -124,6 +137,12 @@ limitations under the License.
   watch(result, (res) => {
     if (res) {
       currentView.value = 'results'
+      // 面板/胶囊形态发起的重跑完成：含错误则回面板；否则回 modal（0 错误成功页不提供面板化）
+      resultDisplayMode.value =
+        restorePanelAfterRun.value && (res.errors?.length ?? 0) > 0 ? 'panel' : 'modal'
+      restorePanelAfterRun.value = false
+      // 新结果落地：清空"已定位"标记（错误行 key 属于旧结果，避免误标）
+      clearLocatedErrors()
     }
   })
 
@@ -132,10 +151,16 @@ limitations under the License.
     (open) => {
       if (open) {
         currentView.value = result.value ? 'results' : running.value ? 'running' : 'config'
+        // 打开面板时初始化：加载 manifest/运行前检查/项目设置，
+        // 否则单表卡片因表列表为空而不可选、preflight 状态停留在默认"通过"假象
+        void initializeTask()
         return
       }
       showExportMenu.value = false
       showPreview.value = false
+      // 完全关闭后形态复位：重开从 modal 总览进入（结果数据保留在 runner，仍在结果页）
+      resultDisplayMode.value = 'modal'
+      restorePanelAfterRun.value = false
     }
   )
 
@@ -178,9 +203,30 @@ limitations under the License.
     await exportValidationReport(result.value, format, graphStore.projectName)
   }
 
-  const handleNavigateError = async (error: FullValidationErrorItem) => {
-    close()
-    await navigateErrorToCanvas(error)
+  const handleNavigateError = async (error: ValidationReportErrorRow) => {
+    // 先导航再反馈：导航失败时 toast 提示且形态不变，避免用户两头落空
+    const outcome = await navigateErrorToCanvas(error)
+    if (outcome.located) {
+      // 定位成功需要看画布：modal 切到面板（不关闭弹框）；胶囊恢复为面板
+      resultDisplayMode.value = 'panel'
+      // 自动创建的画布节点补 toast，避免"画布凭空出现节点"的困惑
+      if (outcome.created) {
+        successToast(
+          t('common.fullValidation.result.nodeCreated', { name: outcome.tableName || '' })
+        )
+      }
+      // 记录"已定位"：结果列表中该行显示"已定位"徽标
+      markErrorLocated(error.key)
+    } else {
+      errorToast(t('common.fullValidation.result.navigateFailed'))
+    }
+  }
+
+  // 重跑入口：任何形态下都强制回 modal 总览执行；记住发起形态以便新结果产出后恢复面板
+  const handleRunTask = () => {
+    restorePanelAfterRun.value = resultDisplayMode.value !== 'modal'
+    resultDisplayMode.value = 'modal'
+    runTask()
   }
 
   const handleDocumentClick = (event: MouseEvent) => {
@@ -200,6 +246,16 @@ limitations under the License.
       cancelMergePrompt()
       return
     }
+    // 结果页形态分层：面板 Esc → 最小化为胶囊；胶囊 Esc 不处理；modal 维持关闭现状
+    if (currentView.value === 'results') {
+      if (resultDisplayMode.value === 'panel') {
+        resultDisplayMode.value = 'minimized'
+        return
+      }
+      if (resultDisplayMode.value === 'minimized') {
+        return
+      }
+    }
     close()
   }
 
@@ -217,8 +273,16 @@ limitations under the License.
 <template>
   <Teleport to="body">
     <Transition name="modal-fade">
-      <div v-if="modelValue" class="fv-overlay" @click.self="close">
-        <div class="fv-modal" role="dialog" aria-modal="true">
+      <div
+        v-if="modelValue"
+        class="fv-overlay"
+        :class="{
+          'is-panel-mode': isPanelMode,
+          'is-minimized': resultDisplayMode === 'minimized',
+        }"
+        @click.self="close"
+      >
+        <div class="fv-modal" role="dialog" :aria-modal="!isPanelMode">
           <!-- Header -->
           <div class="fv-header">
             <div class="fv-header-main">
@@ -227,9 +291,59 @@ limitations under the License.
                 currentTargetLabel
               }}</span>
             </div>
-            <button class="ui-icon-btn" type="button" @click="close">
-              <AppIcon name="x" :size="16" />
-            </button>
+            <div class="fv-header-actions">
+              <!-- 面板模式专属控件：返回总览 / 最小化（modal 模式隐藏） -->
+              <button
+                v-show="isPanelMode"
+                class="ui-icon-btn"
+                type="button"
+                :title="t('common.fullValidation.result.backToOverview')"
+                :aria-label="t('common.fullValidation.result.backToOverview')"
+                @click="resultDisplayMode = 'modal'"
+              >
+                <!-- 还原为全屏总览（maximize 对角箭头） -->
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="15 3 21 3 21 9" />
+                  <polyline points="9 21 3 21 3 15" />
+                  <line x1="21" y1="3" x2="14" y2="10" />
+                  <line x1="3" y1="21" x2="10" y2="14" />
+                </svg>
+              </button>
+              <button
+                v-show="isPanelMode"
+                class="ui-icon-btn"
+                type="button"
+                :title="t('common.fullValidation.result.minimizePanel')"
+                :aria-label="t('common.fullValidation.result.minimizePanel')"
+                @click="resultDisplayMode = 'minimized'"
+              >
+                <!-- 最小化为右下角胶囊 -->
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+              </button>
+              <button class="ui-icon-btn" type="button" @click="close">
+                <AppIcon name="x" :size="16" />
+              </button>
+            </div>
           </div>
 
           <!-- Step Navigation -->
@@ -297,7 +411,7 @@ limitations under the License.
                   class="ui-btn ui-btn--primary ui-btn--lg fv-run-btn"
                   type="button"
                   :disabled="running"
-                  @click="runTask"
+                  @click="handleRunTask"
                 >
                   <svg
                     width="18"
@@ -516,6 +630,7 @@ limitations under the License.
                     :key="groupName"
                     :group-name="String(groupName)"
                     :errors="errors"
+                    :located-keys="locatedErrorKeys"
                     @navigate="handleNavigateError"
                   />
                 </div>
@@ -541,7 +656,7 @@ limitations under the License.
 
               <!-- Result Actions -->
               <div class="fv-footer-actions">
-                <button class="ui-btn ui-btn--secondary" type="button" @click="runTask">
+                <button class="ui-btn ui-btn--secondary" type="button" @click="handleRunTask">
                   <svg
                     width="16"
                     height="16"
@@ -589,6 +704,39 @@ limitations under the License.
           </div>
         </div>
       </div>
+    </Transition>
+  </Teleport>
+
+  <!-- 最小化胶囊（结果面板收缩为右下角浮层，点击恢复面板） -->
+  <Teleport to="body">
+    <Transition name="modal-fade">
+      <button
+        v-if="modelValue && resultDisplayMode === 'minimized'"
+        class="fv-result-capsule"
+        type="button"
+        @click="resultDisplayMode = 'panel'"
+      >
+        <svg
+          class="fv-result-capsule-icon"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+          <line x1="12" y1="9" x2="12" y2="13" />
+          <line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
+        <span>{{
+          t('common.fullValidation.result.capsuleLabel', {
+            count: reportViewModel.failedCount,
+          })
+        }}</span>
+      </button>
     </Transition>
   </Teleport>
 

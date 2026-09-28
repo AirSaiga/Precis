@@ -160,7 +160,7 @@ const settings = {
       'Maintain default runtime parameters for task-based validation without affecting node-level instant checks.',
     defaultRunParamsSectionTitle: 'Default Validation Parameters',
     defaultRunParamsHint:
-      'These parameters only affect task-based validation such as full/table/file runs. They do not affect instant validation on canvas nodes.',
+      'These parameters only affect task-based validation such as full/table runs. They do not affect instant validation on canvas nodes.',
     validation: {
       title: 'Validation Behavior',
     },
