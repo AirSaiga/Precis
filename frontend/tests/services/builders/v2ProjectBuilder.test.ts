@@ -28,16 +28,9 @@ function makeNode(overrides: Partial<CustomNode> & { id: string; type: string })
 }
 
 describe('buildV2ProjectView', () => {
-  it('约束坞节点不写入 view（无死键）', () => {
+  it('节点位置与 hidden 状态写入 view（schema id 键）', () => {
     const nodes = [
       makeNode({ id: 'sc_users', type: 'schema', position: { x: 10, y: 20 } }),
-      makeNode({
-        id: 'constraint-dock-sc_users',
-        type: 'constraintDock',
-        position: { x: 430, y: 20 },
-        hidden: true,
-        data: { schemaNodeId: 'sc_users', rows: [], expanded: false },
-      }),
       makeNode({
         id: 'c1',
         type: 'notNullConstraint',
@@ -48,11 +41,10 @@ describe('buildV2ProjectView', () => {
     const view = buildV2ProjectView(nodes)
 
     expect(view.nodes).toEqual({ sc_users: { x: 10, y: 20 }, c1: { x: 100, y: 300 } })
-    expect(Object.keys(view.nodes)).not.toContain('constraint-dock-sc_users')
     expect(view.nodeStates).toEqual({ c1: { hidden: true, expanded: false } })
   })
 
-  it('无坞画布输出不受影响', () => {
+  it('无隐藏/展开节点时 nodeStates 缺省', () => {
     const view = buildV2ProjectView([
       makeNode({ id: 'sc1', type: 'schema', position: { x: 1, y: 2 } }),
     ])

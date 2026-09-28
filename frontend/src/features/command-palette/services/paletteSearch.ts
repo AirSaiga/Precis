@@ -27,11 +27,10 @@ import type { CustomNode, CustomNodeData } from '@/types/graph'
 import type { NodeSearchEntry } from '../types'
 
 /**
- * 不进结果集的纯 UI 节点：约束坞 / 正则工具箱 / 约束仪表盘都是派生视图，
+ * 不进结果集的纯 UI 节点：正则工具箱 / 约束仪表盘都是派生视图，
  * 定位它们没有业务意义（其宿主数据源才是搜索目标）。
  */
 export const PALETTE_EXCLUDED_NODE_TYPES: ReadonlySet<string> = new Set([
-  'constraintDock',
   'patternToolbox',
   'constraintDashboard',
 ])
@@ -39,7 +38,7 @@ export const PALETTE_EXCLUDED_NODE_TYPES: ReadonlySet<string> = new Set([
 /** 节点结果上限：大项目数百节点全渲染会拖慢面板，截断为前 N 条 */
 export const MAX_NODE_RESULTS = 50
 
-/** schema/jsonSchema 节点判定（与 viewFilter / dockSync 的同名判定一致） */
+/** schema/jsonSchema 节点判定（与 viewFilter 的同名判定一致） */
 function isSchemaNodeType(type: string | undefined): boolean {
   return type === 'schema' || type === 'jsonSchema'
 }

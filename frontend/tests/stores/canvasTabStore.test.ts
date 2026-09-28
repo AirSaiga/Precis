@@ -108,7 +108,13 @@ describe('canvasTabStore', () => {
 
   describe('initialize 恢复激活 Tab 画布', () => {
     it('激活 Tab 快照含实质内容时恢复 nodes/edges（含 projectRoot 时不清除）', async () => {
-      const savedNodes = [makeNode('project-root', 'projectRoot'), makeNode('schema-1', 'schema')]
+      // 边的 target 必须在快照节点集内：加载净化（canvasSanitize）会剔除
+      // 引用缺失节点的孤儿边（坞退役迁移引入的通用清理）
+      const savedNodes = [
+        makeNode('project-root', 'projectRoot'),
+        makeNode('schema-1', 'schema'),
+        makeNode('c1', 'notNullConstraint'),
+      ]
       const savedEdges = [makeEdge('e1', 'schema-1', 'c1')]
       vi.mocked(getV2Workspaces).mockResolvedValue({
         workspaces: [
@@ -131,7 +137,7 @@ describe('canvasTabStore', () => {
 
       // 恢复了快照内容（resetCanvas 后写入快照数据）
       expect(gs.resetCanvas).toHaveBeenCalledTimes(1)
-      expect(gs.nodes.map((n) => n.id)).toEqual(['project-root', 'schema-1'])
+      expect(gs.nodes.map((n) => n.id)).toEqual(['project-root', 'schema-1', 'c1'])
       expect(gs.edges).toHaveLength(1)
       expect(gs.reconcileAll).toHaveBeenCalled()
     })

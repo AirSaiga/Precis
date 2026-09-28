@@ -167,6 +167,36 @@
   color: var(--node-btn-text-hover);
 }
 
+/* 约束概览入口按钮：图标 + 约束总数徽标（无约束时按钮不渲染） */
+.header-icon-btn.constraint-overview-btn {
+  position: relative;
+}
+
+.header-icon-btn.constraint-overview-btn.is-active {
+  background: var(--node-btn-bg-hover);
+  color: var(--node-accent);
+}
+
+.constraint-count-badge {
+  position: absolute;
+  top: -3px;
+  right: -5px;
+  min-width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  box-sizing: border-box;
+  border-radius: var(--node-badge-radius-full);
+  background: var(--node-accent);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+}
+
 .header-icon-btn.is-saving {
   animation: spin 1s linear infinite;
 }

@@ -19,7 +19,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode, CustomNodeData } from '@/types/graph'
 import { NodeDeletionManager } from '@/services/managers/nodeDeletionManager'
-import { constraintDockNodeId } from '@/stores/graphStore/modules/factories/dockFactory'
 
 // graphStore 以共享可变替身注入：NodeDeletionManager 构造时捕获 useGraphStore()，
 // 替身内的 nodes/edges/spy 每个用例直接改写即可（同 canvasStore.test 模式）
@@ -32,14 +31,14 @@ vi.mock('@/stores/graphStore', async () => {
     deleteNodes: vi.fn(async () => {}),
     deleteNode: vi.fn(async () => {}),
   })
-  return { useGraphStore: () => state, __dockCascadeTestState: state }
+  return { useGraphStore: () => state, __deletionCascadeTestState: state }
 })
 
 vi.mock('@/i18n', () => ({
   default: { global: { t: (key: string) => key } },
 }))
 
-import { __dockCascadeTestState as graphState } from '@/stores/graphStore'
+import { __deletionCascadeTestState as graphState } from '@/stores/graphStore'
 
 function makeNode(id: string, type: string, data?: Record<string, unknown>): CustomNode {
   return {
@@ -50,15 +49,14 @@ function makeNode(id: string, type: string, data?: Record<string, unknown>): Cus
   } as CustomNode
 }
 
-describe('NodeDeletionManager schema 删除级联约束坞', () => {
+describe('NodeDeletionManager schema 删除级联约束子节点', () => {
   beforeEach(() => {
     graphState.nodes = []
     graphState.edges = []
     vi.clearAllMocks()
   })
 
-  it('schema 删除时坞随约束子节点一并进批量删除', async () => {
-    const dockId = constraintDockNodeId('sc1')
+  it('schema 删除时 sourceRef 挂靠的约束子节点一并进批量删除', async () => {
     graphState.nodes = [
       makeNode('sc1', 'schema'),
       makeNode('c1', 'notNullConstraint', {
@@ -69,7 +67,6 @@ describe('NodeDeletionManager schema 删除级联约束坞', () => {
         configName: 'uq',
         sourceRef: { nodeId: 'sc1', columnId: 'col-b' },
       }),
-      makeNode(dockId, 'constraintDock', { schemaNodeId: 'sc1' }),
     ]
 
     const manager = NodeDeletionManager.getInstance()
@@ -78,10 +75,10 @@ describe('NodeDeletionManager schema 删除级联约束坞', () => {
     expect(result).toBe(true)
     expect(vi.mocked(graphState.deleteNodes)).toHaveBeenCalledTimes(1)
     const batch = vi.mocked(graphState.deleteNodes).mock.calls[0]![0]
-    expect(batch).toEqual(['c1', 'c2', dockId, 'sc1'])
+    expect(batch).toEqual(['c1', 'c2', 'sc1'])
   })
 
-  it('画布上不存在坞时批量删除不包含坞 id', async () => {
+  it('无挂靠约束时批量删除只含 schema 自身', async () => {
     graphState.nodes = [makeNode('sc1', 'schema')]
 
     const manager = NodeDeletionManager.getInstance()

@@ -91,7 +91,7 @@ limitations under the License.
       <span v-else class="status-icon disconnected">○</span>
     </div>
 
-    <!-- 头部：表名、数据源信息、智能填充、保存、关闭 -->
+    <!-- 头部：表名、数据源信息、约束概览、智能填充、保存、关闭 -->
     <JsonSchemaNodeHeader
       :table-name="schemaData.tableName"
       :source-file="schemaData.sourceFile ?? null"
@@ -100,11 +100,15 @@ limitations under the License.
       :save-success="saveSuccess"
       :save-error="saveError"
       :save-state="schemaData.saveState"
+      :schema-node-id="props.id"
+      :constraint-count="constraintCount"
+      :constraint-overview-open="constraintOverviewStore.activeSchemaId === props.id"
       @start-edit="isEditingTitle = true"
       @confirm-edit="handleTableNameConfirm"
       @cancel-edit="isEditingTitle = false"
       @save="handleSave"
       @smart-fill="handleSmartFillClick"
+      @toggle-constraint-overview="constraintOverviewStore.toggle(props.id)"
       @close="handleClose"
       @source-info-click="handleSourceInfoClick"
     />
@@ -201,6 +205,12 @@ limitations under the License.
       @discard="confirmCloseWithoutSave"
       @cancel="cancelClose"
     />
+
+    <!--
+      约束概览弹层（Teleport 到 body；仅当本节点为活跃概览时渲染内容，
+      多 Schema 互斥由 constraintOverviewStore 保证）
+    -->
+    <SchemaConstraintOverview :schema-node-id="props.id" />
   </div>
 </template>
 
@@ -214,7 +224,7 @@ limitations under the License.
    * - 头部 / 数据源下拉 / 错误 popover / 关闭确认 全部改用既有的子组件（消除死代码）
    * - 新增智能填充、保存按钮接线、数据源切换、虚拟锚点、列级错误写回
    */
-  import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
+  import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
   import { v4 as uuidv4 } from 'uuid'
   import { logger } from '@/core/utils/logger'
   import { eventBus } from '@/core/eventBus'
@@ -237,6 +247,12 @@ limitations under the License.
   import JsonSchemaNodeDataSourceDropdown from './components/JsonSchemaNodeDataSourceDropdown.vue'
   import JsonSchemaNodeErrorPopover from './components/JsonSchemaNodeErrorPopover.vue'
   import JsonSchemaNodeCloseConfirm from './components/JsonSchemaNodeCloseConfirm.vue'
+  import SchemaConstraintOverview from '@/components/nodes/shared/SchemaConstraintOverview.vue'
+  import { useConstraintOverviewStore } from '@/stores/constraintOverviewStore'
+  import {
+    DENSITY_VIEWPORT_FALLBACK_HEIGHT_PX,
+    deriveConstraintFamilies,
+  } from '@/stores/graphStore/modules/constraintDensity'
 
   import '@/components/nodes/json/JsonSchemaNode.styles.css'
 
@@ -342,6 +358,18 @@ limitations under the License.
   const isDragOver = ref(false)
   const isEditingTitle = ref(false)
   const treeRef = ref<InstanceType<typeof JsonSchemaTree> | null>(null)
+
+  // 约束概览：本 Schema 家族的约束行派生（列序 + 内嵌/独立 + 表级沉底），
+  // 头部按钮的总数徽标与弹层内容共用；threshold 输入用视口兜底值（不影响行清单）
+  const constraintOverviewStore = useConstraintOverviewStore()
+  const constraintCount = computed(() => {
+    const family = deriveConstraintFamilies(
+      store.nodes,
+      store.edges,
+      DENSITY_VIEWPORT_FALLBACK_HEIGHT_PX
+    ).get(props.id)
+    return family?.rows.length ?? 0
+  })
 
   // ==================== 事件处理函数 ====================
 

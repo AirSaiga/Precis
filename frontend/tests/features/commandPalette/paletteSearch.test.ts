@@ -41,10 +41,9 @@ function makeNode(
 const TYPE_LABELS = { notNullConstraint: '非空' }
 
 describe('buildNodeSearchEntries', () => {
-  it('纯 UI 节点（constraintDock / patternToolbox / constraintDashboard）不进结果', () => {
+  it('纯 UI 节点（patternToolbox / constraintDashboard）不进结果', () => {
     const entries = buildNodeSearchEntries(
       [
-        makeNode('dock-1', 'constraintDock', { configName: '坞' }),
         makeNode('toolbox-1', 'patternToolbox', { patterns: [] }),
         makeNode('dashboard-1', 'constraintDashboard', { items: [] }),
         makeNode('schema-1', 'schema', { configName: 'users' }),

@@ -85,7 +85,7 @@ A1,10.5
 A2,20.0
 `;
 
-/** 内联约束物化卡片 id 约定：{schemaId}_{constraintId}（对齐 constraint-dock spec） */
+/** 内联约束物化卡片 id 约定：{schemaId}_{constraintId}（对齐 constraint-density spec） */
 const USERS_PASS_CARD = "vw_users_vw_name_notnull";
 const USERS_ERROR_CARD = "vw_users_vw_age_range";
 const ORDERS_PASS_CARD = "vw_orders_vw_oid_notnull";
@@ -157,7 +157,7 @@ async function openResourceTree(page: Page) {
   return tree;
 }
 
-/** 拖拽资源树 Schema 到画布，弹窗选指定按钮（复用 constraint-dock spec 的夹具模式）；dropRatio 为落点在画布内的相对位置 */
+/** 拖拽资源树 Schema 到画布，弹窗选指定按钮（复用 constraint-density spec 的夹具模式）；dropRatio 为落点在画布内的相对位置 */
 async function dragSchemaToCanvas(
   page: Page,
   schemaName: string,

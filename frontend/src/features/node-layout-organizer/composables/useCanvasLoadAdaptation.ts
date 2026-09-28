@@ -46,7 +46,7 @@ import { LayoutCalculator } from '../core/layoutCalculator'
 import { DEFAULT_ORGANIZE_OPTIONS, LAYOUT_CONSTANTS, SAFE_FITVIEW_PADDING } from '../constants'
 import { NODE_TYPE_TO_CATEGORY } from '../types'
 import type { ConnectionInfo, OrganizeOptions } from '../types'
-import { getDefaultDimension } from '../utils/nodeDimensionHelper'
+import { getDefaultDimension, readNodeDensity } from '../utils/nodeDimensionHelper'
 import { detectPositionAnomalies } from '../utils/overlapDetection'
 import {
   computeClearanceShift,
@@ -213,7 +213,7 @@ export function useCanvasLoadAdaptation(): void {
     type?: string
     position: { x: number; y: number }
   }): PlacedItem {
-    const dim = getDefaultDimension(node.type ?? '')
+    const dim = getDefaultDimension(node.type ?? '', readNodeDensity(node))
     return { position: node.position, width: dim.width, height: dim.height }
   }
 
@@ -265,7 +265,7 @@ export function useCanvasLoadAdaptation(): void {
     if (leftover.length > 0) {
       const anchor = computeColumnAnchor(positions, unaffected)
       const items: ColumnLayoutItem[] = leftover.map((n) => {
-        const dim = getDefaultDimension(n.type ?? '')
+        const dim = getDefaultDimension(n.type ?? '', readNodeDensity(n))
         return { id: n.id, width: dim.width, height: dim.height }
       })
       for (const [id, pos] of layoutBatchAsColumn(items, anchor, COLUMN_ROW_GAP)) {
@@ -280,7 +280,7 @@ export function useCanvasLoadAdaptation(): void {
       const placedItems: PlacedItem[] = []
       const dimById = new Map<string, { width: number; height: number }>()
       for (const n of affected) {
-        const dim = getDefaultDimension(n.type ?? '')
+        const dim = getDefaultDimension(n.type ?? '', readNodeDensity(n))
         dimById.set(n.id, dim)
         const pos = positions.get(n.id)
         if (pos) placedItems.push({ position: pos, width: dim.width, height: dim.height })
@@ -329,7 +329,7 @@ export function useCanvasLoadAdaptation(): void {
       maxX = Math.max(maxX, pos.x)
     }
     for (const n of unaffected) {
-      const dim = getDefaultDimension(n.type ?? '')
+      const dim = getDefaultDimension(n.type ?? '', readNodeDensity(n))
       maxX = Math.max(maxX, n.position.x + dim.width)
     }
     const x = Number.isFinite(maxX)

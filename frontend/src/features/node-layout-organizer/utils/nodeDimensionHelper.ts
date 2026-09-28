@@ -142,9 +142,13 @@ export function getNodeDimensionsFromDOM(nodeIds: string[]): Map<string, NodeDim
 }
 
 /**
- * 根据节点类型获取默认尺寸
+ * 根据节点类型获取默认尺寸。
+ *
+ * @param nodeType 节点类型
+ * @param density 约束密度档（'compact' → 紧凑条 240×36；缺省/其他 → 全卡档）。
+ *   拿不到 density 的调用方不传即可——保守回退全卡档（宁可高估）。
  */
-export function getDefaultDimension(nodeType: string): NodeDimension {
+export function getDefaultDimension(nodeType: string, density?: string): NodeDimension {
   if (nodeType === 'projectRoot') {
     return {
       width: NODE_DIMENSIONS.ROOT_WIDTH,
@@ -153,6 +157,12 @@ export function getDefaultDimension(nodeType: string): NodeDimension {
   }
 
   if (isConstraintNodeType(nodeType)) {
+    if (density === 'compact') {
+      return {
+        width: NODE_DIMENSIONS.CONSTRAINT_COMPACT_WIDTH,
+        height: NODE_DIMENSIONS.CONSTRAINT_COMPACT_HEIGHT,
+      }
+    }
     return {
       width: NODE_DIMENSIONS.CONSTRAINT_WIDTH,
       height: NODE_DIMENSIONS.CONSTRAINT_HEIGHT,
@@ -163,6 +173,15 @@ export function getDefaultDimension(nodeType: string): NodeDimension {
     width: NODE_DIMENSIONS.DEFAULT_WIDTH,
     height: NODE_DIMENSIONS.DEFAULT_HEIGHT,
   }
+}
+
+/** 从节点对象上读取约束密度档（非约束节点返回 undefined） */
+export function readNodeDensity(node: unknown): string | undefined {
+  if (!node || typeof node !== 'object') return undefined
+  const record = node as { type?: unknown; data?: { density?: unknown } | null }
+  if (record.type === undefined || !isConstraintNodeType(String(record.type))) return undefined
+  const density = record.data?.density
+  return typeof density === 'string' ? density : undefined
 }
 
 /**

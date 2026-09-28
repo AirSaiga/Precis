@@ -62,7 +62,6 @@ export type NodeType =
   | 'constraint'
   | ConstraintNodeType
   | 'templateInstance'
-  | 'constraintDock'
 
 export { isConstraintNodeType } from '@/services/constraints/validationRegistry'
 

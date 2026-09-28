@@ -130,9 +130,13 @@ limitations under the License.
       :save-success="saveSuccess"
       :save-error="saveError"
       :save-state="localData.saveState"
+      :schema-node-id="props.id"
+      :constraint-count="constraintCount"
+      :constraint-overview-open="constraintOverviewStore.activeSchemaId === props.id"
       @save="handleSave"
       @smart-fill="handleSmartFillClick"
       @close="handleClose"
+      @toggle-constraint-overview="constraintOverviewStore.toggle(props.id)"
       @source-info-click="handleSourceInfoClick($event)"
     />
 
@@ -301,6 +305,12 @@ limitations under the License.
     />
 
     <!--
+      约束概览弹层（Teleport 到 body；仅当本节点为活跃概览时渲染内容，
+      多 Schema 互斥由 constraintOverviewStore 保证）
+    -->
+    <SchemaConstraintOverview :schema-node-id="props.id" />
+
+    <!--
       关闭确认弹窗组件
       当尝试关闭有未保存更改的节点时显示
       提供三种操作：保存并关闭、放弃更改直接关闭、取消
@@ -382,6 +392,12 @@ limitations under the License.
   import SchemaNodeColumnMenuDropdown from '@/components/nodes/core/SchemaNode/components/SchemaNodeColumnMenuDropdown.vue'
   import SchemaNodeErrorPopover from '@/components/nodes/core/SchemaNode/components/SchemaNodeErrorPopover.vue'
   import SchemaNodeCloseConfirm from '@/components/nodes/core/SchemaNode/components/SchemaNodeCloseConfirm.vue'
+  import SchemaConstraintOverview from '@/components/nodes/shared/SchemaConstraintOverview.vue'
+  import { useConstraintOverviewStore } from '@/stores/constraintOverviewStore'
+  import {
+    DENSITY_VIEWPORT_FALLBACK_HEIGHT_PX,
+    deriveConstraintFamilies,
+  } from '@/stores/graphStore/modules/constraintDensity'
 
   // 统一样式文件导入
   import '@/components/nodes/core/SchemaNode/SchemaNode.styles.css'
@@ -574,6 +590,18 @@ limitations under the License.
   } = useSchemaNode(props, emit)
 
   // ==================== 计算属性 ====================
+
+  // 约束概览：本 Schema 家族的约束行派生（列序 + 内嵌/独立 + 表级沉底），
+  // 头部按钮的总数徽标与弹层内容共用；threshold 输入用视口兜底值（不影响行清单）
+  const constraintOverviewStore = useConstraintOverviewStore()
+  const constraintCount = computed(() => {
+    const family = deriveConstraintFamilies(
+      store.nodes,
+      store.edges,
+      DENSITY_VIEWPORT_FALLBACK_HEIGHT_PX
+    ).get(props.id)
+    return family?.rows.length ?? 0
+  })
 
   /**
    * 计算已连接的列 ID 集合

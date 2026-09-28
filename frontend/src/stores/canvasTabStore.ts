@@ -55,6 +55,7 @@ import type {
 import { useI18n } from 'vue-i18n'
 import { logger } from '@/core/utils/logger'
 import { getV2Workspaces, putV2Workspaces } from '@/api/projectV2Api'
+import { sanitizeRestoredCanvas } from '@/stores/graphStore/modules/canvasSanitize'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import { useProjectStore } from './projectStore'
 
@@ -526,10 +527,25 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
       ((currentTab.nodes && currentTab.nodes.length > 0) ||
         (currentTab.edges && currentTab.edges.length > 0))
     if (hasData) {
-      return {
-        nodes: currentTab.nodes ? safeClone(currentTab.nodes) : [],
-        edges: currentTab.edges ? safeClone(currentTab.edges) : [],
+      // 坞退役迁移：快照可能存着 constraintDock 空壳节点 / dock-edge-* 展示边 /
+      // 聚合残留 hidden 的约束卡（详见 canvasSanitize.ts 头注释）；
+      // 在此收敛净化，一处覆盖 initialize 启动恢复与 setActiveTab 切换恢复两路
+      const sanitized = sanitizeRestoredCanvas(
+        currentTab.nodes ? safeClone(currentTab.nodes) : [],
+        currentTab.edges ? safeClone(currentTab.edges) : []
+      )
+      if (
+        sanitized.removedNodeIds.length > 0 ||
+        sanitized.removedEdgeIds.length > 0 ||
+        sanitized.unhiddenNodeIds.length > 0
+      ) {
+        logger.debug('[CanvasTabStore] 快照净化（坞退役迁移）:', {
+          removedNodes: sanitized.removedNodeIds.length,
+          removedEdges: sanitized.removedEdgeIds.length,
+          unhidden: sanitized.unhiddenNodeIds.length,
+        })
       }
+      return { nodes: sanitized.nodes, edges: sanitized.edges }
     }
     return null
   }

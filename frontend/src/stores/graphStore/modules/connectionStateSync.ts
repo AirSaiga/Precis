@@ -57,7 +57,7 @@ const DATA_SOURCE_TYPES = new Set(['sourcePreview', 'jsonSourcePreview'])
 const SCHEMA_TYPES = new Set(['schema', 'jsonSchema'])
 
 /** 需要跳过的边类型标识（展示边不参与 parent/children 等关系状态维护） */
-const SKIP_EDGE_KINDS = new Set(['fkDisplay', 'dockDisplay'])
+const SKIP_EDGE_KINDS = new Set(['fkDisplay'])
 
 // ============================================================================
 // 辅助函数

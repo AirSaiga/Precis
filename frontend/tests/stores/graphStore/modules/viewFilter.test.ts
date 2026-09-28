@@ -26,7 +26,6 @@ import {
   shouldHideByErrorsOnly,
   computeViewFilterHiddenIds,
   computeViewFilterFingerprint,
-  isDockAggregatedNode,
   parsePersistedViewFilter,
   loadPersistedViewFilter,
   persistViewFilter,
@@ -85,25 +84,6 @@ function makeConstraintNode(
 
 function makeEdge(id: string, source: string, target: string): Edge {
   return { id, source, target } as Edge
-}
-
-function makeDockNode(schemaNodeId: string, standaloneIds: string[]): CustomNode {
-  return makeNode('constraintDock', {
-    id: `constraint-dock-${schemaNodeId}`,
-    data: {
-      configName: 'dock',
-      schemaNodeId,
-      expanded: false,
-      expandedAll: false,
-      rows: standaloneIds.map((cid) => ({
-        constraintId: cid,
-        kind: 'notNull',
-        columnId: 'col-a',
-        label: cid,
-        embedded: false,
-      })),
-    },
-  })
 }
 
 /** 测试替身：同步模拟 state.ts updateNodeData 的 hidden node 级 patch 语义 */
@@ -167,9 +147,8 @@ describe('getNodeFilterGroup', () => {
     expect(getNodeFilterGroup(undefined)).toBe('other')
   })
 
-  it('projectRoot 与 constraintDock 永不受筛（null）', () => {
+  it('projectRoot 永不受筛（null）', () => {
     expect(getNodeFilterGroup('projectRoot')).toBeNull()
-    expect(getNodeFilterGroup('constraintDock')).toBeNull()
   })
 })
 
@@ -232,14 +211,13 @@ describe('shouldHideByErrorsOnly', () => {
 })
 
 describe('computeViewFilterHiddenIds', () => {
-  it('三维度 conjunction：任一维度说隐藏即隐藏；dock/projectRoot 豁免', () => {
+  it('三维度 conjunction：任一维度说隐藏即隐藏；projectRoot 豁免', () => {
     const nodes = [
       makeNode('projectRoot', { id: 'root' }),
       makeSchemaNode('sc-in'),
       makeSchemaNode('sc-out'),
       makeConstraintNode('c-pass', 'pass', { nodeId: 'sc-in' }),
       makeNode('regex', { id: 're1' }),
-      makeDockNode('sc-in', []),
     ]
     const edges = [makeEdge('e1', 'sc-in', 'c-pass')]
     const hidden = computeViewFilterHiddenIds(nodes, edges, {
@@ -254,7 +232,6 @@ describe('computeViewFilterHiddenIds', () => {
     expect(hidden.has('c-pass')).toBe(true)
     expect(hidden.has('sc-out')).toBe(true) // 闭包外
     expect(hidden.has('re1')).toBe(true) // 分组隐藏
-    expect(hidden.has('constraint-dock-sc-in')).toBe(false)
   })
 
   it('闭包内节点仍受分组/仅异常维度约束（叠加为交集语义）', () => {
@@ -295,20 +272,6 @@ describe('computeViewFilterFingerprint', () => {
     expect(computeViewFilterFingerprint(nodes(), [])).not.toBe(base)
     c.hidden = false
     expect(computeViewFilterFingerprint(nodes(), [makeEdge('e1', 'sc1', 'c1')])).not.toBe(base)
-  })
-})
-
-describe('isDockAggregatedNode', () => {
-  it('rows 收编且未 L2 全展开 → true；expandedAll 坞 / 无坞 → false', () => {
-    const dock = makeDockNode('sc1', ['c1'])
-    const expandedDock = {
-      ...makeDockNode('sc1x', ['c2']),
-      data: { ...(makeDockNode('sc1x', ['c2']).data as object), expandedAll: true },
-    } as CustomNode
-    const nodes = [dock, expandedDock]
-    expect(isDockAggregatedNode('c1', nodes)).toBe(true)
-    expect(isDockAggregatedNode('c2', nodes)).toBe(false)
-    expect(isDockAggregatedNode('c3', [makeSchemaNode('sc2')])).toBe(false)
   })
 })
 
@@ -512,7 +475,7 @@ describe('createViewFilterModule：仅异常', () => {
 })
 
 describe('createViewFilterModule：聚焦', () => {
-  it('锚点为选中节点：闭包外业务节点隐藏，dock/projectRoot 保留', () => {
+  it('锚点为选中节点：闭包外业务节点隐藏，projectRoot 保留', () => {
     const s = setup()
     s.nodes.value = [
       makeNode('projectRoot', { id: 'root' }),
@@ -604,44 +567,33 @@ describe('createViewFilterModule：类型分组筛选', () => {
     s.module.setGroupHidden('source', false)
     expect(hiddenIds(s.nodes)).toEqual([])
   })
-
-  it('约束分组隐藏时坞仍显示（导航入口豁免）', () => {
-    const s = setup()
-    const dock = makeDockNode('sc1', ['c1'])
-    s.nodes.value = [makeSchemaNode('sc1'), makeConstraintNode('c1', 'error'), dock]
-    s.module.setGroupHidden('constraint', true)
-    expect(hiddenIds(s.nodes)).toEqual(['c1'])
-    expect(dock.hidden).toBeFalsy()
-  })
 })
 
-describe('createViewFilterModule：与坞聚合的所有权互不侵犯', () => {
-  it('已被坞聚合隐藏的卡片：视图筛选不入册，关闭后不误显', () => {
+describe('createViewFilterModule：与其他所有者的 hidden 互不侵犯', () => {
+  it('已被其他所有者隐藏的卡片（如模板折叠）：视图筛选不入册，关闭后不误显', () => {
     const s = setup()
-    const dockCard = makeConstraintNode('c-dock', 'pass')
-    dockCard.hidden = true // 坞聚合隐藏（dockSync 所为）
-    s.nodes.value = [makeSchemaNode('sc1'), dockCard, makeDockNode('sc1', ['c-dock'])]
+    const foreignHidden = makeConstraintNode('c-foreign', 'pass')
+    foreignHidden.hidden = true // 模板折叠等外部所有者隐藏
+    s.nodes.value = [makeSchemaNode('sc1'), foreignHidden]
 
-    s.module.toggleErrorsOnly() // c-dock 是 pass → 期望隐藏
-    expect(dockCard.hidden).toBe(true) // 仍隐藏（非我所藏，未重复入册）
+    s.module.toggleErrorsOnly() // c-foreign 是 pass → 期望隐藏
+    expect(foreignHidden.hidden).toBe(true) // 仍隐藏（非我所藏，未重复入册）
     s.module.toggleErrorsOnly() // 关闭
-    expect(dockCard.hidden).toBe(true) // 关键断言：不被恢复逻辑误显
+    expect(foreignHidden.hidden).toBe(true) // 关键断言：不被恢复逻辑误显
   })
 
-  it('我隐藏后又形成坞聚合的卡片：关闭筛选时所有权让渡给坞，不揭示', () => {
+  it('我隐藏的卡片：关闭筛选时无条件恢复（聚合态坞退役后无所有权让渡）', () => {
     const s = setup()
     const card = makeConstraintNode('c-mine', 'pass')
-    s.nodes.value = [makeSchemaNode('sc1'), card] // 尚无坞
+    s.nodes.value = [makeSchemaNode('sc1'), card]
     s.module.toggleErrorsOnly()
     expect(card.hidden).toBe(true)
 
-    // 坞在此期间形成（rows 收编该卡片）
-    s.nodes.value = [makeSchemaNode('sc1'), card, makeDockNode('sc1', ['c-mine'])]
     s.module.toggleErrorsOnly() // 关闭仅异常
-    expect(card.hidden).toBe(true) // 让渡给坞，不揭示；拆坞时 dockSync.restoreRows 负责
+    expect(card.hidden).toBe(false) // 册内恢复
   })
 
-  it('选中态卡片在被动重应用时豁免（镜像 dockSync L1 揭示语义）', async () => {
+  it('选中态卡片在被动重应用时豁免（防用户正关注的卡片被吞回）', async () => {
     vi.useFakeTimers()
     try {
       const s = setup()
@@ -650,7 +602,7 @@ describe('createViewFilterModule：与坞聚合的所有权互不侵犯', () => 
       s.module.toggleErrorsOnly()
       expect(card.hidden).toBe(true)
 
-      // 用户经坞徽标揭示该卡（dockSync 跳过选中卡 → 此处模拟选中 + 直接揭示）
+      // 用户选中该卡并揭示（模拟外部揭示路径）
       s.selectedNodeId.value = 'c-sel'
       s.selectedNodeIds.value = ['c-sel']
       card.hidden = false

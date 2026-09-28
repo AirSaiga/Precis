@@ -44,14 +44,10 @@ describe('serializeCanvasForAI', () => {
     expect(result[0].id).toBe('sc_users')
   })
 
-  it('过滤约束坞派生节点（不进 AI read_canvas 快照）', () => {
+  it('过滤结构性容器节点（projectRoot / Set 容器）', () => {
     const nodes = [
       makeNode({ id: 'sc_users', type: 'schema', data: { tableName: 'users' } }),
-      makeNode({
-        id: 'constraint-dock-sc_users',
-        type: 'constraintDock',
-        data: { schemaNodeId: 'sc_users', rows: [], expanded: false },
-      }),
+      makeNode({ id: 'root', type: 'projectRoot', data: {} }),
     ]
     const result = serializeCanvasForAI(nodes)
     expect(result.map((n) => n.id)).toEqual(['sc_users'])

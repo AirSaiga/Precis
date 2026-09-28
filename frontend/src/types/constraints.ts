@@ -110,6 +110,19 @@ export interface BaseConstraintNodeData {
    * 用于布局整理时快速获取关联节点，无需动态遍历边
    */
   parent?: string
+  /**
+   * 密度档（紧凑条自适应，会话态 UI 派生状态，不进 V2 YAML）：
+   * - 'compact' → ConstraintNodeFrame 渲染 240×36 紧凑条（选中时临时展开全卡）
+   * - undefined / 'full' → 全卡（现状渲染）
+   * 由 constraintDensity 管理器按"每 Schema 家族约束数 > 阈值"写入；
+   * 用户钉住（densityPinned）后管理器不再覆写。
+   */
+  density?: 'compact' | 'full'
+  /**
+   * 用户显式钉住的密度选择（双击紧凑条 / 全卡上"钉住"按钮）：
+   * true = density 是用户意志，密度管理器跳过该节点。
+   */
+  densityPinned?: boolean
 }
 
 /**

@@ -145,7 +145,7 @@ async function expandToSchemaRow(page: Page, schemaName: string) {
   return targetRow
 }
 
-/** 拖拽资源树 Schema 到画布，弹窗选指定按钮（复用 constraint-dock spec 的夹具模式） */
+/** 拖拽资源树 Schema 到画布，弹窗选指定按钮（复用 constraint-density spec 的夹具模式） */
 async function dragSchemaToCanvas(page: Page, schemaName: string, dialogChoice: string) {
   await closeInspectionDrawer(page)
   await page

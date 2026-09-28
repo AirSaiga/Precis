@@ -366,17 +366,6 @@ test.describe('拖入多列 Schema 后内嵌约束断连复现', () => {
     }).toPass({ timeout: 90_000 })
     await page.waitForTimeout(2000)
 
-    // 约束坞聚合：24 张卡片 > 阈值时被隐藏（Vue Flow 对 hidden 节点的边不渲染，
-    // DOM 级断言会全部误报缺失）。点击坞标题栏「展开全部」恢复卡片可见后再断言，
-    // 同时顺带覆盖 L2 展开路径（卡片浮出 + 边随可见节点恢复渲染）。
-    const dockExpandBtn = page.locator(
-      '.vue-flow__node[data-id="constraint-dock-customers"] .dock-expand-all',
-    )
-    if (await dockExpandBtn.isVisible().catch(() => false)) {
-      await dockExpandBtn.click()
-      await page.waitForTimeout(800)
-    }
-
     const edgesAfter = await collectEdgeIds(page)
     const custEdgesAfter = edgesAfter.filter((id) =>
       id.startsWith('e-customers-'),

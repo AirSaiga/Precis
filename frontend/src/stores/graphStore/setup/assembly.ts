@@ -51,8 +51,7 @@ import { createTransformFactoryModule } from '../modules/factories/transformFact
 import { createTransformOutputFactoryModule } from '../modules/factories/transformOutputFactory'
 import { createManualDataFactoryModule } from '../modules/factories/manualDataFactory'
 import { createLibraryNodesFactoryModule } from '../modules/factories/libraryNodesFactory'
-import { createDockFactoryModule } from '../modules/factories/dockFactory'
-import { createDockSyncModule } from '../modules/dockSync'
+import { createConstraintDensityModule } from '../modules/constraintDensity'
 import { createViewFilterModule } from '../modules/viewFilter'
 import { createMiscFactoryModule } from '../modules/factories/miscFactory'
 import { createJsonSchemaFactoryModule } from '../modules/factories/jsonSchemaFactory'
@@ -177,8 +176,7 @@ export function createGraphStoreAssembly(
       getEffectiveProjectConfigPath,
     })
 
-  // --- 约束坞（纯 UI 派生节点）---
-  const { ensureConstraintDockForSchema } = createDockFactoryModule({ nodes })
+  // --- 约束卡片密度管理（纯 data 写入，无派生图元素）---
   const { createEmptyTableNode, createEmptyPatternNode, createLogicNode } = createMiscFactoryModule(
     {
       createSchemaNode,
@@ -317,15 +315,13 @@ export function createGraphStoreAssembly(
     getEffectiveProjectConfigPath,
   })
 
-  // 约束坞同步器：fingerprint watcher 挂 store 生命周期，
-  // 单点覆盖手动连线/AI/导入/模板/undo/删除等全部 mutation 入口；
-  // L2 展开全部/收回动作暴露给坞组件标题栏按钮
-  const { expandDockAll, collapseDockAll } = createDockSyncModule({
+  // 约束卡片密度管理器：fingerprint watcher 挂 store 生命周期（不进返回对象），
+  // 单点覆盖手动连线/AI/导入/模板/undo/删除等全部 mutation 入口——
+  // 家族约束数 > 阈值 → density: 'compact'（用户钉住的节点跳过）
+  createConstraintDensityModule({
     nodes,
     edges,
     updateNodeData,
-    ensureConstraintDockForSchema,
-    selectedNodeIds,
   })
 
   const { deleteNodes } = nodeOps
@@ -501,9 +497,6 @@ export function createGraphStoreAssembly(
 
     clearColumnValidationErrors,
     clearAllValidationErrors,
-
-    expandDockAll,
-    collapseDockAll,
 
     viewFilterMode: viewFilter.viewMode,
     viewFilterFocusAnchorId: viewFilter.focusAnchorId,

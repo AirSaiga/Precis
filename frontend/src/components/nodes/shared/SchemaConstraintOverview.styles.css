@@ -1,0 +1,264 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+
+ * Copyright 2026 Precis Team
+
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+
+ *     http://www.apache.org/licenses/LICENSE-2.0
+
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
+/* ===== Schema 约束概览弹层（fixed 浮层，transform 定位由组件逐帧写入） ===== */
+.schema-constraint-overview {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: var(--ui-z-canvas-float);
+  width: 360px;
+  max-width: calc(100vw - 16px);
+  max-height: min(60vh, 560px);
+  display: flex;
+  flex-direction: column;
+  background: var(--node-bg, #1e1e1e);
+  border: 1px solid var(--node-border, #3c3c3c);
+  border-radius: var(--node-radius-md, 8px);
+  box-shadow: var(--node-shadow-lg, 0 12px 32px rgb(0 0 0 / 40%));
+  font-size: var(--node-text-size, 12px);
+  color: var(--node-text-color, #cccccc);
+  /* 状态色（与紧凑条同源的双重编码语义：pass 绿 / error 红 / missing 橙 / idle 灰） */
+  --ov-status-pass: var(--ui-success, #34d399);
+  --ov-status-error: #f44436;
+  --ov-status-warning: #ff9800;
+  --ov-status-idle: var(--ui-text-muted, #858585);
+}
+
+/* ===== 头部：标题 + 总数 + 状态聚合 + 关闭 ===== */
+.ov-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--node-divider-color, #3c3c3c);
+  flex-shrink: 0;
+}
+
+.ov-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--node-title-weight, 600);
+  font-size: var(--node-title-size, 13px);
+  color: var(--node-title-color, #cccccc);
+}
+
+.ov-total {
+  flex-shrink: 0;
+  min-width: 22px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  box-sizing: border-box;
+  border-radius: var(--node-badge-radius-full, 999px);
+  background: var(--node-accent, #007acc);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.ov-counts {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  cursor: default;
+}
+
+.ov-count {
+  font-size: var(--node-muted-size, 11px);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ov-count-pass {
+  color: var(--ov-status-pass);
+}
+
+.ov-count-error {
+  color: var(--ov-status-error);
+}
+
+.ov-count-pending {
+  color: var(--ov-status-idle);
+}
+
+.ov-close-btn {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--node-btn-radius-sm, 4px);
+  background: transparent;
+  color: var(--node-muted-color, #858585);
+  cursor: pointer;
+  padding: 2px;
+}
+
+.ov-close-btn:hover {
+  background: var(--node-btn-bg-hover, #2d2d30);
+  color: var(--node-title-color, #cccccc);
+}
+
+/* ===== 主体：按列小节 + chips ===== */
+.ov-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px 10px;
+}
+
+.ov-section {
+  padding: 4px 0;
+}
+
+.ov-section + .ov-section {
+  border-top: 1px dashed var(--node-divider-color, #3c3c3c);
+}
+
+.ov-section-title {
+  font-size: var(--node-muted-size, 11px);
+  font-weight: var(--node-label-weight, 600);
+  color: var(--node-muted-color, #858585);
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ov-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.ov-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 2px 8px;
+  border: 1px solid var(--node-border, #3c3c3c);
+  border-radius: var(--node-badge-radius-full, 999px);
+  background: var(--node-glass-bg, rgb(255 255 255 / 4%));
+  color: var(--node-text-color, #cccccc);
+  font-size: var(--node-muted-size, 11px);
+  line-height: 1.4;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    border-color var(--node-transition-fast, 0.15s),
+    background var(--node-transition-fast, 0.15s);
+}
+
+.ov-chip:hover {
+  border-color: var(--node-accent, #007acc);
+  background: var(--node-glass-bg-hover, rgb(255 255 255 / 8%));
+}
+
+/* 状态着色：图标染状态色（idle/内嵌保持中性） */
+.ov-chip .ov-chip-icon {
+  color: var(--ov-status-idle);
+}
+
+.ov-chip.ov-state-success .ov-chip-icon {
+  color: var(--ov-status-pass);
+}
+
+.ov-chip.ov-state-error .ov-chip-icon {
+  color: var(--ov-status-error);
+}
+
+.ov-chip.ov-state-warning .ov-chip-icon {
+  color: var(--ov-status-warning);
+}
+
+.ov-chip.ov-state-error.has-error {
+  border-color: var(--ov-status-error);
+}
+
+/* 内嵌约束：虚线描边区分（无独立卡片） */
+.ov-chip.is-embedded {
+  border-style: dashed;
+  background: transparent;
+}
+
+.ov-chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ov-chip-count {
+  flex-shrink: 0;
+  min-width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  box-sizing: border-box;
+  border-radius: var(--node-badge-radius-full, 999px);
+  background: var(--ov-status-error);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.ov-empty {
+  padding: 12px 0;
+  text-align: center;
+  color: var(--node-muted-color, #858585);
+  font-size: var(--node-muted-size, 11px);
+}
+
+/* ===== 底部操作行：全部展开 / 全部紧凑 ===== */
+.ov-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 6px 10px;
+  border-top: 1px solid var(--node-divider-color, #3c3c3c);
+  flex-shrink: 0;
+}
+
+.ov-action {
+  padding: 3px 10px;
+  border: 1px solid var(--node-border, #3c3c3c);
+  border-radius: var(--node-btn-radius-sm, 4px);
+  background: var(--node-btn-bg, #2d2d30);
+  color: var(--node-text-color, #cccccc);
+  font-size: var(--node-muted-size, 11px);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ov-action:hover {
+  border-color: var(--node-accent, #007acc);
+  color: var(--node-btn-text-hover, #fff);
+}

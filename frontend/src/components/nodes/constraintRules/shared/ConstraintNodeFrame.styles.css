@@ -15,6 +15,161 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 */
+
 .constraint-node-frame {
   width: var(--constraint-node-width, var(--node-width-default, 280px));
+}
+
+/* 钉住展开/取消钉住（NodeShell 右上角，紧邻删除按钮左侧） */
+.constraint-frame-pin-btn {
+  position: absolute;
+  top: 6px;
+  right: 38px;
+  z-index: 3;
+  height: 20px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--node-border, #3c3c3c);
+  border-radius: var(--node-radius-sm, 4px);
+  background: var(--node-btn-bg, #2d2d30);
+  color: var(--node-muted-color, #858585);
+  font-size: 10px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.constraint-frame-pin-btn:hover {
+  color: var(--node-title-color, #cccccc);
+  border-color: var(--node-accent, #007acc);
+}
+
+/* ===== 紧凑条（密度档默认渲染，240×36 一行式） ===== */
+.constraint-compact-bar {
+  position: relative;
+  width: 240px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px 0 14px;
+  box-sizing: border-box;
+  background: var(--node-bg, #1e1e1e);
+  border: 1px solid var(--node-border, #3c3c3c);
+  border-left-width: 3px;
+  border-radius: var(--node-radius-md, 8px);
+  box-shadow: var(--node-shadow-sm);
+  cursor: pointer;
+  user-select: none;
+  /* 状态左缘色条（同坞徽标的双重编码语义：pass 绿 / error 红 / missing 橙 / idle 灰） */
+  --compact-status-pass: var(--ui-success, #34d399);
+  --compact-status-error: #f44436;
+  --compact-status-warning: #ff9800;
+  --compact-status-idle: var(--ui-text-muted, #858585);
+}
+
+.constraint-compact-bar:hover {
+  border-color: var(--node-accent, #007acc);
+  box-shadow: var(--node-shadow-md);
+}
+
+.constraint-compact-bar.is-selected {
+  border-color: var(--node-accent, #007acc);
+}
+
+.constraint-compact-bar.state-success {
+  border-left-color: var(--compact-status-pass);
+}
+
+.constraint-compact-bar.state-error {
+  border-left-color: var(--compact-status-error);
+}
+
+.constraint-compact-bar.state-warning {
+  border-left-color: var(--compact-status-warning);
+}
+
+.constraint-compact-bar.state-idle,
+.constraint-compact-bar.state-selected {
+  border-left-color: var(--compact-status-idle);
+}
+
+.compact-icon {
+  flex-shrink: 0;
+  color: var(--node-title-color, #cccccc);
+}
+
+.constraint-compact-bar.state-success .compact-icon {
+  color: var(--compact-status-pass);
+}
+
+.constraint-compact-bar.state-error .compact-icon {
+  color: var(--compact-status-error);
+}
+
+.constraint-compact-bar.state-warning .compact-icon {
+  color: var(--compact-status-warning);
+}
+
+.compact-title {
+  flex-shrink: 0;
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--node-text-size, 12px);
+  font-weight: var(--node-title-weight, 600);
+  color: var(--node-title-color, #cccccc);
+}
+
+.compact-column {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--node-muted-size, 11px);
+  color: var(--node-muted-color, #858585);
+}
+
+.compact-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--compact-status-idle);
+}
+
+.compact-dot.dot-success {
+  background: var(--compact-status-pass);
+}
+
+.compact-dot.dot-error {
+  background: var(--compact-status-error);
+}
+
+.compact-dot.dot-warning {
+  background: var(--compact-status-warning);
+}
+
+.compact-dot.dot-idle,
+.compact-dot.dot-selected {
+  background: var(--compact-status-idle);
+}
+
+.compact-count {
+  flex-shrink: 0;
+  min-width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border-radius: var(--node-badge-radius-full, 999px);
+  background: var(--compact-status-error);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
 }

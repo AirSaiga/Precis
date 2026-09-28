@@ -203,19 +203,6 @@ async function dragSchemaToCanvas(
 }
 
 test.describe('画布真实 UI 交互', () => {
-  /**
-   * 约束坞聚合时代适配：导入的约束卡片数超过阈值时会被坞聚合隐藏
-   * （Vue Flow 对 hidden 节点不渲染，DOM 级断言会看不到卡片与其边）。
-   * 点击坞标题栏「展开全部」恢复卡片可见后再做 DOM 级断言；坞不存在则跳过。
-   */
-  async function expandDockIfPresent(page: import('@playwright/test').Page) {
-    const btn = page.locator('.vue-flow__node[data-id^="constraint-dock-"] .dock-expand-all')
-    if (await btn.isVisible().catch(() => false)) {
-      await btn.click()
-      await page.waitForTimeout(600)
-    }
-  }
-
   test.beforeEach(async ({ projectPage, testProjectPath }) => {
     // 每个测试从干净状态开始：打开项目、并清理之前可能残留的 view.json
     const viewPath = path.join(testProjectPath, VIEW_FILE)
@@ -306,8 +293,6 @@ test.describe('画布真实 UI 交互', () => {
       await page.waitForTimeout(800)
       expect(await constraintLocator.count()).toBe(first)
     }).toPass({ timeout: 20000 })
-    // 聚合适配：卡片默认被坞聚合隐藏（仅选中卡豁免），展开全部后以真实总数为基线
-    await expandDockIfPresent(page)
     const constraintCountBefore = await constraintLocator.count()
 
     // 记录删除前的 schema 节点，便于删除后断言其消失
@@ -371,8 +356,6 @@ test.describe('画布真实 UI 交互', () => {
     // （内嵌约束物化同样会产生 NotNull/Unique/Range/AllowedValues，这里用独立约束独有的类型
     //   DateLogic/Charset/Conditional 来区分“全部导入”与“只导 Schema”。）
     await page.waitForTimeout(1500) // 等待连带约束异步创建
-    // 聚合适配：卡片数超过阈值时被坞聚合隐藏，展开全部后卡片浮出再断言
-    await expandDockIfPresent(page)
     const independentConstraintNode = page.locator(
       '.vue-flow__node-dateLogicConstraint, .vue-flow__node-charsetConstraint, .vue-flow__node-conditionalConstraint'
     )
@@ -428,6 +411,34 @@ test.describe('画布真实 UI 交互', () => {
     // 结果面板应包含状态标题文字（“通过”或“失败”均可，关键是面板正常渲染）
     const statusTitle = modal.locator('.fv-status-title')
     await expect(statusTitle).toHaveText(/通过|失败/)
+  })
+
+  test('首次打开全量校验面板即可选中“单表”（回归：打开时初始化表列表）', async ({
+    projectPage,
+  }) => {
+    const page = projectPage
+
+    // 回归背景：useValidationTaskRunner.initializeTask 曾定义导出但从未被调用，
+    // 面板打开时 manifest 不加载 → availableTableTargets 为空 → 点“单表”卡片
+    // 静默失败（errorMessage 不在配置页渲染），必须先跑一次全项目校验后单表才可选。
+    // 修复后面板打开即初始化（加载 manifest + 运行前检查），单表首次即可选。
+    const projectRoot = page.locator('.project-root-node').first()
+    await expect(projectRoot).toBeVisible()
+    await projectRoot.getByRole('button', { name: /全量校验/ }).click()
+
+    const modal = page.locator('.fv-modal')
+    await expect(modal).toBeVisible({ timeout: 15000 })
+
+    // 首次打开（未跑过任何校验）直接点“单表”卡片。
+    // initializeTask 异步加载 manifest，点击可能先于加载完成（此时选择静默无效），
+    // 用 toPass 重试点击直到下拉框出现，消除时序竞态。
+    await expect(async () => {
+      await modal.getByRole('button', { name: /单表/ }).click()
+      // manifest 加载完成后，目标表下拉框应出现（fixture 项目 manifest 含 users/orders 两张表）
+      await expect(modal.locator('.table-dropdown select')).toBeVisible({ timeout: 3000 })
+    }).toPass({ timeout: 15000 })
+    // 且不应残留“没有可用于单表校验的表”错误
+    await expect(modal.getByText('当前项目中没有可用于单表校验的表。')).toHaveCount(0)
   })
 
   test('保存的节点位置持久化到 project.view.json', async ({ projectPage, testProjectPath }) => {

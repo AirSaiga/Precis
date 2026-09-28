@@ -29,19 +29,16 @@
  * - 节点类型分组显隐（hiddenGroups）：按 schema/source/transform/
  *   constraint/regex/other 六组勾选控制。
  *
- * 与约束坞（dockSync）的 ownership 纪律——本模块最大的耦合点：
+ * hidden 写入纪律：
  * - hidden 写入一律走注入的 updateNodeData（state.ts 路由为 node 级 patch）；
- * - 只隐藏"当前可见"的节点并记入 mine 集合；已被坞聚合隐藏 / 模板折叠
- *   隐藏的节点不动、不入 mine（不抢坞的所有权）；
- * - 恢复时只恢复 mine 中的节点，且若该节点此刻挂靠在某个未展开的坞的
- *   rows 里（聚合态），所有权让渡给坞——不揭示，仅移出 mine
- *   （拆坞时 dockSync 的 restoreRows 自会揭示）；
- * - 聚焦/仅异常/类型筛选均不隐藏 constraintDock（状态总览与导航入口）
- *   与 projectRoot（项目锚点，Ctrl+H 目标）。
+ * - 只隐藏"当前可见"的节点并记入 mine 集合；已被模板折叠等其他所有者
+ *   隐藏的节点不动、不入 mine（不抢所有权）；
+ * - 恢复时只恢复 mine 中的节点；
+ * - 聚焦/仅异常/类型筛选均不隐藏 projectRoot（项目锚点，Ctrl+H 目标）。
  *
- * 选中节点豁免（镜像 dockSync hideAggregatedCards 的语义）：watcher 驱动的
- * 重应用跳过当前选中的节点——坞徽标 L1 揭示（选中态）不被仅异常模式立即
- * 吞回。用户主动切换视图维度时则按选择模型一致性纪律先清空将被隐藏的选中。
+ * 选中节点豁免：watcher 驱动的重应用跳过当前选中的节点——用户正关注的
+ * 卡片不被仅异常模式立即吞回。用户主动切换视图维度时则按选择模型一致性
+ * 纪律先清空将被隐藏的选中。
  *
  * 持久化：localStorage 单 key 按项目配置路径分桶（刻意偏离原"存
  * project.view.json"计划——视图偏好是客户端本地状态，不进共享 V2 类型，
@@ -54,12 +51,12 @@
  *
  * 已知边界：undo 恢复"视图筛选隐藏期"的快照后立即关闭筛选，可能留下
  * 无主 hidden 节点（全量数组替换冲掉了 mine 所有权）——既有逃生口是
- * Ctrl+H 聚焦项目根（恢复全部隐藏节点，含坞聚合卡，属既有语义）。
+ * Ctrl+H 聚焦项目根（恢复全部隐藏节点，属既有语义）。
  */
 
 import { computed, ref, watch, type Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
-import type { CustomNode, CustomNodeData, ConstraintDockNodeData } from '@/types/graph'
+import type { CustomNode, CustomNodeData } from '@/types/graph'
 import { isConstraintNodeType } from '@/services/constraints/constraintMeta'
 import { logger } from '@/core/utils/logger'
 
@@ -99,11 +96,11 @@ const NODE_TYPE_GROUP_MAP: Record<string, NodeFilterGroup> = {
 /**
  * 节点类型 → 筛选分组。
  *
- * @returns null = 永不受筛（projectRoot 项目锚点 / constraintDock 状态总览）；
+ * @returns null = 永不受筛（projectRoot 项目锚点）；
  *          未知未来类型归入 'other'
  */
 export function getNodeFilterGroup(type: string | undefined): NodeFilterGroup | null {
-  if (type === 'projectRoot' || type === 'constraintDock') return null
+  if (type === 'projectRoot') return null
   if (isConstraintNodeType(type)) return 'constraint'
   return NODE_TYPE_GROUP_MAP[type ?? ''] ?? 'other'
 }
@@ -112,9 +109,9 @@ function isSchemaNodeType(type: string | undefined): boolean {
   return type === 'schema' || type === 'jsonSchema'
 }
 
-/** 聚焦锚点的合法类型：任意业务节点（projectRoot / constraintDock 不可作锚） */
+/** 聚焦锚点的合法类型：任意业务节点（projectRoot 不可作锚） */
 function isFocusableType(type: string | undefined): boolean {
-  return !!type && type !== 'projectRoot' && type !== 'constraintDock'
+  return !!type && type !== 'projectRoot'
 }
 
 // ============================================================================
@@ -128,7 +125,7 @@ function isFocusableType(type: string | undefined): boolean {
  * 1. 锚点自身；
  * 2. 与锚点直接相连的节点（边任一端命中）——约束、数据源、上下游；
  * 3. 锚点是 Schema 时：data.sourceRef.nodeId 指向它的独立约束
- *    （镜像 dockSync buildConstraintAttachments 的"并集挂靠"判定，
+ *    （"并集挂靠"判定，与 constraintDensity 的 buildConstraintAttachments 一致，
  *    覆盖无边挂靠场景）；
  * 4. 转换伴生对：闭包内节点的 outputNodeIds / parentTransformId /
  *    inputFromNode 引用（transform ↔ transformOutput 的视觉伴生关系
@@ -209,7 +206,7 @@ export interface ViewFilterStateSnapshot {
 /**
  * 计算期望隐藏的节点 id 集合（纯函数，三个维度的 conjunction）。
  *
- * 永不受筛：projectRoot、constraintDock。分组被隐藏时闭包内节点同样隐藏
+ * 永不受筛：projectRoot。分组被隐藏时闭包内节点同样隐藏
  * （维度叠加为交集语义，用户显式取消勾选分组优先于聚焦闭包保显）。
  */
 export function computeViewFilterHiddenIds(
@@ -237,8 +234,8 @@ export function computeViewFilterHiddenIds(
  * 计算视图筛选重应用指纹（纯函数）。
  *
  * 拼入：节点 id/type/约束校验状态（校验后重收敛"仅异常"）、边拓扑
- * （聚焦闭包随连线变化）、当前隐藏节点签名（Ctrl+H 全量揭示 / 坞聚合
- * 隐藏等外部 hidden 变化后自愈重收敛）。自写 hidden 会改变签名触发
+ * （聚焦闭包随连线变化）、当前隐藏节点签名（Ctrl+H 全量揭示等外部
+ * hidden 变化后自愈重收敛）。自写 hidden 会改变签名触发
  * 再应用，但重应用幂等（无 delta 即无写入），一轮收敛。
  */
 export function computeViewFilterFingerprint(
@@ -259,27 +256,6 @@ export function computeViewFilterFingerprint(
   }
   fp += `H|${hiddenIds.sort().join(',')}\n`
   return fp
-}
-
-/**
- * 判定节点此刻是否被某个聚合态的坞收编（纯函数）。
- *
- * 坞存在（> 阈值才会建坞）且未 L2 全展开 → rows 中的独立约束卡片
- * 处于聚合隐藏语义下，可见性归坞所有。
- */
-export function isDockAggregatedNode(nodeId: string, nodes: ReadonlyArray<CustomNode>): boolean {
-  for (const node of nodes) {
-    if (node.type !== 'constraintDock') continue
-    const data = (node.data || {}) as ConstraintDockNodeData
-    if (data.expandedAll === true) continue
-    if (
-      Array.isArray(data.rows) &&
-      data.rows.some((r) => !r.embedded && r.constraintId === nodeId)
-    ) {
-      return true
-    }
-  }
-  return false
 }
 
 // ============================================================================
@@ -395,8 +371,8 @@ export function createViewFilterModule(params: {
 
   /**
    * 我隐藏的节点 id 集合（所有权边界）。
-   * 只收录"隐藏时节点尚可见"的 id；已被坞/模板隐藏的不入册，
-   * 恢复时也只恢复册内且当前仍隐藏的节点。
+   * 只收录"隐藏时节点尚可见"的 id；已被模板折叠等其他所有者隐藏的
+   * 不入册，恢复时也只恢复册内且当前仍隐藏的节点。
    */
   const mine = new Set<string>()
   /**
@@ -461,7 +437,7 @@ export function createViewFilterModule(params: {
    * @param opts.userAction 用户主动切换视图维度时为 true：
    *   先按选择模型一致性纪律清空"将被隐藏"的选中节点（切换前清选择）；
    *   watcher 驱动的被动重应用则不清选择，且跳过当前选中节点的隐藏
-   *   （镜像 dockSync 的选中豁免，防 L1 揭示被立即吞回）。
+   *   （防用户正关注的卡片被立即吞回）。
    */
   function applyViewFilter(opts: { userAction?: boolean } = {}): void {
     const snapshot = nodes.value
@@ -514,17 +490,16 @@ export function createViewFilterModule(params: {
     const selectedNow = new Set<string>([...(selectedNodeIds.value ?? [])])
     if (selectedNodeId.value) selectedNow.add(selectedNodeId.value)
 
-    // 隐藏：只藏"当前可见且（被动重应用时）未被选中"的节点（不抢坞/模板的隐藏）
+    // 隐藏：只藏"当前可见且（被动重应用时）未被选中"的节点（不抢其他所有者的隐藏）
     for (const node of snapshot) {
       if (!desiredHidden.has(node.id)) continue
-      if (node.hidden === true) continue // 坞聚合/模板折叠已隐藏：非我所有，不入册
+      if (node.hidden === true) continue // 模板折叠等已隐藏：非我所有，不入册
       if (!opts.userAction && selectedNow.has(node.id)) continue // 选中豁免（仅被动重应用）
       updateNodeData(node.id, { hidden: true })
       mine.add(node.id)
     }
 
-    // 恢复：册内且不再该隐藏的节点。挂靠聚合态坞的卡片所有权让渡给坞
-    //（不揭示，仅出册；拆坞时 dockSync.restoreRows 自会揭示）
+    // 恢复：册内且不再该隐藏的节点
     for (const id of mine) {
       if (desiredHidden.has(id)) continue
       const node = snapshot.find((n) => n.id === id)
@@ -533,7 +508,6 @@ export function createViewFilterModule(params: {
         continue
       }
       mine.delete(id)
-      if (isDockAggregatedNode(id, snapshot)) continue
       updateNodeData(id, { hidden: false })
     }
 

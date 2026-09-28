@@ -32,6 +32,9 @@ limitations under the License.
   - isSaving: boolean — 是否正在保存
   - saveSuccess: boolean — 保存是否成功
   - saveError: boolean — 保存是否出错
+  - schemaNodeId: string — 所属 JSON Schema 节点 ID（约束概览开关自标识）
+  - constraintCount: number — 约束总数（>0 才显示约束概览按钮）
+  - constraintOverviewOpen: boolean — 约束概览弹层开合态（按钮高亮）
 
   Emits：
   - startEdit: 开始编辑表名
@@ -39,6 +42,7 @@ limitations under the License.
   - cancelEdit: 取消表名编辑
   - enter: 按下 Enter 键
   - save: 保存 Schema 变更
+  - toggleConstraintOverview: 开关约束概览弹层
   - smartFill: 触发智能填充
   - close: 关闭节点
   - sourceInfoClick: 点击数据源信息
@@ -139,12 +143,31 @@ limitations under the License.
       ========================================
       控制按钮区域
       ========================================
-      包含三个功能按钮：
-      1. 智能填充按钮：自动推断Schema结构
-      2. 保存按钮：保存Schema变更
-      3. 关闭按钮：关闭Schema节点
+      包含四个功能按钮：
+      1. 约束概览按钮：打开按列一览弹层（无约束时隐藏）
+      2. 智能填充按钮：自动推断Schema结构
+      3. 保存按钮：保存Schema变更
+      4. 关闭按钮：关闭Schema节点
     -->
     <div class="control-area">
+      <!--
+        约束概览入口：图标 + 该 Schema 约束总数徽标。
+        data-constraint-overview-toggle 供弹层的"点击外部关闭"识别自身开关
+        （再点关闭由 store.toggle 完成，外部关闭逻辑跳过该按钮防先关后开）。
+      -->
+      <button
+        v-if="(props.constraintCount ?? 0) > 0"
+        type="button"
+        class="header-icon-btn constraint-overview-btn schema-constraint-overview-toggle"
+        :class="{ 'is-active': props.constraintOverviewOpen }"
+        :data-constraint-overview-toggle="props.schemaNodeId"
+        :title="t('customNodes.constraintOverview.buttonTitle')"
+        @click="emit('toggleConstraintOverview')"
+      >
+        <AppIcon name="shield" :size="16" />
+        <span class="constraint-count-badge">{{ props.constraintCount }}</span>
+      </button>
+
       <button
         class="header-icon-btn smart-fill-btn"
         @click="emit('smartFill')"
@@ -194,6 +217,7 @@ limitations under the License.
    * 2. 表名显示和编辑（支持点击编辑、Enter确认、ESC取消）
    * 3. 数据源连接状态显示（显示当前连接的文件信息）
    * 4. 控制按钮：
+   *    - 约束概览：打开按列一览弹层（无约束时隐藏）
    *    - 智能填充：自动推断Schema结构
    *    - 保存：保存Schema变更
    *    - 关闭：关闭Schema节点
@@ -257,6 +281,20 @@ limitations under the License.
      * 对齐 SchemaNodeHeader 的草稿徽标
      */
     saveState?: 'draft' | 'saved' | 'error'
+    /**
+     * 所属 JSON Schema 节点 ID
+     * 约束概览开关按钮的自标识（弹层"点击外部关闭"识别自身开关用）
+     */
+    schemaNodeId?: string
+    /**
+     * 该 Schema 的约束总数（内嵌 + 独立）
+     * 0 或缺省时隐藏约束概览按钮
+     */
+    constraintCount?: number
+    /**
+     * 约束概览弹层是否打开（按钮高亮态）
+     */
+    constraintOverviewOpen?: boolean
   }
 
   const props = defineProps<Props>()
@@ -294,6 +332,10 @@ limitations under the License.
      * 保存Schema变更
      */
     (e: 'save'): void
+    /**
+     * 开关约束概览弹层
+     */
+    (e: 'toggleConstraintOverview'): void
     /**
      * 触发智能填充功能
      * 自动推断Schema结构

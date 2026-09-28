@@ -53,6 +53,10 @@ export const NODE_DIMENSIONS = {
   CONSTRAINT_WIDTH: 260,
   // 实测约束节点约 120 高（DEF-14），取 130 留余量
   CONSTRAINT_HEIGHT: 130,
+  // 约束紧凑条档（ConstraintNodeFrame 密度两态）：240×36 一行式
+  //（类型图标 + 类型名 + 列名 + 状态点 + 错误计数）
+  CONSTRAINT_COMPACT_WIDTH: 240,
+  CONSTRAINT_COMPACT_HEIGHT: 36,
   ROOT_WIDTH: 300,
   // 实测 projectRoot 约 126 高（DEF-14），取 140 留余量
   ROOT_HEIGHT: 140,

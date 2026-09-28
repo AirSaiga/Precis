@@ -99,6 +99,7 @@ import { useI18n } from 'vue-i18n'
 import { useInspectionStore } from '@/stores/inspectionStore'
 import { useCanvasStore } from '@/stores/canvasStore'
 import { getV2FullConfig, getV2ProjectView, ProjectNotFoundError } from '@/api/projectV2Api'
+import { sanitizeRestoredCanvas } from '@/stores/graphStore/modules/canvasSanitize'
 
 export function createV2LoadOps(params: {
   nodes: Ref<CustomNode[]>
@@ -274,12 +275,20 @@ export function createV2LoadOps(params: {
         oldConsoleNode.draggable = false
       }
 
+      // 坞退役迁移净化（在 hidden 应用之后）：view.json 的 nodeStates 可能存着
+      // 坞聚合时代的约束卡 hidden:true（聚合器已删，无人解除）；水合产物本身
+      // 不含坞节点/边，但统一走同一净化函数保证两条恢复路径语义一致（幂等）
+      const sanitized = sanitizeRestoredCanvas(nextNodes, nextEdges)
+      if (sanitized.unhiddenNodeIds.length > 0) {
+        logger.debug('[loadProjectFromV2] 净化坞聚合残留 hidden:', sanitized.unhiddenNodeIds)
+      }
+
       // 默认显示所有节点，让用户自行决定是否需要折叠
       // 之前强制 hidden=true 导致用户每次打开项目都要手动显示节点（F8）
       // 若 view.json 中存在 hidden 状态，则在下文应用 view 时覆盖
       // 当前不做任何默认隐藏操作
-      nodes.value = nextNodes
-      edges.value = nextEdges
+      nodes.value = sanitized.nodes
+      edges.value = sanitized.edges
       selectedNodeId.value = null
       // 项目加载 = 画布上下文不可逆切换：清空撤销栈，
       // 防止 Ctrl+Z 把上一个项目的节点图恢复到当前画布
