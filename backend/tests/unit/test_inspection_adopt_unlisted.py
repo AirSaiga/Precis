@@ -133,7 +133,12 @@ class TestAdoptUnlistedEndpoint:
 
     def test_adopt_rejects_path_traversal(self, tmp_path):
         config_path = _write_project(tmp_path, {})
-        for bad_path in ("../outside.yaml", "schemas/../../etc/passwd", "C:\\\\windows\\\\system.ini"):
+        for bad_path in (
+            "../outside.yaml",
+            "schemas/../../etc/passwd",
+            "C:\\\\windows\\\\system.ini",
+            "C:relative.yaml",
+        ):
             with pytest.raises(HTTPException) as exc_info:
                 adopt_unlisted(AdoptUnlistedRequest(resource_type="schema", resource_path=bad_path), config_path)
             assert exc_info.value.status_code == 400

@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -353,7 +354,10 @@ def _find_resource_file(config_path: str, req: AdoptUnlistedRequest) -> Path:
     """
     if req.resource_path:
         raw = req.resource_path.replace("\\", "/")
-        if not raw or os.path.isabs(raw) or ".." in raw.split("/"):
+        # 平台无关的安全判定：Windows 盘符路径（C:/x 盘符绝对、C:x 盘符相对）在 Linux 宿主上
+        # 不被 os.path.isabs 识别（会漏进"文件不存在"404 分支），在 Windows 宿主上经
+        # os.path.join 会逃出项目根——必须显式拒绝（可写操作从严，见 AGENTS.md 路径安全红线）
+        if not raw or os.path.isabs(raw) or re.match(r"^[A-Za-z]:", raw) or ".." in raw.split("/"):
             raise HTTPException(status_code=400, detail=f"非法的资源路径: {req.resource_path}")
         candidate = Path(os.path.join(config_path, *raw.split("/")))
         if not candidate.is_file():
