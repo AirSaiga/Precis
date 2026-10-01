@@ -87,7 +87,7 @@ ValidationExecutor (services/validation/executor.py)
 | 路径 | `createPathingModule` | — |
 | 持久化状态 | `createPersistenceStatusModule` | — |
 | 作用域 | `createScopeModule` | — |
-| 视图筛选 | `createViewFilterModule` | `modules/viewFilter.ts`(视图模式三态 + 节点类型分组显隐;只管理自己隐藏的节点,与坞聚合隐藏互不侵犯;localStorage 按项目配置路径分桶持久化,不进 project.view.json) |
+| 视图筛选 | `createViewFilterModule` | `modules/viewFilter.ts`(视图模式三态 + 节点类型分组显隐;只管理自己隐藏的节点;localStorage 按项目配置路径分桶持久化,不进 project.view.json) |
 
 **约定**(稳定原则,见 AGENTS.md):
 - 每个工厂通过参数接收 `nodes`/`edges` 等响应式引用(依赖注入),不直接 import store
@@ -275,7 +275,7 @@ expandOnCanvas(instanceNodeId)                    [templateExpand.ts]
 
 > ⚠️ `e2e/flows/` 目录,独立 `package.json` 与 `playwright.config.ts`。spec 数量会增长,以 `ls e2e/flows/*.spec.ts` 实测为准。
 
-按主题分组(当前 38 个 spec):
+按主题分组(当前 47 个 spec):
 
 | 主题 | spec 文件 |
 |------|----------|
@@ -442,7 +442,7 @@ return node
 
 - 生成物 `frontend/src/types/generated/actions.ts`（`ActionType` 联合类型 + 4 个分类 Set + 只读/写盘 Set + **约束类型映射** `CONSTRAINT_TYPE_MAP`/`CONSTRAINT_TYPE_ALIASES`/`CANONICAL_CONSTRAINT_TYPES`）——**禁止手改**
 - 脚本 `frontend/scripts/codegen.mjs`（frontend 目录 `npm run codegen`）；CI 后端 job 末尾跑 codegen 并 `git diff` 校验生成物与提交一致
-- **修改 `registry.py` 的 `ACTIONS`/`CONSTRAINT_TYPES`/`CONSTRAINT_TYPE_ALIASES` 后必须跑 `npm run codegen` 重新生成并提交 `actions.ts`**，否则 CI 失败。前端业务代码从 `@/types/generated/actions` import，**禁止硬编码动作类型集合与约束类型映射**（`services/aiChatInstructions/connectionOps.ts` 的 `CONSTRAINT_TYPE_MAP` 即是 re-export 生成物，勿回退为手写表）
+- **修改 `registry.py` 的 `ACTIONS`/`CONSTRAINT_TYPES`/`CONSTRAINT_TYPE_ALIASES` 后必须跑 `npm run codegen` 重新生成并提交 `actions.ts`**，否则 CI 失败。前端业务代码从 `@/types/generated/actions` import，**禁止硬编码动作类型集合与约束类型映射**（消费方一律 import 生成物再导出使用，勿在业务文件另建手写表）
 
 ---
 

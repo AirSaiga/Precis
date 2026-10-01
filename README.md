@@ -27,9 +27,11 @@ Visual DAG Editor · Schema-Aware Validation · Local-First
 
 ## 这是什么
 
-Precis 是一款面向 Excel/CSV 表格数据的**本地优先**数据质量工具。通过可视化 DAG 画布，把数据校验流程从代码变成拖拽操作——非技术人员也能完成从数据源接入到多维度质量校验的完整链路。数据全程不出本机。
+Precis 是一款面向 Excel/CSV/TSV 表格数据的**本地优先**数据质量工具。通过可视化 DAG 画布，把数据校验流程从代码变成拖拽操作——非技术人员也能完成从数据源接入到多维度质量校验的完整链路。数据全程不出本机。
 
 三种入口，按需选择：**Electron 桌面应用**（推荐）、**CLI 命令行**、**REST API**；另有实验性的 **TUI 终端界面**（不随 Release 发布，需从源码构建）。
+
+![Precis 数据校验演示：拖拽建模 → 全量校验 → 错误定位](docs/assets/demo.gif)
 
 ## 核心特性
 
@@ -151,9 +153,11 @@ Precis/
 
 ## What is Precis
 
-Precis is a **local-first** data quality platform for Excel/CSV tabular data. It turns validation workflows from code into drag-and-drop operations on a visual DAG canvas — non-technical users can build complete validation pipelines without writing code. Your data never leaves your machine.
+Precis is a **local-first** data quality platform for Excel/CSV/TSV tabular data. It turns validation workflows from code into drag-and-drop operations on a visual DAG canvas — non-technical users can build complete validation pipelines without writing code. Your data never leaves your machine.
 
 Three entry points: **Electron desktop app** (recommended), **CLI**, and **REST API**; plus an experimental **TUI terminal app** (not attached to Releases — build from source).
+
+![Precis demo: drag-and-drop modeling → full validation → error navigation](docs/assets/demo.gif)
 
 ## Core Features
 

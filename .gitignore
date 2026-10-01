@@ -220,12 +220,13 @@ $RECYCLE.BIN/
 # ============================================================================
 # 9. 项目文档
 # ============================================================================
-# docs/ 目录作为本地文档不入库；例外：ARCHITECTURE.md（AGENTS.md 引用的架构索引）与 contracts/（CLI 契约文档，CI plugin_golden_test 硬依赖，缺失即红）
+# docs/ 目录作为本地文档不入库；例外：ARCHITECTURE.md（AGENTS.md 引用的架构索引）、contracts/（CLI 契约文档，CI plugin_golden_test 硬依赖，缺失即红）与 assets/（README 引用的演示 GIF/MP4）
 # 注意：必须忽略目录内容（/docs/*）而非目录本身（/docs/），否则下方 ! 例外规则不生效
 
 /docs/*
 !/docs/ARCHITECTURE.md
 !/docs/contracts/
+!/docs/assets/
 
 # ============================================================================
 # 10. 项目配置（保留示例，忽略实际配置）
@@ -242,6 +243,10 @@ $RECYCLE.BIN/
 
 # E2E 测试运行时产物
 qa_test/qa_simple/.precis/
+
+# demo 手动演练项目的运行时画布状态（record-demo 录制已改用系统 temp 副本，
+# 此目录只作手动演练基准；.precis/ 含机器特定绝对路径，不得入库）
+demo/precis-project/.precis/
 
 .python-version
 
@@ -282,6 +287,9 @@ tui-rust/build-warnings.log
 e2e/fluency-*
 e2e/typo-shots/
 e2e/typo-shots-fixed/
+# README 演示录制产物（record-demo.spec 的视频中间产物；录制项目副本在系统
+# temp 的 precis-demo/ 下，不在仓库内；成品在 docs/assets/）
+e2e/demo-output/
 
 
 /test-results/

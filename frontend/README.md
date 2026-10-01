@@ -78,9 +78,9 @@ src/
 ├── i18n/                   # 国际化（zh-CN / en-US）
 ├── router/                 # Vue Router 路由
 ├── services/               # 业务服务
-│   ├── aiChatInstructions/ # AI 聊天指令分发（canvasOps/connectionOps 等按域拆分）
 │   ├── builders/           # V2 配置构建器
 │   ├── canvas/             # 画布服务（连接策略、Vue Flow API）
+│   ├── canvasReconcile/    # AI 聊天画布对账（v2 变更集信封 → 磁盘重读幂等导入）
 │   ├── constraints/        # 约束系统（双注册表 + 校验编排）
 │   ├── disconnect/         # 断开连接清理
 │   ├── i18n/               # 服务层本地化消息（LocalizedMessage）
@@ -92,6 +92,7 @@ src/
 │   ├── reportExport/       # 报告导出
 │   ├── rules/              # 连接规则（22 条）
 │   ├── templateExpand/     # 模板展开纯规划
+│   ├── validation/         # 校验错误列定位（检查器信箱）
 │   └── validationReportViewModel.ts
 ├── stores/                 # Pinia 状态管理
 │   ├── graphStore/         # 画布核心 Store（Setup Store + 工厂模块）

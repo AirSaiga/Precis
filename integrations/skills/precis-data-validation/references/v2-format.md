@@ -13,7 +13,7 @@
 ├── schemas/<表名>.schema.yaml     # 每张表一个
 ├── constraints/<任意名>.constraint.yaml  # 每条约束一个
 ├── transforms/<任意名>.transform.yaml    # 转换节点（可选）
-└── <数据文件>                     # CSV / JSON / Excel 等
+└── <数据文件>                     # CSV / TSV / JSON / Excel 等
 ```
 
 - 所有实体的 `id`（manifest 条目、schema、constraint）使用 **UUID v4**，
@@ -88,7 +88,7 @@ columns:
 **6 种数据类型**：`string` / `integer` / `float` / `decimal` / `boolean` / `date`
 
 - 类型校验在格式解析阶段执行：列头与 `name` 不匹配、值无法按类型解析都会报错。
-- Excel/JSON 同样支持；JSON 数组-of-对象、Excel 需在 source 指定 `sheet`。
+- Excel/JSON 同样支持；JSON 数组-of-对象、Excel 需在 source 指定 `sheet`；TSV（`.tsv` 缺省制表符分隔）与 JSON Lines（`.jsonl`/`.ndjson`，逐行 JSON 对象）也可直接作数据源。
 - `decimal` 可用 dict 形式声明精度：`type: { name: decimal, precision: 28, scale: 2 }`。
 - 数据源 `source.mode` 还支持 `absolute_file`（绝对路径）；`relative_file` 相对 manifest 目录解析。
 
@@ -96,7 +96,7 @@ columns:
 
 约束也可以直接写在 schema 文件的 `constraints:` 列表里（不必建独立 constraint 文件），
 加载时会自动展开为独立约束（ID 加 `{schema_id}_` 前缀）。支持全部 10 种类型；
-列引用用**列名或列 ID**（`column`/`columns`），ForeignKey 用 `from_column`/`to_table`/`to_column`：
+列引用用**列名或列 ID**（`column`/`columns`；顶层列可用裸名，嵌套子列需「父.子」全限定路径——严格解析，引用解析不到时该约束按错误丢弃，不静默保留），ForeignKey 用 `from_column`/`to_table`/`to_column`：
 
 ```yaml
 version: 2

@@ -1,7 +1,7 @@
 # Precis CLI
 
-> Local-first data validation engine — define schemas and constraints in YAML, validate CSV / Excel / JSON with a single command.
-> 本地优先的数据校验引擎：用 YAML 定义表结构与约束规则，一条命令校验 CSV / Excel / JSON。
+> Local-first data validation engine — define schemas and constraints in YAML, validate CSV / TSV / Excel / JSON / JSONL with a single command.
+> 本地优先的数据校验引擎：用 YAML 定义表结构与约束规则，一条命令校验 CSV / TSV / Excel / JSON / JSONL。
 
 **Alpha** — 核心功能稳定，配置格式有版本保障（V2）。
 
