@@ -17,7 +17,7 @@ limitations under the License.
 -->
 <!--
   @file AgentStatusBar.vue
-  @description Agent 模式状态栏组件
+  @description AI 任务状态条组件
 
   显示当前 AI 对话状态：
   - 空闲（隐藏或提示）

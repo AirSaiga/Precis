@@ -213,11 +213,12 @@ export async function executeReconcilePlan(
       deps.fitViewNode?.(nodeId)
     } catch (error) {
       restoreSelection()
-      // 模式切换窗口期（NodeCanvas 重建、vueFlowApi 单例被置空）是可预期降级：
-      // 静默跳过即可，不记 failed（避免触发"建议重新加载项目"的误导性失败提示）；
-      // 切换前 appModeStore 会先 awaitPendingInstructions，此路径仅兜底极端时序
+      // 画布 API 未就绪（应用启动早期画布尚未初始化等极端时序）是可预期降级：
+      // 静默跳过即可，不记 failed（避免触发"建议重新加载项目"的误导性失败提示）。
+      // 单一布局下画布不随布局切换重挂载；飞行 Promise 追踪（awaitPendingInstructions）
+      // 已收敛绝大多数时序，此路径仅兜底残余极端窗口
       if (error instanceof VueFlowApiNotInitializedError) {
-        logger.warn('[canvasReconcile] 画布未就绪（模式切换窗口期），跳过对账操作:', {
+        logger.warn('[canvasReconcile] 画布未就绪，跳过对账操作:', {
           instructionId: op.instructionId,
           entityId: op.entityId,
         })

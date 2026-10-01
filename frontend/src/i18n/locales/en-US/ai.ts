@@ -84,12 +84,10 @@ const aiChat = {
   askInvalidValue: 'Please enter a valid {type}',
   askMustSelect: 'Please select at least one',
   statusPendingAsk: 'Awaiting your answer',
-  // App mode toggle (IDE ↔ Agent)
-  modeIde: 'IDE',
-  modeAgent: 'Agent',
-  modeToggleTitle: 'Switch IDE / Agent mode',
-  modeIdeHint: 'Manual canvas editing',
-  modeAgentHint: 'AI fully-driven',
+  // Focus mode
+  focusModeEnter: 'Focus',
+  focusModeExit: 'Exit Focus',
+  focusModeHint: 'Hide panels and focus on working with AI',
 }
 
 const aiConfigGenerator = {

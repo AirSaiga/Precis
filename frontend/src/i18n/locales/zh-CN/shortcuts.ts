@@ -31,6 +31,7 @@ const shortcuts = {
     project: '项目',
     help: '帮助',
     palette: '面板',
+    layout: '布局',
   },
 
   // 命令名称
@@ -83,6 +84,10 @@ const shortcuts = {
 
     // 面板命令
     openCommandPalette: '打开命令面板',
+
+    // 布局命令
+    toggleFocus: '切换专注模式',
+    exitFocus: '退出专注模式',
   },
 
   // 操作反馈消息

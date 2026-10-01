@@ -31,6 +31,7 @@ const shortcuts = {
     project: 'Project',
     help: 'Help',
     palette: 'Palette',
+    layout: 'Layout',
   },
 
   // Command names
@@ -83,6 +84,10 @@ const shortcuts = {
 
     // Palette commands
     openCommandPalette: 'Open Command Palette',
+
+    // Layout commands
+    toggleFocus: 'Toggle Focus Mode',
+    exitFocus: 'Exit Focus Mode',
   },
 
   // Action feedback messages

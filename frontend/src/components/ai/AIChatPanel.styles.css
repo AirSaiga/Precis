@@ -19,7 +19,9 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding-bottom: 28px;
+  /* 让位底部状态栏（32px，见 App.styles.css .status-bar）：面板在侧栏容器内
+     全高排布，底部 padding 稍短会让输入区下缘被状态栏盖住 */
+  padding-bottom: 32px;
   box-sizing: border-box;
   /* 用 panel 层而非 base 层，使 AI 面板明显浮于画布之上（base 与 canvas 同值，无层次） */
   background: var(--ui-bg-panel);

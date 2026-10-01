@@ -134,8 +134,8 @@ export const useAiChatStore = defineStore('aiChat', () => {
   /**
    * 输入框草稿（未发送的文本）。
    *
-   * 提升到 store 层：AIChatPanel 在 IDE ↔ Agent 模式切换时会被销毁重建，
-   * 局部 ref 的 inputText 会丢失。提升后跨重建保留，用户切换模式不会丢失未发送内容。
+   * 提升到 store 层：跨视图切换 / 组件重建（如异步组件重新挂载）时保留草稿，
+   * 用户切换侧栏视图或进出专注模式不会丢失未发送内容。
    */
   const draftInput = ref('')
   /** 当前流式会话的 SSE 客户端（用于取消） */
@@ -145,9 +145,10 @@ export const useAiChatStore = defineStore('aiChat', () => {
   /**
    * 飞行中的 frontend_instruction Promise 集合。
    *
-   * 流式指令以 fire-and-forget 方式执行（不阻塞 SSE 事件循环），但模式切换前需等待
-   * 所有飞行指令落定，避免它们在 NodeCanvas 重建窗口期命中已销毁的 vueFlowApi 单例。
-   * 详见 appModeStore.setMode 的 awaitPendingInstructions 调用。
+   * 流式指令以 fire-and-forget 方式执行（不阻塞 SSE 事件循环）。飞行 Promise
+   * 追踪服务于对账 executor 的极端时序兜底：awaitPendingInstructions 可等待
+   * 它们落定，避免指令在画布 API 尚未就绪的窗口期命中未初始化的 vueFlowApi
+   * 单例（executor 对 VueFlowApiNotInitializedError 有静默降级兜底）。
    */
   const pendingInstructionPromises = new Set<Promise<unknown>>()
 
@@ -316,8 +317,7 @@ export const useAiChatStore = defineStore('aiChat', () => {
       const outcomeP = processFrontendInstructions(envelopes)
       if (!outcomeP) return
       reconcileOutcomePromises.push(outcomeP)
-      // 追踪飞行 Promise：模式切换前 awaitPendingInstructions 会等待它们落定，
-      // 避免对账操作在 NodeCanvas 重建窗口期命中已销毁的 vueFlowApi 单例
+      // 追踪飞行 Promise（服务于对账 executor 的极端时序兜底，见 awaitPendingInstructions）
       pendingInstructionPromises.add(outcomeP)
       outcomeP.finally(() => pendingInstructionPromises.delete(outcomeP))
     }
@@ -673,11 +673,10 @@ export const useAiChatStore = defineStore('aiChat', () => {
   /**
    * 等待所有飞行中的 frontend_instruction 落定。
    *
-   * 模式切换（IDE ↔ Agent）前由 appModeStore.setMode 调用，确保 NodeCanvas 重建窗口期
-   * 内没有指令在执行（否则会命中已 resetVueFlowApi 置空的 vueFlowApi 单例）。
+   * 飞行 Promise 追踪服务于对账 executor 的极端时序兜底：等待飞行指令落定，
+   * 避免它们在画布 API 尚未就绪的窗口期命中未初始化的 vueFlowApi 单例。
    *
-   * 带 3s 超时兜底：若某指令因异常卡住（如死循环），不永久阻塞模式切换。
-   * 带 3s 超时兜底：若某指令因异常卡住（如死循环），不永久阻塞模式切换。
+   * 带 3s 超时兜底：若某指令因异常卡住（如死循环），不永久阻塞调用方。
    * 超时后残留指令仍会继续执行，但由 executor 对 VueFlowApiNotInitializedError
    * 的静默降级保护（记 warn 跳过、不计失败），不会崩溃。
    */

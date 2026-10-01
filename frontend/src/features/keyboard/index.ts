@@ -40,6 +40,7 @@ import { getBaseCommands } from './commands/baseCommands'
 import { getCanvasCommands } from './commands/canvasCommands'
 import { getHelpCommands } from './commands/helpCommands'
 import { getPaletteShortcutCommands } from './commands/paletteCommands'
+import { getLayoutCommands } from './commands/layoutCommands'
 /**
  * 快捷键管理器接口
  */
@@ -147,6 +148,7 @@ export function createKeyboardShortcuts(
           ...getCanvasCommands(),
           ...getHelpCommands(),
           ...getPaletteShortcutCommands(),
+          ...getLayoutCommands(),
         ]
       : []
   }

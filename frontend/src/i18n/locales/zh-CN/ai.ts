@@ -81,12 +81,10 @@ const aiChat = {
   askInvalidValue: '请输入有效的{type}值',
   askMustSelect: '请至少选择一项',
   statusPendingAsk: '等待你的回答',
-  // 应用模式切换（IDE ↔ Agent）
-  modeIde: 'IDE',
-  modeAgent: 'Agent',
-  modeToggleTitle: '切换 IDE / Agent 模式',
-  modeIdeHint: '手动操作画布',
-  modeAgentHint: 'AI 全自动驱动',
+  // 专注模式（Focus Mode）
+  focusModeEnter: '专注模式',
+  focusModeExit: '退出专注模式',
+  focusModeHint: '隐藏面板，专注与 AI 协作',
 }
 
 const aiConfigGenerator = {

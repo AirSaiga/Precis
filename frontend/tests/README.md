@@ -59,7 +59,7 @@ frontend/tests/
 以下测试目前仍在 vitest 中运行，但按策略应由 E2E 覆盖。保留它们是为了过渡期不丢失断言，但新增类似测试时请优先写到 `e2e/flows/`。
 
 - `tests/composables/` — `useGlobalConfirm`、`useTheme`（注：实际测试的是 `@/core/utils/theme` 纯函数，建议改名为 `tests/core/utils/theme.test.ts`）、`shared/useToast`、`shared/useStreamingMessage`、`validation/useValidationErrorFilter`、`canvas/useCanvasNodeOperations.dragPosition`、`nodes/connectionHandlers`、`nodes/json/useJsonSchemaValidation`、`nodes/shared/useSchemaDataBase`、`nodes/transform/transformCategory`、`resource/useResourceInteraction`
-- `tests/stores/`（graphStore/ 除外）— `aiChatStore`、`appModeStore`、`canvasStore`、`canvasTabStore`、`dragStore`、`feedbackStore`、`projectStore`、`resourceDragStore`、`resourceTreeStore`、`scriptEditorStore`、`settingsNavStore`、`settingsPreferencesStore`、`shortcutStore`、`validationTaskStore`、`workspaceStore`
+- `tests/stores/`（graphStore/ 除外）— `aiChatStore`、`canvasStore`、`canvasTabStore`、`dragStore`、`feedbackStore`、`focusModeStore`、`projectStore`、`resourceDragStore`、`resourceTreeStore`、`scriptEditorStore`、`settingsNavStore`、`settingsPreferencesStore`、`shortcutStore`、`validationTaskStore`、`workspaceStore`
 
 ## 新增测试规范
 

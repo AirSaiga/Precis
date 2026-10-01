@@ -19,8 +19,8 @@
  * @file useLanguageToggle.ts
  * @description 语言切换共享 composable
  *
- * 统一 AgentLayout(Header)与 AssetLibraryNav(ActivityBar)的语言切换逻辑,
- * 确保两处入口始终走同一套「切换 locale + 持久化」流程,避免一处改了另一处忘改的漂移。
+ * 统一 AssetLibraryNav(ActivityBar)的语言切换逻辑,
+ * 确保入口始终走同一套「切换 locale + 持久化」流程,避免实现漂移。
  *
  * 行为:在 zh-CN / en-US 间来回切换,同时写入 settingsStore(由其 watch 持久化到 localStorage)。
  */

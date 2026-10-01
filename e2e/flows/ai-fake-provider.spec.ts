@@ -323,7 +323,7 @@ test.describe('AI Fake Provider（确定性 CI 守卫）', () => {
 
       // 打开临时项目（localStorage 引导，启动自动恢复直达画布）
       await openProjectOnCanvas(page, projectDir)
-      // 关闭可能自动弹出的配置自检抽屉（复用 mode-toggle.spec.ts 的模式）
+      // 关闭可能自动弹出的配置自检抽屉（复用 focus-mode.spec.ts 的模式）
       for (let i = 0; i < 6; i++) {
         const drawer = page.locator('.inspection-drawer')
         if (await drawer.isVisible().catch(() => false)) {
@@ -333,8 +333,8 @@ test.describe('AI Fake Provider（确定性 CI 守卫）', () => {
         await page.waitForTimeout(500)
       }
 
-      // 切到 Agent 模式（AIChatPanel 随 AgentLayout 挂载）
-      await page.locator('.mode-toggle-option', { hasText: 'Agent' }).first().click()
+      // 进入专注模式（侧栏切到 ai-chat 视图，AIChatPanel 显示为左栏）
+      await page.locator('.focus-mode-toggle').click()
       await expect(page.locator('.ai-chat-panel')).toBeVisible({ timeout: 15_000 })
 
       // 发送触发 fake 剧本的消息（为 nickname 加中文混合字符集约束）

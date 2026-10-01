@@ -22,6 +22,8 @@ limitations under the License.
   职责（拆分后）：
   - 提供应用整体布局框架（ActivityBar + Sidebar + Canvas + Inspector）
   - 编排子组件和 composables
+  - 专注模式（Focus Mode）视图状态编排：进入时快照布局并折叠活动栏/检查器，
+    退出时恢复快照——单一布局 + 状态驱动显隐，NodeCanvas / AIChatPanel 不重挂载
   - 保留少量全局事件处理和初始化逻辑
 
   已拆分出去的职责：
@@ -30,132 +32,72 @@ limitations under the License.
   - 全局 Overlay → AppOverlayHost 组件
   - 启动引导（项目路径、键盘快捷键） → useAppBootstrap composable
 
-  布局结构（从左到右）：
-  ┌──────┬──────────┬───┬───────────────────────┬───┬──────────┬────────┐
-  │ Act. │ Sidebar  │ ↕ │  Tab Bar              │ ↕ │ Inspector│  AI    │
-  │ Bar  │ (资源库) │   │  ┌──────────────────┐ │   │  Panel   │ Chat   │
-  │ 64px │ 可拖拽宽 │   │  │   NodeCanvas     │ │   │ 可拖拽宽 │ Drawer │
-  │      │          │   │  └──────────────────┘ │   │          │        │
-  └──────┴──────────┴───┴───────────────────────┴───┴──────────┴────────┘
+  布局结构（从左到右，专注模式为状态驱动的显隐变体而非独立布局树）：
+  ┌──────┬──────────┬───┬───────────────────────┬───┬──────────┐
+  │ Act. │ Sidebar  │ ↕ │  Tab Bar              │ ↕ │ Inspector│
+  │ Bar  │ (资源库/ │   │  ┌──────────────────┐ │   │          │
+  │ 64px │ AI 对话) │   │  │   NodeCanvas     │ │   │          │
+  │      │ 可拖拽宽 │   │  └──────────────────┘ │   │          │
+  └──────┴──────────┴───┴───────────────────────┴───┴──────────┘
+  专注模式：活动栏/检查器折叠，Sidebar 固定为 AI 对话视图（约 35% 视口宽）。
 -->
 
 <template>
-  <!-- IDE/Agent 布局切换：out-in 淡入淡出过渡，旧布局先淡出再淡入新布局，
-       避免两布局在 flex 容器中重叠导致的尺寸抖动。after-enter 后触发画布重 fitView，
-       消除 NodeCanvas 重挂载导致的视口跳变。无激活项目时同样渲染本布局（空画布），
-       项目打开/新建统一走画布内的项目管理弹窗（状态栏入口 / Ctrl+Shift+P）。 -->
-  <Transition name="layout-fade" mode="out-in" @after-enter="onLayoutEntered">
-    <!-- Agent 模式：AI 对话 + 画布双栏布局（隐藏工具箱） -->
-    <AgentLayout v-if="appModeStore.isAgentMode" />
-
-    <!-- IDE 模式：主应用布局（ActivityBar + Sidebar + Canvas + Inspector） -->
-    <div
-      v-else
-      class="app-layout"
-      :class="{ 'is-resizing': layout.isLayoutTransitionDisabled.value }"
+  <!-- 单一应用布局：专注模式是视图状态（focusModeStore.isFocusMode）而非独立布局树，
+       布局状态驱动显隐，NodeCanvas 与 AIChatPanel 均不重挂载，无切换竞态。
+       无激活项目时同样渲染本布局（空画布），项目打开/新建统一走画布内的项目
+       管理弹窗（状态栏入口 / Ctrl+Shift+P）。 -->
+  <div
+    class="app-layout"
+    :class="{
+      'is-resizing': layout.isLayoutTransitionDisabled.value,
+      'is-focus-mode': focusModeStore.isFocusMode,
+    }"
+  >
+    <!-- Level 1: Activity Bar (导航条) -->
+    <aside
+      class="activity-bar"
+      :style="{ width: layout.activityBarCollapsed.value ? '0px' : '64px' }"
     >
-      <!-- 顶部模式切换浮层（绝对定位居中，悬浮于 tab-bar 之上，避免破坏四栏 flex 布局） -->
-      <div class="app-mode-toggle-floating">
-        <ModeToggle />
-      </div>
+      <AssetLibraryNav />
+    </aside>
 
-      <!-- Level 1: Activity Bar (导航条) -->
-      <aside
-        class="activity-bar"
-        :style="{ width: layout.activityBarCollapsed.value ? '0px' : '64px' }"
-      >
-        <AssetLibraryNav />
-      </aside>
+    <!-- Level 2: Dynamic Sidebar (侧边面板) -->
+    <!-- 注意：活动栏折叠（专注模式）时侧栏从 x=0 起排——不要加负 margin"补位"，
+           否则侧栏左缘被推出视口外（内容裁剪）、flex 总宽不闭合（画布右缘露底色竖条） -->
+    <div
+      class="sidebar-panel-container"
+      :style="{ width: layout.sidebarCollapsed.value ? '0px' : layout.sidebarWidth.value + 'px' }"
+    >
+      <AssetLibrary
+        :current-view="currentView"
+        @dragstart="handleDragStart"
+        @dragend="handleDragEnd"
+      />
+    </div>
 
-      <!-- Level 2: Dynamic Sidebar (侧边面板) -->
-      <div
-        class="sidebar-panel-container"
-        :style="{
-          width: layout.sidebarCollapsed.value ? '0px' : layout.sidebarWidth.value + 'px',
-          marginLeft: layout.activityBarCollapsed.value ? '-64px' : '0px',
-        }"
-      >
-        <AssetLibrary
-          :current-view="currentView"
-          @dragstart="handleDragStart"
-          @dragend="handleDragEnd"
-        />
-      </div>
+    <!-- 左侧面板拖拽调宽分隔条 -->
+    <div
+      v-if="!layout.sidebarCollapsed.value"
+      class="panel-resize-divider left-resize-divider"
+      :class="{ 'is-dragging': layout.isDraggingSidebar.value }"
+      @mousedown="(e) => layout.handleMouseDown('sidebar', e)"
+    ></div>
 
-      <!-- 左侧面板拖拽调宽分隔条 -->
-      <div
-        v-if="!layout.sidebarCollapsed.value"
-        class="panel-resize-divider left-resize-divider"
-        :class="{ 'is-dragging': layout.isDraggingSidebar.value }"
-        @mousedown="(e) => layout.handleMouseDown('sidebar', e)"
-      ></div>
-
-      <!-- Level 3: Tabbed Canvas Area (标签式画布区域) -->
-      <div class="canvas-tabbed-container" :style="layout.canvasStyle.value">
-        <!-- Tab 导航栏 -->
-        <div class="tab-bar">
-          <div class="tab-list">
-            <div
-              v-for="(workspace, idx) in canvasStore.workspaces"
-              :key="workspace.id"
-              class="tab-item"
-              :class="{ active: canvasStore.activeWorkspaceId === workspace.id }"
-              @click="canvasStore.setActiveWorkspace(workspace.id, graphStore)"
-              @dblclick.stop="startRename(workspace)"
-            >
-              <span class="tab-icon">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-                  <polyline points="2 17 12 22 22 17"></polyline>
-                  <polyline points="2 12 12 17 22 12"></polyline>
-                </svg>
-              </span>
-              <!-- 内联重命名输入框：v-if 保证同一时刻最多只有一个渲染 -->
-              <input
-                v-if="renamingTabId === workspace.id"
-                id="tab-rename-input"
-                v-model="renameValue"
-                class="tab-rename-input"
-                @keydown.enter="confirmRename"
-                @keydown.escape="cancelRename"
-                @blur="confirmRename"
-                @click.stop
-              />
-              <!-- 默认标题：优先显示用户自定义标题，回退到 "工作区 N" 格式 -->
-              <span v-else class="tab-title">{{
-                workspace.title ||
-                t('canvas.workspaceWithIndex', {
-                  name: t('canvas.workspace'),
-                  index: workspace.index ?? idx + 1,
-                })
-              }}</span>
-              <span v-if="workspace.hasUnsavedChanges" class="tab-dirty">●</span>
-              <!-- 仅多工作区时显示关闭按钮，防止最后一个工作区被关闭导致空白 -->
-              <button
-                v-if="canvasStore.workspaces.length > 1"
-                class="tab-close ui-icon-btn ui-icon-btn--sm ui-icon-btn--danger"
-                type="button"
-                @click.stop="canvasStore.closeWorkspace(workspace.id, graphStore)"
-              >
-                <AppIcon name="x" :size="14" />
-              </button>
-            </div>
-            <button
-              class="tab-add ui-btn ui-btn--ghost ui-btn--icon ui-btn--sm"
-              type="button"
-              @click="canvasStore.createNewWorkspace(graphStore)"
-              :title="t('canvas.newWorkspace')"
-            >
+    <!-- Level 3: Tabbed Canvas Area (标签式画布区域) -->
+    <div class="canvas-tabbed-container" :style="layout.canvasStyle.value">
+      <!-- Tab 导航栏 -->
+      <div class="tab-bar">
+        <div class="tab-list">
+          <div
+            v-for="(workspace, idx) in canvasStore.workspaces"
+            :key="workspace.id"
+            class="tab-item"
+            :class="{ active: canvasStore.activeWorkspaceId === workspace.id }"
+            @click="canvasStore.setActiveWorkspace(workspace.id, graphStore)"
+            @dblclick.stop="startRename(workspace)"
+          >
+            <span class="tab-icon">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="14"
@@ -167,54 +109,111 @@ limitations under the License.
                 stroke-linecap="round"
                 stroke-linejoin="round"
               >
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                <polyline points="2 17 12 22 22 17"></polyline>
+                <polyline points="2 12 12 17 22 12"></polyline>
               </svg>
+            </span>
+            <!-- 内联重命名输入框：v-if 保证同一时刻最多只有一个渲染 -->
+            <input
+              v-if="renamingTabId === workspace.id"
+              id="tab-rename-input"
+              v-model="renameValue"
+              class="tab-rename-input"
+              @keydown.enter="confirmRename"
+              @keydown.escape="cancelRename"
+              @blur="confirmRename"
+              @click.stop
+            />
+            <!-- 默认标题：优先显示用户自定义标题，回退到 "工作区 N" 格式 -->
+            <span v-else class="tab-title">{{
+              workspace.title ||
+              t('canvas.workspaceWithIndex', {
+                name: t('canvas.workspace'),
+                index: workspace.index ?? idx + 1,
+              })
+            }}</span>
+            <span v-if="workspace.hasUnsavedChanges" class="tab-dirty">●</span>
+            <!-- 仅多工作区时显示关闭按钮，防止最后一个工作区被关闭导致空白 -->
+            <button
+              v-if="canvasStore.workspaces.length > 1"
+              class="tab-close ui-icon-btn ui-icon-btn--sm ui-icon-btn--danger"
+              type="button"
+              @click.stop="canvasStore.closeWorkspace(workspace.id, graphStore)"
+            >
+              <AppIcon name="x" :size="14" />
             </button>
           </div>
+          <button
+            class="tab-add ui-btn ui-btn--ghost ui-btn--icon ui-btn--sm"
+            type="button"
+            @click="canvasStore.createNewWorkspace(graphStore)"
+            :title="t('canvas.newWorkspace')"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+          </button>
         </div>
 
-        <!-- 画布容器 -->
-        <div class="canvas-area">
-          <NodeCanvas />
-        </div>
+        <!-- 专注模式切换按钮：tab 栏右端内联（margin-left:auto 顶到最右），
+               普通/专注两种模式下位置固定——曾用浮层居中方案，悬浮遮挡 tab 且
+               随宽度变化漂移，故改为内联（VS Code 式视图操作位） -->
+        <FocusModeToggle />
       </div>
 
-      <!-- 右侧面板拖拽调宽分隔条 -->
-      <div
-        v-if="!layout.rightCollapsed.value"
-        class="panel-resize-divider right-resize-divider"
-        :class="{ 'is-dragging': layout.isDraggingRight.value }"
-        @mousedown="(e) => layout.handleMouseDown('right', e)"
-      ></div>
-
-      <!-- 左侧Sidebar Panel切换按钮 -->
-      <div class="panel-toggle left-toggle" :style="layout.leftToggleStyle.value">
-        <button class="toggle-btn" type="button" @click="layout.toggleSidebar">
-          <span class="arrow" :class="{ 'rotate-180': !layout.sidebarCollapsed.value }"> ▶ </span>
-        </button>
+      <!-- 画布容器 -->
+      <div class="canvas-area">
+        <NodeCanvas />
       </div>
+    </div>
 
-      <!-- 右侧面板切换按钮 -->
-      <div class="panel-toggle right-toggle" :style="layout.rightToggleStyle.value">
-        <button class="toggle-btn" type="button" @click="layout.toggleRightPanel">
-          <span class="arrow" :class="{ 'rotate-180': layout.rightCollapsed.value }"> ▶ </span>
-        </button>
-      </div>
+    <!-- 右侧面板拖拽调宽分隔条 -->
+    <div
+      v-if="!layout.rightCollapsed.value"
+      class="panel-resize-divider right-resize-divider"
+      :class="{ 'is-dragging': layout.isDraggingRight.value }"
+      @mousedown="(e) => layout.handleMouseDown('right', e)"
+    ></div>
 
-      <!-- 右侧面板容器 (属性检查器) -->
-      <div class="panel-container right-panel" :style="layout.rightPanelStyle.value">
-        <InspectorPanel :collapsed="layout.rightCollapsed.value" />
-      </div>
+    <!-- 左侧Sidebar Panel切换按钮 -->
+    <div class="panel-toggle left-toggle" :style="layout.leftToggleStyle.value">
+      <button class="toggle-btn" type="button" @click="layout.toggleSidebar">
+        <span class="arrow" :class="{ 'rotate-180': !layout.sidebarCollapsed.value }"> ▶ </span>
+      </button>
+    </div>
 
-      <!-- 全局 Overlay 挂载点 -->
-      <AppOverlayHost />
+    <!-- 右侧面板切换按钮 -->
+    <div class="panel-toggle right-toggle" :style="layout.rightToggleStyle.value">
+      <button class="toggle-btn" type="button" @click="layout.toggleRightPanel">
+        <span class="arrow" :class="{ 'rotate-180': layout.rightCollapsed.value }"> ▶ </span>
+      </button>
+    </div>
 
-      <!-- 状态栏 -->
-      <AppStatusBar />
+    <!-- 右侧面板容器 (属性检查器) -->
+    <div class="panel-container right-panel" :style="layout.rightPanelStyle.value">
+      <InspectorPanel :collapsed="layout.rightCollapsed.value" />
+    </div>
 
-      <!-- AI 悬浮按钮（暂时隐藏） -->
-      <!--
+    <!-- 全局 Overlay 挂载点 -->
+    <AppOverlayHost />
+
+    <!-- 状态栏 -->
+    <AppStatusBar />
+
+    <!-- AI 悬浮按钮（暂时隐藏） -->
+    <!--
     <button
       v-if="!aiChatStore.drawerVisible"
       class="ai-chat-fab ui-icon-btn ui-icon-btn--lg"
@@ -247,36 +246,31 @@ limitations under the License.
     </button>
     -->
 
-      <!-- 拖拽 Ghost：跟随鼠标的资源拖拽预览 -->
-      <DragGhost
-        v-if="resourceDragStore.isDragging && resourceDragStore.payload"
-        :payload="resourceDragStore.payload"
-        :mouse-position="mousePosition"
-      />
-    </div>
-  </Transition>
+    <!-- 拖拽 Ghost：跟随鼠标的资源拖拽预览 -->
+    <DragGhost
+      v-if="resourceDragStore.isDragging && resourceDragStore.payload"
+      :payload="resourceDragStore.payload"
+      :mouse-position="mousePosition"
+    />
+  </div>
 
-  <!-- 崩溃反馈弹窗:独立于 app-layout(v-else 分支)渲染,
+  <!-- 崩溃反馈弹窗:独立于 app-layout 渲染,
        确保任何界面状态(含项目选择阶段)都能弹出全局崩溃反馈 -->
   <CrashFeedbackModal />
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+  import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
   import { useI18n } from 'vue-i18n'
   import AppIcon from '@/components/icons/AppIcon.vue'
 
   import { logger } from '@/core/utils/logger'
   import { eventBus } from '@/core/eventBus'
   import { appApi } from '@/core/capabilities/appApi'
-  import { fitView } from '@/services/canvas/vueFlowApi'
-  import { FITVIEW_DURATION_MS } from '@/services/canvas/animationDurations'
-  import { SAFE_FITVIEW_PADDING } from '@/features/node-layout-organizer/constants'
   import AssetLibraryNav from '@/components/layout/AssetLibraryNav.vue'
   import AssetLibrary from '@/components/layout/AssetLibrary.vue'
   import InspectorPanel from '@/components/layout/InspectorPanel.vue'
-  import AgentLayout from '@/components/layout/AgentLayout.vue'
-  import ModeToggle from '@/components/layout/ModeToggle.vue'
+  import FocusModeToggle from '@/components/layout/FocusModeToggle.vue'
   import NodeCanvas from '@/components/canvas/NodeCanvas.vue'
   import DragGhost from '@/components/canvas/DragGhost.vue'
   import AppStatusBar from '@/components/layout/AppStatusBar.vue'
@@ -286,14 +280,16 @@ limitations under the License.
   import { useAppLayout } from '@/composables/useAppLayout'
   import { useAppBootstrap } from '@/composables/useAppBootstrap'
   import { useTheme } from '@/composables/useTheme'
+  import { fitView } from '@/services/canvas/vueFlowApi'
+  import { FITVIEW_DURATION_MS } from '@/services/canvas/animationDurations'
+  import { SAFE_FITVIEW_PADDING } from '@/features/node-layout-organizer/constants'
 
   import { useCanvasStore, type Workspace } from '@/stores/canvasStore'
   import { useGraphStore } from '@/stores/graphStore'
-  import { useAppModeStore } from '@/stores/appModeStore'
+  import { useFocusModeStore } from '@/stores/focusModeStore'
   import { useProjectStore } from '@/stores/projectStore'
   import { useResourceDragStore, type ResourceDragPayload } from '@/stores/resourceDragStore'
   import { useFeedbackStore } from '@/stores/feedbackStore'
-  import { useCanvasViewportStore } from '@/stores/canvasViewportStore'
   // import { useAiChatStore } from '@/stores/aiChatStore'
 
   const { t } = useI18n()
@@ -301,11 +297,10 @@ limitations under the License.
   // --- Store 实例 ---
   const canvasStore = useCanvasStore()
   const graphStore = useGraphStore()
-  const appModeStore = useAppModeStore()
+  const focusModeStore = useFocusModeStore()
   const projectStore = useProjectStore()
   const resourceDragStore = useResourceDragStore()
   const feedbackStore = useFeedbackStore()
-  const canvasViewportStore = useCanvasViewportStore()
 
   // --- Composable 初始化 ---
   // useAppLayout: 管理侧边栏/检查器宽度、拖拽调宽、面板折叠状态
@@ -328,27 +323,70 @@ limitations under the License.
   // const aiChatStore = useAiChatStore()
 
   /**
-   * 布局过渡完成回调（IDE ↔ Agent 切换的 <Transition @after-enter>）。
+   * 专注模式编排：进入时快照布局五字段，退出时从快照逐项恢复。
    *
-   * 切换布局时 NodeCanvas 会重挂载。视口处理分两种情况：
-   * - 用户曾手动调整过视口（canvasViewportStore.isCustomized）：NodeCanvas 的 onMounted
-   *   已从 store 恢复 pan/zoom，此处跳过 fitView 避免覆盖用户视口。
-   * - 首次挂载或未自定义视口：调用 fitView 让画布自适应内容，消除重挂载导致的视口跳变。
+   * 编排放 App.vue（而非 store）的原因：layout 实例与 currentView 都在
+   * App.vue 作用域，focusModeStore 只做纯状态容器。进入时折叠活动栏与
+   * 检查器、展开侧栏为 AI 对话视图并把宽度设为约 35% 视口宽（右侧画布
+   * 占余下 65%）；退出时按快照恢复原布局后清空快照。
    */
-  const onLayoutEntered = () => {
-    nextTick(() => {
-      // 用户已自定义视口时，NodeCanvas onMounted 已恢复，跳过 fitView 避免覆盖
-      if (canvasViewportStore.isCustomized) return
+  /** 专注模式布局过渡时长余量：面板宽度/折叠过渡为 0.2s ease，等过渡结束后再取景 */
+  const FOCUS_LAYOUT_TRANSITION_MS = 240
+  /** 待执行的布局后取景定时器（进入/退出共用，快速连续切换时只保留最后一次） */
+  let focusFitViewTimer: ReturnType<typeof setTimeout> | null = null
+
+  /**
+   * 布局几何变化后重新取景（进入/退出专注模式共用）。
+   *
+   * 无条件 fitView（不判 canvasViewportStore.isCustomized）：专注切换改变了
+   * 画布可视区几何（起点右移、宽度变化），用户自定义的 pan/zoom 对应的是
+   * 切换前的可视区，保留它反而会让内容偏在旧位置（节点挤左上、大片空白）。
+   * 留白沿用 SAFE_FITVIEW_PADDING（与重构前 IDE/Agent 布局切换的取景策略一致）。
+   */
+  const refitCanvasAfterLayoutSettled = () => {
+    if (focusFitViewTimer !== null) clearTimeout(focusFitViewTimer)
+    focusFitViewTimer = setTimeout(() => {
+      focusFitViewTimer = null
       try {
-        // 安全留白（右侧检查器/底部状态栏/MiniMap），与整理节点取景策略一致，
-        // 避免窄视口下取景内容落入右侧面板下方不可点
         fitView({ padding: { ...SAFE_FITVIEW_PADDING }, duration: FITVIEW_DURATION_MS })
       } catch (e) {
         // vueFlowApi 未初始化（如尚无画布实例）时静默忽略，不影响切换
-        logger.debug('[App] 布局过渡后 fitView 跳过（画布未就绪）:', e)
+        logger.debug('[App] 专注模式切换后 fitView 跳过（画布未就绪）:', e)
       }
-    })
+    }, FOCUS_LAYOUT_TRANSITION_MS)
   }
+
+  watch(
+    () => focusModeStore.isFocusMode,
+    (active) => {
+      if (active) {
+        focusModeStore.snapshot = {
+          activityBarCollapsed: layout.activityBarCollapsed.value,
+          sidebarCollapsed: layout.sidebarCollapsed.value,
+          rightCollapsed: layout.rightCollapsed.value,
+          sidebarWidth: layout.sidebarWidth.value,
+          currentView: currentView.value,
+        }
+        layout.activityBarCollapsed.value = true
+        layout.rightCollapsed.value = true
+        layout.sidebarCollapsed.value = false
+        currentView.value = 'ai-chat'
+        layout.sidebarWidth.value = Math.round(layout.viewportWidth.value * 0.35)
+      } else {
+        const snap = focusModeStore.snapshot
+        if (snap) {
+          layout.activityBarCollapsed.value = snap.activityBarCollapsed
+          layout.sidebarCollapsed.value = snap.sidebarCollapsed
+          layout.rightCollapsed.value = snap.rightCollapsed
+          layout.sidebarWidth.value = snap.sidebarWidth
+          currentView.value = snap.currentView
+        }
+        focusModeStore.snapshot = null
+      }
+      // 布局状态生效后等宽度过渡结束再重新取景（进入、退出都需要）
+      refitCanvasAfterLayoutSettled()
+    }
+  )
 
   // --- 工作区 Tab 内联重命名 ---
 
@@ -540,6 +578,12 @@ limitations under the License.
 
   /** 应用卸载：清理键盘快捷键、拖拽状态和全局事件监听，防止内存泄漏 */
   onUnmounted(() => {
+    // 取消未触发的专注模式取景定时器，避免卸载后仍操作画布
+    if (focusFitViewTimer !== null) {
+      clearTimeout(focusFitViewTimer)
+      focusFitViewTimer = null
+    }
+
     // 应用关闭前，将当前画布快照写入磁盘
     canvasStore.saveCurrentCanvasData(graphStore.nodes, graphStore.edges)
     canvasStore.syncWorkspacesToBackend()

@@ -51,6 +51,7 @@ import { useDragStore } from '@/stores/dragStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { useShortcutStore } from '@/features/keyboard/stores/shortcutStore'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useFocusModeStore } from '@/stores/focusModeStore'
 import { useKeyboardShortcuts } from '@/features/keyboard'
 import type { Shortcut } from '@/features/keyboard/types'
 import { logger } from '@/core/utils/logger'
@@ -97,6 +98,7 @@ export function useAppBootstrap(): BootstrapResult {
   // dragStore: 资源树 → 画布跨组件拖拽状态
   // projectStore: 当前项目路径管理
   // shortcutStore: 用户自定义快捷键配置
+  // focusModeStore: 专注模式视图状态（驱动 layout.exitFocus 命令可用性）
   const graphStore = useGraphStore()
   const workspaceStore = useWorkspaceStore()
   const canvasStore = useCanvasStore()
@@ -104,12 +106,15 @@ export function useAppBootstrap(): BootstrapResult {
   const projectStore = useProjectStore()
   const shortcutStore = useShortcutStore()
   const settingsStore = useSettingsStore()
+  const focusModeStore = useFocusModeStore()
 
   // === 局部状态 ===
   // keyboardManager: 键盘引擎实例，由 bootstrap 阶段创建
   // stopShortcutConfigWatch: watch 返回的停止函数，cleanup 时调用
+  // stopFocusModeWatch: 专注模式 watch 的停止函数，cleanup 时调用
   let keyboardManager: ReturnType<typeof useKeyboardShortcuts> | null = null
   let stopShortcutConfigWatch: WatchStopHandle | null = null
+  let stopFocusModeWatch: WatchStopHandle | null = null
 
   /**
    * 将 shortcutStore 中的自定义快捷键配置转换为键盘引擎所需的格式
@@ -282,6 +287,28 @@ export function useAppBootstrap(): BootstrapResult {
     // 全局开关：settings 中可以启用/禁用快捷键
     keyboardManager.updateWhen(() => shortcutStore.enabled)
 
+    /**
+     * 同步 layout.exitFocus 命令可用性：仅在专注模式下参与 Escape 匹配。
+     *
+     * 注册表命中即无条件 preventDefault/stopPropagation（isAvailable 检查发生在
+     * executed 置位之后），若常驻绑定 Escape，非专注态下所有 Esc 语义都会被
+     * document 层拦截（如资源右键菜单的 window 级关闭监听）。按 isFocusMode
+     * 动态启停命令，非专注态不匹配、Esc 原样放行。用户在设置中显式禁用该命令
+     * 时尊重用户选择（保持禁用）。applyUserConfig 会 clear 注册表（重置禁用集），
+     * 因此配置变更后需重新同步。
+     */
+    const syncExitFocusAvailability = () => {
+      if (!keyboardManager) return
+      const userDisabled = shortcutStore.config.disabledCommands.includes('layout.exitFocus')
+      if (focusModeStore.isFocusMode && !userDisabled) {
+        keyboardManager.enable('layout.exitFocus')
+      } else {
+        keyboardManager.disable('layout.exitFocus')
+      }
+    }
+    syncExitFocusAvailability()
+    stopFocusModeWatch = watch(() => focusModeStore.isFocusMode, syncExitFocusAvailability)
+
     // 监听快捷键配置变更，实时应用到键盘引擎
     stopShortcutConfigWatch = watch(
       () => shortcutStore.config,
@@ -291,6 +318,8 @@ export function useAppBootstrap(): BootstrapResult {
           customShortcuts: buildCustomShortcutMap(),
           disabledCommands: [...cfg.disabledCommands],
         })
+        // applyUserConfig 会 clear 注册表（禁用集被重置），需重新同步 Esc 可用性
+        syncExitFocusAvailability()
       },
       { deep: true }
     )
@@ -338,6 +367,10 @@ export function useAppBootstrap(): BootstrapResult {
     if (stopShortcutConfigWatch) {
       stopShortcutConfigWatch()
       stopShortcutConfigWatch = null
+    }
+    if (stopFocusModeWatch) {
+      stopFocusModeWatch()
+      stopFocusModeWatch = null
     }
     dragStore.resetDragState()
     logger.debug('🧹 App引导组件已清理')

@@ -52,6 +52,8 @@ export interface AppLayoutState {
   sidebarWidth: Ref<number>
   /** 右侧面板当前宽度（px） */
   rightWidth: Ref<number>
+  /** 当前视口宽度（px，专注模式进入时用于计算 AI 对话栏占比） */
+  viewportWidth: Ref<number>
   /** 是否正在拖拽左侧边栏调宽 */
   isDraggingSidebar: Ref<boolean>
   /** 是否正在拖拽右侧面板调宽 */
@@ -108,6 +110,10 @@ export function useAppLayout(): AppLayoutState {
   let rafId: number | null = null
   let pendingSidebarWidth: number | null = null
   let pendingRightWidth: number | null = null
+  // 本次拖拽的侧栏宽度上限（mousedown 时定格）：MAX 与拖拽起始宽度的较大者。
+  // 专注模式初宽为 35% 视口宽（可超过 MAX），固定用 MAX 会在 500px 以上形成
+  // "拖不动的死区"并瞬间跳变；定格起点宽可左右平滑收缩/回扩，且不会无限增长
+  let dragSidebarMaxWidth = MAX_SIDEBAR_WIDTH
 
   const isLayoutTransitionDisabled = computed(
     () => isDraggingSidebar.value || isDraggingRight.value
@@ -200,6 +206,8 @@ export function useAppLayout(): AppLayoutState {
     event.preventDefault()
     if (type === 'sidebar') {
       isDraggingSidebar.value = true
+      // 上限定格在拖拽起点（见 dragSidebarMaxWidth 声明处的说明）
+      dragSidebarMaxWidth = Math.max(MAX_SIDEBAR_WIDTH, sidebarWidth.value)
     } else {
       isDraggingRight.value = true
     }
@@ -219,8 +227,11 @@ export function useAppLayout(): AppLayoutState {
    */
   const handleMouseMove = (evt: MouseEvent) => {
     if (isDraggingSidebar.value && !sidebarCollapsed.value) {
-      const newWidth = evt.clientX - ACTIVITY_BAR_WIDTH
-      if (newWidth >= MIN_SIDEBAR_WIDTH && newWidth <= MAX_SIDEBAR_WIDTH) {
+      // 活动栏折叠时（专注模式）侧栏从 x=0 起排，偏移不含 64px 活动栏宽，
+      // 否则拖动瞬间宽度跳变 64px
+      const sidebarOffset = activityBarCollapsed.value ? 0 : ACTIVITY_BAR_WIDTH
+      const newWidth = evt.clientX - sidebarOffset
+      if (newWidth >= MIN_SIDEBAR_WIDTH && newWidth <= dragSidebarMaxWidth) {
         pendingSidebarWidth = newWidth
       }
     } else if (isDraggingRight.value && !rightCollapsed.value) {
@@ -267,6 +278,7 @@ export function useAppLayout(): AppLayoutState {
     // --- 宽度与拖拽状态 ---
     sidebarWidth,
     rightWidth,
+    viewportWidth,
     isDraggingSidebar,
     isDraggingRight,
 

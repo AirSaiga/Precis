@@ -19,11 +19,11 @@
  * @file useCurrentStreaming.ts
  * @description 从消息列表中提取当前流式消息的 composable
  *
- * 复用原 AgentLayout.vue 的内联 computed 逻辑：倒序查找最后一条
- * role==='assistant' 且 streaming 非空的消息，返回其 streaming 状态。
+ * 倒序查找最后一条 role==='assistant' 且 streaming 非空的消息，
+ * 返回其 streaming 状态。
  *
- * 抽取目的：AppStatusBar（IDE 模式共享状态栏）也需要显示 AI 状态，
- * 避免在 AgentLayout 和 AppStatusBar 两处重复同一查找逻辑。
+ * 抽取目的：AppStatusBar（状态栏）需要显示 AI 状态，
+ * 避免在聊天面板与 AppStatusBar 两处重复同一查找逻辑。
  */
 
 import { computed } from 'vue'

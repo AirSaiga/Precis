@@ -25,37 +25,6 @@
   position: relative;
 }
 
-/* IDE/Agent 模式切换浮层：绝对定位居中，悬浮于 tab-bar 之上。
-   采用浮层而非改 flex 方向，避免破坏既有四栏水平布局逻辑。 */
-.app-mode-toggle-floating {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 40;
-  /* 给浮层一点垂直内边距，使其与 32px 高的 tab-bar 视觉对齐且不遮挡关闭按钮 */
-  padding: 2px 0;
-  pointer-events: none; /* 容器不拦截事件 */
-}
-
-/* 切换控件本身需要恢复事件接收 */
-.app-mode-toggle-floating > :deep(*) {
-  pointer-events: auto;
-}
-
-/* IDE ↔ Agent 布局过渡：out-in 淡入淡出。
-   mode="out-in" 保证旧布局先淡出再淡入新布局，避免 flex 容器中两布局重叠抖动。
-   仅过渡 opacity（不动画尺寸），保证过渡流畅且可预测。 */
-.layout-fade-enter-active,
-.layout-fade-leave-active {
-  transition: opacity var(--ui-transition-slow, 0.25s) ease;
-}
-
-.layout-fade-enter-from,
-.layout-fade-leave-to {
-  opacity: 0;
-}
-
 .activity-bar {
   flex-shrink: 0;
   background: var(--ui-bg-nav-primary);
@@ -96,6 +65,14 @@
   overflow-x: auto;
 }
 
+/* 专注模式切换按钮：tab 栏右端内联。tab 栏横向滚动时保持可见（不随 tab-list 滚走） */
+.tab-bar > .focus-mode-toggle {
+  margin-left: auto;
+  flex-shrink: 0;
+  position: sticky;
+  right: 0;
+}
+
 .tab-list {
   display: flex;
   align-items: center;
@@ -122,8 +99,8 @@
 }
 
 /* 工作区标签用中性样式（elevated 底 + 主文字色 + 细边框/字重区分 active），
-   不再用 accent 实心胶囊——避免与顶部 IDE/Agent 模式切换器（保持 accent）
-   语义混淆：accent 填充专留给一级模式开关 */
+   不再用 accent 实心胶囊——避免与顶部专注模式切换按钮（保持 accent）
+   语义混淆：accent 填充专留给一级布局开关 */
 .tab-item.active {
   background: var(--ui-bg-elevated);
   color: var(--ui-text-primary);
@@ -243,15 +220,8 @@
   overflow: hidden;
 }
 
-.ai-chat-panel {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 32px;
-  z-index: 100;
-  /* IDE 模式下浮动于画布之上，加左侧分隔线明确边界 */
-  border-left: 1px solid var(--ui-border-subtle);
-}
+/* AI 对话面板已迁入左侧 AssetLibrary（普通模式 ai-chat 视图 / 专注模式左栏），
+   旧 IDE 时代的"浮于画布右侧、bottom 让位状态栏"定位规则随双布局重构删除 */
 
 .ai-chat-fab {
   position: absolute;
@@ -281,4 +251,18 @@
 .is-resizing .right-panel,
 .is-resizing .canvas-tabbed-container {
   transition: none !important;
+}
+
+/* ===== 专注模式（视图状态驱动的显隐变体，NodeCanvas 不重挂载） ===== */
+
+/* 隐藏左右面板折叠箭头与右侧调宽分隔条（检查器已折叠，无需手动展开入口）；
+   左侧 sidebar 分隔条保留可拖（对话/画布比例可调），tab 栏保留 */
+.is-focus-mode .panel-toggle,
+.is-focus-mode .right-resize-divider {
+  display: none;
+}
+
+/* 检查器折叠为 0 宽后其 border-left 不再参与画布右缘视觉（防 1px 亮线残留） */
+.is-focus-mode .right-panel {
+  border-left: none;
 }

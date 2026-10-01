@@ -360,7 +360,6 @@
     "src/services/validationReportViewModel.ts",
     "src/services/workspaceConfigService.ts",
     "src/stores/aiChatStore.ts",
-    "src/stores/appModeStore.ts",
     "src/stores/canvasStore.ts",
     "src/stores/canvasTabStore.ts",
     "src/stores/canvasViewportStore.ts",
