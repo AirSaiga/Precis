@@ -95,6 +95,27 @@ class TestSourceSpec:
         assert config["type"] == "json"
         assert config["format"] == "array"
 
+    def test_to_loader_config_tsv_default_delimiter_not_leaked(self):
+        # .tsv 扩展名即分隔符声明：CSVOptions 未显式写 delimiter 时（缺省逗号），
+        # 不得经 to_loader_config 泄出遮蔽装载器的扩展名制表符缺省（手写带
+        # options 块的 .tsv schema 曾按逗号切列整表塌缩成单列）
+        s = SourceSpec(mode="relative_file", path="data/orders.tsv", options=CSVOptions(encoding="gbk"))
+        config = s.to_loader_config()
+        assert "delimiter" not in config
+        assert config["encoding"] == "gbk"
+
+    def test_to_loader_config_tsv_explicit_delimiter_kept(self):
+        # 显式写的 delimiter 是用户意图，.tsv 下同样尊重
+        s = SourceSpec(mode="relative_file", path="data/orders.tsv", options=CSVOptions(delimiter=";"))
+        config = s.to_loader_config()
+        assert config["delimiter"] == ";"
+
+    def test_to_loader_config_csv_default_delimiter_unchanged(self):
+        # .csv 不受影响：无显式 delimiter 时仍透出缺省逗号（既有行为）
+        s = SourceSpec(mode="relative_file", path="data/orders.csv", options=CSVOptions())
+        config = s.to_loader_config()
+        assert config["delimiter"] == ","
+
 
 class TestTableSchemaFile:
     def test_create_minimal(self):

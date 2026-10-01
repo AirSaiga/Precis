@@ -88,6 +88,7 @@ from pydantic import BaseModel, Field, field_validator
 from app.shared.core.utils.path_utils import normalize_to_posix
 
 from .source_options import (
+    CSVOptions,
     FormatOptions,
 )
 
@@ -250,6 +251,16 @@ class SourceSpec(BaseModel):
         # 如果存在格式特定选项，合并到配置中
         # 例如 CSVOptions 会添加 delimiter、quotechar 等配置
         if self.options:
-            config.update(self.options.to_loader_config())
+            options_config = self.options.to_loader_config()
+            # .tsv 扩展名即分隔符声明：CSVOptions 未显式写 delimiter 时（字段缺省
+            # 逗号），不能让默认值经此合并遮蔽装载器的扩展名制表符缺省——否则手写
+            # 带 options 块的 .tsv schema 会按逗号切列，整表塌缩成单列（数据误判）
+            if (
+                isinstance(self.options, CSVOptions)
+                and "delimiter" not in self.options.model_fields_set
+                and self.path.lower().endswith(".tsv")
+            ):
+                options_config.pop("delimiter", None)
+            config.update(options_config)
 
         return config
