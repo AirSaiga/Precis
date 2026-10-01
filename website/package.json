@@ -1,0 +1,14 @@
+{
+  "name": "@precis/website",
+  "version": "0.1.10",
+  "private": true,
+  "description": "Precis official website (VitePress), deployed to GitHub Pages",
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "vitepress": "^1.6.4"
+  }
+}

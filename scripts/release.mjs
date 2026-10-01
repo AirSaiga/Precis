@@ -39,6 +39,7 @@ export const MANIFESTS = [
   { file: 'package.json', kind: 'npm' },
   { file: 'frontend/package.json', kind: 'npm' },
   { file: 'electron/package.json', kind: 'npm' },
+  { file: 'website/package.json', kind: 'npm' },
   { file: 'backend/pyproject.toml', kind: 'pyproject' },
   { file: 'tui-rust/Cargo.toml', kind: 'cargo' },
   { file: 'tui-rust/Cargo.lock', kind: 'cargo-lock' },

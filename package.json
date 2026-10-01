@@ -14,7 +14,8 @@
   "workspaces": [
     "frontend",
     "electron",
-    "e2e"
+    "e2e",
+    "website"
   ],
   "scripts": {
     "electron:install": "npm install",

@@ -256,10 +256,13 @@ test('releaseCommitFiles 覆盖全部 manifest（含插件双 JSON 与 WorkBuddy
   // WorkBuddy 技能包/连接器版本跟应用走，市场重新提交时版本即与发布对齐
   assert.ok(files.includes('integrations/workbuddy/precis-data-validation/SKILL.md'), '发布提交清单缺少 WorkBuddy 技能包');
   assert.ok(files.includes('integrations/workbuddy/precis/connector-meta.json'), '发布提交清单缺少 WorkBuddy 连接器元信息');
+  // 官网 package.json 版本随发布同步（Pages 站点与发布版本对齐）
+  assert.ok(files.includes('website/package.json'), '发布提交清单缺少官网 manifest');
   assert.deepEqual(files, [
     'package.json',
     'frontend/package.json',
     'electron/package.json',
+    'website/package.json',
     'backend/pyproject.toml',
     'tui-rust/Cargo.toml',
     'tui-rust/Cargo.lock',

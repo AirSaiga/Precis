@@ -1,0 +1,69 @@
+name: Deploy Website
+
+# 官网（website/ VitePress）构建并部署到 GitHub Pages
+# 首次使用前需在仓库 Settings → Pages 将 Source 设为 GitHub Actions
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+      - '.github/workflows/deploy-website.yml'
+  workflow_dispatch:
+
+env:
+  # 强制 GitHub Actions 使用 Node.js 24 运行 action，消除 Node 20 弃用警告（与 ci.yml 一致）
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+# GitHub Pages 部署所需权限；deploy-pages 要求 environment: github-pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同一时间只允许一次 Pages 部署，新构建取消进行中的旧部署
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Website
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 与 ci.yml 保持一致：node 22 + 根 lockfile 缓存
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      # npm workspaces：website 依赖统一 hoist 到根 node_modules，须在根目录安装
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build website
+        run: npm run build -w website
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: website/.vitepress/dist
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
