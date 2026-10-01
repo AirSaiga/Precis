@@ -3,9 +3,10 @@
 // require(esm) 无关）。`import type` 在打包时被整体擦除，无运行时依赖。
 import type { DefaultTheme, UserConfig } from 'vitepress'
 
-// GitHub Pages 项目页（https://airsaiga.github.io/precis/）要求 base 与仓库名一致；
+// GitHub Pages 项目页（https://airsaiga.github.io/Precis/）要求 base 与仓库名一致；
+// Pages 路径大小写敏感，仓库名是 Precis（大写 P），base 必须写成 '/Precis/'，否则 CSS/JS 404 页面裸奔
 // 将来绑定自定义域名（如 https://precis.xxx.com）时改为 '/'
-const base = '/precis/'
+const base = '/Precis/'
 
 const config: UserConfig<DefaultTheme.Config> = {
   lang: 'zh-CN',
