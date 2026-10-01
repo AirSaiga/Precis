@@ -852,7 +852,11 @@ export function useValidationTaskRunner() {
       setStageStatus('save-project', 'success')
       await continuePipeline(request)
     } finally {
-      pendingTaskRequest.value = null
+      // continuePipeline 可能因发现未合并资源而暂停并弹出合并确认框，
+      // 此时 pendingTaskRequest 已被重新挂起，不能清空——否则合并对话框按钮空转
+      if (!showMergeConfirm.value) {
+        pendingTaskRequest.value = null
+      }
       running.value = false
     }
   }
@@ -873,7 +877,10 @@ export function useValidationTaskRunner() {
       setStageStatus('save-project', 'skipped')
       await continuePipeline(request)
     } finally {
-      pendingTaskRequest.value = null
+      // 同 confirmSaveAndRun：合并确认框弹出时 pendingTaskRequest 已重新挂起，不能清空
+      if (!showMergeConfirm.value) {
+        pendingTaskRequest.value = null
+      }
       running.value = false
     }
   }
