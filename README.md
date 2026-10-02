@@ -196,7 +196,7 @@ Three usage modes, choose as needed:
 - **Command line**: suitable for batch execution, or for invocation by AI coding assistants (Kimi Code / Claude Code, etc.)
 - **HTTP API**: for integration into your own systems
 
-![Precis demo: canvas composition → full validation → error navigation](docs/assets/demo.gif)
+![Precis demo: canvas composition → full validation → error navigation](docs/assets/demo-en.gif)
 
 ## Features
 

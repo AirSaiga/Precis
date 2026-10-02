@@ -25,11 +25,13 @@ import { defineConfig, devices } from '@playwright/test'
  *   2. cd e2e && npx playwright test -c playwright.demo.config.ts
  *   3. 产物 webm 在 e2e/demo-output/，再用 ffmpeg 转 GIF/MP4（见 spec 头注释）
  *
- * 与主配置的差异：viewport 1440×900、video 全程录制、zh-CN locale、
- * slowMo 让操作带人手节奏；testDir 指向 ./demo 不进主套件。
+ * 与主配置的差异：viewport 1440×900、video 全程录制、locale 随 DEMO_LOCALE
+ * 切换（默认 zh-CN，DEMO_LOCALE=en-US 录英文版）、slowMo 让操作带人手节奏；
+ * testDir 指向 ./demo 不进主套件。
  */
 const FRONTEND_PORT = process.env.VITE_FRONTEND_PORT || '5173'
 const FRONTEND_URL = process.env.E2E_BASE_URL || `http://localhost:${FRONTEND_PORT}`
+const IS_EN = process.env.DEMO_LOCALE === 'en-US'
 
 export default defineConfig({
   testDir: './demo',
@@ -46,8 +48,8 @@ export default defineConfig({
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 1440, height: 900 },
-        locale: 'zh-CN',
-        timezoneId: 'Asia/Shanghai',
+        locale: IS_EN ? 'en-US' : 'zh-CN',
+        timezoneId: IS_EN ? 'America/New_York' : 'Asia/Shanghai',
         video: { mode: 'on', size: { width: 1440, height: 900 } },
         launchOptions: { slowMo: 100 },
       },

@@ -28,6 +28,11 @@
  *   gifsicle -O3 --lossy=80 base.gif -o docs/assets/demo.gif
  *   ffmpeg -ss <t> -i video.webm -c:v libx264 -crf 23 -pix_fmt yuv420p -movflags +faststart docs/assets/demo.mp4
  *
+ * 双语录制：默认中文（demo.gif/demo.mp4）；DEMO_LOCALE=en-US 录英文版
+ * （产物命名 demo-en.gif/demo-en.mp4，README 英文区引用）。英文版经 localStorage
+ * generalSettings.language 强制界面 en-US，项目数据（CSV/描述/项目名）同步换英文，
+ * 界面文本选择器全部走下方 UI 文案表，双语共用同一剧本。
+ *
  * 数据策略（与旧版 demo/precis-project 无关，全部在录制副本内新建）：
  * - 一张 products 表（8 行），坏数据仅 2 行：P004 name 为空、P006 price 为负
  * - manifest 预登记 schema + 2 条约束（name 非空 / id 唯一），磁盘与清单一致，
@@ -52,8 +57,58 @@ type Locator = import('@playwright/test').Locator
 const RECORD_DIR = path.join(os.tmpdir(), 'precis-demo')
 const RECORD_PROJECT = path.join(RECORD_DIR, 'products-quality-check')
 
+/** 录制语言：默认 zh-CN；DEMO_LOCALE=en-US 录英文版（产物 demo-en.gif/demo-en.mp4） */
+const DEMO_LOCALE = process.env.DEMO_LOCALE === 'en-US' ? 'en-US' : 'zh-CN'
+const IS_EN = DEMO_LOCALE === 'en-US'
+
+/** 界面文案表：选择器按可见文本/title 定位，双语各一份，剧本主体语言无关 */
+const UI = IS_EN
+  ? {
+      close: 'Close',
+      toolbox: 'Toolbox',
+      projectResources: 'Resources',
+      constraintTile: 'Constraint',
+      rangeConstraint: 'Range Constraint',
+      organizeNodes: 'Organize Nodes',
+      fullValidation: /Full Validation/,
+      runValidation: /Run Validation/,
+      saveAndValidate: /Save & Validate/,
+      validateDirectly: /Validate Directly/,
+      schemaOnly: /Schema Only/,
+      dataModels: 'Data Models',
+      dataSchemas: 'Data Schemas',
+      maxValue: 'Max Value',
+    }
+  : {
+      close: '关闭',
+      toolbox: '工具箱',
+      projectResources: '项目资源',
+      constraintTile: '约束',
+      rangeConstraint: '区间约束',
+      organizeNodes: '整理节点',
+      fullValidation: /全量校验/,
+      runValidation: /开始校验/,
+      saveAndValidate: /保存并校验/,
+      validateDirectly: /直接校验/,
+      schemaOnly: /只导 Schema/,
+      dataModels: '数据模型',
+      dataSchemas: '数据 Schema',
+      maxValue: '最大值',
+    }
+
 /** 极简商品表：8 行，仅 P004（name 空）与 P006（price 负）两行坏数据 */
-const PRODUCTS_CSV = `id,name,price,stock
+const PRODUCTS_CSV = IS_EN
+  ? `id,name,price,stock
+P001,Mechanical Keyboard,299.00,45
+P002,Wireless Mouse,89.50,120
+P003,Monitor Stand,159.00,38
+P004,,459.00,25
+P005,USB-C Hub,399.00,60
+P006,Noise-Canceling Headphones,-299.00,30
+P007,Monitor Light Bar,189.00,52
+P008,Bluetooth Speaker,549.00,18
+`
+  : `id,name,price,stock
 P001,机械键盘,299.00,45
 P002,无线鼠标,89.50,120
 P003,显示器支架,159.00,38
@@ -67,7 +122,7 @@ P008,蓝牙音箱,549.00,18
 const PRODUCTS_SCHEMA_YAML = `version: 2
 id: products
 name: products
-description: 商品表
+description: ${IS_EN ? 'Product table' : '商品表'}
 source:
   mode: relative_file
   path: ../products.csv
@@ -91,7 +146,7 @@ const NAME_NOTNULL_YAML = `version: 2
 id: products_name_notnull
 type: NotNull
 enabled: true
-description: 商品名称非空
+description: ${IS_EN ? 'Product name must not be empty' : '商品名称非空'}
 refs:
   table_id: products
   column_id: name
@@ -102,7 +157,7 @@ const ID_UNIQUE_YAML = `version: 2
 id: products_id_unique
 type: Unique
 enabled: true
-description: 商品 ID 唯一
+description: ${IS_EN ? 'Product ID must be unique' : '商品 ID 唯一'}
 refs:
   table_id: products
   column_ids: [id]
@@ -115,7 +170,7 @@ params: {}
 const PROJECT_MANIFEST_YAML = `version: 2
 project:
   id: precis-demo-minimal
-  name: 商品数据质检
+  name: ${IS_EN ? 'Product Data Quality' : '商品数据质检'}
 schemas:
   - id: products
     path: schemas/products.schema.yaml
@@ -221,7 +276,7 @@ async function closeInspectionDrawer(page: Page) {
   for (let i = 0; i < 6; i++) {
     if (await drawer.isVisible().catch(() => false)) {
       await drawer
-        .locator('button[title="关闭"]')
+        .locator(`button[title="${UI.close}"]`)
         .first()
         .click({ timeout: 5000 })
         .catch(() => {})
@@ -247,12 +302,12 @@ async function expandSchemasFolder(page: Page) {
   await expect(tree).toBeVisible({ timeout: 10_000 })
   const dataModelsRoot = tree
     .locator('.tree-folder.root-item > .tree-row.folder-row')
-    .filter({ hasText: '数据模型' })
+    .filter({ hasText: UI.dataModels })
   await dataModelsRoot.first().click()
   await page.waitForTimeout(400)
   const schemasNested = tree
     .locator('.tree-folder.nested > .tree-row.folder-row')
-    .filter({ hasText: '数据 Schema' })
+    .filter({ hasText: UI.dataSchemas })
   await schemasNested.first().click()
   await page.waitForTimeout(400)
 }
@@ -276,7 +331,7 @@ async function dragSchemaToCanvas(page: Page, schemaName: string, schemaId: stri
     const overlay = page.locator('.global-confirm-overlay')
     while (dismissOverlay) {
       if (await overlay.isVisible().catch(() => false)) {
-        await overlay.getByRole('button', { name: /只导 Schema/ }).click().catch(() => {})
+        await overlay.getByRole('button', { name: UI.schemaOnly }).click().catch(() => {})
         await expect(overlay).toBeHidden({ timeout: 5000 }).catch(() => {})
       }
       await page.waitForTimeout(150)
@@ -304,9 +359,11 @@ async function dragSchemaToCanvas(page: Page, schemaName: string, schemaId: stri
 
 /** 工具箱 → 约束面板 → 点击指定约束类型，新建独立约束节点 */
 async function createConstraintFromToolbox(page: Page, constraintName: string) {
-  await page.locator('.activity-bar-nav .view-btn[title="工具箱"]').first().click()
-  await expect(page.locator('.component-tile[title="约束"]')).toBeVisible({ timeout: 10_000 })
-  await page.locator('.component-tile[title="约束"] .tile-expand-icon').click()
+  await page.locator(`.activity-bar-nav .view-btn[title="${UI.toolbox}"]`).first().click()
+  await expect(page.locator(`.component-tile[title="${UI.constraintTile}"]`)).toBeVisible({
+    timeout: 10_000,
+  })
+  await page.locator(`.component-tile[title="${UI.constraintTile}"] .tile-expand-icon`).click()
   const panel = page.locator('.constraint-panel')
   await expect(panel).toBeVisible({ timeout: 5000 })
   await panel
@@ -357,6 +414,12 @@ test.describe('README 演示录制', () => {
 
     prepareRecordProject()
     await injectDemoCursor(page)
+    // 英文版：在应用启动前预置语言偏好（i18n 从 localStorage generalSettings 读初始 locale）
+    if (IS_EN) {
+      await page.addInitScript(() => {
+        localStorage.setItem('generalSettings', JSON.stringify({ language: 'en-US' }))
+      })
+    }
 
     // ---- 第 1 幕：打开项目，从资源树拖入 products 表 ----
     mark('open-start')
@@ -365,14 +428,14 @@ test.describe('README 演示录制', () => {
     await closeInspectionDrawer(page)
     mark('canvas-settled')
 
-    await page.locator('.activity-bar-nav .view-btn[title="项目资源"]').first().click()
+    await page.locator(`.activity-bar-nav .view-btn[title="${UI.projectResources}"]`).first().click()
     await expandSchemasFolder(page)
     await dragSchemaToCanvas(page, 'products', 'products')
     mark('schema-dropped')
 
     // 整理节点：自动布局 + fitView——拖入落点在画布中心（与项目根节点重叠），
     // 且保证后续点项目根节点的"全量校验"按钮时根节点确定在视口内
-    await page.locator('button[title="整理节点"]').first().click()
+    await page.locator(`button[title="${UI.organizeNodes}"]`).first().click()
     await beat(page, 1500)
 
     // 开场镜头：项目根 + products 表
@@ -382,7 +445,7 @@ test.describe('README 演示录制', () => {
 
     // ---- 第 2 幕：工具箱新建区间约束，连线 price 列（即时校验反馈负单价） ----
     const rangeLocator = page.locator('.vue-flow__node-rangeConstraint')
-    await createConstraintFromToolbox(page, '区间约束')
+    await createConstraintFromToolbox(page, UI.rangeConstraint)
     await expect(rangeLocator).toHaveCount(1, { timeout: 5000 })
     const rangeNode = rangeLocator.first()
     mark('range-node-created')
@@ -419,7 +482,7 @@ test.describe('README 演示录制', () => {
     await beat(page, 600)
     const maxField = page
       .locator('.base-inspector .field')
-      .filter({ hasText: '最大值' })
+      .filter({ hasText: UI.maxValue })
       .first()
     await expect(maxField).toBeVisible({ timeout: 5000 })
     const maxInput = maxField.locator('input')
@@ -431,13 +494,13 @@ test.describe('README 演示录制', () => {
 
     // ---- 第 3 幕：全量校验 → 2 个错误 ----
     await waitForToastsGone(page)
-    await page.locator('.project-root-node').first().getByRole('button', { name: /全量校验/ }).click()
+    await page.locator('.project-root-node').first().getByRole('button', { name: UI.fullValidation }).click()
     mark('validation-modal-open')
     const modal = page.locator('.fv-modal')
     await expect(modal).toBeVisible({ timeout: 15_000 })
     await beat(page, 1000)
 
-    await modal.getByRole('button', { name: /开始校验/ }).click()
+    await modal.getByRole('button', { name: UI.runValidation }).click()
     mark('validation-started')
 
     // 画布有未保存更改（新建约束+连线）→ 保存确认；磁盘与 manifest 一致
@@ -452,7 +515,7 @@ test.describe('README 演示录制', () => {
         mark('save-confirm')
         await beat(page, 900)
         await saveOverlay
-          .getByRole('button', { name: /保存并校验/ })
+          .getByRole('button', { name: UI.saveAndValidate })
           .click({ timeout: 5000 })
           .catch(() => {})
         await page.waitForTimeout(1200)
@@ -462,7 +525,7 @@ test.describe('README 演示录制', () => {
       if (await mergeOverlay.isVisible().catch(() => false)) {
         mark('merge-confirm-unexpected')
         await mergeOverlay
-          .getByRole('button', { name: /直接校验/ })
+          .getByRole('button', { name: UI.validateDirectly })
           .click({ timeout: 5000 })
           .catch(() => {})
         await page.waitForTimeout(1200)
