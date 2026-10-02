@@ -32,7 +32,7 @@ colorama==0.4.6
 coverage==7.13.5
 cryptography==49.0.0
 cyclonedx-python-lib==11.7.0
-debugpy==1.8.21
+debugpy==1.8.22
 defusedxml==0.7.1
 distro==1.9.0
 dnspython==2.8.0
