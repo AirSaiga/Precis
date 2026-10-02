@@ -126,6 +126,37 @@ npm run cli:validate          # 使用内置示例数据（qa_test/qa_simple/）
 
 正常输出校验结果即表示环境就绪。
 
+## MCP Server（AI 助手直连）
+
+本仓库实现了一个 [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server（stdio 传输，基于官方 MCP Python SDK）。支持 MCP 的 AI 编程助手（Claude Code、Cursor、Kimi Code 等）配置后可直接调用校验引擎。
+
+```bash
+pip install "precis-cli[mcp]"     # 安装后获得 precis-mcp 命令
+```
+
+在 MCP 客户端中配置（`mcpServers` 格式，Claude Code / Cursor 等通用）：
+
+```json
+{
+  "mcpServers": {
+    "precis": {
+      "command": "precis-mcp"
+    }
+  }
+}
+```
+
+提供 4 个工具：
+
+| 工具 | 作用 |
+|------|------|
+| `validate_data` | 执行校验，返回结构化错误报告（与 CLI `--format json` 同一契约） |
+| `check_config` | 检查项目配置加载情况 |
+| `describe_constraints` | 列出全部约束类型与参数说明 |
+| `infer_schema` | 从数据文件推断 schema 草稿 |
+
+更多 AI 助手接入方式（skill、插件包等）见 [`integrations/`](integrations/README.md)。
+
 ## 项目结构
 
 ```
@@ -255,6 +286,37 @@ npm run cli:validate          # runs a validation pass on the bundled sample dat
 ```
 
 Successful validation output indicates the environment is ready.
+
+## MCP Server (for AI assistants)
+
+This repository implements a [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server over stdio, built on the official MCP Python SDK. MCP-capable AI coding assistants (Claude Code, Cursor, Kimi Code, etc.) can call the validation engine directly once configured.
+
+```bash
+pip install "precis-cli[mcp]"     # provides the precis-mcp command
+```
+
+Client configuration (`mcpServers` format, works with Claude Code / Cursor and others):
+
+```json
+{
+  "mcpServers": {
+    "precis": {
+      "command": "precis-mcp"
+    }
+  }
+}
+```
+
+Four tools are exposed:
+
+| Tool | Purpose |
+|------|---------|
+| `validate_data` | Run validation, returning a structured error report (same contract as CLI `--format json`) |
+| `check_config` | Check project configuration loading |
+| `describe_constraints` | List all constraint types and their parameters |
+| `infer_schema` | Infer a schema draft from a data file |
+
+More AI assistant integration options (skills, plugin packages): [`integrations/`](integrations/README.md).
 
 ## Project Structure
 
