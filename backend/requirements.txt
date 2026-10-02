@@ -62,7 +62,7 @@ markdown-it-py==4.0.0
 mdit-py-plugins==0.6.1
 mdurl==0.1.2
 more-itertools==11.1.0
-msgpack==1.2.1
+msgpack==1.2.3
 multidict==6.7.1
 mypy==1.20.1
 mypy_extensions==1.1.0
