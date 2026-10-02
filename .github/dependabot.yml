@@ -7,6 +7,10 @@ updates:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 5
+    # 根 overrides 钉版（vue 3.5.22 / vue-tsc 3.1.1，原因见 /frontend 条注释），不接收升级 PR
+    ignore:
+      - dependency-name: "vue"
+      - dependency-name: "vue-tsc"
     labels:
       - "dependencies"
 
