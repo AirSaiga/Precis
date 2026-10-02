@@ -184,7 +184,9 @@ test.describe('真实服务 · 加载与导航', () => {
     const state = await (await request.get('/api/state')).json()
     expect(state.versions).toHaveLength(manifestCount())
     expect(state.rootVersion).toBe(state.versions[0].version)
-    expect(state.branch).toBe('main')
+    // PR CI 检出为 detached HEAD，服务器经 `rev-parse --abbrev-ref HEAD` 只能拿到 'HEAD'；
+    // push 到 main 与本地运行时拿到真实分支名 'main'
+    expect(state.branch).toBe(process.env.GITHUB_HEAD_REF ? 'HEAD' : 'main')
   })
 
   test('切换标签页生效并记忆（刷新后保持）', async ({ page }) => {
