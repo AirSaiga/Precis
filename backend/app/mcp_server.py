@@ -159,36 +159,86 @@ _TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
     "validate_data": {
         "type": "object",
         "properties": {
-            "manifest": {"type": "string", "description": "project.precis.yaml 路径（须在工作目录内）"},
-            "data_directory": {"type": "string", "description": "数据目录（缺省为 manifest 所在目录）"},
-            "table": {"type": "string", "description": "只校验指定表（缺省校验全部）"},
+            "manifest": {
+                "type": "string",
+                "description": "project.precis.yaml 的绝对路径（须在 server 工作目录内，越界报错）",
+            },
+            "data_directory": {
+                "type": "string",
+                "description": "数据文件根目录；schema 中相对路径数据源相对此目录解析，缺省为 manifest 所在目录",
+            },
+            "table": {"type": "string", "description": "只校验指定表（schema id 或表显示名），缺省校验全部表"},
         },
         "required": ["manifest"],
     },
     "check_config": {
         "type": "object",
-        "properties": {"manifest": {"type": "string", "description": "project.precis.yaml 路径"}},
+        "properties": {
+            "manifest": {
+                "type": "string",
+                "description": "project.precis.yaml 的绝对路径（须在 server 工作目录内，越界报错）",
+            }
+        },
         "required": ["manifest"],
     },
     "describe_constraints": {"type": "object", "properties": {}},
     "infer_schema": {
         "type": "object",
         "properties": {
-            "data_file": {"type": "string", "description": "CSV/Excel/JSON 数据文件路径"},
-            "sample_rows": {"type": "integer", "minimum": 1, "description": "采样行数（默认 1000）"},
-            "table_id": {"type": "string", "description": "表 ID（替换既有 schema 时传原 id）"},
-            "table_name": {"type": "string", "description": "表显示名"},
-            "source_path": {"type": "string", "description": "写入 schema 的 source.path"},
+            "data_file": {
+                "type": "string",
+                "description": "CSV/Excel/JSON/JSONL 数据文件路径（须在 server 工作目录内，越界报错）",
+            },
+            "sample_rows": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "采样行数（默认 1000，须为正整数）；越大类型推断越准但越慢",
+            },
+            "table_id": {
+                "type": "string",
+                "description": "表 ID；仅当替换既有 schema 时传原 id 以保留引用，缺省生成新 id",
+            },
+            "table_name": {"type": "string", "description": "表显示名，缺省取数据文件名"},
+            "source_path": {
+                "type": "string",
+                "description": "写入 schema 的 source.path（数据文件相对路径），缺省不写入",
+            },
         },
         "required": ["data_file"],
     },
 }
 
 _TOOL_DESCRIPTIONS: dict[str, str] = {
-    "validate_data": "执行 Precis 数据校验，返回契约 JSON（is_valid/errors/summary 等，见 docs/contracts/validate-json-v1.md）",
-    "check_config": "检查项目配置加载情况（loading_errors/装载计数），不执行校验",
-    "describe_constraints": "列出全部约束类型与 refs/params 说明",
-    "infer_schema": "从数据文件头部推断列类型，返回 schema YAML 结构草稿",
+    "validate_data": (
+        "校验 Precis 项目的数据是否符合全部约束规则（非空/唯一/取值范围/外键/正则等 10 种）。"
+        "当需要检查数据质量、或在修改约束配置后验证数据时使用；只读操作，不修改任何文件。"
+        "返回契约 JSON：is_valid（整体是否通过）、errors（逐条违规，含表名/列名/行号/error_code/详情）、"
+        "summary（违规计数汇总），完整字段定义见 docs/contracts/validate-json-v1.md。"
+        "前置条件：manifest 指向已存在的 project.precis.yaml 且在 server 工作目录内；"
+        "路径越界或文件不存在时返回 isError 错误。"
+    ),
+    "check_config": (
+        "加载并检查 Precis 项目配置文件，不执行数据校验。"
+        "当 validate_data 报错、或想先诊断配置问题（版本不兼容/文件缺失/引用悬空）时使用；只读操作。"
+        "返回：manifest_path、version_ok（manifest 版本是否受支持）、schemas_loaded/constraints_loaded"
+        "（成功装载的 schema/约束文件计数）、loading_errors（逐条加载错误）、warnings。"
+        "manifest 须在 server 工作目录内且文件存在，否则报错。"
+    ),
+    "describe_constraints": (
+        "列出 Precis 支持的全部 10 种约束类型（NotNull/Unique/AllowedValues/Range/ForeignKey/Conditional/"
+        "Scripted/Charset/DateLogic/Composite）及其 refs/params 参数说明。"
+        "当需要编写或修改 *.constraint.yaml 约束文件、或不确定某约束类型支持哪些参数时使用；"
+        "无参数、只读。返回 types 数组，每项含：type（约束类型名）、refs（指向 schema 表/列 ID 的"
+        "引用说明）、params（参数键、值域、默认值）。内容从 actions registry 单一事实源派生，"
+        "与校验引擎实际行为一致。"
+    ),
+    "infer_schema": (
+        "从数据文件（CSV/Excel/JSON/JSONL）头部采样推断列类型，生成 V2 schema 结构草稿。"
+        "当为新数据源创建 schema、或重建既有 schema 时使用；只读，不写盘——返回的草稿由调用方决定是否保存。"
+        "返回 schema 字典：id/name/columns（每列含推断出的 type：string/integer/float/decimal/boolean/date）"
+        "等 V2 格式字段。注意：类型推断基于采样（默认 1000 行），采样之外的极端值可能改变实际类型，"
+        "建议人工核对后再用 validate_data 验证。文件路径须在 server 工作目录内，否则报错。"
+    ),
 }
 
 
