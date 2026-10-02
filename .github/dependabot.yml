@@ -16,6 +16,12 @@ updates:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 5
+    # 钉版依赖，不接收升级 PR：
+    # - vue 钉在 3.5.22（>=3.5.23 触发 TS2589 类型深度爆炸）
+    # - vue-tsc 钉在 3.1.1（3.3.x 会向 src/ emit .js 产物）
+    ignore:
+      - dependency-name: "vue"
+      - dependency-name: "vue-tsc"
     labels:
       - "dependencies"
       - "frontend"
