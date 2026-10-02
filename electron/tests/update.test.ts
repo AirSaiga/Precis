@@ -1,10 +1,11 @@
 /**
  * @fileoverview update.ts（UpdateManager）单元测试
  *
- * 覆盖本次生产化加固的三个关键行为：
+ * 覆盖本次生产化加固的关键行为：
  * 1. 持久化的自定义更新源在启动时重放 setFeedURL（修复重启失效 bug）
  * 2. 更新状态变化经 update:state-changed 推送至所有未销毁窗口
  * 3. update:install 在 quitAndInstall 前同步终止 Python 后端进程树
+ * 4. update:check 在 dev（未打包）模式返回明确 error 状态（防面板点击零反馈）
  *
  * 测试策略：mock 外部边界（electron / electron-updater / fs / logger / i18n / pythonProcess），
  * 通过 mock 的 autoUpdater 事件发射器手动触发事件流。
@@ -38,6 +39,8 @@ const mocks = vi.hoisted(() => {
     handlers: {} as Record<string, (event?: unknown, arg?: unknown) => unknown>,
     /** BrowserWindow.getAllWindows 返回值 */
     windows: [] as Array<Record<string, unknown>>,
+    /** app.isPackaged 模拟值（update:check 的 dev 守卫依赖它） */
+    isPackaged: true,
     /** fs 状态：update-config.json 内容（null = 文件不存在） */
     configJson: null as string | null,
     /** fs.writeFileSync（落盘成功/失败可由用例注入） */
@@ -51,7 +54,9 @@ vi.mock('electron-updater', () => ({ autoUpdater: mocks.autoUpdater }))
 vi.mock('electron', () => ({
   app: {
     getPath: vi.fn(() => '/mock/userData'),
-    isPackaged: true,
+    get isPackaged() {
+      return mocks.isPackaged
+    },
   },
   BrowserWindow: {
     getAllWindows: () => mocks.windows,
@@ -86,6 +91,7 @@ async function freshManager() {
   mocks.autoUpdater.checkForUpdates = vi.fn().mockResolvedValue(undefined)
   mocks.stopSync.mockClear()
   mocks.windows.length = 0
+  mocks.isPackaged = true
   const mod = await import('../src/update')
   return mod.updateManager
 }
@@ -269,5 +275,19 @@ describe('update:check', () => {
     const result = (await mocks.handlers['update:check']()) as { status: string }
     expect(mocks.autoUpdater.checkForUpdates).toHaveBeenCalled()
     expect(result.status).toBe('idle')
+  })
+
+  it('dev 模式（未打包）返回 error 状态携带原因，不调用 checkForUpdates（防面板零反馈）', async () => {
+    const manager = await freshManager()
+    // 须在 freshManager 之后设置（其内部会重置为 true）
+    mocks.isPackaged = false
+
+    const result = (await mocks.handlers['update:check']()) as { status: string; error?: string }
+
+    // electron-updater 在未打包环境静默跳过，若守卫缺失 result.status 会是 'idle'
+    expect(mocks.autoUpdater.checkForUpdates).not.toHaveBeenCalled()
+    expect(result.status).toBe('error')
+    expect(result.error).toBeTruthy()
+    expect(manager.getState().status).toBe('error')
   })
 })

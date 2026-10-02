@@ -285,6 +285,15 @@ class UpdateManager {
     ipcMain.handle('update:check', async () => {
       logger.debug('[UpdateManager] 收到检查更新请求');
 
+      // dev 模式下 electron-updater 的 checkForUpdates 会静默跳过（返回 null、
+      // 不发任何事件），若不拦截，设置面板点击后零反馈（spinner 转瞬即逝、
+      // 状态恒为 idle）。此处显式返回 error 状态携带原因，与 Web 适配器
+      // "Web mode does not support auto-update" 的既有语义对齐
+      if (!app.isPackaged) {
+        this.updateState({ status: 'error', error: t('update.devCheckUnsupported') });
+        return this.state;
+      }
+
       try {
         await autoUpdater.checkForUpdates();
         return this.state;

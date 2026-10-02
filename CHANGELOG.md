@@ -6,6 +6,11 @@
 
 ## [Unreleased]
 
+### 2026-10
+- **检查更新 dev 模式零反馈修复（GUI 非阻断级）**——开发环境（未打包）点击设置面板「检查更新」，electron-updater 的 `checkForUpdates` 会静默跳过（返回 null、不发任何事件），面板按钮 spinner 转瞬即逝后无任何状态与提示，用户无从判断发生了什么。修复：`update:check` IPC handler 对 `!app.isPackaged` 直接返回 `error` 状态并携带原因文案（与 Web 适配器 "Web mode does not support auto-update" 的既有语义对齐，面板红色告警条可见），主进程 i18n 新增 `update.devCheckUnsupported` 双语条目（指引用 update-drill 本地演练验证更新链路）；打包版行为不变。回归：electron vitest +1 例（dev 守卫不触达 checkForUpdates、返回 error 状态与原因）。
+
+  **Silent check-for-updates fix in dev mode (non-blocking GUI class)** — in the unpackaged dev environment, clicking "Check for Updates" in the settings panel made electron-updater's `checkForUpdates` skip silently (returns null, emits no events), so the button spinner flashed and then nothing appeared — no status, no message, no way to tell what happened. Fix: the `update:check` IPC handler now returns an explicit `error` state carrying the reason when `!app.isPackaged` (mirroring the web adapter's existing "Web mode does not support auto-update" semantics, surfaced via the panel's red alert), plus a new main-process i18n key `update.devCheckUnsupported` in both locales (pointing to the update-drill local drill for verifying the update flow); packaged behavior is unchanged. Regression: +1 electron vitest case (the dev guard skips checkForUpdates and returns the error state with a reason).
+
 ### 2026-09
 - **官网上线与 README 演示动图（文档/基建批）**——① 新增 VitePress 官网 `website/`（首页 + 安装/快速上手/使用指南 + CLI/配置参考），接入 npm workspaces，经 GitHub Pages 自动部署（`.github/workflows/deploy-website.yml`：main 推送 `website/**` 触发，根目录 `npm ci` + `npm run build -w website`，dist 不入库）；`release.mjs` MANIFESTS 纳入 `website/package.json`（版本单一事实源全覆盖）。② README 双语嵌入演示 GIF（`docs/assets/demo.gif`，`.gitignore` 放行 `docs/assets/`）。③ 演示录制基建 `e2e/demo/record-demo.spec.ts` + `playwright.demo.config.ts`（独立配置 `testDir: ./demo` 不进 CI 主套件；极简商品表剧本在系统 temp 副本内自建项目，全程视频录制 + ffmpeg/gifsicle 转制成品；`e2e/demo-output/` 中间产物不入库）。
 
