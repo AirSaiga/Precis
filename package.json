@@ -86,7 +86,7 @@
     "concurrently": "^10.0.5",
     "dotenv": "^16.6.1",
     "husky": "^9.1.7",
-    "wait-on": "^7.2.0"
+    "wait-on": "^9.5.1"
   },
   "overrides": {
     "shell-quote": "^1.10.0",
