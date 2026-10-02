@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=82.0.1", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -29,21 +29,21 @@ classifiers = [
 ]
 dependencies = [
     # 数据验证与序列化
-    "pydantic>=2.12.0",
+    "pydantic>=2.13.4",
     # 数据处理
     "pandas>=2.2.0,<3.0",
     "openpyxl>=3.1.5",
     # Excel 97-2003（.xls）读取引擎（openpyxl 不支持 .xls）
     "xlrd>=2.0.1",
     # 数据库与 SQL
-    "SQLAlchemy>=2.0.48",
+    "SQLAlchemy>=2.0.50",
     # YAML 解析
     "pyyaml>=6.0.3",
     "ruamel.yaml>=0.19.0",
     # CLI 输出美化
     "rich>=13.0.0",
     # CLI 交互
-    "readchar>=4.2.0",
+    "readchar>=4.2.2",
     # 安全
     "cryptography>=44.0.0",
     # 安全表达式求值 (替代 eval)
@@ -85,7 +85,7 @@ full = [
 dev = [
     "precis-cli[api,ai,mcp]",
     "debugpy>=1.8.0",
-    "ruff>=0.4.0",
+    "ruff>=0.15.17",
     "mypy>=1.10.0",
     "types-PyYAML>=6.0.0",
     "pytest>=9.0.3",
