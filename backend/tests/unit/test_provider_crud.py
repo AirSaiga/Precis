@@ -112,14 +112,17 @@ class TestListPresets:
 
 
 class TestPresetCatalog:
-    """预设目录完整性：国内主流厂商覆盖与预设字段不变量（维护 SOP 见 presets.py 同目录文档）"""
+    """预设目录完整性：国内外主流厂商覆盖与预设字段不变量（维护 SOP 见 presets.py 同目录文档）"""
 
     @pytest.mark.asyncio
-    async def test_domestic_mainstream_providers_covered(self):
-        # 2026-09 标准：国内主流大模型厂商预设必须可被前端设置页与 CLI 获取
+    async def test_mainstream_providers_covered(self):
+        # 2026-10 标准：国际（OpenAI/Claude/Gemini）与国内主流大模型厂商预设必须可被前端设置页与 CLI 获取
         result = await list_presets()
         ids = {p["id"] for p in result}
         expected = {
+            "openai",
+            "anthropic",
+            "gemini",
             "deepseek",
             "qwen",
             "glm",
@@ -128,6 +131,18 @@ class TestPresetCatalog:
             "mimo",
         }
         assert expected <= ids
+
+    @pytest.mark.asyncio
+    async def test_international_presets_fields(self):
+        # 三家国际厂商的端点形态守卫：OpenAI 兼容 base_url、默认模型在候选列
+        result = await list_presets()
+        by_id = {p["id"]: p for p in result}
+        assert by_id["openai"]["base_url"] == "https://api.openai.com/v1"
+        assert by_id["anthropic"]["base_url"] == "https://api.anthropic.com/v1"
+        assert by_id["gemini"]["base_url"] == "https://generativelanguage.googleapis.com/v1beta/openai"
+        for pid in ("openai", "anthropic", "gemini"):
+            assert by_id[pid]["type"] == "openai"
+            assert by_id[pid]["default_model"] in by_id[pid]["models"]
 
     @pytest.mark.asyncio
     async def test_preset_ids_unique(self):

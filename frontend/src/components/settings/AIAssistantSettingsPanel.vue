@@ -307,7 +307,17 @@ limitations under the License.
               <option v-for="p in presets" :key="p.id" :value="p.id">
                 {{ p.name }}
               </option>
+              <option value="custom">{{ t('settings.aiAssistant.customPreset') }}</option>
             </select>
+          </div>
+          <div v-if="isCustomPreset" class="edit-row">
+            <label class="edit-label">{{ t('settings.aiAssistant.baseUrl') }}</label>
+            <input
+              v-model="addForm.baseUrl"
+              class="ui-input ui-input--compact"
+              type="text"
+              :placeholder="t('settings.aiAssistant.baseUrlPlaceholder')"
+            />
           </div>
           <div class="edit-row">
             <label class="edit-label">{{ t('settings.aiAssistant.apiKey') }}</label>
@@ -320,9 +330,32 @@ limitations under the License.
           </div>
           <div class="edit-row">
             <label class="edit-label">{{ t('settings.aiAssistant.model') }}</label>
-            <select v-model="addForm.model" class="ui-select ui-select--compact">
+            <select
+              v-if="addFormModels.length > 0"
+              v-model="addForm.model"
+              class="ui-select ui-select--compact"
+            >
               <option v-for="m in addFormModels" :key="m" :value="m">{{ m }}</option>
             </select>
+            <input
+              v-else
+              v-model="addForm.model"
+              class="ui-input ui-input--compact"
+              type="text"
+              :placeholder="t('settings.aiAssistant.modelNamePlaceholder')"
+            />
+            <button
+              class="ui-btn ui-btn--secondary ui-btn--sm"
+              type="button"
+              :disabled="fetchingModels || !canFetchModels"
+              @click="handleFetchModels"
+            >
+              {{
+                fetchingModels
+                  ? t('settings.aiAssistant.fetchingModels')
+                  : t('settings.aiAssistant.fetchModels')
+              }}
+            </button>
           </div>
           <div class="edit-row">
             <label class="edit-label">{{ t('settings.aiAssistant.providerName') }}</label>
@@ -330,7 +363,7 @@ limitations under the License.
               v-model="addForm.name"
               class="ui-input ui-input--compact"
               type="text"
-              :placeholder="t('settings.aiAssistant.providerNamePlaceholder')"
+              :placeholder="namePlaceholder"
             />
           </div>
           <div class="edit-row">
@@ -355,7 +388,7 @@ limitations under the License.
           </button>
           <button
             class="ui-btn ui-btn--primary ui-btn--sm"
-            :disabled="actionLoading || !addForm.presetId || !addForm.apiKey"
+            :disabled="actionLoading || !canCreate"
             @click="handleCreate"
           >
             <span v-if="actionLoading" class="spinner-sm"></span>
@@ -417,7 +450,12 @@ limitations under the License.
   import { useToast } from '@/composables/shared'
   import { shellApi } from '@/core/capabilities/shellApi'
   import AppIcon from '@/components/icons/AppIcon.vue'
-  import type { CloudAIProviderResponse, ProviderPreset, UpdateProviderRequest } from '@/types/ai'
+  import type {
+    CloudAIProviderResponse,
+    CreateProviderRequest,
+    ProviderPreset,
+    UpdateProviderRequest,
+  } from '@/types/ai'
   import {
     getCloudAIProviders,
     getActiveCloudAIProvider,
@@ -428,6 +466,7 @@ limitations under the License.
     createCloudAIProvider,
     updateCloudAIProvider,
     deleteCloudAIProvider,
+    fetchProviderModels,
   } from '@/api/aiApi'
   const { t } = useI18n()
   const { success: showSuccess, error: showError } = useToast()
@@ -460,6 +499,7 @@ limitations under the License.
     apiKey: '',
     model: '',
     name: '',
+    baseUrl: '',
     contextWindow: '',
   })
 
@@ -472,10 +512,35 @@ limitations under the License.
     contextWindow: '',
   })
 
+  // 是否选择了"自定义 (OpenAI 兼容)"入口
+  const isCustomPreset = computed(() => addForm.presetId === 'custom')
+
+  // 拉取的模型列表与拉取中状态
+  const fetchedModels = ref<string[]>([])
+  const fetchingModels = ref(false)
+
   const addFormModels = computed(() => {
+    // 拉取成功后优先展示端点返回的模型列表（预设与自定义通用）
+    if (fetchedModels.value.length > 0) return fetchedModels.value
+    if (isCustomPreset.value) return []
     const preset = presets.value.find((p) => p.id === addForm.presetId)
     return preset?.models ?? []
   })
+
+  // 拉取按钮可用条件：已选预设；自定义时还要求 base_url 合法（http/https 开头）
+  const canFetchModels = computed(() => {
+    if (!addForm.presetId) return false
+    if (isCustomPreset.value) {
+      const baseUrl = addForm.baseUrl.trim()
+      return baseUrl.startsWith('http://') || baseUrl.startsWith('https://')
+    }
+    return true
+  })
+
+  // 名称 placeholder：预设回退预设显示名提示，自定义时留空强制用户显式填写
+  const namePlaceholder = computed(() =>
+    isCustomPreset.value ? '' : t('settings.aiAssistant.providerNamePlaceholder')
+  )
 
   // 当前选中的预设名（添加表单头部展示）
   const selectedPresetName = computed(() => {
@@ -483,10 +548,17 @@ limitations under the License.
     return preset?.name ?? ''
   })
 
-  // 切换预设时，重置模型/名称为该预设的默认值
+  // 切换预设时，重置模型/名称为该预设的默认值；切到自定义时清空由用户填写
   watch(
     () => addForm.presetId,
     (newId) => {
+      // 切换预设后此前拉取的模型列表不再适用
+      fetchedModels.value = []
+      if (newId === 'custom') {
+        addForm.model = ''
+        addForm.name = ''
+        return
+      }
       const preset = presets.value.find((p) => p.id === newId)
       if (preset) {
         addForm.model = preset.default_model
@@ -494,6 +566,24 @@ limitations under the License.
       }
     }
   )
+
+  // base_url / API Key 变化后旧拉取结果失效，需重新拉取
+  watch(
+    () => [addForm.baseUrl, addForm.apiKey],
+    () => {
+      fetchedModels.value = []
+    }
+  )
+
+  // 创建按钮可用条件：自定义时要求名称/base_url(http(s) 开头)/模型三者齐全；预设时保持原有逻辑
+  const canCreate = computed(() => {
+    if (isCustomPreset.value) {
+      const baseUrl = addForm.baseUrl.trim()
+      const isHttpUrl = baseUrl.startsWith('http://') || baseUrl.startsWith('https://')
+      return isHttpUrl && addForm.name.trim() !== '' && addForm.model.trim() !== ''
+    }
+    return addForm.presetId !== '' && addForm.apiKey !== ''
+  })
 
   const configTemplate = computed(
     () => `# ${t('settings.aiAssistant.configTemplateHeader')}
@@ -508,7 +598,7 @@ providers:
     type: openai
     base_url: https://api.deepseek.com
     api_key: \${DEEPSEEK_API_KEY}
-    model: deepseek-v4-pro
+    model: deepseek-flash
 
   # ${t('settings.aiAssistant.configTemplateOllama')}
   - id: ollama-local
@@ -613,7 +703,36 @@ defaults:
     addForm.presetId = defaultPreset?.id ?? ''
     addForm.model = defaultPreset?.default_model ?? ''
     addForm.name = defaultPreset?.name ?? ''
+    addForm.baseUrl = ''
     addForm.contextWindow = ''
+    fetchedModels.value = []
+  }
+
+  // 从端点拉取模型列表：自定义用用户填写的 base_url，预设用预设 base_url；成功后模型行出现下拉
+  async function handleFetchModels(): Promise<void> {
+    const preset = presets.value.find((p) => p.id === addForm.presetId)
+    const baseUrl = isCustomPreset.value ? addForm.baseUrl.trim() : preset?.base_url
+    if (!baseUrl) return
+    fetchingModels.value = true
+    try {
+      const res = await fetchProviderModels({
+        // 自定义入口固定 OpenAI 兼容；预设沿用预设 type（ollama 预设传 ollama）
+        type: isCustomPreset.value ? 'openai' : (preset?.type ?? 'openai'),
+        base_url: baseUrl,
+        api_key: addForm.apiKey.trim() || undefined,
+      })
+      fetchedModels.value = res.models
+      showSuccess(t('settings.aiAssistant.fetchModelsSuccess', { count: res.models.length }), '')
+      // 模型为空时自动选第一个；非空且不在列表中则保留（尊重用户手输）
+      if (res.models.length > 0 && addForm.model.trim() === '') {
+        addForm.model = res.models[0]
+      }
+    } catch (error) {
+      const msg = getApiErrorMessage(error)
+      showError(t('settings.aiAssistant.fetchModelsFailed'), msg)
+    } finally {
+      fetchingModels.value = false
+    }
   }
 
   function cancelAdd(): void {
@@ -621,24 +740,41 @@ defaults:
   }
 
   async function handleCreate(): Promise<void> {
+    const isCustom = addForm.presetId === 'custom'
     const preset = presets.value.find((p) => p.id === addForm.presetId)
-    if (!preset) return
+    if (!isCustom && !preset) return
 
     actionLoading.value = true
     try {
       // context_window：填了合法数字才提交，空值不传（保持后端 None/自动探测）
       const cw = Number(addForm.contextWindow)
-      const contextWindow =
-        addForm.contextWindow && Number.isFinite(cw) && cw >= 1024 ? cw : undefined
+      const contextWindow = addForm.contextWindow && Number.isFinite(cw) && cw >= 1024 ? cw : null
 
-      const newProvider = await createCloudAIProvider({
-        name: addForm.name || preset.name,
-        type: preset.type as 'openai' | 'ollama',
-        base_url: preset.base_url,
-        api_key: addForm.apiKey,
-        model: addForm.model,
-        context_window: contextWindow,
-      })
+      // 自定义 (OpenAI 兼容)：base_url/模型由用户填写；预设：沿用预设的 type/base_url/名称回退
+      let request: CreateProviderRequest
+      if (isCustom) {
+        request = {
+          name: addForm.name.trim(),
+          type: 'openai',
+          base_url: addForm.baseUrl.trim(),
+          api_key: addForm.apiKey.trim() || undefined,
+          model: addForm.model.trim(),
+          context_window: contextWindow,
+        }
+      } else if (preset) {
+        request = {
+          name: addForm.name || preset.name,
+          type: preset.type,
+          base_url: preset.base_url,
+          api_key: addForm.apiKey,
+          model: addForm.model,
+          context_window: contextWindow ?? undefined,
+        }
+      } else {
+        return
+      }
+
+      const newProvider = await createCloudAIProvider(request)
       showSuccess(t('settings.aiAssistant.createdSuccess'), '')
       showAddForm.value = false
 

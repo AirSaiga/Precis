@@ -33,6 +33,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -46,6 +47,8 @@ from ....shared.services.llm.providers import create
 from .models import (
     CreateProviderRequest,
     DiscoverResponse,
+    FetchModelsRequest,
+    FetchModelsResponse,
     ProviderPresetResponse,
     ProviderResponse,
     TestProviderResponse,
@@ -364,6 +367,51 @@ async def list_presets() -> list[dict[str, Any]]:
     前端可据此构建「选择服务商 → 填 API Key」的交互流程。
     """
     return get_preset_list()
+
+
+@router.post(
+    "/providers/fetch-models",
+    response_model=FetchModelsResponse,
+    summary="从端点拉取可用模型列表",
+    responses={
+        400: {"description": "base_url 或 type 非法"},
+        502: {"description": "无法从端点获取模型列表"},
+    },
+)
+async def fetch_models(req: FetchModelsRequest) -> FetchModelsResponse:
+    """
+    从端点拉取可用模型列表
+
+    服务"添加 Provider 表单尚未保存"的场景：用请求中的 type/base_url/api_key
+    构造临时 Provider 实例调用 list_models()，不写入配置文件。
+    """
+    # SSRF 防护：先校验 base_url（复用既有校验，拒绝非 http(s) 与 169.254.x）
+    _validate_base_url(req.base_url)
+
+    try:
+        provider_type = ProviderType(req.type)
+    except ValueError:
+        raise HTTPException(400, detail=f"不支持的 AI 服务类型「{req.type}」（openai/ollama/fake）")
+
+    # 临时 Provider，仅用于探测模型列表，不落盘
+    temp_cfg = AIProvider(
+        id="_fetch_models",
+        name="fetch-models",
+        type=provider_type,
+        base_url=req.base_url,
+        api_key=req.api_key,
+        model="",
+    )
+    provider = create(temp_cfg)
+
+    try:
+        models = await asyncio.wait_for(provider.list_models(), timeout=20)
+    except TimeoutError:
+        raise HTTPException(502, detail="无法从该端点获取模型列表: 请求超时（20s）")
+    except Exception as e:
+        raise HTTPException(502, detail=f"无法从该端点获取模型列表: {e}")
+
+    return FetchModelsResponse(models=models)
 
 
 @router.post(

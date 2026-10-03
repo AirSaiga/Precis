@@ -305,9 +305,9 @@ FastAPI 0.138+ 中 `app.include_router()` 的路由器不再把每条 `APIRoute`
 
 AI 动作类型（actionType）的**单一事实源**是后端 `backend/app/shared/services/llm/actions/registry.py`；前端类型与约束类型映射由 codegen 生成到 `frontend/src/types/generated/actions.ts`（**禁止手改**）。**修改 `registry.py` 的 `ACTIONS`/`CONSTRAINT_TYPES`/`CONSTRAINT_TYPE_ALIASES` 后必须跑 `npm run codegen`（frontend 目录）重新生成并提交 `actions.ts`**，否则 CI 失败；前端业务代码从 `@/types/generated/actions` import，**禁止硬编码动作类型集合与约束类型映射**。细则见 `docs/ARCHITECTURE.md`「AI 动作类型契约（Codegen）细则」。
 
-### AI Provider 预设（国内大模型）
+### AI Provider 预设（国内外大模型）
 
-AI Provider 预设的**单一事实源**是 `backend/app/shared/services/llm/config/presets.py`，前端/CLI/TUI 均经 `GET /providers/presets` 消费，前端零硬编码。改预设必须同步 `backend/app/shared/services/llm/config/AI_PROVIDER_PRESETS.md` 的表格与核对日期（`TestPresetCatalog` 单测守卫）。细则见 `docs/ARCHITECTURE.md`「AI Provider 预设（国内大模型）细则」。
+AI Provider 预设的**单一事实源**是 `backend/app/shared/services/llm/config/presets.py`，前端/CLI/TUI 均经 `GET /providers/presets` 消费，前端零硬编码。改预设必须同步 `backend/app/shared/services/llm/config/AI_PROVIDER_PRESETS.md` 的表格与核对日期（`TestPresetCatalog` 单测守卫）。细则见 `docs/ARCHITECTURE.md`「AI Provider 预设（国内外大模型）细则」。
 
 ### 约束节点自注册
 

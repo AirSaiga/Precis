@@ -208,6 +208,20 @@ class UpdateProviderRequest(BaseModel):
     )
 
 
+class FetchModelsRequest(BaseModel):
+    """从端点拉取模型列表请求（Provider 尚未保存的临时探测）"""
+
+    type: str = Field(default="openai", description="Provider 类型（openai/ollama/fake）")
+    base_url: str = Field(..., description="API 基础 URL")
+    api_key: str | None = Field(default=None, description="API 密钥，本地服务可留空")
+
+
+class FetchModelsResponse(BaseModel):
+    """从端点拉取模型列表响应"""
+
+    models: list[str]
+
+
 class ProviderPresetResponse(BaseModel):
     """服务商预设响应"""
 

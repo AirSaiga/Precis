@@ -116,11 +116,7 @@ export interface AiGenerateV2ConfigJobCreateResponse {
  * AI 生成任务状态枚举（与后端保持一致）。
  */
 export type AiGenerateV2ConfigJobStatusValue =
-  | 'queued'
-  | 'running'
-  | 'completed'
-  | 'failed'
-  | 'cancelled'
+  'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
 
 /**
  * AI 生成任务状态查询响应。
@@ -226,6 +222,22 @@ export interface UpdateProviderRequest {
   api_key?: string
   model?: string
   context_window?: number | null
+}
+
+/**
+ * 从端点拉取模型列表请求（Provider 尚未保存的临时探测）
+ */
+export interface FetchModelsRequest {
+  type: CloudAIProviderType
+  base_url: string
+  api_key?: string
+}
+
+/**
+ * 从端点拉取模型列表响应
+ */
+export interface FetchModelsResponse {
+  models: string[]
 }
 
 /**

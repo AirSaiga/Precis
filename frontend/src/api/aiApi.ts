@@ -36,6 +36,8 @@ import type {
   AiModelModes,
   CloudAIProviderResponse,
   CreateProviderRequest,
+  FetchModelsRequest,
+  FetchModelsResponse,
   ProviderPreset,
   UpdateProviderRequest,
 } from '@/types/ai'
@@ -253,6 +255,14 @@ export async function activateCloudAIProvider(
  */
 export async function getProviderPresets(): Promise<ProviderPreset[]> {
   const { data } = await apiClient.get<ProviderPreset[]>('/ai/providers/presets')
+  return data
+}
+
+/**
+ * 从端点拉取可用模型列表（Provider 未保存的临时探测）
+ */
+export async function fetchProviderModels(req: FetchModelsRequest): Promise<FetchModelsResponse> {
+  const { data } = await apiClient.post<FetchModelsResponse>('/ai/providers/fetch-models', req)
   return data
 }
 
