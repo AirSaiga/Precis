@@ -148,195 +148,214 @@ class ConstraintTypeDoc:
     sub_notes: tuple[str, ...] = ()
 
 
-# 键序即文档渲染序（沿用 chat 提示词既有顺序）
+# 键序即文档渲染序（沿用 chat 提示词既有顺序）。
+# 文案语言：英文（模型输入侧——LLM 英文理解强，且 camel/snake 键与枚举值本身
+# 即英文，统一语言消除混杂；中文界面展示不消费此数据，走前端 i18n）。
 CONSTRAINT_PARAM_SCHEMAS: dict[str, ConstraintTypeDoc] = {
     "NotNull": ConstraintTypeDoc(
         type="NotNull",
-        summary="非空约束",
+        summary="not-null constraint",
         refs="table_id + column_id",
     ),
     "Unique": ConstraintTypeDoc(
         type="Unique",
-        summary="唯一约束",
-        refs="table_id + column_ids（列表）",
-        spec_note='单列无需参数；多列联合唯一用 constraintSpec.targetColumns（列名/ID 数组，如 ["order_id", "line_no"]）。',
+        summary="uniqueness constraint",
+        refs="table_id + column_ids (list)",
+        spec_note='Single column needs no params; for multi-column composite uniqueness use constraintSpec.targetColumns (array of column names/IDs, e.g. ["order_id", "line_no"]).',
     ),
     "AllowedValues": ConstraintTypeDoc(
         type="AllowedValues",
-        summary="允许值约束",
+        summary="allowed-values constraint",
         refs="table_id + column_id",
-        params=(ConstraintParamDoc(camel="allowedValues", snake="allowed_values", vtype="List[Any]", note="非空列表"),),
+        params=(
+            ConstraintParamDoc(camel="allowedValues", snake="allowed_values", vtype="List[Any]", note="non-empty list"),
+        ),
     ),
     "Range": ConstraintTypeDoc(
         type="Range",
-        summary="范围约束",
+        summary="range constraint",
         refs="table_id + column_id",
         params=(
-            ConstraintParamDoc(camel="min", snake="min", vtype="float/int", note="与 max 至少提供一个"),
+            ConstraintParamDoc(camel="min", snake="min", vtype="float/int", note="at least one of min/max required"),
             ConstraintParamDoc(camel="max", snake="max", vtype="float/int"),
             ConstraintParamDoc(
                 camel="boundaryMode",
                 snake="boundary_mode",
-                values=(("inclusive", "闭区间"), ("exclusive", "开区间")),
+                values=(("inclusive", "closed interval"), ("exclusive", "open interval")),
                 default="inclusive",
             ),
         ),
     ),
     "Scripted": ConstraintTypeDoc(
         type="Scripted",
-        summary="脚本/正则约束",
+        summary="scripted/regex constraint",
         refs="table_id + column_id",
         params=(
             # name 仅存在于 V2 文件层（camel 空 → chat 文档不渲染），运行时缺省用约束文件 id
-            ConstraintParamDoc(camel="", snake="name", vtype="str", note="规则名，缺省用约束文件 id"),
+            ConstraintParamDoc(
+                camel="", snake="name", vtype="str", note="rule name; defaults to the constraint file id"
+            ),
             ConstraintParamDoc(
                 camel="expression",
                 snake="expression",
                 vtype="str",
-                note="与 pattern 二选一；simpleeval 布尔表达式，变量 value=当前列值、row=当前行数据，"
-                "函数 re_match(p, s) 等白名单；执行需开启项目设置的允许脚本",
+                note="either expression or pattern; simpleeval boolean expression with variables value=current cell, "
+                "row=current row data, and whitelisted functions like re_match(p, s); requires the project setting "
+                "that allows script evaluation",
             ),
             ConstraintParamDoc(
                 camel="pattern",
                 vtype="str",
-                note="与 expression 二选一；正则（fullmatch 全串匹配语义），写盘时转为沙箱函数调用 re_match(pattern, str(value))",
+                note="either expression or pattern; regex (fullmatch semantics), written to disk as the sandboxed call "
+                "re_match(pattern, str(value))",
             ),
         ),
     ),
     "ForeignKey": ConstraintTypeDoc(
         type="ForeignKey",
-        summary="外键约束",
+        summary="foreign-key constraint",
         refs="from_table_id + from_column_id + to_table_id + to_column_id",
         params=(
             # toTableId/toColumnId 写盘时落 refs（snake 空 → MCP params 不渲染，refs 字段已描述）
-            ConstraintParamDoc(camel="toTableId", vtype="str", note="被引用的目标表"),
-            ConstraintParamDoc(camel="toColumnId", vtype="str", note="被引用的目标列"),
+            ConstraintParamDoc(camel="toTableId", vtype="str", note="referenced target table"),
+            ConstraintParamDoc(camel="toColumnId", vtype="str", note="referenced target column"),
         ),
     ),
     "Conditional": ConstraintTypeDoc(
         type="Conditional",
-        summary="条件约束",
+        summary="conditional constraint",
         refs="table_id + then_column_id + if_conditions[{if_column_id, operator, value}] + if_logic",
         params=(
             ConstraintParamDoc(
-                camel="ifConditions", vtype="List[Object]", note="IF 触发条件列表，写盘落 refs.if_conditions"
+                camel="ifConditions",
+                vtype="List[Object]",
+                note="IF trigger condition list; written to refs.if_conditions",
             ),
             ConstraintParamDoc(
                 camel="ifLogic",
-                values=(("and", "全部满足"), ("or", "任一满足")),
+                values=(("and", "all must hold"), ("or", "any must hold")),
                 default="and",
-                note="多条件组合逻辑，写盘落 refs.if_logic",
+                note="how multiple conditions combine; written to refs.if_logic",
             ),
-            ConstraintParamDoc(camel="thenCondition", snake="then_condition", vtype="Object 或 str", note="必填"),
+            ConstraintParamDoc(camel="thenCondition", snake="then_condition", vtype="Object or str", note="required"),
         ),
         sub_notes=(
-            '`ifConditions` 结构：`[{"ifColumnId": "列名", "operator": "eq/neq/in/not_null/greater_than/less_than", '
-            '"value": 比较值, "values": 列表(in 时可选)}]`',
-            '`thenCondition` 两种形态：DSL 对象 `{"operator": "not_null/greater_than/less_than/in/eq/neq", '
-            '"value": 比较值, "values": 列表(in 时), "refColumn": "同表参考列(可选，与该列比较)"}`；'
-            '或字符串（已注册条件函数名，如 "is_not_empty"）。旧字段 thenValue 已废弃，不要再使用',
+            '`ifConditions` structure: `[{"ifColumnId": "column", "operator": "eq/neq/in/not_null/greater_than/less_than", '
+            '"value": compare value, "values": list (optional for in)}]`',
+            '`thenCondition` has two forms: a DSL object `{"operator": "not_null/greater_than/less_than/in/eq/neq", '
+            '"value": compare value, "values": list (for in), "refColumn": "same-table reference column (optional; '
+            'compares against that column)"}`; or a string (a registered condition function name such as '
+            '"is_not_empty"). The legacy field thenValue is deprecated — do not use it',
         ),
     ),
     "DateLogic": ConstraintTypeDoc(
         type="DateLogic",
-        summary="日期逻辑约束",
+        summary="date-logic constraint",
         refs="table_id + column_id",
         params=(
             ConstraintParamDoc(
                 camel="logicMode",
                 snake="logic_mode",
-                values=(("compare", "比较"), ("calculation", "计算")),
+                values=(("compare", "comparison"), ("calculation", "calculation")),
                 default="compare",
             ),
             ConstraintParamDoc(
                 camel="compareOp",
                 snake="compare_op",
-                values=(("gt", ""), ("gte", ""), ("lt", ""), ("lte", ""), ("eq", ""), ("range", "日期区间")),
+                values=(("gt", ""), ("gte", ""), ("lt", ""), ("lte", ""), ("eq", ""), ("range", "date range")),
                 default="gt",
-                note="为 range 时必须同时提供终点：referenceDateEnd 或 referenceColumnEnd",
-                group="compare 模式",
+                note="when range, an end boundary is also required: referenceDateEnd or referenceColumnEnd",
+                group="compare mode",
             ),
             ConstraintParamDoc(
                 camel="referenceDate",
                 snake="reference_date",
                 vtype="str",
-                note='固定日期 "YYYY-MM-DD"，与 referenceColumn 二选一',
-                group="compare 模式",
+                note='fixed date "YYYY-MM-DD"; mutually exclusive with referenceColumn',
+                group="compare mode",
             ),
             ConstraintParamDoc(
                 camel="referenceColumn",
                 snake="reference_column",
                 vtype="str",
-                note="同表参考列，与 referenceDate 二选一",
-                group="compare 模式",
+                note="same-table reference column; mutually exclusive with referenceDate",
+                group="compare mode",
             ),
             ConstraintParamDoc(
                 camel="referenceDateEnd",
                 snake="reference_date_end",
                 vtype="str",
-                note="仅 compareOp=range：区间终点固定日期，与起点同形态",
-                group="compare 模式",
+                note="only for compareOp=range: fixed end date of the range, same form as the start",
+                group="compare mode",
             ),
             ConstraintParamDoc(
                 camel="referenceColumnEnd",
                 snake="reference_column_end",
                 vtype="str",
-                note="仅 compareOp=range：区间终点参考列，与起点同形态",
-                group="compare 模式",
+                note="only for compareOp=range: end reference column of the range, same form as the start",
+                group="compare mode",
             ),
             ConstraintParamDoc(
                 camel="calculationType",
                 snake="calculation_type",
-                values=(("age", "年龄"), ("days_diff", "与目标列的天数差")),
-                note="必填",
-                group="calculation 模式",
+                values=(("age", "age in years"), ("days_diff", "day difference vs target column")),
+                note="required",
+                group="calculation mode",
             ),
             ConstraintParamDoc(
                 camel="targetValue",
                 snake="target_value",
-                vtype="数值",
-                note="必填；缺省比较口径 age=gte（满 N 岁即过）、days_diff=eq（差值恰等）",
-                group="calculation 模式",
+                vtype="number",
+                note="required; default comparison semantics are age=gte (passes once N years old) and days_diff=eq (difference exactly equal)",
+                group="calculation mode",
             ),
             ConstraintParamDoc(
                 camel="targetColumn",
                 snake="target_column",
                 vtype="str",
-                note="仅 calculationType=days_diff：天数差比较的目标列",
-                group="calculation 模式",
+                note="only for calculationType=days_diff: the target column the day difference compares against",
+                group="calculation mode",
             ),
         ),
     ),
     "Charset": ConstraintTypeDoc(
         type="Charset",
-        summary="字符集约束",
+        summary="charset constraint",
         refs="table_id + column_id",
         params=(
             ConstraintParamDoc(
                 camel="charsetMode",
                 snake="charset_mode",
-                values=(("ascii", "纯 ASCII"), ("chinese", "纯中文"), ("chinese_mixed", "中文+字母数字常见标点")),
-                note="AI 动作必填——缺省会创建失败；V2 文件层缺省 ascii",
+                values=(
+                    ("ascii", "pure ASCII"),
+                    ("chinese", "pure Chinese"),
+                    ("chinese_mixed", "Chinese + letters/digits/common punctuation"),
+                ),
+                note="required for AI actions — omitting it fails creation; the V2 file layer defaults to ascii",
             ),
         ),
     ),
     "Composite": ConstraintTypeDoc(
         type="Composite",
-        summary='复合约束（把多条子约束按逻辑聚合为一条，如"非空且唯一"）',
+        summary='composite constraint (aggregates several sub-constraints under one logic, e.g. "not-null AND unique")',
         refs="table_id",
         params=(
             ConstraintParamDoc(
                 camel="logic",
                 snake="logic",
-                values=(("all", "全部通过"), ("any", "至少一个通过"), ("none", "全部失败才通过")),
+                values=(
+                    ("all", "all must pass"),
+                    ("any", "at least one must pass"),
+                    ("none", "passes only if all fail"),
+                ),
                 default="all",
             ),
             ConstraintParamDoc(
                 camel="subConstraints",
                 snake="sub_constraints",
                 vtype="List",
-                note='必填，每项 {"type": 约束类型, "targetColumn": "列名", "params": {该子约束的参数}}；'
-                "不允许嵌套 Composite",
+                note='required; each item {"type": constraint type, "targetColumn": "column", "params": {params of that sub-constraint}}; '
+                "nested Composite is not allowed",
             ),
         ),
     ),
@@ -583,7 +602,7 @@ def build_spec_field_mapping_text(exclude_categories: frozenset[str] | set[str] 
 
 
 def _render_param_doc_fragment(param: ConstraintParamDoc, key: str) -> str:
-    """渲染单个参数片段：`key` (类型) ("值" 说明 / …，默认 X)（补充说明）。"""
+    """渲染单个参数片段：`key` (类型) ("值" gloss / …, default X) (补充说明)。"""
     fragment = f"`{key}`"
     if param.vtype:
         fragment += f" ({param.vtype})"
@@ -591,10 +610,10 @@ def _render_param_doc_fragment(param: ConstraintParamDoc, key: str) -> str:
         rendered = " / ".join(f'"{value}"{f" {gloss}" if gloss else ""}' for value, gloss in param.values)
         fragment += f" ({rendered}"
         if param.default:
-            fragment += f"，默认 {param.default}"
+            fragment += f", default {param.default}"
         fragment += ")"
     if param.note:
-        fragment += f"（{param.note}）"
+        fragment += f" ({param.note})"
     return fragment
 
 
@@ -612,16 +631,16 @@ def build_constraint_param_docs_text() -> str:
         for p in doc.params:
             if p.group and p.camel:
                 grouped.setdefault(p.group, []).append(_render_param_doc_fragment(p, p.camel))
-        head = f"- **{doc.type}**: {doc.summary}。"
+        head = f"- **{doc.type}**: {doc.summary}."
         if main_fragments:
-            head += f"参数：{'，'.join(main_fragments)}。"
+            head += f" Params: {', '.join(main_fragments)}."
         elif doc.spec_note:
-            head += doc.spec_note
+            head += f" {doc.spec_note}"
         else:
-            head += "参数：无。"
+            head += " Params: none."
         lines.append(head)
         for label, fragments in grouped.items():
-            lines.append(f"  - {label}：{'，'.join(fragments)}")
+            lines.append(f"  - {label}: {', '.join(fragments)}")
         for note in doc.sub_notes:
             lines.append(f"  - {note}")
     return "\n".join(lines)

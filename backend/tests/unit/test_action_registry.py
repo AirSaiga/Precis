@@ -303,8 +303,8 @@ def test_build_constraint_param_docs_covers_all_types_and_value_domains():
 def test_constraint_param_docs_groups_render_as_sub_lines():
     """带分组的参数（DateLogic 两种模式）渲染为缩进子行。"""
     text = registry.build_constraint_param_docs_text()
-    assert "  - compare 模式：`compareOp`" in text
-    assert "  - calculation 模式：`calculationType`" in text
+    assert "  - compare mode: `compareOp`" in text
+    assert "  - calculation mode: `calculationType`" in text
 
 
 def test_constraint_param_enums_match_write_path_whitelists():
