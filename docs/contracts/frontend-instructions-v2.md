@@ -1,135 +1,170 @@
-# AI → 前端变更集指令契约 v2（frontend_instructions）
+# AI → Frontend Change-Set Instruction Contract v2 (frontend_instructions)
 
-> 状态：**已定稿**（v2，2026-10 起生效；v1 镜像数据格式已废弃）
-> 实现单一事实源：`backend/app/shared/services/llm/constraints/frontend_instructions.py`
-> 消费方文档：前端 `frontend/src/services/aiChatInstructions/`（v2 handler）
+> Status: **Finalized** (v2, effective since 2026-10; the v1 mirrored-data format is deprecated)
+> Implementation single source of truth: `backend/app/shared/services/llm/constraints/frontend_instructions.py`
+> Consumer documentation: frontend `frontend/src/services/aiChatInstructions/` (v2 handler)
 
-本文档定义后端 AI 写盘后发给前端的 **frontend_instruction** 指令结构（v2：变更集信封），
-以及它在各通道（SSE 流式 / REST / CLI JSON）中的交付语义。消费方可依赖本文档的承诺。
+This document defines the structure of the **frontend_instruction** messages the
+backend sends to the frontend after the AI writes to disk (v2: change-set envelope),
+and their delivery semantics across channels (SSE streaming / REST / CLI JSON).
+Consumers may rely on the promises made here.
 
-## 设计原则（D1：文件唯一事实源）
+## Design principle (D1: the file is the single source of truth)
 
-后端写盘后，**项目配置文件是唯一事实源**。指令不再携带实体数据（columns/params/config 等），
-只声明"哪个磁盘实体发生了什么变化"；前端收到后从磁盘重读（`importV2ResourceToCanvas`，
-幂等）重建画布。旧 v1 的"镜像数据双写通道"（指令内嵌完整实体数据、前端据此镜像建节点）
-已废弃——uuid 脱钩、竞态、参数丢失三类 bug 均源于该双写。
+After the backend writes to disk, **the project configuration files are the single
+source of truth**. Instructions no longer carry entity data (columns/params/config,
+etc.); they only declare "which on-disk entity changed and how". Upon receipt the
+frontend re-reads from disk (`importV2ResourceToCanvas`, idempotent) and rebuilds
+the canvas. The old v1 "mirrored-data dual-write channel" (instructions embedding
+complete entity data, the frontend mirroring nodes from them) is deprecated — the
+three bug classes it caused (uuid divergence, races, lost params) all stem from
+that dual write.
 
-## 信封字段（v2）
+## Envelope fields (v2)
 
-每条指令是一个 JSON 对象，**有且仅有**以下六个字段：
+Each instruction is a JSON object with **exactly** the following six fields:
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `instructionId` | `str` | 确定性标识 `"{op}:{kind}:{entityId}"`，供追踪与显式去重 |
-| `actionType` | `str` | 原动作类型（`ADD_SCHEMA` / `UPDATE_CONSTRAINT_NODE` / `DELETE_REGEX` / `ADD_TO_CANVAS` 等，全集见 `actions/registry.py`），供展示与遥测，**不用于分发逻辑** |
+| Field | Type | Description |
+|-------|------|-------------|
+| `instructionId` | `str` | Deterministic identifier `"{op}:{kind}:{entityId}"`, for tracing and explicit deduplication |
+| `actionType` | `str` | Original action type (`ADD_SCHEMA` / `UPDATE_CONSTRAINT_NODE` / `DELETE_REGEX` / `ADD_TO_CANVAS`, etc.; full set in `actions/registry.py`), for display and telemetry — **not used for dispatch logic** |
 | `op` | `str` | `add` \| `update` \| `remove` |
-| `kind` | `str` | `schema` \| `constraint` \| `regex` \| `transform`（预留：`manualData` \| `template`） |
-| `entityId` | `str` | 磁盘实体的真实 id，**恒等于宿主文件名推导的 id 与画布节点 id**（见下） |
-| `filePath` | `str` | 项目相对路径（POSIX `/` 分隔），如 `constraints/notnull_3f2a1c8e-5b4d-4e6f-9a0b-7c1d2e3f4a5b.constraint.yaml` |
+| `kind` | `str` | `schema` \| `constraint` \| `regex` \| `transform` (reserved: `manualData` \| `template`) |
+| `entityId` | `str` | The real id of the on-disk entity, **always equal to the id derived from the host file name and to the canvas node id** (see below) |
+| `filePath` | `str` | Project-relative path (POSIX `/` separators), e.g. `constraints/notnull_3f2a1c8e-5b4d-4e6f-9a0b-7c1d2e3f4a5b.constraint.yaml` |
 
-**不再携带**任何实体数据字段（`columns` / `params` / `config` / `constraintSpec` 等）。
-前端处理任何条目的统一动作：按 `filePath`（或 `kind` + `entityId`）从磁盘重读并重建。
+**No entity-data fields are carried** (`columns` / `params` / `config` /
+`constraintSpec`, etc.). The frontend's uniform action for every entry: re-read
+from disk by `filePath` (or `kind` + `entityId`) and rebuild.
 
-### op 枚举语义（文件级）
+### op enum semantics (file-level)
 
-| op | 语义 | 前端动作 |
-|----|------|---------|
-| `add` | 文件已创建（或：把已存在的资源显示到画布） | 从磁盘读取并创建画布节点（已存在则幂等刷新） |
-| `update` | 文件内容已变更（文件仍存在） | 从磁盘重读，以文件内容为准重建节点（含内嵌约束与连线） |
-| `remove` | 文件已删除 | 移除 `entityId` 对应画布节点及关联边（节点不存在则 no-op） |
+| op | Semantics | Frontend action |
+|----|-----------|-----------------|
+| `add` | File created (or: surface an already-existing resource on the canvas) | Read from disk and create the canvas node (idempotent refresh if it already exists) |
+| `update` | File contents changed (file still exists) | Re-read from disk and rebuild the node with the file as the source of truth (including embedded constraints and edges) |
+| `remove` | File deleted | Remove the canvas node for `entityId` and its associated edges (no-op if the node doesn't exist) |
 
-### kind 枚举与目录约定
+### kind enum and directory conventions
 
-| kind | 目录 | 文件后缀 | 匹配键 |
-|------|------|---------|--------|
-| `schema` | `schemas/` | `.schema.yaml` | 内容 `id`（匹配时含 `name` 兜底） |
-| `constraint` | `constraints/` | `.constraint.yaml` | 内容 `id`（resolved_id 优先，语义定位兜底，见下） |
-| `regex` | `regex/`（历史 `regex_nodes/` 仍可命中） | `.regex.yaml` | 内容 `id`（匹配时含 `name` 兜底） |
-| `transform` | `transforms/` | `.transform.yaml` | 仅内容 `id` |
-| `manualData` / `template` | —（当前无 AI 动作产出，前端对称预留） | — | — |
+| kind | Directory | File suffix | Match key |
+|------|-----------|-------------|-----------|
+| `schema` | `schemas/` | `.schema.yaml` | Content `id` (with `name` fallback when matching) |
+| `constraint` | `constraints/` | `.constraint.yaml` | Content `id` (resolved_id first, semantic lookup fallback; see below) |
+| `regex` | `regex/` (legacy `regex_nodes/` still matches) | `.regex.yaml` | Content `id` (with `name` fallback when matching) |
+| `transform` | `transforms/` | `.transform.yaml` | Content `id` only |
+| `manualData` / `template` | — (no AI actions produce these today; symmetrically reserved on the frontend) | — | — |
 
-## 恒等约束（entityId ≡ 磁盘真实 id）
+## Identity invariant (entityId ≡ real on-disk id)
 
-1. **entityId = 宿主 YAML 内容的 `id` 字段**（缺失时按文件名剥后缀推导）= **画布节点 id**。
-   前端不得用 name/configName 等次级键定位节点。
-2. ADD / UPDATE 类指令由后端**重读磁盘**解析 entityId（LLM 可能只给 name，如
-   `UPDATE_SCHEMA {name: "users"}` 命中 `schemas/sc_users.schema.yaml` → entityId 为
-   `sc_users` 而非 `users`）。
-3. DELETE 类指令在文件删除后生成，磁盘无据可查——由 handler 在 unlink 前解析并回传
-   `resolved_id`（schema/regex/transform/constraint 一致），保证删除条目的 entityId
-   同样是真实 id。
-4. 独立约束文件的 id 不再语义派生：新建缺省生成 `{类型}_{UUID v4}`（LLM 显式传
-   `constraintId` 时经文件名安全清洗后尊重）。约束信封的 entityId 取**动作执行的
-   实际落盘结果**——`update_yaml_config` / `delete_constraint_file` 成功时返回的
-   message 即真实 id（processor 以 `resolved_id` 回传）；直连生成器（无
-   resolved_id）时重读磁盘按显式 `constraintId` → 语义引用（表+列+类型，
-   `constraint_lookup.find_constraint_file_by_semantics`）兜底定位，两种路径下
-   "写出的文件名"与"指令 entityId"恒等。删除与语义定位对存量语义 ID 文件
-   （如 `notnull_users_email`）与新 UUID 文件同样适用。
+1. **entityId = the host YAML's content `id` field** (derived from the file name
+   minus suffixes when absent) = **the canvas node id**. The frontend must not
+   locate nodes by secondary keys such as name/configName.
+2. ADD / UPDATE instructions get their entityId by the backend **re-reading disk**
+   (the LLM may only provide a name, e.g. `UPDATE_SCHEMA {name: "users"}` matching
+   `schemas/sc_users.schema.yaml` → entityId is `sc_users`, not `users`).
+3. DELETE instructions are generated after the file is deleted, leaving nothing on
+   disk to consult — the handler resolves and returns `resolved_id` before unlink
+   (uniform for schema/regex/transform/constraint), so deleted entries also carry
+   the real id as entityId.
+4. Standalone constraint file ids are no longer semantically derived: new files
+   default to `{type}_{UUID v4}` (when the LLM passes an explicit `constraintId`,
+   it is respected after filename-safe sanitization). The constraint envelope's
+   entityId is **the actual on-disk result of the action** — the message returned
+   by `update_yaml_config` / `delete_constraint_file` on success is the real id
+   (the processor returns it as `resolved_id`); for direct generators (no
+   resolved_id), the backend re-reads disk and falls back to locating by explicit
+   `constraintId` → semantic reference (table+column+type,
+   `constraint_lookup.find_constraint_file_by_semantics`). Under both paths the
+   "written file name" and the "instruction entityId" are always identical.
+   Deletion and semantic lookup work the same for legacy semantic-ID files (e.g.
+   `notnull_users_email`) and new UUID files.
 
-### 内联约束的特殊映射
+### Special mapping for inline constraints
 
-内联约束（`isInline: true`）没有独立磁盘文件，变更落在**宿主 schema 文件**。因此：
+Inline constraints (`isInline: true`) have no standalone disk file; their changes
+land in the **host schema file**. Therefore:
 
-- 内联 ADD / UPDATE / DELETE 一律产出 `kind=schema`、`op=update` 的条目
-  （actionType 保留原值如 `ADD_CONSTRAINT_NODE` 供遥测）；
-- 前端重读 schema 后以其 `constraints` 列表为准重建内嵌约束节点（被删的内联约束
-  自然不再重建）；
-- 同一批次对同一 schema 的多条内联操作产出**相同 instructionId**
-  （`update:schema:{id}`），天然去重为一次重读。
+- Inline ADD / UPDATE / DELETE always produce entries with `kind=schema`,
+  `op=update` (actionType keeps its original value such as `ADD_CONSTRAINT_NODE`
+  for telemetry);
+- The frontend re-reads the schema and rebuilds embedded constraint nodes from its
+  `constraints` list (deleted inline constraints are simply not rebuilt);
+- Multiple inline operations on the same schema within one batch produce the
+  **same instructionId** (`update:schema:{id}`), naturally deduplicating into a
+  single re-read.
 
-### 无条目的动作
+### Actions without entries
 
-以下动作不产生变更集条目（生成器返回 `None`，各消费通道自动跳过）：
+The following actions produce no change-set entries (the generator returns `None`;
+every consuming channel skips them automatically):
 
-- `UPDATE_SETTINGS`：写 `project.precis.yaml`，无独立实体文件，前端无画布动作；
-- `VALIDATE_PROJECT`：纯读校验；
-- 未知 actionType / 无法解析 entityId 的动作。
+- `UPDATE_SETTINGS`: writes `project.precis.yaml`, has no standalone entity file,
+  and the frontend has no canvas action;
+- `VALIDATE_PROJECT`: read-only validation;
+- Unknown actionTypes / actions whose entityId cannot be resolved.
 
-## 幂等性要求（重复送达安全）
+## Idempotency requirements (safe on repeated delivery)
 
-- **同一条目重复送达必须安全**：前端按 instructionId（或 entityId + op）去重；即使
-  未去重，`add`/`update` 的处理是"以磁盘为准重建"（幂等），`remove` 对不存在的节点
-  是 no-op。
-- `ADD_TO_CANVAS` 与 `ADD_*` 统一到同一信封（`op=add`）：前者目标文件本就存在，语义
-  是"把磁盘上已存在的资源显示到画布"，与新建后显示无差别。
+- **Repeated delivery of the same entry must be safe**: the frontend deduplicates
+  by instructionId (or entityId + op); even without deduplication, `add`/`update`
+  handling is "rebuild from disk as the source of truth" (idempotent), and
+  `remove` on a nonexistent node is a no-op.
+- `ADD_TO_CANVAS` and `ADD_*` are unified into the same envelope (`op=add`): the
+  former's target file already exists — the semantics are "surface the on-disk
+  resource on the canvas", indistinguishable from create-then-surface.
 
-## 交付通道与时序（不变量）
+## Delivery channels and timing (invariants)
 
-| 通道 | 载体 | 语义 |
-|------|------|------|
-| SSE 流式（agent 聊天） | 事件名 `frontend_instruction`，payload `{"instruction": {…信封…}}`，确认落盘后**逐条** emit | 前端收到即执行 + fitView（画布实时生长） |
-| SSE 终止事件兜底 | `completed` 事件快照 `frontend_instructions: [{…信封…}, …]` | 流式丢失时的兜底；前端按 instructionId 与已流式执行的条目去重（信封确定性使文本比对去重退化为恒等比较） |
-| REST 非流式 `/ai/chat` | 响应字段 `frontend_instructions`（list，同信封） | 透传 |
-| CLI `ai ask --json` | `CommandResult.data.frontend_instructions` | 纯透传/展示，CLI 无画布，不消费字段 |
+| Channel | Carrier | Semantics |
+|---------|---------|-----------|
+| SSE streaming (agent chat) | Event name `frontend_instruction`, payload `{"instruction": {…envelope…}}`, emitted **one by one** after disk writes are confirmed | Frontend executes on receipt + fitView (canvas grows in real time) |
+| SSE terminal-event fallback | The `completed` event snapshots `frontend_instructions: [{…envelope…}, …]` | Fallback when streaming is lost; the frontend deduplicates against already-streamed entries by instructionId (envelope determinism reduces text-comparison dedup to identity comparison) |
+| REST non-streaming `/ai/chat` | Response field `frontend_instructions` (list, same envelope) | Pass-through |
+| CLI `ai ask --json` | `CommandResult.data.frontend_instructions` | Pure pass-through/display; the CLI has no canvas and does not consume the field |
 
-时序与事件名**不变**，只有 payload 形状从 v1（内嵌实体数据）变为 v2 信封。
+Timing and event names are **unchanged**; only the payload shape moved from v1
+(embedded entity data) to the v2 envelope.
 
-### 生产侧不变量（P0 批次确立，勿破坏）
+### Producer-side invariants (established in the P0 batch; do not break)
 
-- **回滚清空**：批次内任一动作失败触发整体回滚时，写盘动作的指令全部清空（磁盘已回到
-  执行前，指令指向不存在的结果 = 幽灵指令）；只读动作（`ADD_TO_CANVAS`）重读的是批次前
-  就存在的磁盘配置，指令保留。
-- **dry-run 不双份累积**：两阶段确认的 dry-run（shadow-copy）产物仅用于 diff 预览，
-  指令只从真实写盘结果收集一次（`apply_actions._run_two_phase`）。
-- **EventJournal 重放语义**：`frontend_instruction` 事件随 journal 持久化（非终止事件，
-  不强制 fsync）。`/ai/chat/stream` 不支持跨连接断线续传——`Last-Event-ID` 仅作为本连接
-  内 journal 回放的起始游标（代理缓冲/重连触发时从该 id 重放），重放会重复送达已发事件
-  （含 `frontend_instruction` 与 `completed` 快照中的指令）。**幂等性 + instructionId 去重
-  是重放安全性的基础**，由前端保证。回滚批次的指令在生产侧已清空，journal 中不会出现
-  幽灵条目。
+- **Rollback clears instructions**: when any action in a batch fails and triggers
+  a full rollback, all instructions of write actions are cleared (disk is back to
+  pre-execution state; instructions would point at nonexistent results = ghost
+  instructions); read-only actions (`ADD_TO_CANVAS`) re-read disk configuration
+  that existed before the batch, so their instructions are kept.
+- **No double accumulation in dry-run**: two-phase-confirmation dry-run
+  (shadow-copy) artifacts are for diff preview only; instructions are collected
+  exactly once from the real write results (`apply_actions._run_two_phase`).
+- **EventJournal replay semantics**: `frontend_instruction` events persist with
+  the journal (non-terminal events, no forced fsync). `/ai/chat/stream` does not
+  support cross-connection resumption — `Last-Event-ID` only serves as the start
+  cursor for journal replay within the same connection (replayed from that id
+  when proxy buffering/reconnects trigger it); replay re-delivers already-sent
+  events (including `frontend_instruction` and those in the `completed`
+  snapshot). **Idempotency + instructionId deduplication are the foundation of
+  replay safety**, guaranteed by the frontend. Instructions of rolled-back
+  batches are already cleared on the producer side, so no ghost entries appear
+  in the journal.
 
-## 兼容性承诺（v2）
+## Compatibility promises (v2)
 
-1. **只增不减**：v2 生命周期内新增字段允许（消费方应容忍未知字段）；六字段名称与语义不变。
-2. **破坏性变更**（删字段、改语义）须递增版本号并更新本文档。
-3. v1 → v2 为**硬切换**（前后端同仓库同发布）：v1 前端 handler 收到 v2 信封的行为——
-   schema/regex/transform/canvas handler 因 `spec` 缺失**静默跳过**（画布不更新，无报错）；
-   constraint handler 对 `undefined` 解构**抛 TypeError**，流式路径被 `.catch` 记日志吞掉、
-   批量兜底路径向上冒泡。两种情况均不产生错误节点/脏数据，仅画布滞后（重载项目即恢复）。
+1. **Add-only**: adding new fields is allowed within the v2 lifetime (consumers
+   must tolerate unknown fields); the six field names and semantics never change.
+2. **Breaking changes** (removing fields, changing semantics) require a version
+   bump and an update to this document.
+3. v1 → v2 is a **hard switch** (frontend and backend live in the same repo and
+   release together): a v1 frontend handler receiving a v2 envelope —
+   schema/regex/transform/canvas handlers **silently skip** due to the missing
+   `spec` (canvas not updated, no error); the constraint handler **throws a
+   TypeError** destructuring `undefined` — swallowed with a log by `.catch` on
+   the streaming path, bubbling up on the batch fallback path. Neither case
+   produces error nodes or dirty data; only the canvas lags (reloading the
+   project restores it).
 
-## 契约守卫
+## Contract guards
 
-- 生成器单元测试：`backend/tests/unit/test_frontend_instructions.py`
-  （信封字段完整性、各 actionType 家族 add/update/remove、entityId 与磁盘文件 id 恒等、
-  ADD_TO_CANVAS、内联降级、DELETE resolved_id 链路、None 返回类）。
+- Generator unit tests: `backend/tests/unit/test_frontend_instructions.py`
+  (envelope-field completeness, add/update/remove per actionType family, entityId
+  ≡ on-disk file id, ADD_TO_CANVAS, inline downgrade, the DELETE resolved_id
+  chain, None-returning classes).

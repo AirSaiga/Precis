@@ -1,92 +1,101 @@
-# `precis validate --format json` 输出契约 v1
+# `precis validate --format json` Output Contract v1
 
-> 状态：**已冻结**（自 2026-09-20 起）
-> 实现单一事实源：`backend/app/cli/shell/commands/validate.py` 的 `_build_json_payload`
-> 契约快照测试：`backend/tests/unit/cli/test_validate_json_contract.py`
+> Status: **Frozen** (since 2026-09-20)
+> Implementation single source of truth: `build_json_payload` in `backend/app/shared/services/validation/json_payload.py`
+> Contract snapshot tests: `backend/tests/unit/cli/test_validate_json_contract.py`
 
-本文档定义 `precis validate --manifest <path> --format json` 在 **stdout** 上输出的
-JSON 文档结构。消费方（Kimi Code 插件、CI、其他 agent harness）可依赖本文档的承诺。
+This document defines the structure of the JSON document that
+`precis validate --manifest <path> --format json` writes to **stdout**.
+Consumers (Kimi Code plugin, CI pipelines, other agent harnesses) may rely on
+the promises made here.
 
-## 总则
+## General rules
 
-- stdout **只包含一个 JSON 文档**（`json.dumps(..., ensure_ascii=False)`，单行，UTF-8）。
-  Spinner、rich 摘要等人类可读输出在 JSON 模式下被抑制；日志走 stderr。
-- **字段必须存在，缺值填 `null`**——消费方判空即可，不需要判键存在。
-- `schema_version` 当前为 `1`。
+- stdout contains **exactly one JSON document** (`json.dumps(..., ensure_ascii=False)`,
+  single line, UTF-8). Spinner and rich summary output is suppressed in JSON mode;
+  logs go to stderr.
+- **Fields must always be present; missing values are `null`** — consumers check
+  for emptiness only, never for key existence.
+- `schema_version` is currently `1`.
 
-## 兼容性承诺（v1）
+## Compatibility promises (v1)
 
-1. **只增不减**：v1 生命周期内新增字段是允许的（消费方应容忍未知字段）；
-   既有字段的**名称与语义不变**。
-2. **破坏性变更**（删字段、改语义、改类型）必须递增 `schema_version`，
-   并同步更新本文档。
-3. 退出码语义（见下）独立于 `schema_version`，同为冻结承诺。
+1. **Add-only**: adding new fields is allowed within the v1 lifetime (consumers
+   must tolerate unknown fields); the **names and semantics of existing fields
+   never change**.
+2. **Breaking changes** (removing fields, changing semantics or types) require
+   bumping `schema_version` and updating this document.
+3. Exit-code semantics (below) are independent of `schema_version` and are an
+   equally frozen promise.
 
-## 顶层字段
+## Top-level fields
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `schema_version` | `int` | 输出契约版本，当前恒为 `1` |
-| `is_valid` | `bool` | `true` 当且仅当 `errors` 为空；loading_warnings 不影响该判定 |
-| `interrupted` | `bool` | 因 `error_handling: stop`（遇错即停）提前终止时为 `true` |
-| `duration_ms` | `int` | 校验总耗时（毫秒） |
-| `tables` | `list[TableEntry]` | 加载并参与校验的数据表清单，见下 |
-| `summary` | `Summary` | 约束检查统计，见下 |
-| `errors` | `list[ErrorEntry]` | 违规/错误条目，见下 |
-| `loading_warnings` | `list[dict]` | 加载阶段问题（原样透传 `loading_errors`），条目结构见下 |
+| Field | Type | Description |
+|-------|------|-------------|
+| `schema_version` | `int` | Output contract version; currently always `1` |
+| `is_valid` | `bool` | `true` if and only if `errors` is empty; `loading_warnings` does not affect this verdict |
+| `interrupted` | `bool` | `true` when validation terminated early due to `error_handling: stop` (stop on first error) |
+| `duration_ms` | `int` | Total validation duration in milliseconds |
+| `tables` | `list[TableEntry]` | Loaded tables that participated in validation; see below |
+| `summary` | `Summary` | Constraint-check statistics; see below |
+| `errors` | `list[ErrorEntry]` | Violation/error entries; see below |
+| `loading_warnings` | `list[dict]` | Loading-stage issues (passed through verbatim from `loading_errors`); entry structure below |
 
 ### `tables[i]`
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `name` | `str \| null` | 表显示名（来自 validation_details.format_checks） |
-| `rows` | `int \| null` | 表行数；标准模式为 DataFrame 长度，分块模式为 `row_count`；取不到为 `null` |
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | `str \| null` | Table display name (from `validation_details.format_checks`) |
+| `rows` | `int \| null` | Row count; DataFrame length in standard mode, `row_count` in chunked mode; `null` when unavailable |
 
 ### `summary`
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `constraints_total` | `int` | 执行过的约束检查项数 |
-| `constraints_passed` | `int` | 通过项数 |
-| `constraints_failed` | `int` | 失败项数（`total = passed + failed`） |
+| Field | Type | Description |
+|-------|------|-------------|
+| `constraints_total` | `int` | Number of constraint checks executed |
+| `constraints_passed` | `int` | Number of checks passed |
+| `constraints_failed` | `int` | Number of checks failed (`total = passed + failed`) |
 
 ### `errors[i]`
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `table` | `str \| null` | 表显示名 |
-| `column` | `str \| null` | 列名；跨表/表级错误可能为 `null` |
-| `constraint_type` | `str \| null` | 约束类名（如 `NotNullConstraint`）；格式校验错误为 `FormatValidation`；超时/中断类为对应类型 |
-| `constraint_file` | `str \| null` | **相对 manifest 目录**的来源文件路径：独立约束为其 `*.constraint.yaml` 路径，schema 内嵌约束为宿主 `*.schema.yaml` 路径；格式校验/超时/模板展开产物等无来源错误为 `null` |
-| `row_index` | `int \| null` | 0 起的数据行索引（不含表头）；无行概念的错误为 `null`。两类基准：格式校验错误（`FormatValidation`）恒为**原文件行位**；约束错误为**约束求值时行位**——Transform DAG 在格式校验之后、约束校验之前执行，行数改变类转换（FilterRows/SortRows/DropDuplicates/Aggregate）会重排行位，此时约束错误的 `row_index` 与原文件行位不对应（无行变换时两类基准一致）。行位到原文件的回溯映射（index lineage）为已知 backlog，未实现 |
-| `cell_value` | `any (JSON) \| null` | 违规单元格原始值；numpy 标量归一为 Python 原生类型，NaN/Inf 转字符串 |
-| `error_message` | `str \| null` | 人类可读错误消息（中文）；消息中的表标识为显示名（表 ID 已在后处理替换），悬空引用（表已不存在）保留 ID 供定位 |
-| `error_message_en` | `str \| null` | 英文错误文案（开源国际发布用），按 `error_code` + `error_params` 渲染；**未登记错误码 / 参数缺失 / 渲染失败为 `null`，消费方应以 `error_message` 兜底**；非 coded 错误（格式校验、超时、加载类）恒为 `null`（v1 兼容的追加字段，只增） |
-| `suggestion` | `str \| null` | 可选修复建议：值与允许值词法相近时提示"是否应为 X"（AllowedValues，difflib 语义相近不冒进）、形似 Y-M-D 但月/日取值非法时指出超范围字段；生成器无法给出建议时为 `null`（v1 增补字段，只增） |
-| `error_code` | `str \| null` | 稳定机器错误码（UPPER_SNAKE，如 `RANGE_COLUMN_NOT_NUMERIC`），供 GUI 前端映射 i18n key 按当前语言渲染；CLI 消费方一般不需要（v1 增补字段，只增） |
-| `error_params` | `object \| null` | `error_code` 对应的插值参数（JSON 标量，数据值已字符串化），如 `{"column": "Total"}`；无码错误为 `null`（v1 增补字段，只增） |
+| Field | Type | Description |
+|-------|------|-------------|
+| `table` | `str \| null` | Table display name |
+| `column` | `str \| null` | Column name; may be `null` for cross-table or table-level errors |
+| `constraint_type` | `str \| null` | Constraint class name (e.g. `NotNullConstraint`); `FormatValidation` for format-validation errors; the corresponding type for timeout/interruption errors |
+| `constraint_file` | `str \| null` | Source file path **relative to the manifest directory**: for standalone constraints the `*.constraint.yaml` path, for schema-embedded constraints the host `*.schema.yaml` path; `null` for sourceless errors (format validation, timeouts, template-expansion artifacts, etc.) |
+| `row_index` | `int \| null` | Zero-based data row index (header excluded); `null` for errors without a row concept. Two baselines exist: format-validation errors (`FormatValidation`) are always **original-file row positions**; constraint errors use **row positions at constraint-evaluation time** — the Transform DAG runs after format validation and before constraint validation, so row-count-changing transforms (FilterRows/SortRows/DropDuplicates/Aggregate) re-index rows, and constraint-error `row_index` values then no longer correspond to original-file positions (the two baselines agree when no row-transform is applied). Back-mapping row positions to the original file (index lineage) is a known backlog item, not implemented |
+| `cell_value` | `any (JSON) \| null` | Raw value of the violating cell; numpy scalars are normalized to native Python types, NaN/Inf become strings |
+| `error_message` | `str \| null` | Human-readable error message (Chinese); table identifiers in the message are display names (table IDs are replaced in post-processing); dangling references (table no longer exists) keep the ID for troubleshooting |
+| `error_message_en` | `str \| null` | English error message (for the international open-source release), rendered from `error_code` + `error_params`; **`null` for unregistered codes / missing params / rendering failures — consumers must fall back to `error_message`**; always `null` for uncoded errors (format validation, timeouts, loading issues) (v1-compatible additive field) |
+| `suggestion` | `str \| null` | Optional fix hint: suggests "did you mean X" when a value is lexically close to an allowed value (AllowedValues; difflib closeness, no bold guesses), or points out the out-of-range field for near-miss Y-M-D dates with invalid month/day; `null` when the generator has no hint (v1 additive field) |
+| `error_code` | `str \| null` | Stable machine error code (UPPER_SNAKE, e.g. `RANGE_COLUMN_NOT_NUMERIC`), for the GUI frontend to map to an i18n key and render in the current language; CLI consumers generally don't need it (v1 additive field) |
+| `error_params` | `object \| null` | Interpolation params for `error_code` (JSON scalars; data values stringified), e.g. `{"column": "Total"}`; `null` for uncoded errors (v1 additive field) |
 
 ### `loading_warnings[i]`
 
-加载阶段问题（`LoadingError.to_dict()` 原样透传），常用字段：`error_type`、
-`file_path`、`ref_id`、`message`、`severity`、`title`、`description`、`fix_hint`。
-manifest 版本问题（`ManifestVersionError`）、文件缺失、解析失败、ID 不一致等
-都经此通道透出。
+Loading-stage issues (passed through verbatim from `LoadingError.to_dict()`); common
+fields: `error_type`, `file_path`, `ref_id`, `message`, `severity`, `title`,
+`description`, `fix_hint`. Manifest version problems (`ManifestVersionError`),
+missing files, parse failures, ID mismatches, etc. all surface through this channel.
 
-## 退出码契约（单发模式，与输出格式正交）
+## Exit-code contract (single-shot mode; orthogonal to the output format)
 
-| 码 | 含义 | 典型场景 |
-|----|------|---------|
-| `0` | 校验通过 | `errors` 为空且校验正常完成 |
-| `1` | 校验完成，发现数据违规 | `errors` 非空（含格式错误、约束违规） |
-| `2` | 工具自身错误 | 参数错误（含非法 `--format` 值、未知命令）、manifest 路径不存在、异常崩溃 |
+| Code | Meaning | Typical scenario |
+|------|---------|------------------|
+| `0` | Validation passed | `errors` is empty and validation completed normally |
+| `1` | Validation completed, data violations found | `errors` is non-empty (format errors, constraint violations) |
+| `2` | Tool error | Argument errors (including invalid `--format` values, unknown commands), manifest path not found, crashes |
 
-注意：manifest **存在但版本不支持**（`ManifestVersionError`）经 loading_warnings
-结构化透出，校验流程可控收场（`errors` 含数据未加载错误）→ 退出码 `1`；
-manifest 不存在/内容非法崩溃 → 退出码 `2`。
+Note: a manifest that **exists but has an unsupported version** (`ManifestVersionError`)
+surfaces structurally through `loading_warnings`, and validation finishes in a controlled
+manner (`errors` contains data-not-loaded errors) → exit code `1`; a manifest that does
+not exist / crashes on parse → exit code `2`.
 
-`--report` 导出失败（路径不可写/非法扩展名）**不破坏 stdout 契约**：stdout 仍输出
-完整 JSON 文档（校验结果如实呈现），错误文案经 stderr 透出，退出码为 `2`
-（工具自身错误；与数据违规的 `1` 区分）。
+`--report` export failure (unwritable path / invalid extension) does **not break the
+stdout contract**: stdout still emits the full JSON document (validation results shown
+as-is), the error message goes to stderr, and the exit code is `2` (tool error;
+distinct from the `1` used for data violations).
 
-交互 REPL 模式不受退出码契约影响；`--format` 仅在 standalone（含 `--manifest`）模式生效。
+The interactive REPL mode is not covered by the exit-code contract; `--format` takes
+effect only in standalone (with `--manifest`) mode.
