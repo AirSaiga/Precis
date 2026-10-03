@@ -151,6 +151,18 @@ const validation = {
     CHUNKED_LOAD_FAILED: '分块加载失败: {detail}',
     DATA_DIR_NOT_FOUND: '数据目录不存在: {path}',
     DATA_SOURCE_NOT_FOUND: "表 '{table}' 未找到数据源（已查找目录: {directory}）",
+    // —— 类型层 / 数据引擎（格式校验第一阶段：类型解析 / nullable / 缺列）——
+    TYPE_NULL_NOT_ALLOWED: "列 '{column}' 不允许为空",
+    TYPE_INT_FORMAT_INVALID: "'{value}' 不是严格格式的整数（只允许数字和可选负号）",
+    TYPE_INT_OVERFLOW: "'{value}' 超出安全整数范围（±2^53），可能丢失精度",
+    TYPE_FLOAT_INVALID: "'{value}' 不是有效的有限数值",
+    TYPE_DECIMAL_INVALID: "'{value}' 不是有效的数值",
+    TYPE_DECIMAL_NOT_FINITE: "'{value}' 不是有限的数值（不接受 NaN/Infinity）",
+    TYPE_DECIMAL_PRECISION: "'{value}' 超出精度限制（最多 {precision} 位）",
+    TYPE_DECIMAL_SCALE: "'{value}' 小数位数超出限制（最多 {scale} 位）",
+    TYPE_DATE_FORMAT_INVALID: "'{value}' 不是有效的日期格式 (YYYY-MM-DD)",
+    TYPE_BOOL_INVALID: "'{value}' 不是有效的布尔值",
+    SCHEMA_COLUMN_MISSING: "数据表中缺少必需的列 '{column}'",
     // —— 区间 Range ——
     RANGE_NO_BOUNDS: '未配置边界（min/max 至少填其一）',
     RANGE_TABLE_NOT_FOUND: "表 '{table}' 不在数据集中",

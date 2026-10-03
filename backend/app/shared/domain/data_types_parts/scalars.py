@@ -163,6 +163,8 @@ class IntegerType(DataType):
                         "column": col_name,
                         "value": series[index],
                         "error_type": "NotNullViolation",
+                        "error_code": "TYPE_NULL_NOT_ALLOWED",
+                        "error_params": {"column": col_name},
                         "error_message": f"列 '{col_name}' 不允许为空",
                     }
                 )
@@ -193,6 +195,8 @@ class IntegerType(DataType):
                     "column": col_name,
                     "value": val,
                     "error_type": "TypeValidationError",
+                    "error_code": "TYPE_INT_FORMAT_INVALID",
+                    "error_params": {"value": val},
                     "error_message": f"'{val}' 不是一个严格格式的整数（只允许数字和可选的负号）。",
                 }
             )
@@ -217,6 +221,8 @@ class IntegerType(DataType):
                     "column": col_name,
                     "value": series[index],
                     "error_type": "TypeValidationError",
+                    "error_code": "TYPE_INT_OVERFLOW",
+                    "error_params": {"value": series[index]},
                     "error_message": f"'{series[index]}' 超出安全整数范围（±2^53），可能丢失精度。",
                 }
             )
@@ -281,6 +287,8 @@ class StringType(DataType):
                         "column": col_name,
                         "value": series[index],
                         "error_type": "NotNullViolation",
+                        "error_code": "TYPE_NULL_NOT_ALLOWED",
+                        "error_params": {"column": col_name},
                         "error_message": f"列 '{col_name}' 不允许为空",
                     }
                 )
@@ -366,6 +374,8 @@ class FloatType(DataType):
                         "column": col_name,
                         "value": series[index],
                         "error_type": "NotNullViolation",
+                        "error_code": "TYPE_NULL_NOT_ALLOWED",
+                        "error_params": {"column": col_name},
                         "error_message": f"列 '{col_name}' 不允许为空",
                     }
                 )
@@ -390,6 +400,8 @@ class FloatType(DataType):
                     "column": col_name,
                     "value": val,
                     "error_type": "TypeValidationError",
+                    "error_code": "TYPE_FLOAT_INVALID",
+                    "error_params": {"value": val},
                     "error_message": f"'{val}' 不是一个有效的浮点数。",
                 }
             )
@@ -424,24 +436,29 @@ class DecimalType(DataType):
         self.precision = precision
         self.scale = scale
 
-    def validate(self, value: Any) -> tuple[bool, Any]:
+    def validate_ex(self, value: Any) -> tuple[bool, str | None, dict[str, Any] | None, str | None]:
         """
-        @methoddesc 验证值是否为有效的高精度小数
+        @methoddesc 带稳定错误码的高精度小数验证（覆写基类默认实现）
 
-        检查值能否转换为 Decimal，以及是否满足精度和位数限制。
-
-        参数:
-            value: 要验证的值
-
-        返回:
-            元组 (is_valid, error_message)
+        DecimalType 无向量化 process_column，走 base 默认逐元素路径——
+        错误码在此层提供，英文渲染（messages_en）与 JSON 契约方可消费。
+        四种失败分支各有稳定码：
+        - TYPE_DECIMAL_INVALID：无法转换为 Decimal
+        - TYPE_DECIMAL_NOT_FINITE：NaN / Infinity
+        - TYPE_DECIMAL_PRECISION：有效数字位数超限（params 含 precision）
+        - TYPE_DECIMAL_SCALE：小数位数超限（params 含 scale）
         """
         from decimal import Decimal, InvalidOperation
 
         try:
             decimal_value = Decimal(str(value))
             if not decimal_value.is_finite():
-                return False, f"'{value}' 不是有限的数值（NaN 或 Infinity 不被接受）"
+                return (
+                    False,
+                    "TYPE_DECIMAL_NOT_FINITE",
+                    {"value": value},
+                    f"'{value}' 不是有限的数值（NaN 或 Infinity 不被接受）",
+                )
             if self.precision:
                 # §1.20: 按数值语义计数精度——去尾随零与指数形态后数有效位数，
                 # 同值 "150"/"1.5E+2"/"150.00" 判定一致（原实现按存储表示计数，同值不同精度）。
@@ -453,16 +470,39 @@ class DecimalType(DataType):
                 significant = "".join(map(str, digits)).rstrip("0")
                 total_digits = len(significant) if significant else 1  # 全零值有效位记 1
                 if total_digits > self.precision:
-                    return False, f"'{value}' 超出精度限制（最大 {self.precision} 位）"
+                    return (
+                        False,
+                        "TYPE_DECIMAL_PRECISION",
+                        {"value": value, "precision": self.precision},
+                        f"'{value}' 超出精度限制（最大 {self.precision} 位）",
+                    )
             if self.scale is not None:
                 exponent = decimal_value.as_tuple().exponent
                 if isinstance(exponent, int):
                     decimal_places = -exponent
                     if decimal_places > self.scale:
-                        return False, f"'{value}' 小数位数超出限制（最大 {self.scale} 位）"
-            return True, None
+                        return (
+                            False,
+                            "TYPE_DECIMAL_SCALE",
+                            {"value": value, "scale": self.scale},
+                            f"'{value}' 小数位数超出限制（最大 {self.scale} 位）",
+                        )
+            return True, None, None, None
         except (InvalidOperation, ValueError, TypeError):
-            return False, f"'{value}' 不是一个有效的数值。"
+            return False, "TYPE_DECIMAL_INVALID", {"value": value}, f"'{value}' 不是一个有效的数值。"
+
+    def validate(self, value: Any) -> tuple[bool, Any]:
+        """
+        @methoddesc 验证值是否为有效的高精度小数（委托 validate_ex，单一逻辑源）
+
+        参数:
+            value: 要验证的值
+
+        返回:
+            元组 (is_valid, error_message)
+        """
+        is_valid, _code, _params, error_message = self.validate_ex(value)
+        return is_valid, error_message
 
     def parse(self, value: Any) -> Decimal:
         """
@@ -551,6 +591,8 @@ class BooleanType(DataType):
                         "column": col_name,
                         "value": series[index],
                         "error_type": "NotNullViolation",
+                        "error_code": "TYPE_NULL_NOT_ALLOWED",
+                        "error_params": {"column": col_name},
                         "error_message": f"列 '{col_name}' 不允许为空",
                     }
                 )
@@ -583,6 +625,8 @@ class BooleanType(DataType):
                     "column": col_name,
                     "value": val,
                     "error_type": "TypeValidationError",
+                    "error_code": "TYPE_BOOL_INVALID",
+                    "error_params": {"value": val},
                     "error_message": f"'{val}' 不是一个有效的布尔值。",
                 }
             )
@@ -675,6 +719,8 @@ class DateType(DataType):
                         "column": col_name,
                         "value": series[index],
                         "error_type": "NotNullViolation",
+                        "error_code": "TYPE_NULL_NOT_ALLOWED",
+                        "error_params": {"column": col_name},
                         "error_message": f"列 '{col_name}' 不允许为空",
                     }
                 )
@@ -699,6 +745,8 @@ class DateType(DataType):
                 "column": col_name,
                 "value": val,
                 "error_type": "TypeValidationError",
+                "error_code": "TYPE_DATE_FORMAT_INVALID",
+                "error_params": {"value": val},
                 "error_message": f"'{val}' 不是有效的日期格式 (YYYY-MM-DD)。",
             }
             # suggestion（可选）：形似 Y-M-D 但取值非法时指出超范围字段

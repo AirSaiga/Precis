@@ -213,6 +213,20 @@ ERROR_MESSAGES_EN: dict[str, str] = {
     # ---- 加载阶段错误码（data_loader.py 的 loading_errors，经 loading_warnings 通道透出）----
     "DATA_DIR_NOT_FOUND": "Data directory not found: {path}",
     "DATA_SOURCE_NOT_FOUND": "No data source found for table '{table}' (searched directory: {directory}).",
+    # ---- 类型层/数据引擎错误码（data_types_parts + data_engine 的格式校验第一阶段错误）----
+    # 注意：TYPE_NULL_NOT_ALLOWED 是 schema 层 nullable 语义（列定义不允许空），
+    # 与约束层 NOT_NULL_VALUE_EMPTY（NotNull 约束）语义不同，码分开
+    "TYPE_NULL_NOT_ALLOWED": "Column '{column}' does not allow empty values.",
+    "TYPE_INT_FORMAT_INVALID": "Value '{value}' is not a strictly formatted integer (digits and an optional sign only).",
+    "TYPE_INT_OVERFLOW": "Value '{value}' exceeds the safe integer range (±2^53) and may lose precision.",
+    "TYPE_FLOAT_INVALID": "Value '{value}' is not a valid finite number.",
+    "TYPE_DECIMAL_INVALID": "Value '{value}' is not a valid number.",
+    "TYPE_DECIMAL_NOT_FINITE": "Value '{value}' is not a finite number (NaN and Infinity are not accepted).",
+    "TYPE_DECIMAL_PRECISION": "Value '{value}' exceeds the precision limit ({precision} significant digits at most).",
+    "TYPE_DECIMAL_SCALE": "Value '{value}' exceeds the decimal places limit ({scale} at most).",
+    "TYPE_DATE_FORMAT_INVALID": "Value '{value}' is not a valid date (expected format YYYY-MM-DD).",
+    "TYPE_BOOL_INVALID": "Value '{value}' is not a valid boolean (expected true/false, yes/no, 1/0, etc.).",
+    "SCHEMA_COLUMN_MISSING": "Required column '{column}' is missing from the data table.",
 }
 
 

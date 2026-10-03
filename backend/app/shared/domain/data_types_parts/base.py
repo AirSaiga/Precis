@@ -106,6 +106,27 @@ class DataType(ABC):
         """
         raise NotImplementedError
 
+    def validate_ex(self, value: Any) -> tuple[bool, str | None, dict[str, Any] | None, str | None]:
+        """
+        @methoddesc 带稳定错误码的逐元素验证（process_column 默认路径的 emit 源）
+
+        与 validate() 的差异：失败分支额外返回 error_code（UPPER_SNAKE）与
+        error_params（插值参数），供 CLI 英文渲染（messages_en 中央目录）与
+        JSON 契约的 error_code/error_params/error_message_en 三字段消费。
+        默认实现退化为 validate()（无码——调用方回退中文 message 兜底），
+        需要错误码的类型（如 DecimalType）覆写本方法按失败分支返回码与参数。
+        validate() 契约保持不变，既有调用方零破坏；新类型渐进迁移。
+
+        Args:
+            value: 要验证的原始值
+
+        Returns:
+            四元组 (is_valid, error_code, error_params, error_message)：
+            验证通过时后三项为 None；未覆写时 error_code/error_params 恒 None
+        """
+        is_valid, error_message = self.validate(value)
+        return is_valid, None, None, error_message
+
     @abstractmethod
     def parse(self, value: Any) -> Any:
         """
@@ -165,6 +186,9 @@ class DataType(ABC):
                         "column": col_name,  # 当前处理的列名，用于定位错误位置
                         "value": value,  # 原始空值，保留用于调试和展示
                         "error_type": "NotNullViolation",  # 错误类型标识，与前端错误分类对应
+                        # schema 层 nullable 语义（区别于 NotNull 约束层），稳定码供英文渲染
+                        "error_code": "TYPE_NULL_NOT_ALLOWED",
+                        "error_params": {"column": col_name},
                         "error_message": f"列 '{col_name}' 不允许为空",  # 面向用户的错误描述
                     }
                 )
@@ -180,8 +204,9 @@ class DataType(ABC):
                 continue
 
             # 分支 3：类型验证
-            # 对非空值调用子类实现的 validate() 进行格式和语义检查
-            is_valid, error_message = self.validate(value)
+            # 对非空值调用 validate_ex() 进行格式和语义检查（带稳定错误码，
+            # 未覆写 validate_ex 的类型退化为 validate() 的无码行为）
+            is_valid, error_code, error_params, error_message = self.validate_ex(value)
             if not is_valid:
                 errors.append(
                     {
@@ -189,6 +214,9 @@ class DataType(ABC):
                         "column": col_name,
                         "value": value,  # 记录原始无效值，便于用户排查数据问题
                         "error_type": "TypeValidationError",  # 类型验证失败的统一错误标识
+                        # 未覆写 validate_ex 的类型为 None——JSON 契约中 error_code 为 null（与既有行为一致）
+                        "error_code": error_code,
+                        "error_params": error_params,
                         "error_message": error_message,  # 由具体子类提供的详细错误描述
                     }
                 )

@@ -167,6 +167,20 @@ const validation = {
     DATA_DIR_NOT_FOUND: 'Data directory not found: {path}',
     DATA_SOURCE_NOT_FOUND:
       "No data source found for table '{table}' (searched directory: {directory})",
+    // —— Type layer / data engine (format-validation phase 1: type parsing / nullable / missing column) ——
+    TYPE_NULL_NOT_ALLOWED: "Column '{column}' does not allow empty values",
+    TYPE_INT_FORMAT_INVALID:
+      "'{value}' is not a strictly formatted integer (digits and an optional sign only)",
+    TYPE_INT_OVERFLOW: "'{value}' exceeds the safe integer range (±2^53) and may lose precision",
+    TYPE_FLOAT_INVALID: "'{value}' is not a valid finite number",
+    TYPE_DECIMAL_INVALID: "'{value}' is not a valid number",
+    TYPE_DECIMAL_NOT_FINITE: "'{value}' is not a finite number (NaN and Infinity are not accepted)",
+    TYPE_DECIMAL_PRECISION:
+      "'{value}' exceeds the precision limit ({precision} significant digits at most)",
+    TYPE_DECIMAL_SCALE: "'{value}' exceeds the decimal places limit ({scale} at most)",
+    TYPE_DATE_FORMAT_INVALID: "'{value}' is not a valid date (expected format YYYY-MM-DD)",
+    TYPE_BOOL_INVALID: "'{value}' is not a valid boolean (expected true/false, yes/no, 1/0, etc.)",
+    SCHEMA_COLUMN_MISSING: "Required column '{column}' is missing from the data table",
     // —— Range ——
     RANGE_NO_BOUNDS: 'No bounds configured (fill in at least one of min/max)',
     RANGE_TABLE_NOT_FOUND: "Table '{table}' is not in the dataset",

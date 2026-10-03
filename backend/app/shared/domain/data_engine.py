@@ -251,6 +251,8 @@ def _process_columns_recursive(
                     "column": qualified,
                     "value": None,
                     "error_type": "MissingColumn",
+                    "error_code": "SCHEMA_COLUMN_MISSING",
+                    "error_params": {"column": qualified},
                     "error_message": f"数据表中缺少必需的列 '{qualified}'",
                 }
             )

@@ -36,23 +36,40 @@ _VALIDATORS_DIR = Path(__file__).resolve().parents[2] / "app" / "shared" / "serv
 _VALIDATION_DIR = Path(__file__).resolve().parents[2] / "app" / "shared" / "services" / "validation"
 # 流水线级错误码的 emit 点位（超时/中断/空数据/加载失败），占位符键守卫一并扫描
 _PIPELINE_SOURCES = ("service.py", "engine.py", "executor.py", "data_loader.py")
+# 类型层/数据引擎源码（格式校验第一阶段的 emit 点位：类型解析失败/nullable/缺列），
+# 类型码化后同样纳入 code 完整性与占位符键守卫
+_DATA_TYPES_DIR = Path(__file__).resolve().parents[2] / "app" / "shared" / "domain" / "data_types_parts"
+_DATA_ENGINE = Path(__file__).resolve().parents[2] / "app" / "shared" / "domain" / "data_engine.py"
 
-# 两种 emit 形态：字典字面量 "error_code": "XXX" 与局部变量赋值 error_code = "XXX"（range.py）
+
+def _type_layer_sources() -> list[Path]:
+    """类型层守卫扫描源：data_types_parts 全部 .py + data_engine.py。"""
+    sources = sorted(_DATA_TYPES_DIR.glob("*.py"))
+    if _DATA_ENGINE.exists():
+        sources.append(_DATA_ENGINE)
+    return sources
+
+
+# 两种 emit 形态：字典字面量 "error_code": "XXX" 与局部变量赋值 error_code = "XXX"（range.py）；
+# 第三种：validate_ex 元组返回形态 return False, "TYPE_XXX", {...}, ...（DecimalType 等）
 _CODE_PATTERNS = [
     re.compile(r'"error_code":\s*"([A-Z][A-Z0-9_]*)"'),
     re.compile(r'\berror_code\s*=\s*"([A-Z][A-Z0-9_]*)"'),
+    re.compile(r'False,\s*\n?\s*"(TYPE_[A-Z0-9_]+)"'),
 ]
 # error_params 字典字面量块（含跨行），用于收集源码中出现过的参数键全集；
-# 两种形态：字典内嵌 "error_params": {...} 与局部变量赋值 error_params = {...}（range.py）
+# 三种形态：字典内嵌 "error_params": {...}、局部变量赋值 error_params = {...}（range.py）、
+# 以及 validate_ex 元组返回形态 return False, "TYPE_XXX", {...}, ...（DecimalType）
 _PARAMS_PATTERN = re.compile(r'"error_params":\s*\{(.*?)\}', re.DOTALL)
 _PARAMS_ASSIGN_PATTERN = re.compile(r"\berror_params\s*=\s*\{(.*?)\}", re.DOTALL)
+_PARAMS_TUPLE_PATTERN = re.compile(r'False,\s*\n?\s*"[A-Z][A-Z0-9_]*",\s*\{(.*?)\}', re.DOTALL)
 _PARAM_KEY_PATTERN = re.compile(r'"([A-Za-z_][A-Za-z0-9_]*)"\s*:')
 
 
 def _scan_emitted_codes() -> set[str]:
-    """扫描 domain/constraints/ 全部源码，返回实际 emit 的 error_code 全集。"""
+    """扫描 domain/constraints/ 与类型层源码，返回实际 emit 的 error_code 全集。"""
     codes: set[str] = set()
-    for py_file in sorted(_CONSTRAINTS_DIR.glob("*.py")):
+    for py_file in [*sorted(_CONSTRAINTS_DIR.glob("*.py")), *_type_layer_sources()]:
         source = py_file.read_text(encoding="utf-8")
         for pattern in _CODE_PATTERNS:
             codes.update(pattern.findall(source))
@@ -61,7 +78,11 @@ def _scan_emitted_codes() -> set[str]:
 
 def _scan_param_keys() -> set[str]:
     """收集源码中全部 error_params 块出现过的参数键名（跨校验器并集）。"""
-    sources = [*(sorted(_CONSTRAINTS_DIR.glob("*.py"))), *(sorted(_VALIDATORS_DIR.glob("*.py")))]
+    sources = [
+        *(sorted(_CONSTRAINTS_DIR.glob("*.py"))),
+        *(sorted(_VALIDATORS_DIR.glob("*.py"))),
+        *_type_layer_sources(),
+    ]
     # 流水线级 emit 点位（executor/engine/data_loader/service），逐个存在性检查后纳入
     for name in _PIPELINE_SOURCES:
         pipeline_file = _VALIDATION_DIR / name
@@ -70,7 +91,7 @@ def _scan_param_keys() -> set[str]:
     keys: set[str] = set()
     for py_file in sources:
         source = py_file.read_text(encoding="utf-8")
-        for pattern in (_PARAMS_PATTERN, _PARAMS_ASSIGN_PATTERN):
+        for pattern in (_PARAMS_PATTERN, _PARAMS_ASSIGN_PATTERN, _PARAMS_TUPLE_PATTERN):
             for block in pattern.findall(source):
                 keys.update(_PARAM_KEY_PATTERN.findall(block))
     return keys
