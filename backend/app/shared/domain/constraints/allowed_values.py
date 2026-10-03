@@ -116,6 +116,15 @@ class AllowedValuesConstraint(Constraint):
         )
         return f"允许值约束: {self.table}.{self.column} 允许值 {values_str}"
 
+    def describe_data(self) -> dict[str, Any]:
+        """结构化描述：携带完整允许值清单，截断策略（前 5 个）由渲染端决定"""
+        return {
+            "kind": "AllowedValues",
+            "table": self.table,
+            "column": self.column,
+            "allowed_values": list(self.allowed_values),
+        }
+
     def validate(self, datasets: dict[str, pd.DataFrame], **kwargs: Any) -> dict[str, Any]:
         """
         @methoddesc 执行允许值验证

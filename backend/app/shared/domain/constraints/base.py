@@ -115,7 +115,10 @@ class Constraint(ABC):
             包含以下字段的字典:
                 - constraint_type: 约束类名
                 - table: 约束作用的表名（优先取 self.table，否则取 self.from_table）
-                - description: 约束的描述信息
+                - description: 约束的描述信息（中文，历史契约保留）
+                - describe_data: 结构化描述（dict，加性扩展）——携带约束类型 kind 与
+                  各自配置的原始值（表/列/参数），文案连接词由消费端按语言渲染
+                  （CLI 英文摘要、GUI 前端 i18n），避免把展示语言绑死在后端
         """
 
         # 构建约束元信息字典
@@ -125,7 +128,23 @@ class Constraint(ABC):
             "constraint_type": self.__class__.__name__,
             "table": getattr(self, "table", getattr(self, "from_table", None)),
             "description": self._get_description(),
+            "describe_data": self.describe_data(),
         }
+
+    def describe_data(self) -> dict[str, Any]:
+        """
+        @methoddesc 结构化约束描述（消费端本地化渲染用）
+
+        默认实现返回 kind（类名去 Constraint 后缀）与目标表名；子类按需覆写，
+        携带各自配置的原始值（列名/参数/参考值等）。值须为 JSON 安全类型
+        （str/number/bool/None/list/dict），**不得**携带预拼接的本地化文案——
+        连接词与类型名由消费端模板渲染（CLI constraint_summaries、前端 i18n）。
+
+        Returns:
+            至少含 "kind" 键的结构化描述字典
+        """
+        kind = self.__class__.__name__.removesuffix("Constraint")
+        return {"kind": kind, "table": getattr(self, "table", getattr(self, "from_table", None))}
 
     def _get_description(self) -> str:
         """

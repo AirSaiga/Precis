@@ -83,6 +83,8 @@ export interface ValidationPassedItem {
   source_path?: string | null
   source_file?: string | null
   source_sheet?: string | null
+  /** 约束的结构化描述（kind + 表/列/原始参数，后端 describe_data() 加性扩展）；en locale 据此渲染本地化标签 */
+  describe_data?: Record<string, unknown> | null
 }
 
 /**

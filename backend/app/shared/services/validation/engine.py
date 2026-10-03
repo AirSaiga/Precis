@@ -424,6 +424,9 @@ def validate_constraints(
                 "constraint_type": constraint_info.get("constraint_type", constraint.__class__.__name__),
                 "table": constraint_info.get("table"),
                 "description": constraint_info.get("description", ""),
+                # 结构化描述（加性扩展）：CLI 英文摘要 / GUI 前端 i18n 按语言渲染标签，
+                # 中文 description 保留为兜底契约
+                "describe_data": constraint_info.get("describe_data"),
                 "error_count": len(constraint_errors),
                 "passed": len(constraint_errors) == 0,
             }

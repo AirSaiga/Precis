@@ -41,6 +41,7 @@ import type {
 } from '@/api/projectValidationApi'
 import type { TranslateFn } from '@/core/i18n/renderText'
 import { renderText } from '@/core/i18n/renderText'
+import { renderConstraintLabelEn } from '@/services/i18n/constraintLabel'
 import type { RowLocalizedMessage } from '@/services/i18n/localizedMessage'
 import { renderLocalizedMessage } from '@/services/i18n/localizedMessage'
 
@@ -63,6 +64,8 @@ export interface ValidationReportPassedRow extends ValidationPassedItem {
   type_label: string
   location: string
   normalized_stage: string
+  /** 结构化描述渲染出的英文标签（en locale 优先展示）；无法渲染为 null，展示端回退 message */
+  label_en: string | null
 }
 
 export interface ValidationReportViewModel {
@@ -205,6 +208,8 @@ export function createValidationReportViewModel(
     type_label: item.check_type,
     location: formatValidationPassedLocation(item),
     normalized_stage: normalizeValidationStage(item.stage),
+    // en locale 的本地化标签（结构化描述 → 英文）；zh 沿用 message（后端中文 description）
+    label_en: renderConstraintLabelEn(item.describe_data),
   }))
 
   return {

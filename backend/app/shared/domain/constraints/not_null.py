@@ -112,6 +112,10 @@ class NotNullConstraint(Constraint):
         """生成非空约束描述"""
         return f"非空约束: {self.table}.{self.column}"
 
+    def describe_data(self) -> dict[str, Any]:
+        """结构化描述：kind + 表/列，供消费端按语言渲染标签"""
+        return {"kind": "NotNull", "table": self.table, "column": self.column}
+
     def validate(self, datasets: dict[str, pd.DataFrame], **kwargs: Any) -> dict[str, Any]:
         """
         @methoddesc 执行非空验证

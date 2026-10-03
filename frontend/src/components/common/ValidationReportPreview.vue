@@ -522,7 +522,7 @@ limitations under the License.
                     </div>
                     <div class="col-type">{{ validationErrorTypeLabel(t, p.type_label) }}</div>
                     <div class="col-msg">
-                      {{ formatValidationReportMessage(p.message, p.table) }}
+                      {{ passedMessage(p) }}
                     </div>
                   </div>
                 </template>
@@ -616,9 +616,22 @@ limitations under the License.
     (e: 'update:modelValue', v: boolean): void
   }>()
 
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
 
   const stageFilter = ref<'all' | 'passed' | 'failed'>('all')
+
+  /**
+   * 通过项文案：en locale 优先用结构化描述（describe_data）渲染的英文标签，
+   * zh 与渲染失败场景回退后端 message 原文（中文 description 契约字段）。
+   */
+  function passedMessage(p: {
+    message: string
+    table?: string | null
+    label_en: string | null
+  }): string {
+    const source = locale.value === 'en-US' && p.label_en ? p.label_en : p.message
+    return formatValidationReportMessage(source, p.table)
+  }
 
   const viewModel = computed(() =>
     createValidationReportViewModel(props.data, {

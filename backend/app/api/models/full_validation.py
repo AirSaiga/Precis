@@ -487,6 +487,9 @@ class ValidationPassedItem(BaseModel):
     source_sheet: str | None = Field(
         default=None, description="配置文件内定义的 Excel Sheet 名（可选）"
     )  # schema 配置中 source.sheet 定义的 Excel 工作表名称，可选
+    describe_data: dict | None = Field(
+        default=None, description="约束的结构化描述（kind + 表/列/原始参数，加性扩展）"
+    )  # 约束 describe_data() 的透传，供前端 en locale 渲染本地化标签；None 表示非约束项或旧数据
 
 
 class ValidationStatistics(BaseModel):

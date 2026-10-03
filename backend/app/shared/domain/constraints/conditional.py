@@ -327,6 +327,20 @@ class ConditionalConstraint(Constraint):
             return f"条件约束: {self.table} 当满足条件时 {self.then_column} 必须 {self._condition_str}"
         return f"条件约束: {self.table} 当 {self.if_column}={self.if_value} 时 {self.then_column} 必须 {self._condition_str}"
 
+    def describe_data(self) -> dict[str, Any]:
+        """结构化描述：携带 IF/THEN 的原始配置（DSL dict / 注册规则名 / 复合条件清单），
+        "当…时…必须…"等连接词与 DSL 的可读化由渲染端按语言拼装"""
+        return {
+            "kind": "Conditional",
+            "table": self.table,
+            "then_column": self.then_column,
+            "then": self.then_condition_config,
+            "if_column": self.if_column,
+            "if_value": self.if_value,
+            "if_conditions": list(self.if_conditions),
+            "if_logic": self.if_logic,
+        }
+
     def validate(self, datasets: dict[str, pd.DataFrame], **kwargs: Any) -> dict[str, Any]:
         """
         @methoddesc 执行条件约束验证

@@ -173,6 +173,10 @@ class CompositeConstraint(Constraint):
         info["sub_constraint_count"] = len(self.sub_constraints)
         return info
 
+    def describe_data(self) -> dict[str, Any]:
+        """结构化描述：kind + 聚合策略与子约束数（子约束明细不展开，摘要只报数量）"""
+        return {"kind": "Composite", "table": None, "logic": self.logic, "sub_count": len(self.sub_constraints)}
+
     def _get_description(self) -> str:
         """@methoddesc 获取描述信息"""
         return f"Composite 约束（logic={self.logic}，包含 {len(self.sub_constraints)} 个子约束）"

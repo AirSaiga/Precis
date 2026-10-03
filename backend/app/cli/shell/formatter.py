@@ -387,8 +387,14 @@ class Formatter:
                     if c.get("constraint_type")
                     else "Constraint"
                 )
-                # description 形如 "非空约束: users.email"，直接用作可读标签
+                # 标签来源分层：英文界面优先用结构化 describe_data 渲染英文标签
+                # （constraint_summaries，连接词本地化），中文界面沿用 description
+                # 原文（与历史输出零差异）；无结构化数据/渲染失败回退 description
                 desc = c.get("description") or f"{ctype}: {c.get('table', '?')}"
+                if get_lang() == LANG_EN:
+                    from app.cli.shell.constraint_summaries import render_constraint_label_en
+
+                    desc = render_constraint_label_en(c.get("describe_data")) or desc
                 tag = f"[green]{mark_ok}[/green]" if passed else f"[red]{mark_fail}[/red]"
                 err_cnt = c.get("error_count", 0)
                 err_hint = tr(f" [red]({err_cnt} error(s))[/red]", f" [red]({err_cnt} 错误)[/red]") if err_cnt else ""

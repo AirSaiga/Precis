@@ -124,6 +124,14 @@ class CharsetConstraint(Constraint):
         charset_name = charset_name_map.get(self.charset_mode, "未知")
         return f"字符集约束: {self.table}.{self.column} ({charset_name})"
 
+    def describe_data(self) -> dict[str, Any]:
+        """结构化描述：kind + 表/列/字符集模式（模式→名称映射由渲染端按语言处理）。
+
+        自定义 description（非空）只进中文 description 契约字段，不进结构化
+        描述——渲染端遇到自定义文案时直接回退 description 原文。
+        """
+        return {"kind": "Charset", "table": self.table, "column": self.column, "charset_mode": self.charset_mode}
+
     def validate(self, datasets: dict[str, pd.DataFrame], **kwargs: Any) -> dict[str, Any]:
         """
         @methoddesc 执行字符集验证

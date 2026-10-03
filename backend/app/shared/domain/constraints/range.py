@@ -157,6 +157,17 @@ class RangeConstraint(Constraint):
             return f"区间约束: {self.table}.{self.column} {op} {self.max_value}"
         return f"区间约束: {self.table}.{self.column}"
 
+    def describe_data(self) -> dict[str, Any]:
+        """结构化描述：携带原始边界值与模式，区间符号（[]/()/>=/<=）由渲染端按模式拼装"""
+        return {
+            "kind": "Range",
+            "table": self.table,
+            "column": self.column,
+            "min": self.min_value,
+            "max": self.max_value,
+            "boundary_mode": self.boundary_mode,
+        }
+
     def _is_numeric_column(self, series: pd.Series) -> bool:
         """检查列是否为数值类型（支持 pandas 数值类型和 Python Decimal）。
 

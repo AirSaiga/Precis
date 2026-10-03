@@ -132,6 +132,10 @@ class ScriptedConstraint(Constraint):
         """生成脚本约束描述"""
         return f"脚本约束: {self.table}.{self.name}"
 
+    def describe_data(self) -> dict[str, Any]:
+        """结构化描述：kind + 表/规则名"""
+        return {"kind": "Scripted", "table": self.table, "name": self.name}
+
     def validate(self, datasets: dict[str, pd.DataFrame], **kwargs: Any) -> dict[str, Any]:
         """
         @methoddesc 执行脚本化验证

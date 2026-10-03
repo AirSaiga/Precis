@@ -230,3 +230,13 @@ class RegexConstraint(Constraint):
 
     def _get_description(self) -> str:
         return f"正则约束: {self.table}.{self.column} pattern={self.pattern!r}"
+
+    def describe_data(self) -> dict[str, Any]:
+        """结构化描述：kind + 表/列/原始 pattern（repr 引号由渲染端处理）与匹配模式"""
+        return {
+            "kind": "Regex",
+            "table": self.table,
+            "column": self.column,
+            "pattern": self.pattern,
+            "match_mode": self.match_mode,
+        }

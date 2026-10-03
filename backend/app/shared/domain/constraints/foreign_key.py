@@ -122,6 +122,16 @@ class ForeignKeyConstraints(Constraint):
         """生成外键约束描述，格式为 "外键约束: from_table.from_column -> to_table.to_column"""
         return f"外键约束: {self.from_table}.{self.from_column} -> {self.to_table}.{self.to_column}"
 
+    def describe_data(self) -> dict[str, Any]:
+        """结构化描述：kind + 起止表列四元组（指向箭头由渲染端拼装）"""
+        return {
+            "kind": "ForeignKey",
+            "from_table": self.from_table,
+            "from_column": self.from_column,
+            "to_table": self.to_table,
+            "to_column": self.to_column,
+        }
+
     def validate(self, datasets: dict[str, pd.DataFrame], **kwargs: Any) -> dict[str, Any]:
         """
         @methoddesc 执行外键验证

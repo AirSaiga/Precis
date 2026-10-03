@@ -212,6 +212,9 @@ class FullValidationResponseBuilder:
                     check_type=constraint_type,
                     message=constraint_check.get("description", "") or f"{constraint_type} 约束校验通过",
                     table=constraint_check.get("table"),
+                    # 结构化描述透传（加性扩展）：en locale 前端据此渲染本地化标签，
+                    # 中文 message（description）保留兜底
+                    describe_data=constraint_check.get("describe_data"),
                     source_file=constraint_check.get("source_file"),
                     source_sheet=constraint_check.get("source_sheet"),
                 )

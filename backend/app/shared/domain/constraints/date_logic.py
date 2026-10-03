@@ -166,6 +166,24 @@ class DateLogicConstraint(Constraint):
             desc += f" {self.calculation_type} check"
         return desc
 
+    def describe_data(self) -> dict[str, Any]:
+        """结构化描述：携带比较/计算两模式的全部原始配置（参考日期/列、操作符、
+        计算类型与目标值），模式分支与操作符渲染由消费端按语言拼装"""
+        return {
+            "kind": "DateLogic",
+            "table": self.table,
+            "column": self.column,
+            "logic_mode": self.logic_mode,
+            "compare_op": self.compare_op,
+            "reference_date": self.reference_date,
+            "reference_column": self.reference_column,
+            "reference_date_end": self.reference_date_end,
+            "reference_column_end": self.reference_column_end,
+            "calculation_type": self.calculation_type,
+            "target_value": self.target_value,
+            "target_column": self.target_column,
+        }
+
     def _resolve_compare_boundary(
         self,
         df: pd.DataFrame,

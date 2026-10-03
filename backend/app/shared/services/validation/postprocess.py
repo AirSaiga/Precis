@@ -157,6 +157,21 @@ def rewrite_id_tokens(text: Any, id_to_name: dict[str, str]) -> Any:
     return _UUID_TOKEN_RE.sub(_replace, text)
 
 
+def _rewrite_id_tokens_deep(value: Any, id_to_name: dict[str, str]) -> Any:
+    """递归重写 dict/list 嵌套结构中字符串值的 UUID 表 ID（describe_data 等结构用）。
+
+    与 rewrite_id_tokens 同规则（仅命中 id_to_name 中实际登记的表 ID），
+    非 str/list/dict 原样返回。
+    """
+    if isinstance(value, str):
+        return rewrite_id_tokens(value, id_to_name)
+    if isinstance(value, list):
+        return [_rewrite_id_tokens_deep(v, id_to_name) for v in value]
+    if isinstance(value, dict):
+        return {k: _rewrite_id_tokens_deep(v, id_to_name) for k, v in value.items()}
+    return value
+
+
 def humanize_item_texts(item: dict[str, Any], id_to_name: dict[str, str]) -> None:
     """就地重写条目文本字段中 UUID 形态的表 ID 为显示名称。
 
@@ -175,6 +190,12 @@ def humanize_item_texts(item: dict[str, Any], id_to_name: dict[str, str]) -> Non
         for key, value in params.items():
             if isinstance(value, str):
                 params[key] = rewrite_id_tokens(value, id_to_name)
+    # describe_data（结构化约束描述，constraint_checks 携带）的字符串值同样
+    # 显示名化——约束构造期的 table/column 可能是表 ID，英文摘要标签与 zh
+    # description 的 humanize 口径须一致
+    describe = item.get("describe_data")
+    if isinstance(describe, dict):
+        item["describe_data"] = _rewrite_id_tokens_deep(describe, id_to_name)
 
 
 def postprocess_result(

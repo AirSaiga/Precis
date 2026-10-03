@@ -135,6 +135,10 @@ class UniqueConstraint(Constraint):
         columns_str = ", ".join(self.columns) if isinstance(self.columns, list) else self.columns
         return f"唯一性约束: {self.table}.{columns_str}"
 
+    def describe_data(self) -> dict[str, Any]:
+        """结构化描述：kind + 表/列清单（联合唯一携带多列），列连接符由渲染端处理"""
+        return {"kind": "Unique", "table": self.table, "columns": list(self.columns)}
+
     def validate(self, datasets: dict[str, pd.DataFrame], **kwargs: Any) -> dict[str, Any]:
         """
         @methoddesc 执行唯一性验证
