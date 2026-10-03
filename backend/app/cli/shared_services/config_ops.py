@@ -54,6 +54,7 @@ from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap
 from ruamel.yaml.error import YAMLError as RuamelYAMLError
 
+from app.cli.i18n import tr
 from app.shared.core.utils.path_utils import paths_equal
 
 logger = logging.getLogger(__name__)
@@ -320,7 +321,14 @@ def parse_config_value(value_str: str) -> tuple[bool, Any, str]:
             parsed_float = None
         if parsed_float is not None:
             if not math.isfinite(parsed_float):
-                return False, None, f"不接受非有限数值: {value_str}（inf/nan 落盘会使项目无法校验）"
+                return (
+                    False,
+                    None,
+                    tr(
+                        "Non-finite numeric value not accepted: {value} (inf/nan on disk would break validation)",
+                        "不接受非有限数值: {value}（inf/nan 落盘会使项目无法校验）",
+                    ).format(value=value_str),
+                )
             return True, parsed_float, ""
 
     # 去除引号
@@ -364,7 +372,7 @@ def set_config_value_in_file(project_path: str, filename: str, key_path: str, va
     """
     config_path = find_config_file(project_path, filename)
     if not config_path:
-        return False, f"配置文件不存在: {filename}"
+        return False, tr("Config file not found: {file}", "配置文件不存在: {file}").format(file=filename)
 
     # round-trip 模式加载：CommentedMap 携带注释/格式元数据，回写时保留
     yaml_parser = YAML()
@@ -374,13 +382,15 @@ def set_config_value_in_file(project_path: str, filename: str, key_path: str, va
         with open(config_path, encoding="utf-8-sig") as f:
             data = yaml_parser.load(f)
     except RuamelYAMLError as e:
-        return False, f"YAML 解析失败: {e}"
+        return False, tr("YAML parse error: {error}", "YAML 解析失败: {error}").format(error=e)
 
     # 空文件：从空映射开始（首键写入后无注释可保，属预期）
     if data is None:
         data = CommentedMap()
     if not isinstance(data, dict):
-        return False, "配置根节点不是字典，无法按点号路径设置"
+        return False, tr(
+            "Config root is not a mapping; cannot set via dot path", "配置根节点不是字典，无法按点号路径设置"
+        )
 
     # 按点号路径逐层定位后原地写入（不经 set_by_dotpath 的 deepcopy——
     # 直接在 ruamel 结构上替换目标键的值，其余键的注释元数据原封不动）
@@ -394,7 +404,10 @@ def set_config_value_in_file(project_path: str, filename: str, key_path: str, va
                 child = CommentedMap()
                 current[key] = child
             else:
-                return False, f"路径 '{key_path}' 的中间键 '{key}' 不是字典，无法设置"
+                return False, tr(
+                    "Intermediate key '{key}' on path '{path}' is not a mapping; cannot set",
+                    "路径 '{path}' 的中间键 '{key}' 不是字典，无法设置",
+                ).format(key=key, path=key_path)
         current = child
     current[keys[-1]] = value
 
@@ -418,7 +431,7 @@ def set_config_value_in_file(project_path: str, filename: str, key_path: str, va
                 logger.debug("删除临时文件失败", exc_info=True)
             raise
     except OSError as e:
-        return False, f"写入失败: {e}"
+        return False, tr("Write failed: {error}", "写入失败: {error}").format(error=e)
 
     return True, ""
 
@@ -480,17 +493,17 @@ def load_config_content(project_path: str, filename: str) -> dict | str:
     """
     config_path = find_config_file(project_path, filename)
     if not config_path:
-        return f"配置文件不存在: {filename}"
+        return tr("Config file not found: {file}", "配置文件不存在: {file}").format(file=filename)
     try:
         with open(config_path, encoding="utf-8-sig") as f:
             content = yaml.safe_load(f)
             if content:
                 return content if isinstance(content, dict) else str(content)
-            return "(空文件)"
+            return tr("(empty file)", "(空文件)")
     except yaml.YAMLError as e:
-        return f"YAML 解析失败: {e}"
+        return tr("YAML parse error: {error}", "YAML 解析失败: {error}").format(error=e)
     except Exception as e:
-        return f"读取失败: {e}"
+        return tr("Read failed: {error}", "读取失败: {error}").format(error=e)
 
 
 def _simplify_error_message(msg: str) -> str:
@@ -503,16 +516,23 @@ def _simplify_error_message(msg: str) -> str:
         翻译后的中文描述，如果没有匹配则返回原文
     """
     translations = {
-        "expected '<document start>', but found": "期望文件开始标记，但实际发现",
-        "expected <block end>, but found": "期望块结束，但实际发现",
-        "expected ',' or ']', but got": "期望逗号或右括号，但实际得到",
-        "while parsing a block mapping": "解析对象/字典时出错",
-        "while parsing a block collection": "解析列表/数组时出错",
-        "mapping values are not allowed here": "此处不允许键值对（可能缺少冒号或缩进错误）",
-        "could not determine a constructor for the tag": "无法识别的标签类型",
-        "found character": "发现不期望的字符",
-        "that cannot start any token": "无法作为任何标记的开始",
-        "unacceptable character": "包含不可接受的字符（可能是编码问题）",
+        "expected '<document start>', but found": tr(
+            "expected document start marker, but found", "期望文件开始标记，但实际发现"
+        ),
+        "expected <block end>, but found": tr("expected block end, but found", "期望块结束，但实际发现"),
+        "expected ',' or ']', but got": tr("expected ',' or ']', but got", "期望逗号或右括号，但实际得到"),
+        "while parsing a block mapping": tr("error while parsing a mapping", "解析对象/字典时出错"),
+        "while parsing a block collection": tr("error while parsing a sequence", "解析列表/数组时出错"),
+        "mapping values are not allowed here": tr(
+            "mapping values are not allowed here (missing colon or wrong indentation)",
+            "此处不允许键值对（可能缺少冒号或缩进错误）",
+        ),
+        "could not determine a constructor for the tag": tr("unrecognized tag type", "无法识别的标签类型"),
+        "found character": tr("found unexpected character", "发现不期望的字符"),
+        "that cannot start any token": tr("cannot start any token", "无法作为任何标记的开始"),
+        "unacceptable character": tr(
+            "unacceptable character (possibly an encoding issue)", "包含不可接受的字符（可能是编码问题）"
+        ),
     }
 
     for tech, friendly in translations.items():
@@ -567,7 +587,13 @@ def check_yaml_syntax(content: str, filename: str) -> YamlCheckResult:
 
         if hasattr(e, "context") and e.context:
             context = _simplify_error_message(e.context)
-            problem = f"{problem}（上下文: {context}）" if problem else context
+            problem = (
+                tr("{problem} (context: {context})", "{problem}（上下文: {context}）").format(
+                    problem=problem, context=context
+                )
+                if problem
+                else context
+            )
 
         # 修复建议
         hint: str | None = None
@@ -575,16 +601,24 @@ def check_yaml_syntax(content: str, filename: str) -> YamlCheckResult:
         context_str = str(getattr(e, "context", "")).lower()
 
         if "block end" in problem_str and "scalar" in problem_str:
-            hint = "可能是上一行缺少冒号，或括号/引号不匹配"
+            hint = tr(
+                "previous line may be missing a colon, or brackets/quotes are unbalanced",
+                "可能是上一行缺少冒号，或括号/引号不匹配",
+            )
             # 检查前一行的内容
             if error_line_no is not None and error_line_no > 0:
                 prev_line = content_lines[error_line_no - 1].strip()
                 if "required" in prev_line and ":" not in prev_line:
-                    hint += f"；上一行 '{prev_line[:30]}...' 可能缺少冒号"
+                    hint += tr(
+                        "; previous line '{line}...' may be missing a colon",
+                        "；上一行 '{line}...' 可能缺少冒号",
+                    ).format(line=prev_line[:30])
         elif "mapping" in context_str:
-            hint = "检查键值对格式是否正确（key: value）"
+            hint = tr("check the key-value format (key: value)", "检查键值对格式是否正确（key: value）")
         elif "could not determine a constructor" in problem_str:
-            hint = "可能包含特殊字符或不支持的 YAML 语法"
+            hint = tr(
+                "may contain special characters or unsupported YAML syntax", "可能包含特殊字符或不支持的 YAML 语法"
+            )
 
         return YamlCheckResult(
             file=filename,

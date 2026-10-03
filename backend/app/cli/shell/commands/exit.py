@@ -33,6 +33,7 @@
     CommandResult.exit("再见!")
 """
 
+from app.cli.i18n import tr
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 
 
@@ -48,7 +49,7 @@ class ExitCommand(Command):
 
     @property
     def description(self) -> str:
-        return "退出 Precis CLI"
+        return tr("Exit Precis CLI", "退出 Precis CLI")
 
     @property
     def usage(self) -> str:
@@ -64,4 +65,4 @@ class ExitCommand(Command):
         Returns:
             带有 should_exit=True 的结果，触发 Shell 退出
         """
-        return CommandResult.exit("再见!")
+        return CommandResult.exit(tr("Goodbye!", "再见!"))

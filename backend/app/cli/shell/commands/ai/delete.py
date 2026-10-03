@@ -36,6 +36,7 @@
     CommandResult.error("没有已配置的 API Key")
 """
 
+from app.cli.i18n import tr
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.config_storage import get_cli_config
 from app.cli.shell.formatter import Colors, Formatter
@@ -55,7 +56,7 @@ class AIDeleteCommand(Command):
 
     @property
     def description(self) -> str:
-        return "删除 AI Provider"
+        return tr("Delete an AI provider", "删除 AI Provider")
 
     @property
     def usage(self) -> str:
@@ -63,7 +64,19 @@ class AIDeleteCommand(Command):
 
     @property
     def help_text(self) -> str:
-        return """
+        return tr(
+            """
+Usage: ai delete [provider_id]
+
+Examples:
+  ai delete           # Interactively choose a provider to delete
+  ai delete openai   # Delete OpenAI directly
+
+Notes:
+  Delete the given provider configuration.
+  Use 'ai status' to list configured providers.
+            """,
+            """
 用法: ai delete [provider_id]
 
 示例:
@@ -73,7 +86,8 @@ class AIDeleteCommand(Command):
 说明:
   删除指定的 Provider 配置。
   使用 'ai status' 查看已配置的 Provider。
-        """.strip()
+            """,
+        ).strip()
 
     def execute(self, args: list[str], context: ProjectContext) -> CommandResult:
         """执行删除命令。
@@ -88,7 +102,12 @@ class AIDeleteCommand(Command):
         providers = self._cli_config.list_providers()
 
         if not providers:
-            return CommandResult.error("没有已配置的 Provider\n请使用 'ai setup' 进行配置")
+            return CommandResult.error(
+                tr(
+                    "No providers configured\nUse 'ai setup' to configure one",
+                    "没有已配置的 Provider\n请使用 'ai setup' 进行配置",
+                )
+            )
 
         if not args:
             return self._interactive_delete(providers)
@@ -113,20 +132,20 @@ class AIDeleteCommand(Command):
         Returns:
             删除结果或取消结果
         """
-        print(Formatter.header("\n删除 Provider"))
+        print(Formatter.header(tr("\nDelete provider", "\n删除 Provider")))
 
-        menu = InteractiveMenu("请选择要删除的 Provider:")
+        menu = InteractiveMenu(tr("Choose a provider to delete:", "请选择要删除的 Provider:"))
 
         for p in providers:
             label = f"{p.name} ({p.model})"
             menu.add_item(p.id, label, "")
 
-        menu.add_item("_cancel_", "取消", "返回")
+        menu.add_item("_cancel_", tr("Cancel", "取消"), tr("Back", "返回"))
 
         provider_id = menu.show()
 
         if provider_id is None or provider_id == "_cancel_":
-            return CommandResult.ok("已取消")
+            return CommandResult.ok(tr("Cancelled", "已取消"))
 
         return self._do_delete(provider_id, providers)
 
@@ -144,22 +163,38 @@ class AIDeleteCommand(Command):
         """
         provider = self._cli_config.get_provider(provider_id)
         if not provider:
-            return CommandResult.error(f"Provider '{provider_id}' 未配置\n使用 'ai status' 查看已配置的 Provider")
+            return CommandResult.error(
+                tr(
+                    f"Provider '{provider_id}' is not configured\nUse 'ai status' to list configured providers",
+                    f"Provider '{provider_id}' 未配置\n使用 'ai status' 查看已配置的 Provider",
+                )
+            )
 
-        print(Formatter.warning(f"\n警告: 将删除 {provider.name} ({provider.id})"))
-        print(Formatter.info(f"  模型: {provider.model}\n"))
+        print(
+            Formatter.warning(
+                tr(
+                    f"Warning: {provider.name} ({provider.id}) will be deleted",
+                    f"警告: 将删除 {provider.name} ({provider.id})",
+                )
+            )
+        )
+        print(Formatter.info(tr(f"  Model: {provider.model}\n", f"  模型: {provider.model}\n")))
 
         try:
-            confirm = input(Formatter.colorize("确认删除? (y/N): ", Colors.YELLOW)).strip().lower()
+            confirm = (
+                input(Formatter.colorize(tr("Confirm delete? (y/N): ", "确认删除? (y/N): "), Colors.YELLOW))
+                .strip()
+                .lower()
+            )
         except (KeyboardInterrupt, EOFError):
             print()
-            return CommandResult.ok("已取消")
+            return CommandResult.ok(tr("Cancelled", "已取消"))
 
         if confirm not in ("y", "yes"):
-            return CommandResult.ok("已取消")
+            return CommandResult.ok(tr("Cancelled", "已取消"))
 
         if self._cli_config.delete_provider(provider_id):
-            print(Formatter.success(f"\n[*] {provider.name} 已删除"))
-            return CommandResult.ok("Provider 已删除")
+            print(Formatter.success(tr(f"\n[*] {provider.name} deleted", f"\n[*] {provider.name} 已删除")))
+            return CommandResult.ok(tr("Provider deleted", "Provider 已删除"))
         else:
-            return CommandResult.error("删除失败")
+            return CommandResult.error(tr("Delete failed", "删除失败"))

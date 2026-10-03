@@ -32,6 +32,7 @@ import logging
 import re
 import sys
 
+from app.cli.i18n import init_from_env, tr
 from app.cli.shell.commands import (
     AICommand,
     ConfigCommand,
@@ -136,7 +137,7 @@ class CLIShell:
             input_line = " ".join(initial_args)
             # 全局快捷退出命令
             if input_line.lower() in ("exit!", "quit!", "qq"):
-                print(Formatter.success("再见!"))
+                print(Formatter.success(tr("Goodbye!", "再见!")))
                 sys.exit(0)
             try:
                 result = executor.execute_with_args(initial_args)
@@ -149,7 +150,7 @@ class CLIShell:
                 # 单发模式 Ctrl+C 友好退出（R7，对齐 REPL 分支先例）：
                 # 交互命令（provider 菜单等）被中断时不应裸 traceback + exit 130
                 print()
-                print(Formatter.info("已取消（用户中断）"))
+                print(Formatter.info(tr("Cancelled (user interrupt)", "已取消（用户中断）")))
                 return 1
             # 单发模式退出码契约：0 = 校验通过；1 = 校验完成但发现数据违规；
             # 2 = 工具自身错误（参数错误、文件不存在、异常崩溃）。
@@ -176,7 +177,7 @@ class CLIShell:
 
                 # 全局快捷退出命令
                 if input_line.lower() in ("exit!", "quit!", "qq"):
-                    print(Formatter.success("再见!"))
+                    print(Formatter.success(tr("Goodbye!", "再见!")))
                     sys.exit(0)
 
                 exit_code = self._execute_line(executor, input_line)
@@ -189,10 +190,17 @@ class CLIShell:
 
             except KeyboardInterrupt:
                 print()
-                print(Formatter.info("使用 'exit' 或 'quit' 退出，'qq' 直接退出程序"))
+                print(
+                    Formatter.info(
+                        tr(
+                            "Use 'exit' or 'quit' to exit, 'qq' to force quit",
+                            "使用 'exit' 或 'quit' 退出，'qq' 直接退出程序",
+                        )
+                    )
+                )
             except EOFError:
                 print()
-                print(Formatter.success("再见!"))
+                print(Formatter.success(tr("Goodbye!", "再见!")))
                 return 0
 
     def _execute_line(self, executor: CommandExecutor, input_line: str) -> int:
@@ -267,6 +275,7 @@ def main(args: list | None = None) -> int:
         退出码
     """
     _setup_encoding()
+    init_from_env()
     _setup_logging()
 
     if args is None:
@@ -285,7 +294,7 @@ def main(args: list | None = None) -> int:
         return e.exit_code
     except Exception as e:
         # 未预期崩溃属工具自身错误，退出码 2（区别于"校验发现数据违规"的 1）
-        Formatter.print_error(f"未预期的错误: {e}")
+        Formatter.print_error(tr("Unexpected error: {error}", "未预期的错误: {error}").format(error=e))
         return 2
 
 

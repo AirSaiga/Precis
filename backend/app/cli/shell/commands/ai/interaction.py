@@ -44,6 +44,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from app.cli.i18n import tr
 from app.cli.shell.formatter import Colors, Formatter
 from app.shared.services.ai.utils import get_project_overview
 from app.shared.services.llm.actions.action_summaries import format_confirm_lines
@@ -66,12 +67,12 @@ def confirm_actions(actions: list[dict[str, Any]], reply: str) -> bool:
     Returns:
         用户是否确认执行
     """
-    print(Formatter.info("\n即将执行以下操作:"))
+    print(Formatter.info(tr("\nThe following operations will be executed:", "\n即将执行以下操作:")))
     print("-" * 40)
 
     # 显示 AI 的说明
     if reply:
-        print(Formatter.info(f"说明: {reply}"))
+        print(Formatter.info(tr(f"Notes: {reply}", f"说明: {reply}")))
         print("-" * 40)
 
     # 显示每个动作详情
@@ -83,7 +84,7 @@ def confirm_actions(actions: list[dict[str, Any]], reply: str) -> bool:
 
     # 等待用户确认
     try:
-        confirm = input(Formatter.warning("确认执行? (y/N): ")).strip().lower()
+        confirm = input(Formatter.warning(tr("Confirm execution? (y/N): ", "确认执行? (y/N): "))).strip().lower()
         return confirm in ("y", "yes")
     except (KeyboardInterrupt, EOFError):
         print()

@@ -43,6 +43,7 @@ import os
 from rich.console import Console
 from rich.syntax import Syntax
 
+from app.cli.i18n import tr
 from app.cli.shared_services.config_ops import YamlCheckResult, check_yaml_syntax, find_config_file
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.formatter import _supports_unicode
@@ -64,7 +65,7 @@ class ConfigCheckCommand(Command):
 
     @property
     def description(self) -> str:
-        return "检查配置文件的语法格式"
+        return tr("Check config file syntax", "检查配置文件的语法格式")
 
     @property
     def usage(self) -> str:
@@ -82,7 +83,9 @@ class ConfigCheckCommand(Command):
         """
         project_path = context.project_path
         if project_path is None:
-            return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目")
+            return CommandResult.error(
+                tr("No project open, run 'open <path>' first", "未打开项目，请先使用 'open <path>' 命令打开项目")
+            )
 
         # 解析参数
         show_all = "--all" in args
@@ -95,7 +98,9 @@ class ConfigCheckCommand(Command):
             config_path = find_config_file(project_path, config_file)
 
             if not config_path:
-                return CommandResult.error(f"配置文件不存在: {config_file}")
+                return CommandResult.error(
+                    tr("Config file not found: {file}", "配置文件不存在: {file}").format(file=config_file)
+                )
 
             # 显示相对路径
             rel_path = os.path.relpath(config_path, project_path)
@@ -132,9 +137,15 @@ class ConfigCheckCommand(Command):
                 if error_msg:
                     # 显示简化的错误信息（位置和问题）
                     error_lines = error_msg.split("\n")
+                    # 错误详情各行的本地化前缀（与 _render_yaml_error 输出一致）
+                    detail_prefixes = (
+                        tr("Location:", "位置:"),
+                        tr("Problem:", "问题:"),
+                        tr("Hint:", "提示:"),
+                    )
                     # 提取位置行、代码片段、问题行
                     for line in error_lines:
-                        if line.startswith("位置:") or line.startswith("问题:") or line.startswith("提示:"):
+                        if any(line.startswith(prefix) for prefix in detail_prefixes):
                             results.append(f"    {line}")
                         # 显示代码片段的指示行（包含 >>> 的那一行）
                         elif ">>>" in line:
@@ -145,28 +156,49 @@ class ConfigCheckCommand(Command):
                                 results.append(f"    {error_lines[idx + 1]}")
 
         if invalid_count == 0:
-            return CommandResult.ok(f"✓ 所有 {valid_count} 个配置文件格式正确")
+            return CommandResult.ok(
+                tr("✓ All {count} config files are valid", "✓ 所有 {count} 个配置文件格式正确").format(
+                    count=valid_count
+                )
+            )
 
         # 有错误时只显示错误文件（除非指定 --all）
         # 注意：文案不再内嵌 [bold] 等 rich 标记——CommandResult.error 经
         # Formatter.print_error 统一转义渲染，内嵌标记会以字面量呈现
-        output_lines = [f"\n发现 {invalid_count} 个配置文件格式错误:"]
+        output_lines = [
+            tr("\nFound {count} invalid config file(s):", "\n发现 {count} 个配置文件格式错误:").format(
+                count=invalid_count
+            )
+        ]
         output_lines.extend(results)
         if show_all:
-            output_lines.append(f"\n总计: {valid_count} 个有效, {invalid_count} 个无效")
+            output_lines.append(
+                tr("\nTotal: {valid} valid, {invalid} invalid", "\n总计: {valid} 个有效, {invalid} 个无效").format(
+                    valid=valid_count, invalid=invalid_count
+                )
+            )
         else:
-            output_lines.append(f"\n（共检查 {valid_count + invalid_count} 个文件，使用 --all 查看全部）")
+            output_lines.append(
+                tr(
+                    "\n({count} files checked, use --all to show all)",
+                    "\n（共检查 {count} 个文件，使用 --all 查看全部）",
+                ).format(count=valid_count + invalid_count)
+            )
 
         return CommandResult.error("\n".join(output_lines))
 
     def _check_single_file(self, config_path: str, config_file: str) -> CommandResult:
         result, error_msg = self._check_file(config_path)
         if result:
-            return CommandResult.ok(f"{_CHECK_MARK} {config_file} 格式正确")
+            return CommandResult.ok(
+                tr("{mark} {file} is valid", "{mark} {file} 格式正确").format(mark=_CHECK_MARK, file=config_file)
+            )
         else:
-            output = f"{_CROSS_MARK} {config_file} 格式错误"
+            output = tr("{mark} {file} has syntax errors", "{mark} {file} 格式错误").format(
+                mark=_CROSS_MARK, file=config_file
+            )
             if error_msg:
-                output += f"\n\n错误详情:\n{error_msg}"
+                output += tr("\n\nError details:\n{details}", "\n\n错误详情:\n{details}").format(details=error_msg)
             return CommandResult.error(output)
 
     def _check_file(self, config_path: str) -> tuple[bool, str | None]:
@@ -187,7 +219,7 @@ class ConfigCheckCommand(Command):
             with open(config_path, encoding="utf-8") as f:
                 content = f.read()
         except Exception as e:
-            return False, f"读取文件失败: {e}"
+            return False, tr("Failed to read file: {error}", "读取文件失败: {error}").format(error=e)
 
         # 语法检查 + 错误收集委托 shared_services（CLI/TUI 同源）
         result = check_yaml_syntax(content, filename)
@@ -214,7 +246,7 @@ class ConfigCheckCommand(Command):
 
         # 位置
         if result.line_no is not None:
-            lines.append(f"位置: 第 {result.line_no} 行")
+            lines.append(tr("Location: line {n}", "位置: 第 {n} 行").format(n=result.line_no))
 
             # 使用 rich.syntax 高亮代码片段（行号 0-based 用于 highlight_lines）
             error_line_no = result.line_no - 1  # 转回 0-based
@@ -224,7 +256,7 @@ class ConfigCheckCommand(Command):
             start_line = context_start + 1
 
             lines.append("")
-            lines.append("代码片段:")
+            lines.append(tr("Code snippet:", "代码片段:"))
             syntax = Syntax(
                 snippet,
                 "yaml",
@@ -237,15 +269,15 @@ class ConfigCheckCommand(Command):
                 _console.print(syntax)
             lines.append(capture.get())
         else:
-            lines.append("位置: 未知")
+            lines.append(tr("Location: unknown", "位置: 未知"))
 
         # 问题（已由 check_yaml_syntax 简化，可能含上下文）
         if result.problem:
-            lines.append(f"问题: {result.problem}")
+            lines.append(tr("Problem: {problem}", "问题: {problem}").format(problem=result.problem))
 
         # 修复建议
         if result.hint:
             lines.append("")
-            lines.append(f"提示: {result.hint}")
+            lines.append(tr("Hint: {hint}", "提示: {hint}").format(hint=result.hint))
 
         return "\n".join(lines)

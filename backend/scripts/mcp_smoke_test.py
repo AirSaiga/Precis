@@ -176,7 +176,9 @@ def run_smoke(server_cwd: Path, manifest_rel: str | None = None) -> dict[str, An
         escaped_result = escaped_resp.get("result", {})
         assert escaped_result.get("isError") is True, f"越界 manifest 应包装为 isError=true: {escaped_result}"
         error_text = "".join(c.get("text", "") for c in escaped_result.get("content", []))
-        assert "越界" in error_text, error_text
+        # 子进程不继承 pytest 的中文 fixture：CLI i18n 默认英文，故默认断言英文；
+        # 若调用方环境（PRECIS_LANG/LC_ALL/LANG）探测为中文则输出「越界」，两侧都接受
+        assert ("out of bounds" in error_text.lower()) or ("越界" in error_text), error_text
 
         return {
             "initialized": True,

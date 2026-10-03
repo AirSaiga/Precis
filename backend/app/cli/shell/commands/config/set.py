@@ -41,6 +41,7 @@
 
 from typing import Any
 
+from app.cli.i18n import tr
 from app.cli.shared_services.config_ops import (
     MATCH_BASENAME,
     parse_config_value,
@@ -61,7 +62,7 @@ class ConfigSetCommand(Command):
 
     @property
     def description(self) -> str:
-        return "设置配置项的值（支持点号路径）"
+        return tr("Set a config value (dot path supported)", "设置配置项的值（支持点号路径）")
 
     @property
     def usage(self) -> str:
@@ -79,7 +80,9 @@ class ConfigSetCommand(Command):
         """
         project_path = context.project_path
         if project_path is None:
-            return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目")
+            return CommandResult.error(
+                tr("No project open, run 'open <path>' first", "未打开项目，请先使用 'open <path>' 命令打开项目")
+            )
 
         # §4.3: --string 旗标——身份型字段（编号 007/版本 1.10）跳过类型推断按原字面量写入
         raw_args = args
@@ -90,9 +93,14 @@ class ConfigSetCommand(Command):
 
         if len(raw_args) < 3:
             return CommandResult.error(
-                "用法: config set [--string] <config_file> <key_path> <value>\n"
-                '示例: config set project.precis.yaml project.name "My Project"\n'
-                "      config set --string users.schema.yaml col.code 007  # 保留前导零"
+                tr(
+                    "Usage: config set [--string] <config_file> <key_path> <value>\n"
+                    'Example: config set project.precis.yaml project.name "My Project"\n'
+                    "      config set --string users.schema.yaml col.code 007  # keep leading zeros",
+                    "用法: config set [--string] <config_file> <key_path> <value>\n"
+                    '示例: config set project.precis.yaml project.name "My Project"\n'
+                    "      config set --string users.schema.yaml col.code 007  # 保留前导零",
+                )
             )
 
         config_file = raw_args[0]
@@ -119,8 +127,11 @@ class ConfigSetCommand(Command):
         if not ok:
             return CommandResult.error(error_message)
 
-        message = f"已设置: {key_path} = {value}"
+        message = tr("Set: {key} = {value}", "已设置: {key} = {value}").format(key=key_path, value=value)
         if match_kind == MATCH_BASENAME and resolved_path:
             # 模糊回退命中的是同名文件而非用户输入路径，必须披露实际写入位置
-            message += f"（按文件名回退匹配，实际写入: {resolved_path}）"
+            message += tr(
+                " (matched by basename fallback, actually written to: {path})",
+                "（按文件名回退匹配，实际写入: {path}）",
+            ).format(path=resolved_path)
         return CommandResult.ok(message)

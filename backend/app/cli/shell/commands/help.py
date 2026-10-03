@@ -39,6 +39,7 @@ from rich.console import Console
 from rich.markup import escape as markup_escape
 from rich.table import Table
 
+from app.cli.i18n import tr
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.parser import CommandRegistry
 
@@ -57,7 +58,7 @@ class HelpCommand(Command):
 
     @property
     def description(self) -> str:
-        return "显示所有可用命令或特定命令的帮助信息"
+        return tr("Show all available commands or help for a specific command", "显示所有可用命令或特定命令的帮助信息")
 
     @property
     def usage(self) -> str:
@@ -73,7 +74,7 @@ class HelpCommand(Command):
         commands = self._registry.get_all_commands()
 
         _console.print()
-        _console.print("[bold]可用命令:[/bold]")
+        _console.print(tr("[bold]Available commands:[/bold]", "[bold]可用命令:[/bold]"))
         _console.print()
 
         table = Table(show_header=False, box=None, padding=(0, 2, 0, 0))
@@ -88,21 +89,32 @@ class HelpCommand(Command):
             # [dim] 包裹是我们自己的有意标记，不参与转义
             subs = cmd.list_subcommands()
             if subs:
-                desc = f"{markup_escape(cmd.description)}  [dim](子命令: {', '.join(subs)})[/dim]"
+                sub_hint = tr("(subcommands: {subs})", "(子命令: {subs})").format(subs=", ".join(subs))
+                desc = f"{markup_escape(cmd.description)}  [dim]{sub_hint}[/dim]"
             else:
                 desc = markup_escape(cmd.description)
             table.add_row(cmd.name, desc)
 
         _console.print(table)
         _console.print()
-        _console.print("[dim]输入 'help <command>' 查看特定命令的详细帮助[/dim]")
-        _console.print("[dim]输入 'exit' 或 'quit' 退出 CLI，'qq' 强制退出[/dim]")
+        _console.print(
+            tr(
+                "[dim]Type 'help <command>' for details of a specific command[/dim]",
+                "[dim]输入 'help <command>' 查看特定命令的详细帮助[/dim]",
+            )
+        )
+        _console.print(
+            tr(
+                "[dim]Type 'exit' or 'quit' to leave the CLI, 'qq' to force quit[/dim]",
+                "[dim]输入 'exit' 或 'quit' 退出 CLI，'qq' 强制退出[/dim]",
+            )
+        )
 
         return CommandResult.ok("")
 
     def _show_command_help(self, command_name: str) -> CommandResult:
         command = self._registry.get(command_name)
         if command is None:
-            return CommandResult.error(f"未知命令: {command_name}")
+            return CommandResult.error(tr("Unknown command: {name}", "未知命令: {name}").format(name=command_name))
 
         return CommandResult.ok(command.help_text)

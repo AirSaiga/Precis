@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import logging
 
+from app.cli.i18n import tr
 from app.cli.shell.commands.base import CommandResult, ProjectContext
 from app.cli.shell.formatter import Formatter
 from app.shared.services.ai.chat_orchestrator import AIChatOrchestrator, ChatOptions
@@ -77,19 +78,29 @@ def execute_ai_chat(
         命令执行结果，成功时 data 包含 reply、actions 和 frontend_instructions
     """
     if not context.is_project_open:
-        return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目")
+        return CommandResult.error(
+            tr(
+                "No project open. Use 'open <path>' to open a project first",
+                "未打开项目，请先使用 'open <path>' 命令打开项目",
+            )
+        )
 
     project_path = context.project_path
 
     # 获取用于显示的 Provider 配置（脱敏，用于日志或展示）
     provider_config_display = _get_provider_display()
     if not provider_config_display:
-        return CommandResult.error("没有可用的 LLM Provider 配置，请先运行 'provider add' 命令配置 AI Provider")
+        return CommandResult.error(
+            tr(
+                "No LLM provider configured. Run 'provider add' first to configure an AI provider",
+                "没有可用的 LLM Provider 配置，请先运行 'provider add' 命令配置 AI Provider",
+            )
+        )
 
     # 获取包含完整 API Key 的 Provider 配置（用于实际调用 API）
     provider_config = _get_provider_with_key()
     if not provider_config:
-        return CommandResult.error("无法获取 Provider 配置信息")
+        return CommandResult.error(tr("Failed to load provider configuration", "无法获取 Provider 配置信息"))
 
     # 创建 AI 对话编排器，负责与 AI 模型通信
     orchestrator = AIChatOrchestrator(provider_config)
@@ -201,7 +212,7 @@ def execute_ai_chat(
 
         # 处理结果：如果失败则返回错误
         if not result.success:
-            error_msg = result.error or "AI 对话失败"
+            error_msg = result.error or tr("AI chat failed", "AI 对话失败")
             if interactive:
                 print(Formatter.error(f"\n{error_msg}"))
             return CommandResult.error(error_msg)
@@ -239,16 +250,30 @@ def execute_ai_chat(
     except Exception as e:
         # 流式收尾与 spinner 停止已由内层 finally 覆盖（任何退出路径），此处只做错误呈现
         logger.error(f"AI 对话失败: {e}", exc_info=True)
-        error_msg = f"AI 对话失败: {str(e)}"
+        error_msg = tr(f"AI chat failed: {str(e)}", f"AI 对话失败: {str(e)}")
 
         if interactive:
             print(Formatter.error(error_msg))
             # 针对 HTTP 400 错误提供诊断提示
             if "HTTP 400" in str(e) or "Bad Request" in str(e):
-                print(Formatter.warning("\n[诊断提示]"))
-                print(Formatter.info("  1. 检查模型名称是否正确（如 qwen-turbo, qwen-max 等）"))
-                print(Formatter.info("  2. 检查 API Key 是否有效"))
-                print(Formatter.info("  3. 检查网络连接是否正常"))
-                print(Formatter.info("  4. 某些模型可能不支持某些参数，尝试切换模型"))
+                print(Formatter.warning(tr("\n[Diagnostics]", "\n[诊断提示]")))
+                print(
+                    Formatter.info(
+                        tr(
+                            "  1. Check the model name is correct (e.g. qwen-turbo, qwen-max)",
+                            "  1. 检查模型名称是否正确（如 qwen-turbo, qwen-max 等）",
+                        )
+                    )
+                )
+                print(Formatter.info(tr("  2. Check the API key is valid", "  2. 检查 API Key 是否有效")))
+                print(Formatter.info(tr("  3. Check the network connection", "  3. 检查网络连接是否正常")))
+                print(
+                    Formatter.info(
+                        tr(
+                            "  4. Some models may not support certain parameters; try switching models",
+                            "  4. 某些模型可能不支持某些参数，尝试切换模型",
+                        )
+                    )
+                )
 
         return CommandResult.error(error_msg)

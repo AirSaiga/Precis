@@ -61,6 +61,7 @@ JSON 文档结构。消费方（Kimi Code 插件、CI、其他 agent harness）�
 | `row_index` | `int \| null` | 0 起的数据行索引（不含表头）；无行概念的错误为 `null`。两类基准：格式校验错误（`FormatValidation`）恒为**原文件行位**；约束错误为**约束求值时行位**——Transform DAG 在格式校验之后、约束校验之前执行，行数改变类转换（FilterRows/SortRows/DropDuplicates/Aggregate）会重排行位，此时约束错误的 `row_index` 与原文件行位不对应（无行变换时两类基准一致）。行位到原文件的回溯映射（index lineage）为已知 backlog，未实现 |
 | `cell_value` | `any (JSON) \| null` | 违规单元格原始值；numpy 标量归一为 Python 原生类型，NaN/Inf 转字符串 |
 | `error_message` | `str \| null` | 人类可读错误消息（中文）；消息中的表标识为显示名（表 ID 已在后处理替换），悬空引用（表已不存在）保留 ID 供定位 |
+| `error_message_en` | `str \| null` | 英文错误文案（开源国际发布用），按 `error_code` + `error_params` 渲染；**未登记错误码 / 参数缺失 / 渲染失败为 `null`，消费方应以 `error_message` 兜底**；非 coded 错误（格式校验、超时、加载类）恒为 `null`（v1 兼容的追加字段，只增） |
 | `suggestion` | `str \| null` | 可选修复建议：值与允许值词法相近时提示"是否应为 X"（AllowedValues，difflib 语义相近不冒进）、形似 Y-M-D 但月/日取值非法时指出超范围字段；生成器无法给出建议时为 `null`（v1 增补字段，只增） |
 | `error_code` | `str \| null` | 稳定机器错误码（UPPER_SNAKE，如 `RANGE_COLUMN_NOT_NUMERIC`），供 GUI 前端映射 i18n key 按当前语言渲染；CLI 消费方一般不需要（v1 增补字段，只增） |
 | `error_params` | `object \| null` | `error_code` 对应的插值参数（JSON 标量，数据值已字符串化），如 `{"column": "Total"}`；无码错误为 `null`（v1 增补字段，只增） |

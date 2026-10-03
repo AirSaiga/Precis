@@ -53,6 +53,10 @@ _ERROR_ENTRY_FIELDS = {
     "row_index",
     "cell_value",
     "error_message",
+    # v1 兼容追加字段（2026-09 国际化批次）：稳定错误码/插值参数/英文文案
+    "error_code",
+    "error_params",
+    "error_message_en",
     "suggestion",
 }
 _SUMMARY_FIELDS = {"constraints_total", "constraints_passed", "constraints_failed"}

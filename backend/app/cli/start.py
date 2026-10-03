@@ -30,6 +30,7 @@ import sys
 import webbrowser
 from pathlib import Path
 
+from app.cli.i18n import init_from_env, tr
 from app.shared.core.config.server import (
     DEFAULT_BACKEND_HOST,
     acquire_port,
@@ -43,23 +44,29 @@ from app.shared.core.config.server import (
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="precis-start",
-        description="Start Precis in Web mode",
+        description=tr("Start Precis in Web mode", "以 Web 模式启动 Precis"),
     )
     parser.add_argument(
         "--work-dir",
         default=None,
-        help="Precis projects work directory (default: env PRECIS_WORK_DIR or current dir)",
+        help=tr(
+            "Precis projects work directory (default: env PRECIS_WORK_DIR or current dir)",
+            "Precis 项目工作目录（默认：环境变量 PRECIS_WORK_DIR 或当前目录）",
+        ),
     )
     parser.add_argument(
         "--port",
         type=int,
         default=None,
-        help="Server port (default: 0=OS dynamic allocation; fixed port via VITE_BACKEND_PORT)",
+        help=tr(
+            "Server port (default: 0=OS dynamic allocation; fixed port via VITE_BACKEND_PORT)",
+            "服务器端口（默认：0=OS 动态分配；可经 VITE_BACKEND_PORT 固定端口）",
+        ),
     )
     parser.add_argument(
         "--no-browser",
         action="store_true",
-        help="Do not automatically open browser",
+        help=tr("Do not automatically open browser", "不自动打开浏览器"),
     )
     return parser.parse_args()
 
@@ -109,14 +116,20 @@ def _api_dependencies_available() -> bool:
 
 def main() -> int:
     """Main entry point for precis-start."""
+    init_from_env()
     args = _parse_args()
 
     # H15：裸装（无 [api] extra）先给安装指引再退出——若放行到后面才炸，
     # 已产生端口文件/浏览器线程等副作用且用户只见裸 ModuleNotFoundError traceback
     if not _api_dependencies_available():
         print(
-            "错误：缺少 API 服务依赖（uvicorn/fastapi 等）。precis-start 需要 [api] extra，请执行:\n"
-            "  pip install 'precis-cli[api]'",
+            tr(
+                "Error: API server dependencies missing (uvicorn/fastapi etc). "
+                "precis-start requires the [api] extra, run:\n"
+                "  pip install 'precis-cli[api]'",
+                "错误：缺少 API 服务依赖（uvicorn/fastapi 等）。precis-start 需要 [api] extra，请执行:\n"
+                "  pip install 'precis-cli[api]'",
+            ),
             file=sys.stderr,
         )
         return 1
@@ -125,7 +138,10 @@ def main() -> int:
     preferred_port = _resolve_port(args.port)
 
     if not os.path.isdir(work_dir):
-        print(f"错误：工作目录不存在: {work_dir}", file=sys.stderr)
+        print(
+            tr("Error: work directory not found: {dir}", "错误：工作目录不存在: {dir}").format(dir=work_dir),
+            file=sys.stderr,
+        )
         return 1
 
     # OS 原子分配端口(preferred_port=0 时动态分配),并写入端口文件供外部发现
@@ -136,8 +152,8 @@ def main() -> int:
     # 注册端口文件清理兜底(atexit + signal)
     register_port_file_cleanup()
 
-    print(f"  ✓ Work directory: {work_dir}")
-    print(f"  ✓ Port: {actual_port}")
+    print(f"  {tr('✓ Work directory:', '✓ 工作目录:')} {work_dir}")
+    print(f"  {tr('✓ Port:', '✓ 端口:')} {actual_port}")
 
     # Scan and count projects
     project_count = 0
@@ -147,7 +163,7 @@ def main() -> int:
                 manifest = os.path.join(entry.path, "project.precis.yaml")
                 if os.path.isfile(manifest):
                     project_count += 1
-    print(f"  ✓ Found {project_count} project(s)")
+    print(f"  {tr('✓ Found {count} project(s)', '✓ 找到 {count} 个项目').format(count=project_count)}")
 
     # Inject work_dir into app state via environment variable
     os.environ["PRECIS_WORK_DIR"] = work_dir
@@ -164,7 +180,7 @@ def main() -> int:
             try:
                 with socket.create_connection(("127.0.0.1", actual_port), timeout=0.5):
                     if not args.no_browser:
-                        print(f"\n  → Opening browser at {url}")
+                        print(f"\n  → {tr('Opening browser at {url}', '正在打开浏览器: {url}').format(url=url)}")
                         webbrowser.open(url)
                     return
             except OSError:
@@ -175,7 +191,7 @@ def main() -> int:
     browser_thread = threading.Thread(target=_open_browser_when_ready, daemon=True)
     browser_thread.start()
 
-    print("\n  Server starting... (Ctrl+C to stop)")
+    print(f"\n  {tr('Server starting... (Ctrl+C to stop)', '服务器启动中...（Ctrl+C 停止）')}")
     print(f"  {url}")
     print()
 

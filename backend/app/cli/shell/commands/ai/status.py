@@ -34,6 +34,7 @@
     带颜色高亮的 Provider 配置状态文本
 """
 
+from app.cli.i18n import tr
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.config_storage import get_cli_config
 from app.cli.shell.formatter import Formatter
@@ -51,7 +52,7 @@ class AIStatusCommand(Command):
 
     @property
     def description(self) -> str:
-        return "显示 AI 配置状态"
+        return tr("Show AI configuration status", "显示 AI 配置状态")
 
     @property
     def usage(self) -> str:
@@ -69,33 +70,46 @@ class AIStatusCommand(Command):
         """
         providers = self._cli_config.list_providers()
 
-        lines = [Formatter.header("\nCLI AI 配置状态")]
+        lines = [Formatter.header(tr("\nCLI AI configuration status", "\nCLI AI 配置状态"))]
 
         if not providers:
-            lines.append(Formatter.warning("\n未配置任何 AI Provider"))
-            lines.append(Formatter.info("请编辑 ~/.precis/ai_providers.yaml 配置文件"))
+            lines.append(Formatter.warning(tr("\nNo AI providers configured", "\n未配置任何 AI Provider")))
+            lines.append(
+                Formatter.info(
+                    tr(
+                        "Edit the config file ~/.precis/ai_providers.yaml",
+                        "请编辑 ~/.precis/ai_providers.yaml 配置文件",
+                    )
+                )
+            )
         else:
-            lines.append(f"\n已配置的 Providers ({len(providers)}):")
+            lines.append(tr(f"\nConfigured providers ({len(providers)}):", f"\n已配置的 Providers ({len(providers)}):"))
             active = self._cli_config.get_active_provider()
 
             for p in providers:
                 is_active = active and active.id == p.id
                 status_icon = "*" if is_active else " "
-                has_key = "[有密钥]" if p.api_key else "[无密钥]"
+                has_key = tr("[key set]", "[有密钥]") if p.api_key else tr("[no key]", "[无密钥]")
 
                 lines.append(f"\n  [{status_icon}] {p.name} ({p.id})")
-                lines.append(f"     模型: {p.model}")
+                lines.append(tr(f"     Model: {p.model}", f"     模型: {p.model}"))
                 lines.append(f"     API Key: {has_key}")
                 if p.base_url:
-                    lines.append(f"     端点: {p.base_url}")
+                    lines.append(tr(f"     Endpoint: {p.base_url}", f"     端点: {p.base_url}"))
 
             if active:
-                lines.append("\n" + Formatter.success("[*] 当前默认: " + active.name))
+                lines.append(
+                    "\n" + Formatter.success(tr("[*] Current default: " + active.name, "[*] 当前默认: " + active.name))
+                )
             else:
-                lines.append("\n" + Formatter.warning("[!] 没有可用的默认 Provider"))
+                lines.append(
+                    "\n" + Formatter.warning(tr("[!] No default provider available", "[!] 没有可用的默认 Provider"))
+                )
 
-        lines.append(Formatter.info("\n配置文件: ~/.precis/ai_providers.yaml"))
-        lines.append(Formatter.info("API Key 设置方式: 环境变量"))
-        lines.append(Formatter.info("  例如: OPENAI_API_KEY=sk-xxx"))
+        lines.append(
+            Formatter.info(tr("\nConfig file: ~/.precis/ai_providers.yaml", "\n配置文件: ~/.precis/ai_providers.yaml"))
+        )
+        lines.append(Formatter.info(tr("API key setup: environment variable", "API Key 设置方式: 环境变量")))
+        lines.append(Formatter.info(tr("  e.g. OPENAI_API_KEY=sk-xxx", "  例如: OPENAI_API_KEY=sk-xxx")))
 
         return CommandResult.ok("\n".join(lines))

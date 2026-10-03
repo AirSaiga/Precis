@@ -38,6 +38,7 @@
 
 import os
 
+from app.cli.i18n import tr
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.commands.config.base import CONSTRAINT_TEMPLATE, PATTERNS_TEMPLATE, PROJECT_TEMPLATE
 
@@ -53,7 +54,7 @@ class ConfigInitCommand(Command):
 
     @property
     def description(self) -> str:
-        return "初始化新的配置文件"
+        return tr("Initialize a new config file", "初始化新的配置文件")
 
     @property
     def usage(self) -> str:
@@ -71,11 +72,16 @@ class ConfigInitCommand(Command):
         """
         project_path = context.project_path
         if project_path is None:
-            return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目")
+            return CommandResult.error(
+                tr("No project open, run 'open <path>' first", "未打开项目，请先使用 'open <path>' 命令打开项目")
+            )
 
         if not args:
             return CommandResult.error(
-                "请指定模板类型: project, constraint, pattern\n用法: config init <type> [filename]"
+                tr(
+                    "Specify a template type: project, constraint, pattern\nUsage: config init <type> [filename]",
+                    "请指定模板类型: project, constraint, pattern\n用法: config init <type> [filename]",
+                )
             )
 
         template_type = args[0].lower()
@@ -89,7 +95,11 @@ class ConfigInitCommand(Command):
         }
 
         if template_type not in templates:
-            return CommandResult.error(f"未知模板类型: {template_type}\n可用类型: project, constraint, pattern")
+            return CommandResult.error(
+                tr("Unknown template type: {type}", "未知模板类型: {type}").format(type=template_type)
+                + "\n"
+                + tr("Available types: project, constraint, pattern", "可用类型: project, constraint, pattern")
+            )
 
         default_filename, template = templates[template_type]
 
@@ -100,14 +110,27 @@ class ConfigInitCommand(Command):
         from pathlib import Path as _Path
 
         if os.path.isabs(filename) or any(seg == ".." for seg in _Path(filename).parts) or filename.startswith("~"):
-            return CommandResult.error(f"非法的文件名（不允许绝对路径或 .. 引用）: {filename}")
+            return CommandResult.error(
+                tr(
+                    "Invalid filename (absolute paths or '..' are not allowed): {file}",
+                    "非法的文件名（不允许绝对路径或 .. 引用）: {file}",
+                ).format(file=filename)
+            )
         filepath = os.path.join(project_path, filename)
         if not os.path.abspath(filepath).startswith(os.path.abspath(project_path) + os.sep):
-            return CommandResult.error(f"文件路径超出项目目录: {filename}")
+            return CommandResult.error(
+                tr("File path is outside the project directory: {file}", "文件路径超出项目目录: {file}").format(
+                    file=filename
+                )
+            )
 
         # 检查文件是否已存在
         if os.path.exists(filepath):
-            return CommandResult.error(f"文件已存在: {filename}\n如需覆盖，请先删除原文件")
+            return CommandResult.error(
+                tr("File already exists: {file}", "文件已存在: {file}").format(file=filename)
+                + "\n"
+                + tr("Delete it first if you want to overwrite", "如需覆盖，请先删除原文件")
+            )
 
         # 生成文件内容（使用项目名称填充模板变量）。
         # 用 replace 而非 str.format：模板内含正则量词 {2,} 等花括号字面量，
@@ -118,6 +141,6 @@ class ConfigInitCommand(Command):
         try:
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write(content)
-            return CommandResult.ok(f"已创建配置文件: {filename}")
+            return CommandResult.ok(tr("Config file created: {file}", "已创建配置文件: {file}").format(file=filename))
         except Exception as e:
-            return CommandResult.error(f"创建文件失败: {e}")
+            return CommandResult.error(tr("Failed to create file: {error}", "创建文件失败: {error}").format(error=e))

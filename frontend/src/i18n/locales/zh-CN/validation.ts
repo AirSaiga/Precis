@@ -144,6 +144,13 @@ const validation = {
     CONFIG_INCOMPLETE: '校验配置不完整',
     VALIDATION_UNSUPPORTED_TYPE: '不支持的校验类型: {validation_type}',
     VALIDATION_EXECUTION_FAILED: '校验执行失败: {detail}',
+    // —— 流水线级（超时/空数据/中断/分块/加载）——
+    VALIDATION_TIMEOUT: '校验在{phase}阶段超时（上限 {seconds}s）',
+    VALIDATION_INTERRUPTED: '遇错即停：剩余 {remaining} 项检查未执行',
+    DATA_LOADING_EMPTY: '未能从数据目录加载任何数据表，校验中止',
+    CHUNKED_LOAD_FAILED: '分块加载失败: {detail}',
+    DATA_DIR_NOT_FOUND: '数据目录不存在: {path}',
+    DATA_SOURCE_NOT_FOUND: "表 '{table}' 未找到数据源（已查找目录: {directory}）",
     // —— 区间 Range ——
     RANGE_NO_BOUNDS: '未配置边界（min/max 至少填其一）',
     RANGE_TABLE_NOT_FOUND: "表 '{table}' 不在数据集中",

@@ -51,7 +51,10 @@ _ERROR_FIELDS = {
     "row_index",
     "cell_value",
     "error_message",
+    "error_message_en",
     "suggestion",
+    "error_code",
+    "error_params",
 }
 _TABLE_FIELDS = {"name", "rows"}
 _SUMMARY_FIELDS = {"constraints_total", "constraints_passed", "constraints_failed"}
@@ -191,6 +194,27 @@ class TestContractFieldTypes:
             assert entry["row_index"] is None or type(entry["row_index"]) is int
             # cell_value：任意 JSON 值（含 null）
             json.dumps(entry["cell_value"])
+
+    def test_error_message_en_semantics(self, contract_project, capsys):
+        """英文文案字段：coded 约束错误渲染出英文；未登记码/非 coded 错误为 null。
+
+        本固定项目仅有 NotNull/Range 两类 coded 约束错误，均登记了英文模板，
+        error_message_en 必须是非空英文；中文 error_message 不受影响（仍为中文）。
+        """
+        payload = _load_payload(contract_project, capsys)
+        assert payload["errors"], "固定项目应产出至少一条约束违规"
+        for entry in payload["errors"]:
+            # v1 增补字段：str 或 null（键存在，缺值 null）
+            assert entry["error_message_en"] is None or isinstance(entry["error_message_en"], str)
+            assert entry["error_code"] is None or isinstance(entry["error_code"], str)
+            assert entry["error_params"] is None or isinstance(entry["error_params"], dict)
+            # NotNull/Range 违规均有登记模板 → 英文文案非空且为英文（含 ASCII 字母）
+            if entry["error_code"] in ("NOT_NULL_VALUE_EMPTY", "RANGE_VALUE_OUT_OF_RANGE", "RANGE_VALUE_ABOVE_MAX"):
+                en = entry["error_message_en"]
+                assert en, f"{entry['error_code']} 应有英文文案"
+                assert any(c.isascii() and c.isalpha() for c in en)
+                # 中文兜底文案保持不变（含中文字符）
+                assert any("\u4e00" <= c <= "\u9fff" for c in entry["error_message"])
 
 
 class TestContractNullSemantics:

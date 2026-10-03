@@ -37,6 +37,7 @@
 
 import os
 
+from app.cli.i18n import tr
 from app.cli.shared_services import project_ops
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 
@@ -65,11 +66,17 @@ class OpenCommand(Command):
 
     @property
     def description(self) -> str:
-        return "打开一个项目目录并切换当前上下文（无参数从历史选择）"
+        return tr(
+            "Open a project directory and switch the current context (no argument selects from history)",
+            "打开一个项目目录并切换当前上下文（无参数从历史选择）",
+        )
 
     @property
     def usage(self) -> str:
-        return "open [项目路径 | 序号]（无参数则从历史选择）"
+        return tr(
+            "open [project_path | index] (no argument selects from history)",
+            "open [项目路径 | 序号]（无参数则从历史选择）",
+        )
 
     def execute(self, args: list[str], ctx: ProjectContext) -> CommandResult:
         """执行打开项目命令。
@@ -137,11 +144,14 @@ class OpenCommand(Command):
         if not history:
             return CommandResult(
                 success=True,
-                message="暂无项目打开历史。请先使用 'open <项目路径>' 打开一个项目。",
+                message=tr(
+                    "No project history yet. Open a project first with 'open <project_path>'.",
+                    "暂无项目打开历史。请先使用 'open <项目路径>' 打开一个项目。",
+                ),
             )
 
         # 构建菜单项：key=项目路径，label=项目名（优先 manifest，否则目录名），description=完整路径
-        menu = InteractiveMenu("从历史记录中选择项目:", show_cancel=True)
+        menu = InteractiveMenu(tr("Select a project from history:", "从历史记录中选择项目:"), show_cancel=True)
         for item in history:
             path = item.get("path", "")
             if not path:
@@ -152,13 +162,16 @@ class OpenCommand(Command):
         if not menu.items:
             return CommandResult(
                 success=True,
-                message="历史记录中无有效项目路径。请使用 'open <项目路径>' 打开项目。",
+                message=tr(
+                    "No valid project paths in history. Use 'open <project_path>' to open a project.",
+                    "历史记录中无有效项目路径。请使用 'open <项目路径>' 打开项目。",
+                ),
             )
 
         selected_path = menu.show()
         if selected_path is None:
             # 用户取消（ESC / 0 / 选了取消项）
-            return CommandResult(success=True, message="已取消。")
+            return CommandResult(success=True, message=tr("Cancelled.", "已取消。"))
 
         return self._do_open_path(selected_path, ctx)
 
@@ -176,24 +189,36 @@ class OpenCommand(Command):
         if not history:
             return CommandResult(
                 success=False,
-                message="暂无项目打开历史，无法按序号打开。请使用 'open <项目路径>' 打开项目。",
+                message=tr(
+                    "No project history yet, cannot open by index. Use 'open <project_path>' to open a project.",
+                    "暂无项目打开历史，无法按序号打开。请使用 'open <项目路径>' 打开项目。",
+                ),
             )
 
         # 解析序号（已在 execute 中确认 isdigit()，此处再防御一次）
         try:
             index = int(index_str)
         except ValueError:
-            return CommandResult(success=False, message=f"无效的序号: {index_str}")
+            return CommandResult(
+                success=False,
+                message=tr("Invalid index: {index}", "无效的序号: {index}").format(index=index_str),
+            )
 
         if index < 1 or index > len(history):
             return CommandResult(
                 success=False,
-                message=f"无此历史项: {index}（共 {len(history)} 项，使用 'project history' 查看列表）",
+                message=tr(
+                    "No such history entry: {index} (total {total}, use 'project history' to list)",
+                    "无此历史项: {index}（共 {total} 项，使用 'project history' 查看列表）",
+                ).format(index=index, total=len(history)),
             )
 
         path = history[index - 1].get("path", "")
         if not path:
-            return CommandResult(success=False, message=f"历史项 {index} 缺少路径信息")
+            return CommandResult(
+                success=False,
+                message=tr("History entry {index} has no path", "历史项 {index} 缺少路径信息").format(index=index),
+            )
 
         return self._do_open_path(path, ctx)
 

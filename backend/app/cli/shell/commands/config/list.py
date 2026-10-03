@@ -34,6 +34,7 @@
     配置文件列表表格
 """
 
+from app.cli.i18n import tr
 from app.cli.shared_services.config_ops import list_config_files
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.formatter import Formatter
@@ -50,7 +51,7 @@ class ConfigListCommand(Command):
 
     @property
     def description(self) -> str:
-        return "列出项目中的所有配置文件"
+        return tr("List all config files in the project", "列出项目中的所有配置文件")
 
     @property
     def usage(self) -> str:
@@ -68,23 +69,27 @@ class ConfigListCommand(Command):
         """
         project_path = context.project_path
         if project_path is None:
-            return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目")
+            return CommandResult.error(
+                tr("No project open, run 'open <path>' first", "未打开项目，请先使用 'open <path>' 命令打开项目")
+            )
 
         # 扫描配置文件（委托 shared_services 纯逻辑，CLI/TUI 同源）
         config_files = list_config_files(project_path)
 
         if not config_files:
-            return CommandResult.ok("暂无配置文件")
+            return CommandResult.ok(tr("No config files yet", "暂无配置文件"))
 
-        output_lines = [Formatter.header("\n配置文件列表:")]
-        output_lines.append(f"{'文件名':<40} {'大小':>10}")
+        output_lines = [Formatter.header(tr("\nConfig files:", "\n配置文件列表:"))]
+        output_lines.append(f"{tr('File', '文件名'):<40} {tr('Size', '大小'):>10}")
         output_lines.append("-" * 52)
 
         for cf in config_files:
             size_str = self._format_size(cf.size)
             output_lines.append(f"{cf.name:<40} {size_str:>10}")
 
-        output_lines.append(f"\n共 {len(config_files)} 个配置文件")
+        output_lines.append(
+            tr("\n{count} config file(s) in total", "\n共 {count} 个配置文件").format(count=len(config_files))
+        )
         return CommandResult.ok("\n".join(output_lines))
 
     def _format_size(self, size: int) -> str:

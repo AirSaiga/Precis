@@ -43,6 +43,8 @@ import os
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from app.cli.i18n import tr
+
 logger = logging.getLogger(__name__)
 
 # 历史记录文件路径：存储在用户主目录下
@@ -250,7 +252,7 @@ def open_project(project_path: str) -> OpenResult:
             project_path=project_path,
             config=None,
             manifest_path=None,
-            message=f"项目路径不存在: {project_path}",
+            message=tr("Project path not found: {path}", "项目路径不存在: {path}").format(path=project_path),
         )
     if not os.path.isdir(project_path):
         return OpenResult(
@@ -258,7 +260,7 @@ def open_project(project_path: str) -> OpenResult:
             project_path=project_path,
             config=None,
             manifest_path=None,
-            message=f"路径不是目录: {project_path}",
+            message=tr("Path is not a directory: {path}", "路径不是目录: {path}").format(path=project_path),
         )
 
     # 写入历史记录
@@ -276,13 +278,19 @@ def open_project(project_path: str) -> OpenResult:
             config = loaded
         else:
             config = None
-            load_warning = "\n警告：project.precis.yaml 存在但解析失败，配置未加载"
+            load_warning = tr(
+                "\nWarning: project.precis.yaml exists but failed to parse; config not loaded",
+                "\n警告：project.precis.yaml 存在但解析失败，配置未加载",
+            )
 
-    msg = f"已切换到项目: {project_path}"
+    msg = tr("Switched to project: {path}", "已切换到项目: {path}").format(path=project_path)
     if manifest_path is not None:
-        msg += "\n检测到项目清单文件 (project.precis.yaml)"
+        msg += tr("\nProject manifest detected (project.precis.yaml)", "\n检测到项目清单文件 (project.precis.yaml)")
     else:
-        msg += "\n警告：未找到 project.precis.yaml，可能需要初始化项目"
+        msg += tr(
+            "\nWarning: project.precis.yaml not found; the project may need initialization",
+            "\n警告：未找到 project.precis.yaml，可能需要初始化项目",
+        )
     msg += load_warning
 
     return OpenResult(

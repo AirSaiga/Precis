@@ -40,6 +40,7 @@ import os
 import subprocess
 import sys
 
+from app.cli.i18n import tr
 from app.cli.shared_services.config_ops import find_config_file
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.exceptions import EditorError
@@ -56,7 +57,7 @@ class ConfigEditCommand(Command):
 
     @property
     def description(self) -> str:
-        return "使用编辑器编辑项目的配置文件"
+        return tr("Edit project config files in an editor", "使用编辑器编辑项目的配置文件")
 
     @property
     def usage(self) -> str:
@@ -77,7 +78,9 @@ class ConfigEditCommand(Command):
         """
         project_path = context.project_path
         if project_path is None:
-            return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目")
+            return CommandResult.error(
+                tr("No project open, run 'open <path>' first", "未打开项目，请先使用 'open <path>' 命令打开项目")
+            )
 
         config_file = args[0] if args else "project.precis.yaml"
         config_path = find_config_file(project_path, config_file)
@@ -96,9 +99,12 @@ class ConfigEditCommand(Command):
                         available.append(rel_path)
 
             return CommandResult.error(
-                f"配置文件不存在: {config_file}\n"
-                f"可用配置文件: {', '.join(available[:10]) if available else '无'}"
-                f"{'...' if len(available) > 10 else ''}"
+                tr("Config file not found: {file}", "配置文件不存在: {file}").format(file=config_file)
+                + "\n"
+                + tr("Available config files: {files}", "可用配置文件: {files}").format(
+                    files=", ".join(available[:10]) if available else tr("none", "无")
+                )
+                + ("..." if len(available) > 10 else "")
             )
 
         editor = self._get_editor()
@@ -115,12 +121,14 @@ class ConfigEditCommand(Command):
             )
 
             if result.returncode != 0:
-                return CommandResult.error(f"编辑器退出码: {result.returncode}")
+                return CommandResult.error(
+                    tr("Editor exit code: {code}", "编辑器退出码: {code}").format(code=result.returncode)
+                )
 
-            return CommandResult.ok(f"已保存配置文件: {config_file}")
+            return CommandResult.ok(tr("Config file saved: {file}", "已保存配置文件: {file}").format(file=config_file))
 
         except FileNotFoundError:
-            return CommandResult.error(f"未找到编辑器: {editor}")
+            return CommandResult.error(tr("Editor not found: {editor}", "未找到编辑器: {editor}").format(editor=editor))
         except Exception as e:
             raise EditorError(str(e))
 

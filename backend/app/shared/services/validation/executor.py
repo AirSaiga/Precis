@@ -465,7 +465,12 @@ class ValidationExecutor:
         # Step 3: 检查加载阶段是否超时
         if (time.monotonic() - started) > options.timeout_seconds:
             result["errors"].append(
-                {"error_type": "Timeout", "message": f"数据加载阶段超时（>{options.timeout_seconds}s）"}
+                {
+                    "error_type": "Timeout",
+                    "error_code": "VALIDATION_TIMEOUT",
+                    "error_params": {"phase": "data loading", "seconds": options.timeout_seconds},
+                    "message": f"数据加载阶段超时（>{options.timeout_seconds}s）",
+                }
             )
             result["timeout_occurred"] = True
             self._emit_progress(
@@ -480,7 +485,11 @@ class ValidationExecutor:
         # Step 4: 检查数据是否加载成功
         if not raw_datasets:
             result["errors"].append(
-                {"error_type": "DataLoadingError", "message": "未能从数据目录加载任何数据表，校验中止。"}
+                {
+                    "error_type": "DataLoadingError",
+                    "error_code": "DATA_LOADING_EMPTY",
+                    "message": "未能从数据目录加载任何数据表，校验中止。",
+                }
             )
             self._emit_progress(
                 progress_callback,
@@ -554,7 +563,12 @@ class ValidationExecutor:
         # Step 8: 检查校验阶段是否超时
         if (time.monotonic() - started) > options.timeout_seconds:
             result["errors"].append(
-                {"error_type": "Timeout", "message": f"数据校验阶段超时（>{options.timeout_seconds}s）"}
+                {
+                    "error_type": "Timeout",
+                    "error_code": "VALIDATION_TIMEOUT",
+                    "error_params": {"phase": "validation", "seconds": options.timeout_seconds},
+                    "message": f"数据校验阶段超时（>{options.timeout_seconds}s）",
+                }
             )
             result["timeout_occurred"] = True
 
@@ -631,7 +645,14 @@ class ValidationExecutor:
             )
         except Exception as e:
             logger.exception(f"分块加载失败: {e}")
-            result["errors"].append({"error_type": "ChunkedLoadError", "message": f"分块加载失败: {e}"})
+            result["errors"].append(
+                {
+                    "error_type": "ChunkedLoadError",
+                    "error_code": "CHUNKED_LOAD_FAILED",
+                    "error_params": {"detail": str(e)},
+                    "message": f"分块加载失败: {e}",
+                }
+            )
             self._emit_progress(progress_callback, started, stage="done", errors_so_far=len(result["errors"]))
             self._finalize_result(result, started)
             return result
@@ -648,7 +669,11 @@ class ValidationExecutor:
 
         if not chunked_datasets:
             result["errors"].append(
-                {"error_type": "DataLoadingError", "message": "未能从数据目录加载任何数据表，校验中止。"}
+                {
+                    "error_type": "DataLoadingError",
+                    "error_code": "DATA_LOADING_EMPTY",
+                    "message": "未能从数据目录加载任何数据表，校验中止。",
+                }
             )
             self._emit_progress(progress_callback, started, stage="done", errors_so_far=len(result["errors"]))
             self._finalize_result(result, started)
@@ -682,7 +707,12 @@ class ValidationExecutor:
         # 检查加载阶段超时
         if (time.monotonic() - started) > options.timeout_seconds:
             result["errors"].append(
-                {"error_type": "Timeout", "message": f"数据加载阶段超时（>{options.timeout_seconds}s）"}
+                {
+                    "error_type": "Timeout",
+                    "error_code": "VALIDATION_TIMEOUT",
+                    "error_params": {"phase": "data loading", "seconds": options.timeout_seconds},
+                    "message": f"数据加载阶段超时（>{options.timeout_seconds}s）",
+                }
             )
             result["timeout_occurred"] = True
             self._emit_progress(progress_callback, started, stage="done", errors_so_far=len(result["errors"]))

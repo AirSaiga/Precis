@@ -35,6 +35,7 @@
 
 from __future__ import annotations
 
+from app.cli.i18n import tr
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.commands.config.check import ConfigCheckCommand
 from app.cli.shell.commands.config.edit import ConfigEditCommand
@@ -75,7 +76,7 @@ class ConfigCommand(Command):
 
     @property
     def description(self) -> str:
-        return "管理项目配置文件"
+        return tr("Manage project config files", "管理项目配置文件")
 
     @property
     def usage(self) -> str:
@@ -95,17 +96,30 @@ class ConfigCommand(Command):
         """
         if not args:
             return CommandResult.error(
-                "请指定子命令: show, edit, list, init, get, set, check, inspect\n"
-                "用法: config <subcommand> [options]\n\n"
-                "子命令说明:\n"
-                "  show    - 显示配置文件内容\n"
-                "  edit    - 编辑配置文件\n"
-                "  list    - 列出所有配置文件\n"
-                "  init    - 初始化新配置文件\n"
-                "  get     - 获取配置项值\n"
-                "  set     - 设置配置项值\n"
-                "  check   - 检查配置文件语法格式\n"
-                "  inspect - 执行配置跨文件一致性自检"
+                tr(
+                    "Specify a subcommand: show, edit, list, init, get, set, check, inspect\n"
+                    "Usage: config <subcommand> [options]\n\n"
+                    "Subcommands:\n"
+                    "  show    - Show config file contents\n"
+                    "  edit    - Edit config files\n"
+                    "  list    - List all config files\n"
+                    "  init    - Initialize new config files\n"
+                    "  get     - Get a config value\n"
+                    "  set     - Set a config value\n"
+                    "  check   - Check config file syntax\n"
+                    "  inspect - Run cross-file consistency checks",
+                    "请指定子命令: show, edit, list, init, get, set, check, inspect\n"
+                    "用法: config <subcommand> [options]\n\n"
+                    "子命令说明:\n"
+                    "  show    - 显示配置文件内容\n"
+                    "  edit    - 编辑配置文件\n"
+                    "  list    - 列出所有配置文件\n"
+                    "  init    - 初始化新配置文件\n"
+                    "  get     - 获取配置项值\n"
+                    "  set     - 设置配置项值\n"
+                    "  check   - 检查配置文件语法格式\n"
+                    "  inspect - 执行配置跨文件一致性自检",
+                )
             )
 
         subcommand = args[0]
@@ -125,7 +139,7 @@ class ConfigCommand(Command):
         if subcommand in subcommands:
             return subcommands[subcommand].execute(sub_args, context)
         else:
-            return CommandResult.error(f"未知子命令: {subcommand}")
+            return CommandResult.error(tr("Unknown subcommand: {sub}", "未知子命令: {sub}").format(sub=subcommand))
 
 
 __all__ = ["ConfigCommand"]

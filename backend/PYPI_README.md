@@ -1,49 +1,50 @@
 # Precis CLI
 
 > Local-first data validation engine — define schemas and constraints in YAML, validate CSV / TSV / Excel / JSON / JSONL with a single command.
-> 本地优先的数据校验引擎：用 YAML 定义表结构与约束规则，一条命令校验 CSV / TSV / Excel / JSON / JSONL。
 
-**Alpha** — 核心功能稳定，配置格式有版本保障（V2）。
+**Alpha** — core functionality is stable and the configuration format is versioned (V2).
 
-## 安装
+## Installation
 
 ```bash
-pip install precis-cli          # 需要 Python >= 3.12
+pip install precis-cli          # requires Python >= 3.12
 
-# 或免安装直接运行（需要 uv）
+# Or run without installing (requires uv)
 uvx --from precis-cli precis --version
 ```
 
-## 快速上手
+The distribution name is `precis-cli`; the command name is `precis` (`precis-cli` works as an equivalent alias).
+
+## Quick Start
 
 ```bash
-# 1. 从数据文件推断 schema 草稿
+# 1. Infer a draft schema from a data file
 precis infer-schema orders.csv > schemas/orders.schema.yaml
 
-# 2. 在项目清单 project.precis.yaml 中登记 schema 与约束文件
-#    （格式见下方示例）
+# 2. Register the schema and constraint files in the project manifest
+#    project.precis.yaml (format shown below)
 
-# 3. 执行校验
+# 3. Run validation
 precis validate --manifest project.precis.yaml --format json
 ```
 
-退出码契约（CI / AI agent 友好）：
+Exit code contract (CI / AI-agent friendly):
 
-| 退出码 | 含义 |
-|--------|------|
-| `0` | 校验通过 |
-| `1` | 校验完成，发现数据违规（详情见 JSON 输出的 `errors`） |
-| `2` | 工具自身错误（参数错误、文件不存在、异常崩溃） |
+| Exit code | Meaning |
+|-----------|---------|
+| `0` | Validation passed |
+| `1` | Validation completed and found data violations (see `errors` in the JSON output) |
+| `2` | Tool error (invalid arguments, missing file, unhandled crash) |
 
-## 配置示例（V2 YAML）
+## Configuration Example (V2 YAML)
 
-`project.precis.yaml`：
+`project.precis.yaml`:
 
 ```yaml
 version: 2
 project:
   id: my-project
-  name: 订单数据校验
+  name: Orders validation
 schemas:
   - id: orders
     path: schemas/orders.schema.yaml
@@ -52,7 +53,7 @@ constraints:
     path: constraints/orders_amount_range.constraint.yaml
 ```
 
-`constraints/orders_amount_range.constraint.yaml`：
+`constraints/orders_amount_range.constraint.yaml`:
 
 ```yaml
 version: 2
@@ -68,30 +69,38 @@ params:
   boundary_mode: inclusive
 ```
 
-## 10 种约束类型
+## 10 Constraint Types
 
-`NotNull` 非空 · `Unique` 唯一 · `AllowedValues` 枚举 · `Range` 数值区间 ·
-`ForeignKey` 跨表引用 · `Conditional` 条件约束 · `Scripted` 脚本表达式 ·
-`Charset` 字符集 · `DateLogic` 日期逻辑 · `Composite` 组合约束
+`NotNull` not null · `Unique` unique · `AllowedValues` allowed values · `Range` numeric range ·
+`ForeignKey` cross-table reference · `Conditional` conditional constraint · `Scripted` scripted expression ·
+`Charset` character set · `DateLogic` date logic · `Composite` composite constraint
 
-数据类型：`string` / `integer` / `float` / `decimal` / `boolean` / `date`。
-大文件（>500MB）自动分块加载。
+Data types: `string` / `integer` / `float` / `decimal` / `boolean` / `date`.
+Large files (>500MB) are loaded in chunks automatically.
 
-## 与 AI Agent 集成
+## AI Agent Integration
 
-`--format json` 输出为机器可读契约（含行级错误定位与约束来源文件回溯），
-可直接被 AI 编程助手消费：
+The `--format json` output is a machine-readable contract (including row-level error locations and
+traceability back to the constraint source file), ready to be consumed by AI coding assistants:
 
-- **MCP server**：`pip install "precis-cli[mcp]"` 后运行 `precis-mcp`（stdio），
-  提供 `validate_data` / `infer_schema` / `check_config` / `describe_constraints` 四个工具
-- **Kimi Code 插件**：`/plugins install https://github.com/AirSaiga/Precis`
-- **CLI 自带 AI 命令**（自然语言生成/修改校验配置，独立于宿主 agent）：
-  `pip install "precis-cli[ai]"`，然后 `precis ai chat` 或 `precis ai ask "..."`
+- **MCP server**: after `pip install "precis-cli[mcp]"`, run `precis-mcp` (stdio), which exposes four
+  tools: `validate_data` / `infer_schema` / `check_config` / `describe_constraints`
+- **Kimi Code plugin**: `/plugins install https://github.com/AirSaiga/Precis`
+- **Built-in CLI AI commands** (generate or modify validation config in natural language, independent of
+  the host agent): `pip install "precis-cli[ai]"`, then `precis ai chat` or `precis ai ask "..."`
 
-## 链接
+## Links
 
-- 仓库与文档：<https://github.com/AirSaiga/Precis>
-- 问题反馈：<https://github.com/AirSaiga/Precis/issues>
-- 桌面 GUI 版本（画布式可视化编辑）见仓库 releases
+- Repository and documentation: <https://github.com/AirSaiga/Precis>
+- Issue tracker: <https://github.com/AirSaiga/Precis/issues>
+- Desktop GUI edition (canvas-based visual editing) is available on the repository releases page
 
 License: Apache-2.0
+
+## 中文简介
+
+本地优先的数据校验引擎：用 YAML 定义表结构与约束规则，一条命令校验 CSV / TSV / Excel / JSON / JSONL。
+安装：`pip install precis-cli`（需 Python >= 3.12），或免安装运行 `uvx --from precis-cli precis --version`。
+最简上手：`precis infer-schema orders.csv > schemas/orders.schema.yaml`，在 `project.precis.yaml` 中登记 schema 与约束文件后，
+执行 `precis validate --manifest project.precis.yaml --format json`。
+退出码：`0` 校验通过 · `1` 发现数据违规 · `2` 工具自身错误。命令名为 `precis`（`precis-cli` 为等价别名）。

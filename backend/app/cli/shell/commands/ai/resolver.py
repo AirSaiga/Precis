@@ -41,6 +41,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from app.cli.i18n import tr
 from app.cli.shell.formatter import Formatter
 from app.cli.shell.interactive_menu import InteractiveMenu
 from app.shared.services.llm.schema_resolver import find_matching_schemas
@@ -65,26 +66,41 @@ def resolve_table_name(table_name: str, project_path: str, silent: bool = False)
 
     if not matches:
         if not silent:
-            print(Formatter.warning(f"[!] 未找到匹配的表: '{table_name}'"))
+            print(
+                Formatter.warning(
+                    tr(f"[!] No matching table found: '{table_name}'", f"[!] 未找到匹配的表: '{table_name}'")
+                )
+            )
         return None
 
     if len(matches) == 1:
         # 只有一个匹配，直接返回
         selected = matches[0]
         if not silent:
-            print(Formatter.info(f"[i] 表 '{table_name}' 匹配到: {selected['name']} ({selected['id'][:10]}...)"))
+            print(
+                Formatter.info(
+                    tr(
+                        f"[i] Table '{table_name}' matched: {selected['name']} ({selected['id'][:10]}...)",
+                        f"[i] 表 '{table_name}' 匹配到: {selected['name']} ({selected['id'][:10]}...)",
+                    )
+                )
+            )
         return selected["id"]
 
     # 多个匹配，让用户选择
     if not silent:
-        print(f"\n{Formatter.warning('[!]')} 表名 '{table_name}' 匹配到多个表:")
+        multi_hint = tr(
+            f"Table name '{table_name}' matched multiple tables:",
+            f"表名 '{table_name}' 匹配到多个表:",
+        )
+        print(f"\n{Formatter.warning('[!]')} {multi_hint}")
 
-        menu = InteractiveMenu("请选择要校验的表:")
+        menu = InteractiveMenu(tr("Choose the table to validate:", "请选择要校验的表:"))
         for m in matches:
             display_id = f"{m['id'][:10]}..." if len(m["id"]) > 15 else m["id"]
             menu.add_item(m["id"], f"{m['name']} ({display_id})", f"ID: {m['id']}")
 
-        menu.add_item("_cancel_", "取消", "不执行此操作")
+        menu.add_item("_cancel_", tr("Cancel", "取消"), tr("Skip this operation", "不执行此操作"))
 
         choice = menu.show()
         if choice and choice != "_cancel_":
@@ -177,15 +193,20 @@ def resolve_ambiguities(actions: list[dict[str, Any]], project_path: str) -> boo
 
         # 如果有多个模糊匹配，且没有精确匹配 ID 的情况
         if len(matches) > 1:
-            print(f"\n{Formatter.warning('[!]')} 发现多个匹配的表 '{identifier}':")
+            multi_hint = tr(f"Multiple tables matched '{identifier}':", f"发现多个匹配的表 '{identifier}':")
+            print(f"\n{Formatter.warning('[!]')} {multi_hint}")
 
-            menu = InteractiveMenu("请选择正确的表:")
+            menu = InteractiveMenu(tr("Choose the correct table:", "请选择正确的表:"))
             for m in matches:
                 # 检查是否为加密 ID 格式，若是则显示一部分，否则显示全名
                 display_id = f"{m['id'][:10]}..." if len(m["id"]) > 15 else m["id"]
                 menu.add_item(m["id"], f"{m['name']} ({display_id})", f"ID: {m['id']}")
 
-            menu.add_item("_skip_", "跳过此操作", "不执行此约束更新")
+            menu.add_item(
+                "_skip_",
+                tr("Skip this operation", "跳过此操作"),
+                tr("Do not apply this constraint update", "不执行此约束更新"),
+            )
 
             choice = menu.show()
             if choice is None or choice == "_skip_":
@@ -201,7 +222,11 @@ def resolve_ambiguities(actions: list[dict[str, Any]], project_path: str) -> boo
 
             # 同样更新列 (如果是根据名称匹配，可能也存在列名冲突)
             # 这里简化处理，假设列在特定表内唯一
-            print(f"{Formatter.success('[OK]')} 已选择表: {selected['name']}")
+            selected_hint = tr(
+                f"Table selected: {selected['name']}",
+                f"已选择表: {selected['name']}",
+            )
+            print(f"{Formatter.success('[OK]')} {selected_hint}")
         elif len(matches) == 1:
             # 只有一个匹配，直接更新为表ID
             selected = matches[0]
@@ -210,14 +235,25 @@ def resolve_ambiguities(actions: list[dict[str, Any]], project_path: str) -> boo
         else:
             # 4.5: 0 匹配跳过并提示——原实现静默继续（拼错的表名让约束作用于
             # 空表集后"静默成功"），与 VALIDATE 分支的 _skip 行为对齐
-            print(f"{Formatter.warning('[!]')} 未找到表 '{identifier}'，已跳过该约束操作")
+            skip_hint = tr(
+                f"Table '{identifier}' not found; this constraint operation was skipped",
+                f"未找到表 '{identifier}'，已跳过该约束操作",
+            )
+            print(f"{Formatter.warning('[!]')} {skip_hint}")
             action["_skip"] = True
             continue
 
     # 统计并提示被跳过的动作
     skipped_actions = [a for a in actions if a.get("_skip")]
     if skipped_actions:
-        print(Formatter.info(f"\n[i] 已跳过 {len(skipped_actions)} 个操作（用户取消或表名未找到）"))
+        print(
+            Formatter.info(
+                tr(
+                    f"\n[i] Skipped {len(skipped_actions)} operation(s) (cancelled by user or table not found)",
+                    f"\n[i] 已跳过 {len(skipped_actions)} 个操作（用户取消或表名未找到）",
+                )
+            )
+        )
 
     # 过滤掉标记为跳过的动作
     actions[:] = [a for a in actions if not a.get("_skip")]

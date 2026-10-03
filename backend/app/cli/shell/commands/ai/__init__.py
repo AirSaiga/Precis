@@ -40,6 +40,7 @@
 """
 
 # 导入子命令
+from app.cli.i18n import tr
 from app.cli.shell.commands.ai.chat import AIChatCommand
 from app.cli.shell.commands.ai.delete import AIDeleteCommand
 from app.cli.shell.commands.ai.executor import execute_ai_chat
@@ -75,8 +76,14 @@ def ai_dependencies_available() -> bool:
     return _AI_DEPS_AVAILABLE
 
 
-# 依赖缺失时 ai 入口的统一提示（help 标注与 execute 门控共用同一安装指引）
-_AI_INSTALL_HINT = 'pip install "precis-cli[ai]"（源码安装用 pip install -e ".[ai]"）'
+# 依赖缺失时 ai 入口的统一提示（help 标注与 execute 门控共用同一安装指引）；
+# 函数形态避免模块导入期冻结语言（语言可能在导入后才经 init_from_env/set_lang 设定）
+def _ai_install_hint() -> str:
+    """依赖缺失时的安装指引文案（双语）。"""
+    return tr(
+        'pip install "precis-cli[ai]" (source install: pip install -e ".[ai]")',
+        'pip install "precis-cli[ai]"（源码安装用 pip install -e ".[ai]"）',
+    )
 
 
 class AICommand(Command):
@@ -111,8 +118,14 @@ class AICommand(Command):
         # help 列表动态标注：裸装（无 [ai] extra）不伪装成可用功能，
         # 让用户在进菜单之前就知道差什么、怎么补
         if not ai_dependencies_available():
-            return f"AI 助手 - 未安装依赖（{_AI_INSTALL_HINT}）"
-        return "AI 助手 - 使用自然语言修改项目配置"
+            return tr(
+                f"AI assistant - dependencies not installed ({_ai_install_hint()})",
+                f"AI 助手 - 未安装依赖（{_ai_install_hint()}）",
+            )
+        return tr(
+            "AI assistant - modify project config with natural language",
+            "AI 助手 - 使用自然语言修改项目配置",
+        )
 
     @property
     def usage(self) -> str:
@@ -120,7 +133,42 @@ class AICommand(Command):
 
     @property
     def help_text(self) -> str:
-        return """
+        return tr(
+            """
+Usage: ai [subcommand] [args]
+
+Subcommands:
+  chat              Enter interactive AI chat (Agent deep mode by default)
+  ask <message>     Execute an AI instruction directly (e.g. ai ask "add a NOT NULL constraint to the email column of the users table")
+  generate          Generate Precis V2 config from data files
+  migrate           Migrate legacy scripts into Precis V2 config
+  status            Show AI configuration status
+  switch <provider> Switch the default AI provider
+  provider          Manage AI providers (add/edit/delete/test)
+  delete [provider] Delete a configured provider
+
+Examples:
+  ai chat                           # Enter interactive chat (Agent mode)
+  ai chat --no-agent-mode           # Disable Agent mode, use the legacy JSON actions path
+  ai ask "create a NOT NULL constraint on users.email"   # Execute directly
+  ai generate data/users.xlsx       # Preview generated config
+  ai generate data/*.xlsx --apply   # Generate and write into the project
+  ai migrate scripts/legacy.sql data/users.xlsx --apply  # Migrate and write into the project
+  ai status                         # Show AI configuration status
+  ai switch kimi                    # Switch to Kimi
+  ai provider                       # Manage AI providers
+  ai delete kimi                    # Delete Kimi
+
+Notes:
+  The AI assistant helps you modify project config with natural language, including:
+  - Adding, updating and deleting constraints (NOT_NULL, UNIQUE, RANGE, ALLOWED_VALUES, REGEX, etc.)
+  - Inspecting and explaining the current config
+  - Generating full config from data files
+  - Migrating business rules from legacy scripts
+
+  Run 'ai provider' first to add a provider before the first use
+            """,
+            """
 用法: ai [子命令] [参数]
 
 子命令:
@@ -153,7 +201,8 @@ class AICommand(Command):
   - 从旧脚本迁移业务规则
 
   首次使用请先运行 'ai provider' 命令添加 Provider
-        """.strip()
+            """,
+        ).strip()
 
     def execute(self, args: list[str], context: ProjectContext) -> CommandResult:
         """执行 AI 命令。
@@ -174,8 +223,12 @@ class AICommand(Command):
             # 选项最终都会失败），直接给安装指引；provider 预配置不受影响
             # （顶层 provider 命令不依赖 LLM 库）
             return CommandResult.error(
-                f"AI 功能需要可选依赖，当前未安装。安装命令: {_AI_INSTALL_HINT}\n"
-                "如仅需预配置 AI Provider，可先运行 'provider add'（无需依赖）。"
+                tr(
+                    "AI features require optional dependencies that are not installed. Install with: {hint}\n"
+                    "To only pre-configure an AI provider, run 'provider add' first (no dependencies needed).",
+                    "AI 功能需要可选依赖，当前未安装。安装命令: {hint}\n"
+                    "如仅需预配置 AI Provider，可先运行 'provider add'（无需依赖）。",
+                ).format(hint=_ai_install_hint())
             )
         if not args:
             # 无参数时显示交互式菜单
@@ -221,33 +274,40 @@ class AICommand(Command):
             # 构建状态行：显示当前 Provider 和项目
             provider = self._cli_config.get_active_provider()
             if provider:
-                status_lines.append(Formatter.info(f"当前 Provider: {provider.name} ({provider.model})"))
+                status_lines.append(
+                    Formatter.info(
+                        tr(
+                            f"Current provider: {provider.name} ({provider.model})",
+                            f"当前 Provider: {provider.name} ({provider.model})",
+                        )
+                    )
+                )
             else:
-                status_lines.append(Formatter.warning("[!] 未配置 AI Provider"))
+                status_lines.append(Formatter.warning(tr("[!] No AI provider configured", "[!] 未配置 AI Provider")))
 
             if context.is_project_open:
                 # project_config 在 open 后可能尚未加载，做空值守卫避免 AttributeError
                 config = context.project_config or {}
                 project_name = config.get("project", {}).get("name", "project")
-                status_lines.append(Formatter.info(f"当前项目: {project_name}"))
+                status_lines.append(Formatter.info(tr(f"Current project: {project_name}", f"当前项目: {project_name}")))
             else:
-                status_lines.append(Formatter.warning("[!] 未打开项目"))
+                status_lines.append(Formatter.warning(tr("[!] No project open", "[!] 未打开项目")))
 
             # 创建交互式菜单
-            menu = InteractiveMenu("AI 助手")
-            menu.add_item("chat", "chat", "进入交互式对话模式")
-            menu.add_item("generate", "generate", "从数据文件生成配置")
-            menu.add_item("migrate", "migrate", "从旧脚本迁移配置")
-            menu.add_item("status", "status", "查看 AI 配置状态")
-            menu.add_item("switch", "switch", "切换 AI Provider")
-            menu.add_item("provider", "provider", "管理 AI Provider")
-            menu.add_item("delete", "delete", "删除 Provider")
-            menu.add_item("help", "help", "显示帮助信息")
+            menu = InteractiveMenu(tr("AI Assistant", "AI 助手"))
+            menu.add_item("chat", "chat", tr("Enter interactive chat mode", "进入交互式对话模式"))
+            menu.add_item("generate", "generate", tr("Generate config from data files", "从数据文件生成配置"))
+            menu.add_item("migrate", "migrate", tr("Migrate config from legacy scripts", "从旧脚本迁移配置"))
+            menu.add_item("status", "status", tr("Show AI configuration status", "查看 AI 配置状态"))
+            menu.add_item("switch", "switch", tr("Switch AI provider", "切换 AI Provider"))
+            menu.add_item("provider", "provider", tr("Manage AI providers", "管理 AI Provider"))
+            menu.add_item("delete", "delete", tr("Delete provider", "删除 Provider"))
+            menu.add_item("help", "help", tr("Show help", "显示帮助信息"))
 
             choice = menu.show_with_status(status_lines)
 
             if choice is None:
-                return CommandResult.ok("已退出 AI 助手")
+                return CommandResult.ok(tr("Exited AI assistant", "已退出 AI 助手"))
             elif choice == "chat":
                 result = self._chat_cmd.execute([], context)
                 if result.should_exit:
@@ -256,16 +316,16 @@ class AICommand(Command):
                 result = self._generate_cmd.execute([], context)
                 if result.should_exit:
                     return result
-                input(Formatter.info("\n按回车键返回菜单..."))
+                input(Formatter.info(tr("\nPress Enter to return to the menu...", "\n按回车键返回菜单...")))
             elif choice == "migrate":
                 result = self._migrate_cmd.execute([], context)
                 if result.should_exit:
                     return result
-                input(Formatter.info("\n按回车键返回菜单..."))
+                input(Formatter.info(tr("\nPress Enter to return to the menu...", "\n按回车键返回菜单...")))
             elif choice == "status":
                 result = self._status_cmd.execute([], context)
                 print(result.message)
-                input(Formatter.info("\n按回车键返回菜单..."))
+                input(Formatter.info(tr("\nPress Enter to return to the menu...", "\n按回车键返回菜单...")))
             elif choice == "switch":
                 self._switch_cmd.execute([], context)
             elif choice == "provider":
@@ -274,7 +334,7 @@ class AICommand(Command):
                 self._delete_cmd.execute([], context)
             elif choice == "help":
                 print(Formatter.info(self.help_text))
-                input(Formatter.info("\n按回车键继续..."))
+                input(Formatter.info(tr("\nPress Enter to continue...", "\n按回车键继续...")))
 
     def _ask_direct(self, args: list[str], context: ProjectContext) -> CommandResult:
         """直接执行 AI 询问。
@@ -289,7 +349,12 @@ class AICommand(Command):
             AI 对话执行结果
         """
         if not args:
-            return CommandResult.error("请提供询问内容\n用法: ai ask <message> 或 ai <message>")
+            return CommandResult.error(
+                tr(
+                    "Please provide a message\nUsage: ai ask <message> or ai <message>",
+                    "请提供询问内容\n用法: ai ask <message> 或 ai <message>",
+                )
+            )
 
         message = " ".join(args)
         return execute_ai_chat(message, context, interactive=False)

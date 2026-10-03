@@ -167,6 +167,14 @@ def humanize_item_texts(item: dict[str, Any], id_to_name: dict[str, str]) -> Non
     for key in _ID_TEXT_FIELDS:
         if key in item:
             item[key] = rewrite_id_tokens(item[key], id_to_name)
+    # error_params 的字符串值同样面向展示（CLI 英文渲染 render_message_en 直接
+    # 用其插值），不重写会让 error_message_en 露出原始表 ID（zh message 已被
+    # 上方重写，两语言口径须一致）。仅处理字符串值，数值/列表值原样保留。
+    params = item.get("error_params")
+    if isinstance(params, dict):
+        for key, value in params.items():
+            if isinstance(value, str):
+                params[key] = rewrite_id_tokens(value, id_to_name)
 
 
 def postprocess_result(

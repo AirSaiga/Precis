@@ -45,6 +45,7 @@ import os
 from rich.console import Console
 from rich.table import Table
 
+from app.cli.i18n import tr
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.commands.open import OpenCommand, _load_history
 
@@ -62,7 +63,7 @@ class StatusCommand(Command):
 
     @property
     def description(self) -> str:
-        return "显示当前项目的状态信息"
+        return tr("Show status of the current project", "显示当前项目的状态信息")
 
     @property
     def usage(self) -> str:
@@ -81,7 +82,11 @@ class StatusCommand(Command):
         project_path = ctx.project_path
         if not project_path:
             return CommandResult(
-                success=False, message="当前未选择任何项目。使用 'open <路径>' 或 'project open <路径>' 切换项目。"
+                success=False,
+                message=tr(
+                    "No project selected. Use 'open <path>' or 'project open <path>' to switch project.",
+                    "当前未选择任何项目。使用 'open <路径>' 或 'project open <路径>' 切换项目。",
+                ),
             )
 
         # 检查清单文件
@@ -101,11 +106,19 @@ class StatusCommand(Command):
         table = Table(show_header=False, box=None, padding=(0, 2))
         table.add_column("Key", style="dim")
         table.add_column("Value", style="bold")
-        table.add_row("项目", os.path.basename(project_path))
-        table.add_row("路径", project_path)
-        table.add_row("项目清单", "[green]已找到[/green]" if has_manifest else "[yellow]未找到[/yellow]")
-        table.add_row("数据文件", str(data_file_count) if data_file_count > 0 else "[dim]未找到[/dim]")
-        table.add_row("历史项目", str(history_count))
+        table.add_row(tr("Project", "项目"), os.path.basename(project_path))
+        table.add_row(tr("Path", "路径"), project_path)
+        table.add_row(
+            tr("Manifest", "项目清单"),
+            tr("[green]found[/green]", "[green]已找到[/green]")
+            if has_manifest
+            else tr("[yellow]not found[/yellow]", "[yellow]未找到[/yellow]"),
+        )
+        table.add_row(
+            tr("Data files", "数据文件"),
+            str(data_file_count) if data_file_count > 0 else tr("[dim]not found[/dim]", "[dim]未找到[/dim]"),
+        )
+        table.add_row(tr("History projects", "历史项目"), str(history_count))
 
         _console.print()
         _console.print(table)
@@ -124,7 +137,7 @@ class ProjectHistoryCommand(Command):
 
     @property
     def description(self) -> str:
-        return "显示最近打开的项目列表"
+        return tr("Show recently opened projects", "显示最近打开的项目列表")
 
     @property
     def usage(self) -> str:
@@ -142,11 +155,11 @@ class ProjectHistoryCommand(Command):
         """
         history = _load_history()
         if not history:
-            return CommandResult(success=True, message="暂无项目打开历史。")
+            return CommandResult(success=True, message=tr("No project history yet.", "暂无项目打开历史。"))
 
-        lines = ["最近打开的项目:"]
+        lines = [tr("Recently opened projects:", "最近打开的项目:")]
         for i, item in enumerate(history, 1):
-            path = item.get("path", "未知路径")
+            path = item.get("path", tr("unknown path", "未知路径"))
             lines.append(f"  {i}. {path}")
 
         return CommandResult(success=True, message="\n".join(lines))
@@ -169,11 +182,11 @@ class ProjectCommand(Command):
 
     @property
     def description(self) -> str:
-        return "项目管理相关命令（打开、状态、历史）"
+        return tr("Project management commands (open, status, history)", "项目管理相关命令（打开、状态、历史）")
 
     @property
     def usage(self) -> str:
-        return "project <子命令>"
+        return tr("project <subcommand>", "project <子命令>")
 
     def execute(self, args: list[str], ctx: ProjectContext) -> CommandResult:
         """执行项目管理命令。
@@ -198,7 +211,13 @@ class ProjectCommand(Command):
                 return sub.execute(args[1:], ctx)
 
         available = ", ".join(self.list_subcommands())
-        return CommandResult(success=False, message=f"未知的 project 子命令: {sub_name}。可用子命令: {available}")
+        return CommandResult(
+            success=False,
+            message=tr(
+                "Unknown project subcommand: {name}. Available subcommands: {available}",
+                "未知的 project 子命令: {name}。可用子命令: {available}",
+            ).format(name=sub_name, available=available),
+        )
 
     def _show_help(self) -> CommandResult:
         """显示 project 命令的帮助信息。
@@ -206,7 +225,12 @@ class ProjectCommand(Command):
         Returns:
             包含所有子命令说明的结果
         """
-        lines = ["project - 项目管理命令", "用法: project <子命令>", "", "可用子命令:"]
+        lines = [
+            tr("project - project management commands", "project - 项目管理命令"),
+            tr("Usage: project <subcommand>", "用法: project <子命令>"),
+            "",
+            tr("Available subcommands:", "可用子命令:"),
+        ]
         for name in self.list_subcommands():
             sub = self.get_subcommand(name)
             if sub:

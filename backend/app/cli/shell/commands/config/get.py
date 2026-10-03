@@ -36,6 +36,7 @@
 
 import yaml
 
+from app.cli.i18n import tr
 from app.cli.shared_services.config_ops import find_config_file, get_by_dotpath
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 
@@ -51,7 +52,7 @@ class ConfigGetCommand(Command):
 
     @property
     def description(self) -> str:
-        return "获取配置项的值（支持点号路径）"
+        return tr("Get a config value (dot path supported)", "获取配置项的值（支持点号路径）")
 
     @property
     def usage(self) -> str:
@@ -69,11 +70,16 @@ class ConfigGetCommand(Command):
         """
         project_path = context.project_path
         if project_path is None:
-            return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目")
+            return CommandResult.error(
+                tr("No project open, run 'open <path>' first", "未打开项目，请先使用 'open <path>' 命令打开项目")
+            )
 
         if len(args) < 2:
             return CommandResult.error(
-                "用法: config get <config_file> <key_path>\n示例: config get project.precis.yaml project.name"
+                tr(
+                    "Usage: config get <config_file> <key_path>\nExample: config get project.precis.yaml project.name",
+                    "用法: config get <config_file> <key_path>\n示例: config get project.precis.yaml project.name",
+                )
             )
 
         config_file = args[0]
@@ -83,19 +89,23 @@ class ConfigGetCommand(Command):
         config_path = find_config_file(project_path, config_file)
 
         if not config_path:
-            return CommandResult.error(f"配置文件不存在: {config_file}")
+            return CommandResult.error(
+                tr("Config file not found: {file}", "配置文件不存在: {file}").format(file=config_file)
+            )
 
         try:
             with open(config_path, encoding="utf-8") as f:
                 data = yaml.safe_load(f)
 
             if data is None:
-                return CommandResult.error("配置文件为空")
+                return CommandResult.error(tr("Config file is empty", "配置文件为空"))
 
             # 按点号路径查找值（委托 shared_services 纯逻辑，CLI/TUI 同源）
             found, value = get_by_dotpath(data, key_path)
             if not found:
-                return CommandResult.error(f"配置项不存在: {key_path}")
+                return CommandResult.error(
+                    tr("Config key not found: {key}", "配置项不存在: {key}").format(key=key_path)
+                )
 
             # 格式化输出
             if isinstance(value, (dict, list)):
@@ -106,6 +116,6 @@ class ConfigGetCommand(Command):
             return CommandResult.ok(f"{key_path} = {formatted}")
 
         except yaml.YAMLError as e:
-            return CommandResult.error(f"YAML 解析失败: {e}")
+            return CommandResult.error(tr("YAML parse error: {error}", "YAML 解析失败: {error}").format(error=e))
         except Exception as e:
-            return CommandResult.error(f"读取失败: {e}")
+            return CommandResult.error(tr("Read failed: {error}", "读取失败: {error}").format(error=e))

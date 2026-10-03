@@ -206,6 +206,8 @@ def validate_full_dataset(
                     "check_type": "ValidationInterrupted",
                     "table": table_id,
                     "error_type": "ValidationInterrupted",
+                    "error_code": "VALIDATION_INTERRUPTED",
+                    "error_params": {"table": table_id, "remaining": remaining_tables},
                     "message": (
                         f"已按项目设置『遇错即停』停止：表 '{table_id}' 的格式校验发现首个错误,"
                         f"剩余 {remaining_tables} 个表及约束校验未执行。"
@@ -339,6 +341,8 @@ def validate_constraints(
                     "check_type": "Timeout",
                     "table": None,
                     "error_type": "Timeout",
+                    "error_code": "VALIDATION_TIMEOUT",
+                    "error_params": {"remaining": len(schema.constraints) - i},
                     "message": f"校验超时，剩余 {len(schema.constraints) - i} 个约束未执行",
                 }
             )
@@ -385,6 +389,8 @@ def validate_constraints(
                     {
                         "error_type": "ConstraintExecutionError",
                         "table": constraint_table,
+                        "error_code": "VALIDATION_EXECUTION_FAILED",
+                        "error_params": {"detail": str(e)},
                         "message": f"约束执行异常: {e}",
                     }
                 ],
@@ -437,6 +443,8 @@ def validate_constraints(
                     "check_type": "ValidationInterrupted",
                     "table": None,
                     "error_type": "ValidationInterrupted",
+                    "error_code": "VALIDATION_INTERRUPTED",
+                    "error_params": {"remaining": remaining},
                     "message": (f"已按项目设置『遇错即停』停止：发现首个错误，剩余 {remaining} 个约束未执行。"),
                 }
             )

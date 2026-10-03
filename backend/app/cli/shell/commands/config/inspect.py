@@ -37,6 +37,7 @@
 
 from __future__ import annotations
 
+from app.cli.i18n import tr
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.formatter import _supports_unicode
 from app.shared.core.project.loader.loader_parts.main import load_project
@@ -45,11 +46,11 @@ from app.shared.core.project.loader.types import LoadingError
 _CHECK_MARK = "\u2713" if _supports_unicode() else "[OK]"
 _CROSS_MARK = "\u2717" if _supports_unicode() else "[FAIL]"
 
-# 严重度展示符号与标签
+# 严重度展示符号与标签（标签经 tr() 在渲染时翻译，避免模块导入期固化语言）
 _SEVERITY_DISPLAY = {
-    "blocker": ("🔴", "阻塞"),
-    "warning": ("⚠️", "警告"),
-    "info": ("ℹ️", "提示"),
+    "blocker": ("🔴", "Blocker", "阻塞"),
+    "warning": ("⚠️", "Warning", "警告"),
+    "info": ("ℹ️", "Info", "提示"),
 }
 
 
@@ -64,7 +65,10 @@ class ConfigInspectCommand(Command):
 
     @property
     def description(self) -> str:
-        return "执行配置文件跨文件一致性自检（ID 一致性、引用完整性、数据源冲突）"
+        return tr(
+            "Run cross-file consistency checks on config files (ID consistency, reference integrity, data source conflicts)",
+            "执行配置文件跨文件一致性自检（ID 一致性、引用完整性、数据源冲突）",
+        )
 
     @property
     def usage(self) -> str:
@@ -85,7 +89,9 @@ class ConfigInspectCommand(Command):
         """
         project_path = context.project_path
         if project_path is None:
-            return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目")
+            return CommandResult.error(
+                tr("No project open, run 'open <path>' first", "未打开项目，请先使用 'open <path>' 命令打开项目")
+            )
 
         # 定位 manifest 文件
         import os
@@ -97,28 +103,52 @@ class ConfigInspectCommand(Command):
             if os.path.isfile(alt):
                 manifest_path = alt
             else:
-                return CommandResult.error(f"未找到项目清单文件 project.precis.yaml（在 {project_path} 下）")
+                return CommandResult.error(
+                    tr(
+                        "Project manifest project.precis.yaml not found (under {path})",
+                        "未找到项目清单文件 project.precis.yaml（在 {path} 下）",
+                    ).format(path=project_path)
+                )
 
         # 复用 load_project：其内部已执行 inspect_config，结果在 loading_errors
         try:
             loaded = load_project(manifest_path)
         except Exception as e:
-            return CommandResult.error(f"加载项目失败: {e}")
+            return CommandResult.error(tr("Failed to load project: {error}", "加载项目失败: {error}").format(error=e))
 
         errors: list[LoadingError] = loaded.loading_errors or []
         warnings: list[str] = loaded.warnings or []
 
         if not errors:
-            extra = f"\n（另有 {len(warnings)} 条加载警告）" if warnings else ""
-            return CommandResult.ok(f"{_CHECK_MARK} 配置自检通过，未发现问题{extra}")
+            extra = (
+                tr("\n({count} additional loading warning(s))", "\n（另有 {count} 条加载警告）").format(
+                    count=len(warnings)
+                )
+                if warnings
+                else ""
+            )
+            return CommandResult.ok(
+                tr("{mark} Config inspection passed, no issues found", "{mark} 配置自检通过，未发现问题").format(
+                    mark=_CHECK_MARK
+                )
+                + extra
+            )
 
         report = self._format_report(errors)
         # 有 blocker 时整体视为失败，否则视为成功附带警告
         has_blocker = any(e.severity == "blocker" for e in errors)
-        summary = f"配置自检发现 {len(errors)} 个问题"
+        summary = tr("Config inspection found {count} issue(s)", "配置自检发现 {count} 个问题").format(
+            count=len(errors)
+        )
         if has_blocker:
             return CommandResult.error(f"{summary}:\n{report}")
-        return CommandResult.ok(f"{summary}（均为非阻塞，建议处理）:\n{report}")
+        return CommandResult.ok(
+            tr("{summary} (all non-blocking, fixing recommended)", "{summary}（均为非阻塞，建议处理）").format(
+                summary=summary
+            )
+            + ":\n"
+            + report
+        )
 
     def _format_report(self, errors: list[LoadingError]) -> str:
         """将 LoadingError 列表格式化为可读文本报告。
@@ -143,22 +173,27 @@ class ConfigInspectCommand(Command):
             group = grouped.get(sev, [])
             if not group:
                 continue
-            icon, label = _SEVERITY_DISPLAY.get(sev, ("•", sev))
-            lines.append(f"\n{icon} {label}（{len(group)}）")
+            icon, label_en, label_zh = _SEVERITY_DISPLAY.get(sev, ("•", sev, sev))
+            lines.append(
+                f"\n{icon} "
+                + tr("{label} ({count})", "{label}（{count}）").format(label=tr(label_en, label_zh), count=len(group))
+            )
 
             for err in group:
-                title = err.title or err.error_type or "未知问题"
+                title = err.title or err.error_type or tr("Unknown issue", "未知问题")
                 lines.append(f"  {_CROSS_MARK} {title}")
                 if err.file_path:
-                    lines.append(f"     文件: {err.file_path}")
+                    lines.append(f"     {tr('File:', '文件:')} {err.file_path}")
                 if err.ref_id:
-                    lines.append(f"     编号: {err.ref_id}")
+                    lines.append(f"     {tr('ID:', '编号:')} {err.ref_id}")
                 if err.description:
-                    lines.append(f"     说明: {err.description}")
+                    lines.append(f"     {tr('Details:', '说明:')} {err.description}")
                 if err.fix_hint:
-                    lines.append(f"     建议: {err.fix_hint}")
+                    lines.append(f"     {tr('Suggestion:', '建议:')} {err.fix_hint}")
                 # 若有一键修复 API，提示用户（CLI 暂不自动修复，但告知可修复）
                 if err.fix_api:
-                    lines.append(f"     可修复: {err.fix_api.get('method', 'POST')} {err.fix_api.get('path', '')}")
+                    lines.append(
+                        f"     {tr('Fixable via:', '可修复:')} {err.fix_api.get('method', 'POST')} {err.fix_api.get('path', '')}"
+                    )
 
         return "\n".join(lines)

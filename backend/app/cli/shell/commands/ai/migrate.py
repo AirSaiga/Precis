@@ -43,6 +43,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+from app.cli.i18n import tr
 from app.cli.shared_services.generation_ops import (
     SUPPORTED_EXTENSIONS,
 )
@@ -89,7 +90,7 @@ class AIMigrateCommand(Command):
 
     @property
     def description(self) -> str:
-        return "从旧脚本迁移生成 Precis V2 配置"
+        return tr("Migrate legacy scripts into Precis V2 config", "从旧脚本迁移生成 Precis V2 配置")
 
     @property
     def usage(self) -> str:
@@ -106,14 +107,21 @@ class AIMigrateCommand(Command):
             命令执行结果
         """
         if not context.is_project_open:
-            return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目")
+            return CommandResult.error(
+                tr(
+                    "No project open. Use 'open <path>' to open a project first",
+                    "未打开项目，请先使用 'open <path>' 命令打开项目",
+                )
+            )
 
         project_path = context.project_path
         if not project_path:
-            return CommandResult.error("项目路径为空")
+            return CommandResult.error(tr("Project path is empty", "项目路径为空"))
 
         if not args:
-            return CommandResult.error(f"请提供脚本文件路径\n用法: {self.usage}")
+            return CommandResult.error(
+                tr(f"Please provide a script file path\nUsage: {self.usage}", f"请提供脚本文件路径\n用法: {self.usage}")
+            )
 
         # 解析参数
         script_path = args[0]
@@ -134,36 +142,53 @@ class AIMigrateCommand(Command):
                 if i < len(args):
                     language = args[i]
                 else:
-                    return CommandResult.error("--language 需要参数")
+                    return CommandResult.error(tr("--language requires a value", "--language 需要参数"))
             elif arg == "--max-iterations":
                 i += 1
                 if i < len(args):
                     try:
                         max_iterations = max(1, min(5, int(args[i])))
                     except ValueError:
-                        return CommandResult.error(f"--max-iterations 需要整数， got: {args[i]}")
+                        return CommandResult.error(
+                            tr(
+                                f"--max-iterations needs an integer, got: {args[i]}",
+                                f"--max-iterations 需要整数， got: {args[i]}",
+                            )
+                        )
                 else:
-                    return CommandResult.error("--max-iterations 需要参数")
+                    return CommandResult.error(tr("--max-iterations requires a value", "--max-iterations 需要参数"))
             elif arg == "--sample-rows":
                 i += 1
                 if i < len(args):
                     try:
                         sample_rows = max(1, int(args[i]))
                     except ValueError:
-                        return CommandResult.error(f"--sample-rows 需要整数， got: {args[i]}")
+                        return CommandResult.error(
+                            tr(
+                                f"--sample-rows needs an integer, got: {args[i]}",
+                                f"--sample-rows 需要整数， got: {args[i]}",
+                            )
+                        )
                 else:
-                    return CommandResult.error("--sample-rows 需要参数")
+                    return CommandResult.error(tr("--sample-rows requires a value", "--sample-rows 需要参数"))
             elif arg == "--sample-values":
                 i += 1
                 if i < len(args):
                     try:
                         sample_values = max(1, int(args[i]))
                     except ValueError:
-                        return CommandResult.error(f"--sample-values 需要整数， got: {args[i]}")
+                        return CommandResult.error(
+                            tr(
+                                f"--sample-values needs an integer, got: {args[i]}",
+                                f"--sample-values 需要整数， got: {args[i]}",
+                            )
+                        )
                 else:
-                    return CommandResult.error("--sample-values 需要参数")
+                    return CommandResult.error(tr("--sample-values requires a value", "--sample-values 需要参数"))
             elif arg.startswith("--"):
-                return CommandResult.error(f"未知参数: {arg}\n用法: {self.usage}")
+                return CommandResult.error(
+                    tr(f"Unknown argument: {arg}\nUsage: {self.usage}", f"未知参数: {arg}\n用法: {self.usage}")
+                )
             else:
                 file_patterns.append(arg)
             i += 1
@@ -172,19 +197,24 @@ class AIMigrateCommand(Command):
         if not os.path.isabs(script_path):
             script_path = os.path.join(project_path, script_path)
         if not os.path.exists(script_path):
-            return CommandResult.error(f"脚本文件不存在: {script_path}")
+            return CommandResult.error(tr(f"Script file not found: {script_path}", f"脚本文件不存在: {script_path}"))
 
         if language is None:
             language = _infer_language(script_path)
         elif language not in _SUPPORTED_LANGUAGES:
             # 枚举校验：非法值前置拒绝（usage 已声明可选值），不透传下游晦涩报错
-            return CommandResult.error(f"--language 仅支持 {'|'.join(_SUPPORTED_LANGUAGES)}，收到: {language}")
+            return CommandResult.error(
+                tr(
+                    f"--language only supports {'|'.join(_SUPPORTED_LANGUAGES)}, got: {language}",
+                    f"--language 仅支持 {'|'.join(_SUPPORTED_LANGUAGES)}，收到: {language}",
+                )
+            )
 
         try:
             with open(script_path, encoding="utf-8") as f:
                 script_content = f.read()
         except Exception as e:
-            return CommandResult.error(f"读取脚本文件失败: {e}")
+            return CommandResult.error(tr(f"Failed to read script file: {e}", f"读取脚本文件失败: {e}"))
 
         # 展开数据文件路径
         file_paths: list[str] = []
@@ -201,17 +231,29 @@ class AIMigrateCommand(Command):
 
         file_paths = [p for p in file_paths if p.lower().endswith(SUPPORTED_EXTENSIONS)]
         if not file_paths:
-            return CommandResult.error("请提供至少一个数据文件（.xlsx/.xls/.csv/.json/.jsonl）")
+            return CommandResult.error(
+                tr(
+                    "Please provide at least one data file (.xlsx/.xls/.csv/.json/.jsonl)",
+                    "请提供至少一个数据文件（.xlsx/.xls/.csv/.json/.jsonl）",
+                )
+            )
 
         # 获取项目信息
         config = context.project_config or {}
         project_name = config.get("project", {}).get("name", Path(project_path).name)
         project_id = config.get("project", {}).get("id", project_name)
 
-        print(Formatter.header("\nAI 配置迁移"))
-        print(Formatter.info(f"项目: {project_name}"))
-        print(Formatter.info(f"脚本: {display_relpath(script_path, project_path)} ({language})"))
-        print(Formatter.info("数据文件:"))
+        print(Formatter.header(tr("\nAI config migration", "\nAI 配置迁移")))
+        print(Formatter.info(tr(f"Project: {project_name}", f"项目: {project_name}")))
+        print(
+            Formatter.info(
+                tr(
+                    f"Script: {display_relpath(script_path, project_path)} ({language})",
+                    f"脚本: {display_relpath(script_path, project_path)} ({language})",
+                )
+            )
+        )
+        print(Formatter.info(tr("Data files:", "数据文件:")))
         for p in file_paths:
             print(f"  - {display_relpath(p, project_path)}")
 
@@ -252,17 +294,17 @@ class AIMigrateCommand(Command):
             )
         except Exception as e:
             logger.error(f"配置迁移失败: {e}", exc_info=True)
-            return CommandResult.error(f"配置迁移失败: {e}")
+            return CommandResult.error(tr(f"Config migration failed: {e}", f"配置迁移失败: {e}"))
 
         if not result.get("success"):
-            error = result.get("error") or "配置迁移失败"
+            error = result.get("error") or tr("Config migration failed", "配置迁移失败")
             return CommandResult.error(error)
 
         yaml_preview = result.get("yaml_preview", "")
         warnings = result.get("warnings", [])
 
         if warnings:
-            print(Formatter.warning("\n迁移警告:"))
+            print(Formatter.warning(tr("\nMigration warnings:", "\n迁移警告:")))
             for w in warnings:
                 print(f"  - {w}")
 
@@ -271,19 +313,31 @@ class AIMigrateCommand(Command):
                 _apply_generated_config(result, project_path)
             except Exception as e:
                 logger.error(f"写盘失败: {e}", exc_info=True)
-                return CommandResult.error(f"配置已生成，但写盘失败: {e}")
+                return CommandResult.error(
+                    tr(f"Config migrated, but writing to disk failed: {e}", f"配置已生成，但写盘失败: {e}")
+                )
 
             schema_count = len(result.get("schemas", {}))
             constraint_count = len(result.get("constraints", {}))
             regex_count = len(result.get("regex_nodes", {}))
             return CommandResult.ok(
-                f"配置已迁移并写入项目：{schema_count} 个 schema，"
-                f"{constraint_count} 个 constraint，{regex_count} 个 regex。"
+                tr(
+                    f"Config migrated and written to the project: {schema_count} schema(s), "
+                    f"{constraint_count} constraint(s), {regex_count} regex node(s).",
+                    f"配置已迁移并写入项目：{schema_count} 个 schema，"
+                    f"{constraint_count} 个 constraint，{regex_count} 个 regex。",
+                )
             )
 
-        print(Formatter.header("\nYAML 预览（未写盘，加 --apply 可应用）"))
+        print(
+            Formatter.header(
+                tr("\nYAML preview (not written; add --apply to apply)", "\nYAML 预览（未写盘，加 --apply 可应用）")
+            )
+        )
         print(yaml_preview)
-        return CommandResult.ok("配置迁移完成，以上为 YAML 预览。")
+        return CommandResult.ok(
+            tr("Config migration finished; above is the YAML preview.", "配置迁移完成，以上为 YAML 预览。")
+        )
 
 
 __all__ = ["AIMigrateCommand"]

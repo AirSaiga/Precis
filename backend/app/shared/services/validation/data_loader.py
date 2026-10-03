@@ -157,6 +157,8 @@ class DataLoader:
             loading_errors.append(
                 {
                     "error_type": "DirectoryNotFound",
+                    "error_code": "DATA_DIR_NOT_FOUND",
+                    "error_params": {"path": data_directory},
                     "message": f"数据目录不存在: {data_directory}",
                     "source_path": data_directory,
                 }
@@ -197,6 +199,8 @@ class DataLoader:
                 loading_errors.append(
                     {
                         "error_type": "SourceNotFound",
+                        "error_code": "DATA_SOURCE_NOT_FOUND",
+                        "error_params": {"table": table_schema.name, "directory": search_directory},
                         "message": f"表 '{table_schema.name}' 未找到数据源（已查找目录: {search_directory}）",
                         "table": table_schema.name,
                     }

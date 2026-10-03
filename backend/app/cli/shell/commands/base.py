@@ -50,6 +50,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from app.cli.i18n import tr
+
 
 @dataclass
 class CommandResult:
@@ -103,17 +105,20 @@ class CommandResult:
         return CommandResult(success=False, message=message, data=data, exit_code=exit_code)
 
     @staticmethod
-    def exit(message: str = "再见!") -> "CommandResult":
+    def exit(message: str | None = None) -> "CommandResult":
         """创建退出结果。
 
         当返回此结果时，Shell 主循环检测到 should_exit=True 后会终止运行。
 
         Args:
-            message: 退出前的告别消息，默认为 "再见!"
+            message: 退出前的告别消息，默认为当前语言的 "再见!"
 
         Returns:
             一个触发退出的 CommandResult 实例
         """
+        if message is None:
+            # 默认告别语按当前语言渲染（英文 Goodbye! / 中文 再见!）
+            message = tr("Goodbye!", "再见!")
         return CommandResult(success=True, message=message, should_exit=True)
 
 
@@ -172,12 +177,12 @@ class Command(ABC):
             格式化的多行帮助文本
         """
         lines = [
-            f"用法: {self.usage}",
+            tr("Usage: {usage}", "用法: {usage}").format(usage=self.usage),
             "",
             self.description,
         ]
         if self.aliases:
-            lines.append(f"别名: {', '.join(self.aliases)}")
+            lines.append(tr("Aliases: {aliases}", "别名: {aliases}").format(aliases=", ".join(self.aliases)))
         return "\n".join(lines)
 
     @abstractmethod

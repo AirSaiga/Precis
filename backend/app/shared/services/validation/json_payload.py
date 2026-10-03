@@ -29,6 +29,8 @@ import math
 from collections.abc import Sized
 from typing import Any
 
+from app.shared.domain.constraints.messages_en import render_message_en
+
 # JSON 输出契约的版本号（未来契约演进时递增）
 JSON_SCHEMA_VERSION = 1
 
@@ -106,6 +108,13 @@ def build_json_payload(result: dict) -> dict:
         # 格式错误携带 cell_value/error_message；域约束错误携带 value/message，做双字段兼容
         cell_value = error.get("cell_value") if "cell_value" in error else error.get("value")
         error_message = error.get("error_message") if error.get("error_message") is not None else error.get("message")
+        # error_code/error_params 由约束校验器 emit、经 engine（**item 展开）与 executor
+        # 原样透传到此处；格式校验/超时/加载类等非 coded 错误无这两个字段，输出 null。
+        error_code = error.get("error_code")
+        error_params = error.get("error_params")
+        # 英文文案：按 error_code 渲染（开源国际发布用）；未登记码/缺参/渲染失败为 null，
+        # 消费方按 error_message（中文）兜底
+        error_message_en = render_message_en(error_code, error_params) if error_code else None
         error_entries.append(
             {
                 "table": error.get("table"),
@@ -115,8 +124,13 @@ def build_json_payload(result: dict) -> dict:
                 "row_index": error.get("row_index"),
                 "cell_value": json_safe_value(cell_value),
                 "error_message": error_message,
+                # 英文文案（v1 增补字段，只增）：非 coded 错误为 null
+                "error_message_en": error_message_en,
                 # 可选修复建议（AllowedValues 相近值 / 日期布局提示等），生成器未给则为 null
                 "suggestion": error.get("suggestion"),
+                # 稳定机器错误码与其插值参数（v1 增补字段，只增）：供消费方本地化渲染
+                "error_code": error_code,
+                "error_params": error_params,
             }
         )
 

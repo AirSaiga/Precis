@@ -28,6 +28,25 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
+def _cli_lang_zh(monkeypatch):
+    """测试环境统一将 CLI i18n 语言设为中文。
+
+    CLI 生产默认语言已改为英文（国际发布），但存量测试断言的是中文 CLI 输出。
+    此 fixture 在每个测试前 set_lang("zh") 并保持 PRECIS_LANG=zh-CN，维持既有断言语义；
+    必须同时设置环境变量：入口函数 main() 会在测试中途调用 init_from_env() 重新探测，
+    只改模块状态会被重置回默认英文。
+    i18n 专项测试（test_cli_i18n.py）在测试体内自行 set_lang/init_from_env 覆盖。
+    其余语言变量清空，避免本机 locale 干扰 PRECIS_LANG 的优先级。
+    """
+    from app.cli import i18n
+
+    for var in ("LC_ALL", "LC_CTYPE", "LANG"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("PRECIS_LANG", "zh-CN")
+    monkeypatch.setattr(i18n, "_current_lang", i18n.LANG_ZH)
+
+
+@pytest.fixture(autouse=True)
 def _enable_scripted_eval_for_tests(monkeypatch):
     """B-sec6: 测试环境默认开启 scripted 约束的服务端总开关。
 

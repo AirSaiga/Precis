@@ -39,6 +39,7 @@ import os
 
 import yaml
 
+from app.cli.i18n import tr
 from app.cli.shared_services.config_ops import find_config_file
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.formatter import Formatter
@@ -55,7 +56,7 @@ class ConfigShowCommand(Command):
 
     @property
     def description(self) -> str:
-        return "显示当前项目的配置文件内容"
+        return tr("Show current project config file contents", "显示当前项目的配置文件内容")
 
     @property
     def usage(self) -> str:
@@ -73,14 +74,18 @@ class ConfigShowCommand(Command):
         """
         project_path = context.project_path
         if project_path is None:
-            return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目")
+            return CommandResult.error(
+                tr("No project open, run 'open <path>' first", "未打开项目，请先使用 'open <path>' 命令打开项目")
+            )
 
         # 如果指定了具体文件，只显示该文件
         if args:
             config_file = args[0]
             config_path = find_config_file(project_path, config_file)
             if not config_path:
-                return CommandResult.error(f"配置文件不存在: {config_file}")
+                return CommandResult.error(
+                    tr("Config file not found: {file}", "配置文件不存在: {file}").format(file=config_file)
+                )
             # 显示相对路径
             rel_path = os.path.relpath(config_path, project_path)
             return self._show_single_file(config_path, rel_path)
@@ -91,14 +96,14 @@ class ConfigShowCommand(Command):
         # 项目几乎只显示 manifest 一个文件，其余配置全看不到（不做 V1 兼容层）
         from pathlib import Path as _Path
 
-        output_lines = [Formatter.header("\n项目配置文件:")]
+        output_lines = [Formatter.header(tr("\nProject config files:", "\n项目配置文件:"))]
 
         def _show_file(rel_path: str, abs_path: str) -> None:
             output_lines.append(f"\n{Formatter.info('--- ' + rel_path + ' ---')}")
             try:
                 output_lines.append(_Path(abs_path).read_text(encoding="utf-8"))
             except Exception as e:
-                output_lines.append(f"(读取失败: {e})")
+                output_lines.append(tr("(read failed: {error})", "(读取失败: {error})").format(error=e))
 
         # 分目录收集（保持稳定的目录顺序）
         for subdir, pattern in (
@@ -121,7 +126,7 @@ class ConfigShowCommand(Command):
                 _show_file(root_file, root_path)
 
         if len(output_lines) == 1:
-            return CommandResult.ok("项目中没有找到任何配置文件。")
+            return CommandResult.ok(tr("No config files found in the project.", "项目中没有找到任何配置文件。"))
 
         return CommandResult.ok("\n".join(output_lines))
 
@@ -149,6 +154,6 @@ class ConfigShowCommand(Command):
             ]
             return CommandResult.ok("\n".join(output_lines))
         except yaml.YAMLError as e:
-            return CommandResult.error(f"YAML 解析失败: {e}")
+            return CommandResult.error(tr("YAML parse error: {error}", "YAML 解析失败: {error}").format(error=e))
         except Exception as e:
-            return CommandResult.error(f"读取失败: {e}")
+            return CommandResult.error(tr("Read failed: {error}", "读取失败: {error}").format(error=e))

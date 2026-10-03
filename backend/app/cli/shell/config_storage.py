@@ -29,6 +29,7 @@
 
 from __future__ import annotations
 
+from app.cli.i18n import tr
 from app.shared.services.llm.config.loader import loader
 from app.shared.services.llm.config.models import AIConfig, AIProvider
 
@@ -61,10 +62,16 @@ class CLIConfigStorage:
                 # §4.2: 携带文件路径与修复指引的明确错误（调用方以非 0 退出呈现）
                 config_path = getattr(loader, "config_path", None)
                 raise RuntimeError(
-                    f"AI Provider 配置文件损坏，已阻止启动以防空配置覆盖写盘：\n"
-                    f"  文件: {config_path}\n"
-                    f"  错误: {e}\n"
-                    f"  修复: 手工修正 YAML 语法后重试；或备份后删除该文件重新 setup"
+                    tr(
+                        "AI Provider config file is corrupted; startup blocked to prevent overwriting with an empty config:\n"
+                        "  File: {path}\n"
+                        "  Error: {error}\n"
+                        "  Fix: correct the YAML syntax manually and retry; or back up and delete the file, then run setup again",
+                        "AI Provider 配置文件损坏，已阻止启动以防空配置覆盖写盘：\n"
+                        "  文件: {path}\n"
+                        "  错误: {error}\n"
+                        "  修复: 手工修正 YAML 语法后重试；或备份后删除该文件重新 setup",
+                    ).format(path=config_path, error=e)
                 ) from e
             self._config = AIConfig()
 
@@ -78,7 +85,11 @@ class CLIConfigStorage:
             current_mtime = loader.config_path.stat().st_mtime
             if self._loaded_mtime is not None and current_mtime != self._loaded_mtime:
                 raise RuntimeError(
-                    "配置已被其他进程修改（CLI/TUI/Electron 并发编辑），请重新进入本会话加载最新配置后再修改"
+                    tr(
+                        "Config modified by another process (CLI/TUI/Electron concurrent editing); "
+                        "re-enter this session to load the latest config before modifying",
+                        "配置已被其他进程修改（CLI/TUI/Electron 并发编辑），请重新进入本会话加载最新配置后再修改",
+                    )
                 )
         except OSError:
             pass  # 文件尚不存在（首次写入）等场景直接尝试保存

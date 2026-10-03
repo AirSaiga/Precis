@@ -31,6 +31,8 @@ import sys
 
 import readchar
 
+from app.cli.i18n import tr
+
 
 class MenuItem:
     """菜单项"""
@@ -104,9 +106,9 @@ class InteractiveMenu:
             desc = f" {self.COLOR_GRAY}{item.description}{self.COLOR_RESET}" if item.description else ""
             print(f"  {idx}. {item.label}{desc}")
         if self.show_cancel:
-            print("  0. cancel - 返回")
+            print(f"  0. {tr('cancel - back', 'cancel - 返回')}")
         try:
-            raw = input("请输入编号: ").strip()
+            raw = input(tr("Enter number: ", "请输入编号: ")).strip()
         except EOFError:
             return None
         if not raw or raw == "0":
@@ -167,10 +169,14 @@ class InteractiveMenu:
             else:
                 prefix = f"  {cancel_idx}."
                 suffix = ""
-            print(f"{prefix} cancel - 返回{suffix}")
+            print(f"{prefix} {tr('cancel - back', 'cancel - 返回')}{suffix}")
 
         # 提示（不换行，保持在同一行）
-        print(f"{self.COLOR_GRAY}↑/↓ 选择, Enter 确认, ESC/0 取消{self.COLOR_RESET}", end="", flush=True)
+        print(
+            f"{self.COLOR_GRAY}{tr('↑/↓ select, Enter confirm, ESC/0 cancel', '↑/↓ 选择, Enter 确认, ESC/0 取消')}{self.COLOR_RESET}",
+            end="",
+            flush=True,
+        )
 
     def show(self) -> str | None:
         """
@@ -348,10 +354,14 @@ class InteractiveMenu:
             else:
                 prefix = f"  {cancel_idx}."
                 suffix = ""
-            print(f"{prefix} cancel - 返回{suffix}")
+            print(f"{prefix} {tr('cancel - back', 'cancel - 返回')}{suffix}")
 
         # 提示（不换行）
-        print(f"{self.COLOR_GRAY}↑/↓ 选择, Enter 确认, ESC/0 取消{self.COLOR_RESET}", end="", flush=True)
+        print(
+            f"{self.COLOR_GRAY}{tr('↑/↓ select, Enter confirm, ESC/0 cancel', '↑/↓ 选择, Enter 确认, ESC/0 取消')}{self.COLOR_RESET}",
+            end="",
+            flush=True,
+        )
 
     def _clear_menu_with_status(self, status_lines: list[str]) -> None:
         """清除带状态信息的菜单"""

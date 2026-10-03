@@ -155,6 +155,21 @@ class TestErrorMessageTableNames:
         fk_errors = [e for e in payload["errors"] if "ForeignKey" in (e["constraint_type"] or "")]
         assert fk_errors[0]["table"] == _ORDERS_NAME
 
+    def test_fk_violation_params_and_en_message_use_display_names(self, tmp_path, capsys):
+        """FK 违规的 error_params 与 error_message_en 同样显示名化。
+
+        error_params 面向消费方本地化渲染（CLI 英文模式 render_message_en 直接
+        用其插值），若只重写中文 message 会让英文文案露出 UUID——两语言口径须一致。
+        """
+        payload = _run_json(_make_fk_project(tmp_path) / "project.precis.yaml", capsys)
+        fk_errors = [e for e in payload["errors"] if "ForeignKey" in (e["constraint_type"] or "")]
+        params = fk_errors[0]["error_params"]
+        assert params["to_table"] == _CUSTOMERS_NAME, f"to_table 应为显示名: {params}"
+        assert params["from_table"] == _ORDERS_NAME, f"from_table 应为显示名: {params}"
+        en_message = fk_errors[0]["error_message_en"]
+        assert _CUSTOMERS_NAME in en_message, f"英文文案应含显示名: {en_message}"
+        assert _CUSTOMERS_ID not in en_message, f"英文文案不应含 UUID: {en_message}"
+
     def test_dangling_table_reference_keeps_uuid(self, tmp_path, capsys):
         """悬空引用（表不存在，无名称可映射）在 loading_warnings 保留 UUID。
 
@@ -223,3 +238,25 @@ class TestRewriteIdTokensUnit:
         assert _ORDERS_NAME in item["description"] and _CUSTOMERS_NAME in item["description"]
         assert _CUSTOMERS_NAME in item["suggestion"]
         assert item["row_index"] == 3 and item["cell_value"] == "C-999"
+
+    def test_humanize_item_texts_rewrites_error_params_string_values(self):
+        """error_params 的字符串值同样重写为显示名，非字符串值原样保留。"""
+        from app.shared.services.validation.postprocess import humanize_item_texts
+
+        item = {
+            "error_code": "FK_VIOLATION",
+            "error_params": {
+                "value": "C-999",
+                "from_table": _ORDERS_ID,
+                "to_table": _CUSTOMERS_ID,
+                "to_column": "customer_id",
+            },
+        }
+        humanize_item_texts(item, {_ORDERS_ID: _ORDERS_NAME, _CUSTOMERS_ID: _CUSTOMERS_NAME})
+        params = item["error_params"]
+        # 字符串形态的表 ID 重写为显示名
+        assert params["from_table"] == _ORDERS_NAME
+        assert params["to_table"] == _CUSTOMERS_NAME
+        # 非表 ID 的字符串与列名不受影响
+        assert params["value"] == "C-999"
+        assert params["to_column"] == "customer_id"

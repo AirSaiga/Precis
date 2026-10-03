@@ -56,6 +56,7 @@ import sys
 
 from rich.console import Console
 
+from app.cli.i18n import LANG_EN, get_lang, tr
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.exceptions import ValidationError
 from app.cli.shell.formatter import Formatter, Spinner
@@ -202,7 +203,9 @@ class ValidateCommand(Command):
 
     @property
     def description(self) -> str:
-        return "执行数据验证，可指定表名或验证全部"
+        return tr(
+            "Run data validation, optionally for a specific table or all tables", "执行数据验证，可指定表名或验证全部"
+        )
 
     @property
     def usage(self) -> str:
@@ -234,7 +237,12 @@ class ValidateCommand(Command):
         # 尾部悬挂选项（缺值）前置拒绝：防 `validate --table` 静默降级为全表校验
         dangling = _find_dangling_option(args)
         if dangling:
-            return CommandResult.error(f"{dangling} 需要参数值\n用法: {self.usage}", exit_code=2)
+            return CommandResult.error(
+                tr("{option} requires a value\nUsage: {usage}", "{option} 需要参数值\n用法: {usage}").format(
+                    option=dangling, usage=self.usage
+                ),
+                exit_code=2,
+            )
         if parsed["manifest"] is not None:
             return self._execute_standalone(parsed)
 
@@ -257,7 +265,13 @@ class ValidateCommand(Command):
         if project_path is None:
             # 使用错误（未打开项目）对齐 standalone 各错误路径的 exit_code=2 契约，
             # 避免 CI 按 0/1/2 分流把工具错误误判为"发现数据违规"
-            return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目", exit_code=2)
+            return CommandResult.error(
+                tr(
+                    "No project open. Use 'open <path>' to open a project first",
+                    "未打开项目，请先使用 'open <path>' 命令打开项目",
+                ),
+                exit_code=2,
+            )
 
         # 表名过滤来源优先级：--table/-t 选项 > 首个位置参数 > None（校验全部）
         # 位置参数须先剥离选项及选项值，否则 `validate --table users` 会把 "--table" 当表名
@@ -301,19 +315,27 @@ class ValidateCommand(Command):
         output_format = (parsed["format"] or "human").strip().lower()
         if output_format not in _FORMAT_CHOICES:
             return CommandResult.error(
-                f"--format 仅支持 {' 或 '.join(_FORMAT_CHOICES)}，收到: {parsed['format']}",
+                tr(
+                    "--format supports only {choices}, got: {value}",
+                    "--format 仅支持 {choices}，收到: {value}",
+                ).format(choices=" 或 ".join(_FORMAT_CHOICES), value=parsed["format"]),
                 exit_code=2,
             )
 
         manifest_path = os.path.abspath(parsed["manifest"])
 
         if not os.path.exists(manifest_path):
-            return CommandResult.error(f"清单文件不存在: {manifest_path}", exit_code=2)
+            return CommandResult.error(
+                tr("Manifest file not found: {path}", "清单文件不存在: {path}").format(path=manifest_path), exit_code=2
+            )
         if os.path.isdir(manifest_path):
             # 指向目录时 open() 在 Windows 抛 PermissionError、Linux 抛 IsADirectoryError，
             # 消息均误导排障方向（"权限"而非"这是目录"）——前置判明
             return CommandResult.error(
-                f"清单路径是一个目录，请指向项目清单文件（project.precis.yaml）: {manifest_path}",
+                tr(
+                    "Manifest path is a directory, point to the project manifest file (project.precis.yaml): {path}",
+                    "清单路径是一个目录，请指向项目清单文件（project.precis.yaml）: {path}",
+                ).format(path=manifest_path),
                 exit_code=2,
             )
 
@@ -324,7 +346,9 @@ class ValidateCommand(Command):
             data_dir = os.path.dirname(manifest_path)
 
         if not os.path.isdir(data_dir):
-            return CommandResult.error(f"数据目录不存在: {data_dir}", exit_code=2)
+            return CommandResult.error(
+                tr("Data directory not found: {path}", "数据目录不存在: {path}").format(path=data_dir), exit_code=2
+            )
 
         table_name = parsed["table"]
 
@@ -405,9 +429,9 @@ class ValidateCommand(Command):
             # 保证 stdout 只含单个 JSON 文档
             json_mode = output_format == "json"
 
-            spinner: Spinner | None = None if json_mode else Spinner("正在校验数据")
+            spinner: Spinner | None = None if json_mode else Spinner(tr("Validating data", "正在校验数据"))
             if spinner is not None:
-                Formatter.print_header("开始执行数据校验")
+                Formatter.print_header(tr("Starting data validation", "开始执行数据校验"))
                 spinner.start()
 
             try:
@@ -446,24 +470,47 @@ class ValidateCommand(Command):
             # 字段（message 可能为空，如 inspect 级错误），故优先展示 title 等字段。
             loading_errors = result.get("loading_errors", [])
             if loading_errors:
-                _console.print("\n[yellow]加载警告:[/yellow]")
+                _console.print("\n[yellow]" + tr("Loading warnings:", "加载警告:") + "[/yellow]")
                 for err in loading_errors:
                     error_type = err.get("error_type", "Unknown")
-                    title = err.get("title") or err.get("message") or ""
+                    # 英文界面下优先用 error_code 渲染英文文案（与 error_message_en 同源），
+                    # 无登记码/渲染失败回退中文 title/message
+                    title = None
+                    if get_lang() == LANG_EN:
+                        from app.shared.domain.constraints.messages_en import render_message_en
+
+                        title = render_message_en(err.get("error_code"), err.get("error_params"))
+                    if not title:
+                        title = err.get("title") or err.get("message") or ""
                     _console.print(f"  - [{error_type}] {title}")
                     if err.get("description"):
-                        _console.print(f"     说明: {err['description']}")
+                        _console.print(f"     {tr('Details:', '说明:')} {err['description']}")
                     if err.get("fix_hint"):
-                        _console.print(f"     建议: {err['fix_hint']}")
+                        _console.print(f"     {tr('Suggestion:', '建议:')} {err['fix_hint']}")
 
             interrupted = result.get("interrupted", False)
 
             # C6 遇错即停:中断时提示用户剩余校验未执行(区别于正常完成)
             if interrupted:
-                _console.print(f"\n⚠ 校验已停止（遇错即停），耗时: {duration_ms} ms")
-                _console.print("  发现首个错误即停止，剩余检查未执行。调整 error_handling 可跑完全部。")
+                _console.print(
+                    "\n⚠ "
+                    + tr(
+                        "Validation stopped (stop on first error), duration: {ms} ms",
+                        "校验已停止（遇错即停），耗时: {ms} ms",
+                    ).format(ms=duration_ms)
+                )
+                _console.print(
+                    "  "
+                    + tr(
+                        "Stopped at the first error; remaining checks were skipped. Adjust error_handling to run all.",
+                        "发现首个错误即停止，剩余检查未执行。调整 error_handling 可跑完全部。",
+                    )
+                )
             else:
-                _console.print(f"\n校验完成，耗时: {duration_ms} ms")
+                _console.print(
+                    "\n"
+                    + tr("Validation completed, duration: {ms} ms", "校验完成，耗时: {ms} ms").format(ms=duration_ms)
+                )
 
             # 输出校验摘要：列出加载的表/行数与每项约束的通过状态，
             # 证明 validate 确实执行了校验（而非空转返回通过）。
@@ -512,5 +559,7 @@ class ValidateCommand(Command):
         try:
             written = export_report(payload, report_path)
         except (ValueError, OSError) as e:
-            return CommandResult.error(f"报告导出失败: {e}", exit_code=2)
-        return f"报告已写入: {written}"
+            return CommandResult.error(
+                tr("Report export failed: {error}", "报告导出失败: {error}").format(error=e), exit_code=2
+            )
+        return tr("Report written to: {path}", "报告已写入: {path}").format(path=written)

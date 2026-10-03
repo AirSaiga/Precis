@@ -34,6 +34,7 @@ from pathlib import Path
 
 import yaml
 
+from app.cli.i18n import tr
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 
 # 选项表：选项名 → 结果键
@@ -90,13 +91,18 @@ class InferSchemaCommand(Command):
 
     @property
     def description(self) -> str:
-        return "从数据文件推断 schema（列类型），输出 YAML 草稿"
+        return tr(
+            "Infer schema (column types) from a data file and output a YAML draft",
+            "从数据文件推断 schema（列类型），输出 YAML 草稿",
+        )
 
     @property
     def usage(self) -> str:
-        return (
+        return tr(
+            "infer-schema <data_file> [--output <path>] [--id <uuid>] [--name <table_name>] "
+            "[--source-path <relative_data_path>] [--sample-rows <N>]",
             "infer-schema <数据文件> [--output <path>] [--id <uuid>] [--name <表名>] "
-            "[--source-path <数据相对路径>] [--sample-rows <N>]"
+            "[--source-path <数据相对路径>] [--sample-rows <N>]",
         )
 
     def execute(self, args: list[str], context: ProjectContext) -> CommandResult:
@@ -113,7 +119,7 @@ class InferSchemaCommand(Command):
         data_file = parsed["data_file"]
 
         if not data_file:
-            return CommandResult.error("缺少数据文件路径参数", exit_code=2)
+            return CommandResult.error(tr("Missing data file path argument", "缺少数据文件路径参数"), exit_code=2)
 
         sample_rows: int = 1000
         if parsed["sample_rows"] is not None:
@@ -122,7 +128,12 @@ class InferSchemaCommand(Command):
                 if sample_rows <= 0:
                     raise ValueError
             except ValueError:
-                return CommandResult.error(f"--sample-rows 必须为正整数: {parsed['sample_rows']}", exit_code=2)
+                return CommandResult.error(
+                    tr(
+                        "--sample-rows must be a positive integer: {value}", "--sample-rows 必须为正整数: {value}"
+                    ).format(value=parsed["sample_rows"]),
+                    exit_code=2,
+                )
 
         from app.shared.services.schema_inference import infer_schema
 
@@ -146,9 +157,12 @@ class InferSchemaCommand(Command):
                 output_path.parent.mkdir(parents=True, exist_ok=True)
                 output_path.write_text(yaml_text, encoding="utf-8")
             except OSError as e:
-                return CommandResult.error(f"写入输出文件失败: {e}", exit_code=2)
+                return CommandResult.error(
+                    tr("Failed to write output file: {error}", "写入输出文件失败: {error}").format(error=e), exit_code=2
+                )
             return CommandResult.ok(
-                f"schema 已写入: {output_path}", data={"schema": schema, "output": str(output_path)}
+                tr("Schema written to: {path}", "schema 已写入: {path}").format(path=output_path),
+                data={"schema": schema, "output": str(output_path)},
             )
 
         # stdout 输出纯 YAML（无 rich 装饰，管道/重定向友好）

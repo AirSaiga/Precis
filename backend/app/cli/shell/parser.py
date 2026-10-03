@@ -30,6 +30,7 @@
 
 from collections.abc import Callable
 
+from app.cli.i18n import tr
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.exceptions import CommandNotFoundError
 
@@ -177,7 +178,9 @@ class CommandParser:
             i += 1
 
         if in_quote and quote_char:
-            raise ValueError(f"引号未闭合: 缺少配对的 {quote_char}")
+            raise ValueError(
+                tr("Unclosed quote: missing matching {char}", "引号未闭合: 缺少配对的 {char}").format(char=quote_char)
+            )
 
         if current:
             tokens.append("".join(current))
@@ -207,7 +210,7 @@ class CommandExecutor:
         try:
             command, args = self.parser.parse(input_line)
             if command is None:
-                return CommandResult.error("请输入命令")
+                return CommandResult.error(tr("Please enter a command", "请输入命令"))
 
             return command.execute(args, self.context)
         except CommandNotFoundError as e:
@@ -215,7 +218,9 @@ class CommandExecutor:
             return CommandResult.error(str(e), exit_code=2)
         except Exception as e:
             # 命令异常崩溃属工具自身错误，单发模式下退出码 2（区别于校验发现违规的 1）
-            return CommandResult.error(f"命令执行失败: {e}", exit_code=2)
+            return CommandResult.error(
+                tr("Command failed: {error}", "命令执行失败: {error}").format(error=e), exit_code=2
+            )
 
     def execute_with_args(self, args: list[str]) -> CommandResult:
         """使用预分割参数列表执行命令。
@@ -230,7 +235,7 @@ class CommandExecutor:
         """
         try:
             if not args:
-                return CommandResult.error("请输入命令")
+                return CommandResult.error(tr("Please enter a command", "请输入命令"))
 
             command = self.parser.registry.get(args[0])
             if command is None:
@@ -242,7 +247,9 @@ class CommandExecutor:
             return CommandResult.error(str(e), exit_code=2)
         except Exception as e:
             # 命令异常崩溃属工具自身错误，单发模式下退出码 2（区别于校验发现违规的 1）
-            return CommandResult.error(f"命令执行失败: {e}", exit_code=2)
+            return CommandResult.error(
+                tr("Command failed: {error}", "命令执行失败: {error}").format(error=e), exit_code=2
+            )
 
 
 def command(name: str, aliases: list[str] | None = None) -> Callable:

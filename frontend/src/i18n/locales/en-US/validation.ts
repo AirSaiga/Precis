@@ -157,6 +157,16 @@ const validation = {
     CONFIG_INCOMPLETE: 'Validation configuration is incomplete',
     VALIDATION_UNSUPPORTED_TYPE: 'Unsupported validation type: {validation_type}',
     VALIDATION_EXECUTION_FAILED: 'Validation execution failed: {detail}',
+    // —— Pipeline-level (timeout / empty data / interruption / chunked / loading) ——
+    VALIDATION_TIMEOUT: 'Validation timed out during the {phase} phase (limit: {seconds}s)',
+    VALIDATION_INTERRUPTED:
+      'Stopped on the first error per project settings: {remaining} remaining check(s) were not executed',
+    DATA_LOADING_EMPTY:
+      'No data tables could be loaded from the data directory; validation aborted',
+    CHUNKED_LOAD_FAILED: 'Chunked data loading failed: {detail}',
+    DATA_DIR_NOT_FOUND: 'Data directory not found: {path}',
+    DATA_SOURCE_NOT_FOUND:
+      "No data source found for table '{table}' (searched directory: {directory})",
     // —— Range ——
     RANGE_NO_BOUNDS: 'No bounds configured (fill in at least one of min/max)',
     RANGE_TABLE_NOT_FOUND: "Table '{table}' is not in the dataset",

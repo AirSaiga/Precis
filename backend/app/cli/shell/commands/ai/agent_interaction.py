@@ -32,6 +32,7 @@ import threading
 from collections.abc import Callable
 from typing import Any
 
+from app.cli.i18n import tr
 from app.cli.shell.commands.ai.executor_utils import SpinnerController
 from app.cli.shell.formatter import Formatter
 from app.shared.services.ai.agent.chat_tools.apply_actions import ApplyCallbacks
@@ -70,7 +71,14 @@ def build_agent_interaction(spinner: SpinnerController | None) -> tuple[ApplyCal
 
         # 会话级授权已开启：摘要仍打印（用户能看到 AI 在写什么），直接 confirm
         if session_always_confirm["enabled"]:
-            print(Formatter.info("（本会话已授权自动确认写入，跳过询问）"))
+            print(
+                Formatter.info(
+                    tr(
+                        "(Auto-confirm write enabled for this session; skipping the prompt)",
+                        "（本会话已授权自动确认写入，跳过询问）",
+                    )
+                )
+            )
             loop.create_task(_resolve_apply(apply_id, "confirm"))
             return
 
@@ -150,12 +158,12 @@ def _print_apply_summary(payload: dict[str, Any]) -> None:
 
     # 动作语义清单：一行一个动作（如 "添加约束：users.email — NotNull"）
     if actions:
-        print(Formatter.warning(f"\n将执行 {len(actions)} 个动作："))
+        print(Formatter.warning(tr(f"\n{len(actions)} actions will be executed:", f"\n将执行 {len(actions)} 个动作：")))
         for i, action in enumerate(actions[:_MAX_LIST_ITEMS], start=1):
             description = str(action.get("description") or action.get("action_type") or "")
             print(f"  {i}. {description}")
         if len(actions) > _MAX_LIST_ITEMS:
-            print(f"  ... 共 {len(actions)} 个")
+            print(tr(f"  ... {len(actions)} in total", f"  ... 共 {len(actions)} 个"))
 
     # 文件清单：状态 + 路径（无 diff 正文）
     counts = {"created": 0, "modified": 0, "deleted": 0}
@@ -165,30 +173,41 @@ def _print_apply_summary(payload: dict[str, Any]) -> None:
             counts[status] += 1
     print(
         Formatter.warning(
-            f"\nAI 请求写入 {len(files)} 个文件"
-            f"（新增 {counts['created']}，修改 {counts['modified']}，删除 {counts['deleted']}）："
+            tr(
+                f"\nAI requests to write {len(files)} file(s)"
+                f" (created {counts['created']}, modified {counts['modified']}, deleted {counts['deleted']}):",
+                f"\nAI 请求写入 {len(files)} 个文件"
+                f"（新增 {counts['created']}，修改 {counts['modified']}，删除 {counts['deleted']}）：",
+            )
         )
     )
     for f in files[:_MAX_LIST_ITEMS]:
         print(f"  [{f.get('status', '?')}] {f.get('path', '?')}")
     if len(files) > _MAX_LIST_ITEMS:
-        print(f"  ... 共 {len(files)} 个")
+        print(tr(f"  ... {len(files)} in total", f"  ... 共 {len(files)} 个"))
 
     summary = payload.get("summary")
     if summary:
-        print(Formatter.info(f"  摘要: {summary}"))
+        print(Formatter.info(tr(f"  Summary: {summary}", f"  摘要: {summary}")))
 
 
 def _print_full_diff(payload: dict[str, Any]) -> None:
     """打印全量 diff（[d] 按需查看）：payload 携带的就是完整内容，不做截断。"""
     files = payload.get("files") or []
     if not files:
-        print(Formatter.info("  （无文件变更）"))
+        print(Formatter.info(tr("  (No file changes)", "  （无文件变更）")))
         return
     for f in files:
-        print(Formatter.info(f"\n--- {f.get('path', '?')}（{f.get('status', '?')}）---"))
+        print(
+            Formatter.info(
+                tr(
+                    f"\n--- {f.get('path', '?')} ({f.get('status', '?')}) ---",
+                    f"\n--- {f.get('path', '?')}（{f.get('status', '?')}）---",
+                )
+            )
+        )
         diff = (f.get("diff") or "").strip()
-        print(diff if diff else "  （无 diff 内容）")
+        print(diff if diff else tr("  (No diff content)", "  （无 diff 内容）"))
 
 
 def _read_apply_decision(
@@ -210,7 +229,10 @@ def _read_apply_decision(
             raw = (
                 input(
                     Formatter.warning(
-                        "确认写入以上变更？[y]确认写入 / [a]本会话始终确认 / [d]查看详细 diff / [N]拒绝: "
+                        tr(
+                            "Write these changes? [y]confirm / [a]always this session / [d]show diff / [N]reject: ",
+                            "确认写入以上变更？[y]确认写入 / [a]本会话始终确认 / [d]查看详细 diff / [N]拒绝: ",
+                        )
                     )
                 )
                 .strip()
@@ -223,7 +245,14 @@ def _read_apply_decision(
         if raw in ("a", "always", "始终"):
             if on_session_confirm is not None:
                 on_session_confirm()
-            print(Formatter.info("已授权：本会话后续写入将自动确认（不再逐次询问）"))
+            print(
+                Formatter.info(
+                    tr(
+                        "Authorized: subsequent writes in this session will be auto-confirmed (no more prompts)",
+                        "已授权：本会话后续写入将自动确认（不再逐次询问）",
+                    )
+                )
+            )
             return "confirm"
         if raw in ("d", "diff", "查看"):
             _print_full_diff(payload)
@@ -232,14 +261,16 @@ def _read_apply_decision(
 
 
 def _print_ask_question(payload: dict[str, Any]) -> None:
-    print(Formatter.warning(f"\nAI 提问: {payload.get('prompt', '')}"))
+    print(
+        Formatter.warning(tr(f"\nAI question: {payload.get('prompt', '')}", f"\nAI 提问: {payload.get('prompt', '')}"))
+    )
     options = payload.get("options")
     if isinstance(options, list) and options:
         for idx, opt in enumerate(options, start=1):
             _, text = _split_option(opt)
             print(f"  {idx}. {text}")
     if payload.get("optional"):
-        print(Formatter.info("  （直接回车跳过此问题）"))
+        print(Formatter.info(tr("  (Press Enter to skip this question)", "  （直接回车跳过此问题）")))
 
 
 def _split_option(opt: Any) -> tuple[str, str]:
@@ -270,7 +301,8 @@ def _read_ask_response(payload: dict[str, Any]) -> dict[str, Any]:
             return {"answer": raw in ("y", "yes", "是")}
         if question_type == "choice":
             options = payload.get("options") or []
-            raw = input(("(多选，逗号分隔) " if payload.get("multiple") else "") + "选项编号: ").strip()
+            multi_hint = tr("(multiple, comma-separated) ", "(多选，逗号分隔) ") if payload.get("multiple") else ""
+            raw = input(multi_hint + tr("Option number: ", "选项编号: ")).strip()
             if not raw and optional:
                 return {"skipped": True, "reason": "user_skipped"}
             indexes = [part.strip() for part in raw.split(",") if part.strip()]
@@ -286,7 +318,7 @@ def _read_ask_response(payload: dict[str, Any]) -> dict[str, Any]:
             return {"answer": picked[0] if picked else ""}
         if question_type == "value":
             value_type = payload.get("value_type", "string")
-            raw = input(f"输入值({value_type}): ").strip()
+            raw = input(tr(f"Enter value ({value_type}): ", f"输入值({value_type}): ")).strip()
             if not raw and optional:
                 return {"skipped": True, "reason": "user_skipped"}
             if value_type in ("integer", "float"):
@@ -298,7 +330,7 @@ def _read_ask_response(payload: dict[str, Any]) -> dict[str, Any]:
                 return {"answer": raw.lower() in ("y", "yes", "true", "1", "是")}
             return {"answer": raw}
         # free_text
-        raw = input("回答: ").strip()
+        raw = input(tr("Answer: ", "回答: ")).strip()
         if not raw and optional:
             return {"skipped": True, "reason": "user_skipped"}
         return {"answer": raw}

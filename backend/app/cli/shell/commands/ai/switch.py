@@ -36,6 +36,7 @@
     CommandResult.error("Provider 'xxx' 未配置")
 """
 
+from app.cli.i18n import tr
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.config_storage import get_cli_config
 from app.cli.shell.formatter import Formatter
@@ -54,7 +55,7 @@ class AISwitchCommand(Command):
 
     @property
     def description(self) -> str:
-        return "切换默认 AI Provider"
+        return tr("Switch the default AI provider", "切换默认 AI Provider")
 
     @property
     def usage(self) -> str:
@@ -62,7 +63,20 @@ class AISwitchCommand(Command):
 
     @property
     def help_text(self) -> str:
-        return """
+        return tr(
+            """
+Usage: ai switch [provider_id]
+
+Examples:
+  ai switch             # Interactively choose a provider (arrow-key navigation)
+  ai switch openai      # Switch to OpenAI
+  ai switch kimi        # Switch to Kimi
+
+Notes:
+  Without arguments an interactive picker opens; pass a provider_id to switch
+  directly (case-insensitive). Use 'ai status' to list available providers.
+            """,
+            """
 用法: ai switch [provider_id]
 
 示例:
@@ -73,7 +87,8 @@ class AISwitchCommand(Command):
 说明:
   缺省参数时进入交互式选择；传入 provider_id 时直接切换（大小写不敏感）。
   使用 'ai status' 查看可用的 Provider。
-        """.strip()
+            """,
+        ).strip()
 
     def execute(self, args: list[str], context: ProjectContext) -> CommandResult:
         """执行切换命令。
@@ -88,7 +103,12 @@ class AISwitchCommand(Command):
         providers = self._cli_config.list_providers()
 
         if not providers:
-            return CommandResult.error("没有已配置的 Provider\n请先使用 'provider add' 命令进行配置")
+            return CommandResult.error(
+                tr(
+                    "No providers configured\nRun 'provider add' first to configure one",
+                    "没有已配置的 Provider\n请先使用 'provider add' 命令进行配置",
+                )
+            )
 
         if not args:
             # 无参数时进入交互式选择（支持方向键）
@@ -114,25 +134,25 @@ class AISwitchCommand(Command):
         Returns:
             切换结果或取消结果
         """
-        print(Formatter.header("\n切换 AI Provider"))
+        print(Formatter.header(tr("\nSwitch AI provider", "\n切换 AI Provider")))
 
         active = self._cli_config.get_active_provider()
 
         # 创建菜单
-        menu = InteractiveMenu("请选择要切换的 Provider:")
+        menu = InteractiveMenu(tr("Choose a provider to switch to:", "请选择要切换的 Provider:"))
 
         for p in providers:
             status = ""
             if active and active.id == p.id:
-                status = " [当前]"
-            key_status = "[有密钥]" if p.api_key else "[无密钥]"
+                status = tr(" [current]", " [当前]")
+            key_status = tr("[key set]", "[有密钥]") if p.api_key else tr("[no key]", "[无密钥]")
             label = f"{p.name} {key_status}{status}"
-            menu.add_item(p.id, label, f"模型: {p.model}")
+            menu.add_item(p.id, label, tr(f"Model: {p.model}", f"模型: {p.model}"))
 
         provider_id = menu.show()
 
         if provider_id is None:
-            return CommandResult.ok("已取消")
+            return CommandResult.ok(tr("Cancelled", "已取消"))
 
         return self._do_switch(provider_id)
 
@@ -149,11 +169,16 @@ class AISwitchCommand(Command):
         """
         provider = self._cli_config.get_provider(provider_id)
         if not provider:
-            return CommandResult.error(f"Provider '{provider_id}' 未配置\n请先使用 'setup {provider_id}' 进行配置")
+            return CommandResult.error(
+                tr(
+                    f"Provider '{provider_id}' is not configured\nRun 'setup {provider_id}' first to configure it",
+                    f"Provider '{provider_id}' 未配置\n请先使用 'setup {provider_id}' 进行配置",
+                )
+            )
 
         if self._cli_config.set_active_provider(provider_id):
-            print(Formatter.success(f"\n[*] 已切换到 {provider.name}"))
-            print(Formatter.info(f"  模型: {provider.model}"))
-            return CommandResult.ok("已切换 Provider")
+            print(Formatter.success(tr(f"\n[*] Switched to {provider.name}", f"\n[*] 已切换到 {provider.name}")))
+            print(Formatter.info(tr(f"  Model: {provider.model}", f"  模型: {provider.model}")))
+            return CommandResult.ok(tr("Provider switched", "已切换 Provider"))
         else:
-            return CommandResult.error("切换失败")
+            return CommandResult.error(tr("Switch failed", "切换失败"))

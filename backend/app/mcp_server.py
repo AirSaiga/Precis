@@ -42,6 +42,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from app.cli.i18n import init_from_env, tr
+
 
 def _allowed_roots() -> list[Path]:
     """路径白名单根：server 工作目录 + 环境变量追加根。"""
@@ -71,7 +73,11 @@ def _safe_resolve_path(raw: str, kind: str) -> str:
         if resolved == root or root in resolved.parents:
             return str(resolved)
     raise ValueError(
-        f"{kind}路径越界: {raw}（仅允许访问工作目录内的文件；如需扩展范围请设置 PRECIS_MCP_ALLOWED_ROOTS 环境变量）"
+        tr(
+            "{kind} path is out of bounds: {raw} (only files inside the server working directory are allowed; "
+            "set the PRECIS_MCP_ALLOWED_ROOTS environment variable to extend the scope)",
+            "{kind}路径越界: {raw}（仅允许访问工作目录内的文件；如需扩展范围请设置 PRECIS_MCP_ALLOWED_ROOTS 环境变量）",
+        ).format(kind=kind, raw=raw)
     )
 
 
@@ -84,11 +90,16 @@ def tool_validate_data(manifest: str, data_directory: str | None = None, table: 
     from app.shared.services.validation.executor import ValidationExecutor, ValidationOptions
     from app.shared.services.validation.json_payload import build_json_payload
 
-    manifest_path = _safe_resolve_path(manifest, "manifest")
+    # kind 文案随当前语言切换（manifest 中英同形，仍走 tr 保持单一取值路径）
+    manifest_path = _safe_resolve_path(manifest, tr("manifest", "manifest"))
     if not Path(manifest_path).exists():
-        raise ValueError(f"清单文件不存在: {manifest_path}")
+        raise ValueError(tr("Manifest file not found: {path}", "清单文件不存在: {path}").format(path=manifest_path))
 
-    data_dir = _safe_resolve_path(data_directory, "数据目录") if data_directory else str(Path(manifest_path).parent)
+    data_dir = (
+        _safe_resolve_path(data_directory, tr("data directory", "数据目录"))
+        if data_directory
+        else str(Path(manifest_path).parent)
+    )
 
     # 白名单透传 executor→resolver：manifest/schema 内容声明的 absolute 数据源
     # 同样受根校验约束（防 manifest 内容越界读任意文件）
@@ -101,9 +112,9 @@ def tool_check_config(manifest: str) -> dict[str, Any]:
     """检查项目配置加载情况（不执行数据校验）。"""
     from app.shared.core.project.loader import load_project
 
-    manifest_path = _safe_resolve_path(manifest, "manifest")
+    manifest_path = _safe_resolve_path(manifest, tr("manifest", "manifest"))
     if not Path(manifest_path).exists():
-        raise ValueError(f"清单文件不存在: {manifest_path}")
+        raise ValueError(tr("Manifest file not found: {path}", "清单文件不存在: {path}").format(path=manifest_path))
 
     loaded = load_project(manifest_path)
     loading_errors = [err.to_dict() for err in loaded.loading_errors or []]
@@ -123,7 +134,10 @@ def tool_describe_constraints() -> dict[str, Any]:
 
     return {
         "types": build_constraint_param_docs_structured(),
-        "note": "refs 指向 schema 的表/列 ID；params 为 V2 文件 params 区的 snake_case 键（含值域/默认值）；配置格式详见插件 v2-format.md",
+        "note": (
+            "refs points to the schema table/column IDs; params are the snake_case keys of the params section in V2 "
+            "files (including allowed values and defaults); see the plugin's v2-format.md for the configuration format"
+        ),
     }
 
 
@@ -139,8 +153,12 @@ def tool_infer_schema(
 
     if sample_rows < 1:
         # schema 层已声明 minimum:1；直调路径（协议校验被绕过）在此兜底
-        raise ValueError(f"sample_rows 须为正整数，收到: {sample_rows}")
-    file_path = _safe_resolve_path(data_file, "数据文件")
+        raise ValueError(
+            tr("sample_rows must be a positive integer, got: {value}", "sample_rows 须为正整数，收到: {value}").format(
+                value=sample_rows
+            )
+        )
+    file_path = _safe_resolve_path(data_file, tr("data file", "数据文件"))
     return infer_schema(
         file_path,
         sample_rows=sample_rows,
@@ -161,13 +179,22 @@ _TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
         "properties": {
             "manifest": {
                 "type": "string",
-                "description": "project.precis.yaml 的绝对路径（须在 server 工作目录内，越界报错）",
+                "description": (
+                    "Absolute path to project.precis.yaml (must be inside the server working directory; "
+                    "paths outside it are rejected)"
+                ),
             },
             "data_directory": {
                 "type": "string",
-                "description": "数据文件根目录；schema 中相对路径数据源相对此目录解析，缺省为 manifest 所在目录",
+                "description": (
+                    "Root directory of the data files. Relative data-source paths declared in the schema resolve "
+                    "against this directory; defaults to the directory containing the manifest"
+                ),
             },
-            "table": {"type": "string", "description": "只校验指定表（schema id 或表显示名），缺省校验全部表"},
+            "table": {
+                "type": "string",
+                "description": "Validate only this table (schema id or table display name); defaults to validating all tables",
+            },
         },
         "required": ["manifest"],
     },
@@ -176,7 +203,10 @@ _TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
         "properties": {
             "manifest": {
                 "type": "string",
-                "description": "project.precis.yaml 的绝对路径（须在 server 工作目录内，越界报错）",
+                "description": (
+                    "Absolute path to project.precis.yaml (must be inside the server working directory; "
+                    "paths outside it are rejected)"
+                ),
             }
         },
         "required": ["manifest"],
@@ -187,21 +217,32 @@ _TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
         "properties": {
             "data_file": {
                 "type": "string",
-                "description": "CSV/Excel/JSON/JSONL 数据文件路径（须在 server 工作目录内，越界报错）",
+                "description": (
+                    "Path to a CSV/Excel/JSON/JSONL data file (must be inside the server working directory; "
+                    "paths outside it are rejected)"
+                ),
             },
             "sample_rows": {
                 "type": "integer",
                 "minimum": 1,
-                "description": "采样行数（默认 1000，须为正整数）；越大类型推断越准但越慢",
+                "description": (
+                    "Number of rows to sample (default 1000; must be a positive integer). "
+                    "Larger samples infer types more accurately but run slower"
+                ),
             },
             "table_id": {
                 "type": "string",
-                "description": "表 ID；仅当替换既有 schema 时传原 id 以保留引用，缺省生成新 id",
+                "description": (
+                    "Table ID. Pass the existing id when replacing a schema to preserve references; "
+                    "a new id is generated otherwise"
+                ),
             },
-            "table_name": {"type": "string", "description": "表显示名，缺省取数据文件名"},
+            "table_name": {"type": "string", "description": "Table display name; defaults to the data file name"},
             "source_path": {
                 "type": "string",
-                "description": "写入 schema 的 source.path（数据文件相对路径），缺省不写入",
+                "description": (
+                    "source.path written into the schema (path to the data file, relative); omitted when not provided"
+                ),
             },
         },
         "required": ["data_file"],
@@ -210,34 +251,45 @@ _TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
 
 _TOOL_DESCRIPTIONS: dict[str, str] = {
     "validate_data": (
-        "校验 Precis 项目的数据是否符合全部约束规则（非空/唯一/取值范围/外键/正则等 10 种）。"
-        "当需要检查数据质量、或在修改约束配置后验证数据时使用；只读操作，不修改任何文件。"
-        "返回契约 JSON：is_valid（整体是否通过）、errors（逐条违规，含表名/列名/行号/error_code/详情）、"
-        "summary（违规计数汇总），完整字段定义见 docs/contracts/validate-json-v1.md。"
-        "前置条件：manifest 指向已存在的 project.precis.yaml 且在 server 工作目录内；"
-        "路径越界或文件不存在时返回 isError 错误。"
+        "Validate Precis project data against all constraint rules (10 types: NotNull, Unique, AllowedValues, Range, "
+        "ForeignKey, Conditional, Scripted, Charset, DateLogic, Composite). "
+        "Use it to check data quality or to re-validate data after editing constraint configuration; read-only, "
+        "it modifies no files. "
+        "Returns the contract JSON: is_valid (overall pass/fail), errors (one entry per violation, with table name, "
+        "column name, row number, error_code and details), "
+        "summary (violation counts); full field definitions in docs/contracts/validate-json-v1.md. "
+        "Preconditions: manifest points to an existing project.precis.yaml inside the server working directory; "
+        "a path outside the working directory or a missing file returns an isError result."
     ),
     "check_config": (
-        "加载并检查 Precis 项目配置文件，不执行数据校验。"
-        "当 validate_data 报错、或想先诊断配置问题（版本不兼容/文件缺失/引用悬空）时使用；只读操作。"
-        "返回：manifest_path、version_ok（manifest 版本是否受支持）、schemas_loaded/constraints_loaded"
-        "（成功装载的 schema/约束文件计数）、loading_errors（逐条加载错误）、warnings。"
-        "manifest 须在 server 工作目录内且文件存在，否则报错。"
+        "Load and inspect a Precis project configuration file without validating data. "
+        "Use it when validate_data fails, or to diagnose configuration problems first (unsupported version, missing "
+        "files, dangling references); read-only. "
+        "Returns: manifest_path, version_ok (whether the manifest version is supported), "
+        "schemas_loaded/constraints_loaded (counts of schema/constraint files loaded successfully), loading_errors "
+        "(one entry per load error), warnings. "
+        "The manifest must be inside the server working directory and must exist, otherwise the call fails."
     ),
     "describe_constraints": (
-        "列出 Precis 支持的全部 10 种约束类型（NotNull/Unique/AllowedValues/Range/ForeignKey/Conditional/"
-        "Scripted/Charset/DateLogic/Composite）及其 refs/params 参数说明。"
-        "当需要编写或修改 *.constraint.yaml 约束文件、或不确定某约束类型支持哪些参数时使用；"
-        "无参数、只读。返回 types 数组，每项含：type（约束类型名）、refs（指向 schema 表/列 ID 的"
-        "引用说明）、params（参数键、值域、默认值）。内容从 actions registry 单一事实源派生，"
-        "与校验引擎实际行为一致。"
+        "List all 10 constraint types supported by Precis (NotNull/Unique/AllowedValues/Range/ForeignKey/Conditional/"
+        "Scripted/Charset/DateLogic/Composite) with their refs/params documentation. "
+        "Use it when writing or editing *.constraint.yaml files, or when unsure which parameters a constraint type "
+        "accepts; takes no arguments, read-only. "
+        "Returns a types array whose entries contain: type (constraint type name), refs (documentation of the "
+        "referenced schema table/column IDs), params (parameter keys, allowed values, defaults). The content is "
+        "derived from the actions registry as the single source of truth, so it matches the validation engine "
+        "behavior."
     ),
     "infer_schema": (
-        "从数据文件（CSV/Excel/JSON/JSONL）头部采样推断列类型，生成 V2 schema 结构草稿。"
-        "当为新数据源创建 schema、或重建既有 schema 时使用；只读，不写盘——返回的草稿由调用方决定是否保存。"
-        "返回 schema 字典：id/name/columns（每列含推断出的 type：string/integer/float/decimal/boolean/date）"
-        "等 V2 格式字段。注意：类型推断基于采样（默认 1000 行），采样之外的极端值可能改变实际类型，"
-        "建议人工核对后再用 validate_data 验证。文件路径须在 server 工作目录内，否则报错。"
+        "Infer column types by sampling the head of a data file (CSV/Excel/JSON/JSONL) and generate a draft V2 schema "
+        "structure. "
+        "Use it when creating a schema for a new data source or rebuilding an existing schema; read-only, nothing is "
+        "written to disk - the caller decides whether to save the returned draft. "
+        "Returns a schema dictionary with V2 fields such as id, name and columns (each column carries its inferred "
+        "type: string/integer/float/decimal/boolean/date). "
+        "Note: type inference is based on a sample (1000 rows by default), so extreme values outside the sample may "
+        "change the actual type; review the draft by hand before verifying it with validate_data. The file path must "
+        "be inside the server working directory, otherwise the call fails."
     ),
 }
 
@@ -262,7 +314,7 @@ def _dispatch_tool_sync(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
             table_name=arguments.get("table_name"),
             source_path=arguments.get("source_path"),
         )
-    raise ValueError(f"未知工具: {name}")
+    raise ValueError(tr("Unknown tool: {name}", "未知工具: {name}").format(name=name))
 
 
 def _build_server() -> Any:
@@ -324,6 +376,10 @@ def main() -> int:
             except (AttributeError, OSError):
                 pass
 
+    # 按环境变量探测界面语言（PRECIS_LANG → LC_ALL → LC_CTYPE → LANG，默认英文），
+    # 使中文环境下 MCP 错误文案也自动切中文，与 CLI 入口行为一致
+    init_from_env()
+
     try:
         from mcp.server import NotificationOptions
         from mcp.server.stdio import stdio_server
@@ -331,7 +387,11 @@ def main() -> int:
         # H15：裸装（无 [mcp] extra）给安装指引，不裸 ModuleNotFoundError traceback
         # （对齐 ai 门控先例 6fa1aed4 的 extras 形态指引）
         print(
-            "错误：缺少 MCP 依赖（mcp SDK）。precis-mcp 需要 [mcp] extra，请执行:\n  pip install 'precis-cli[mcp]'",
+            tr(
+                "Error: missing MCP dependency (mcp SDK). precis-mcp requires the [mcp] extra, please run:\n"
+                "  pip install 'precis-cli[mcp]'",
+                "错误：缺少 MCP 依赖（mcp SDK）。precis-mcp 需要 [mcp] extra，请执行:\n  pip install 'precis-cli[mcp]'",
+            ),
             file=sys.stderr,
         )
         return 1

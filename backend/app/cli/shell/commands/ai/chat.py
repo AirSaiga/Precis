@@ -44,6 +44,7 @@
     CommandResult.ok("")
 """
 
+from app.cli.i18n import tr
 from app.cli.shell.commands.ai.executor import execute_ai_chat
 from app.cli.shell.commands.ai.interaction import build_context_data
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
@@ -76,7 +77,7 @@ class AIChatCommand(Command):
 
     @property
     def description(self) -> str:
-        return "进入 AI 交互式对话模式"
+        return tr("Enter interactive AI chat mode", "进入 AI 交互式对话模式")
 
     @property
     def usage(self) -> str:
@@ -95,12 +96,22 @@ class AIChatCommand(Command):
             命令执行结果，退出对话后返回成功结果
         """
         if not context.is_project_open:
-            return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目")
+            return CommandResult.error(
+                tr(
+                    "No project open. Use 'open <path>' to open a project first",
+                    "未打开项目，请先使用 'open <path>' 命令打开项目",
+                )
+            )
 
         # 检查 AI 配置（使用 CLI 配置）
         provider = self._cli_config.get_active_provider()
         if not provider:
-            return CommandResult.error("没有可用的 LLM Provider 配置\n请先运行 'provider add' 命令配置 API Key")
+            return CommandResult.error(
+                tr(
+                    "No LLM provider configured\nRun 'provider add' first to configure an API key",
+                    "没有可用的 LLM Provider 配置\n请先运行 'provider add' 命令配置 API Key",
+                )
+            )
 
         # 解析命令行参数（--stream/--no-stream 已随 execute_ai_chat 的死参数一并移除）
         agent_mode = True  # 默认启用 Agent 深度模式
@@ -116,7 +127,12 @@ class AIChatCommand(Command):
                 filtered_args.append(arg)
 
         if filtered_args:
-            return CommandResult.error(f"未知参数: {filtered_args}\n用法: {self.usage}")
+            return CommandResult.error(
+                tr(
+                    f"Unknown arguments: {filtered_args}\nUsage: {self.usage}",
+                    f"未知参数: {filtered_args}\n用法: {self.usage}",
+                )
+            )
 
         # 获取项目名称用于显示（project_config 在 open 后可能尚未加载，做空值守卫）
         config = context.project_config or {}
@@ -129,13 +145,31 @@ class AIChatCommand(Command):
         _input_budget, self._max_context_tokens = compute_token_budgets(self._context_window)
 
         # 打印会话头信息
-        print(Formatter.header("\nAI 助手交互模式"))
-        print(Formatter.info(f"项目: {project_name}"))
+        print(Formatter.header(tr("\nAI Assistant interactive mode", "\nAI 助手交互模式")))
+        print(Formatter.info(tr(f"Project: {project_name}", f"项目: {project_name}")))
         print(Formatter.info(f"Provider: {provider.name}"))
         print(Formatter.info(f"Model: {provider.model}"))
-        print(Formatter.info(f"Agent 模式: {'开启' if agent_mode else '关闭'}"))
-        print(Formatter.info(f"上下文限制: {self._context_window:,} tokens"))
-        print(Formatter.info("\n提示: 输入 'exit' 或 'quit' 退出对话，'help' 查看帮助，'clear' 清空历史"))
+        print(
+            Formatter.info(
+                tr(
+                    f"Agent mode: {'on' if agent_mode else 'off'}",
+                    f"Agent 模式: {'开启' if agent_mode else '关闭'}",
+                )
+            )
+        )
+        print(
+            Formatter.info(
+                tr(f"Context limit: {self._context_window:,} tokens", f"上下文限制: {self._context_window:,} tokens")
+            )
+        )
+        print(
+            Formatter.info(
+                tr(
+                    "\nTip: type 'exit' or 'quit' to leave, 'help' for commands, 'clear' to reset history",
+                    "\n提示: 输入 'exit' 或 'quit' 退出对话，'help' 查看帮助，'clear' 清空历史",
+                )
+            )
+        )
         print(Formatter.header(""))
 
         # 对话历史：存储用户和 AI 的消息，用于多轮对话
@@ -144,7 +178,7 @@ class AIChatCommand(Command):
         while True:
             try:
                 # 获取用户输入（带绿色提示符）
-                prompt = Formatter.colorize("\n你: ", Colors.GREEN)
+                prompt = Formatter.colorize(tr("\nYou: ", "\n你: "), Colors.GREEN)
                 user_input = input(prompt).strip()
 
                 if not user_input:
@@ -152,11 +186,11 @@ class AIChatCommand(Command):
 
                 # 内置指令处理
                 if user_input.lower() in ("exit", "quit", "q"):
-                    print(Formatter.success("\n再见!"))
+                    print(Formatter.success(tr("\nGoodbye!", "\n再见!")))
                     break
 
                 if user_input.lower() in ("exit!", "quit!", "qq"):
-                    print(Formatter.success("\n再见!"))
+                    print(Formatter.success(tr("\nGoodbye!", "\n再见!")))
                     import sys
 
                     sys.exit(0)
@@ -167,7 +201,7 @@ class AIChatCommand(Command):
 
                 if user_input.lower() == "clear":
                     chat_history = []
-                    print(Formatter.info("对话历史已清空"))
+                    print(Formatter.info(tr("Chat history cleared", "对话历史已清空")))
                     continue
 
                 if user_input.lower() == "history":
@@ -203,7 +237,14 @@ class AIChatCommand(Command):
                 input_lower = user_input.lower()
                 # 只过滤单独的确认词（不包含问号、不是疑问句）
                 if input_lower in acknowledgment_words and len(input_lower) < 20:
-                    print(Formatter.dim("（已忽略确认词。输入 'help' 查看命令，或输入具体问题与 AI 对话）"))
+                    print(
+                        Formatter.dim(
+                            tr(
+                                "(Acknowledgment ignored. Type 'help' for commands, or ask a question to chat with the AI)",
+                                "（已忽略确认词。输入 'help' 查看命令，或输入具体问题与 AI 对话）",
+                            )
+                        )
+                    )
                     continue
 
                 # 执行 AI 对话（调用统一执行器）
@@ -230,19 +271,25 @@ class AIChatCommand(Command):
                     )
                 elif not result.success:
                     # 处理错误情况
-                    print(Formatter.error(f"\n请求失败: {result.message}"))
+                    print(Formatter.error(tr(f"\nRequest failed: {result.message}", f"\n请求失败: {result.message}")))
                 else:
                     # result.success 为 True 但 data 为空（异常情况）
-                    print(Formatter.warning("\n收到空响应，未更新历史记录"))
+                    print(
+                        Formatter.warning(
+                            tr("\nReceived an empty response, history not updated", "\n收到空响应，未更新历史记录")
+                        )
+                    )
 
             except KeyboardInterrupt:
                 # 用户按 Ctrl+C，提示如何正确退出
                 print()
-                print(Formatter.info("\n使用 'exit' 或 'quit' 退出对话"))
+                print(
+                    Formatter.info(tr("\nUse 'exit' or 'quit' to leave the chat", "\n使用 'exit' 或 'quit' 退出对话"))
+                )
             except EOFError:
                 # 输入流结束（如管道输入），优雅退出
                 print()
-                print(Formatter.success("\n再见!"))
+                print(Formatter.success(tr("\nGoodbye!", "\n再见!")))
                 break
 
         return CommandResult.ok("")
@@ -252,7 +299,40 @@ class AIChatCommand(Command):
 
         列出所有可用命令、启动选项以及自然语言示例。
         """
-        help_text = """
+        help_text = tr(
+            """
+AI Assistant help
+
+Available commands:
+  help         - Show this help
+  history      - Show chat history statistics
+  clear        - Clear chat history
+  exit         - Leave chat mode (return to CLI)
+  qq           - Quit the whole program (available anywhere)
+
+Startup options:
+    --no-agent-mode  - Disable Agent deep mode (fall back to the legacy JSON actions path)
+    --no-pretty      - Disable streaming markdown rendering (headings/bold/tables), output raw text
+
+Describe your needs in natural language, for example:
+  - "Add a NOT NULL constraint to the email column of the users table"
+  - "Add a range constraint to the amount column of the orders table, minimum 0"
+  - "Remove the unique constraint on the phone column of the users table"
+  - "Show all current constraint configs"
+
+Supported constraint types:
+  - NotNull: not-null constraint
+  - Unique: uniqueness constraint
+  - AllowedValues: allowed values constraint (e.g. "allowedValues A, B")
+  - Range: range constraint (e.g. "minimum 0, maximum 100")
+  - Scripted: script/regex constraint (e.g. "regex ^[0-9]+$")
+  - ForeignKey: foreign key constraint (e.g. "references user_id of the orders table")
+  - Conditional: conditional constraint (e.g. "if type equals A then value is B")
+  - DateLogic: date logic constraint (e.g. "date later than 2023-01-01")
+  - Charset: charset constraint (e.g. "this column may only contain Chinese characters")
+  - Composite: composite constraint (e.g. "this column must be non-null and unique")
+            """,
+            """
 AI 助手帮助
 
 可用命令:
@@ -283,7 +363,8 @@ AI 助手帮助
   - DateLogic: 日期逻辑约束 (如: "日期晚于 2023-01-01")
   - Charset: 字符集约束 (如: "该列只能包含中文")
   - Composite: 复合约束 (如: "该列必须非空且唯一")
-        """
+            """,
+        )
         print(Formatter.info(help_text))
 
     def _print_history_stats(self, chat_history: list[dict[str, str]]) -> None:
@@ -295,7 +376,7 @@ AI 助手帮助
             chat_history: 当前对话历史列表
         """
         if not chat_history:
-            print(Formatter.info("\n对话历史为空"))
+            print(Formatter.info(tr("\nChat history is empty", "\n对话历史为空")))
             return
 
         # 计算统计信息
@@ -316,17 +397,22 @@ AI 助手帮助
         context_window = getattr(self, "_context_window", 120000)
         usage_percent = (total_with_system / context_window) * 100
 
-        print(Formatter.info("\n对话历史统计:"))
-        print(f"  消息总数: {total_messages}")
-        print(f"    - 用户消息: {user_messages}")
-        print(f"    - AI 回复: {assistant_messages}")
-        print(f"  估算 Token: {total_with_system:,} / {context_window:,}")
-        print(f"  使用率: {usage_percent:.1f}%")
+        print(Formatter.info(tr("\nChat history statistics:", "\n对话历史统计:")))
+        print(tr(f"  Messages: {total_messages}", f"  消息总数: {total_messages}"))
+        print(tr(f"    - User messages: {user_messages}", f"    - 用户消息: {user_messages}"))
+        print(tr(f"    - AI replies: {assistant_messages}", f"    - AI 回复: {assistant_messages}"))
+        print(
+            tr(
+                f"  Estimated tokens: {total_with_system:,} / {context_window:,}",
+                f"  估算 Token: {total_with_system:,} / {context_window:,}",
+            )
+        )
+        print(tr(f"  Usage: {usage_percent:.1f}%", f"  使用率: {usage_percent:.1f}%"))
 
         # 显示最近几条消息预览
         preview_count = min(3, len(chat_history) // 2)
         if preview_count > 0:
-            print(f"\n  最近 {preview_count} 轮对话:")
+            print(tr(f"\n  Last {preview_count} rounds:", f"\n  最近 {preview_count} 轮对话:"))
             for i in range(-preview_count * 2, 0, 2):
                 if abs(i) <= len(chat_history):
                     user_msg = chat_history[i] if i < 0 and abs(i) <= len(chat_history) else None

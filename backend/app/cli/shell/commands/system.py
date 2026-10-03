@@ -40,6 +40,7 @@
 
 import os
 
+from app.cli.i18n import tr
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 
 
@@ -54,7 +55,7 @@ class PwdCommand(Command):
 
     @property
     def description(self) -> str:
-        return "显示当前工作目录或已打开的项目路径"
+        return tr("Show the current working directory or the opened project path", "显示当前工作目录或已打开的项目路径")
 
     @property
     def usage(self) -> str:
@@ -62,7 +63,11 @@ class PwdCommand(Command):
 
     @property
     def help_text(self) -> str:
-        return "显示当前系统的工作目录路径。\n\n如果已经通过 'open' 命令打开了项目，它会同时显示当前项目所在的路径。"
+        return tr(
+            "Shows the current system working directory.\n\nIf a project has been opened via the 'open' command, "
+            "the project path is shown as well.",
+            "显示当前系统的工作目录路径。\n\n如果已经通过 'open' 命令打开了项目，它会同时显示当前项目所在的路径。",
+        )
 
     def execute(self, args: list[str], context: ProjectContext) -> CommandResult:
         """执行 pwd 命令。
@@ -75,10 +80,12 @@ class PwdCommand(Command):
             包含当前工作目录和项目路径的结果
         """
         cwd = os.getcwd()
-        result_text = f"当前系统工作目录: {cwd}"
+        result_text = tr("Current working directory: {cwd}", "当前系统工作目录: {cwd}").format(cwd=cwd)
 
         if context.is_project_open:
-            result_text += f"\n当前已打开项目路径: {context.project_path}"
+            result_text += "\n" + tr("Opened project path: {path}", "当前已打开项目路径: {path}").format(
+                path=context.project_path
+            )
 
         return CommandResult.ok(result_text)
 
@@ -95,7 +102,7 @@ class LsCommand(Command):
 
     @property
     def description(self) -> str:
-        return "列出当前目录下的文件"
+        return tr("List files in the current directory", "列出当前目录下的文件")
 
     @property
     def usage(self) -> str:
@@ -103,7 +110,15 @@ class LsCommand(Command):
 
     @property
     def help_text(self) -> str:
-        return (
+        return tr(
+            "List files and folders in the given directory.\n\n"
+            "If no path argument is provided:\n"
+            "  - With a project open, the project root directory is listed.\n"
+            "  - Without a project, the current system working directory is listed.\n\n"
+            "Examples:\n"
+            "  ls              (list the current or project directory)\n"
+            "  ls ../data      (list a relative path)\n"
+            "  ls /var/log     (list an absolute path)",
             "列出指定目录下的文件和文件夹列表。\n\n"
             "如果没有提供 path 参数：\n"
             "  - 若已打开项目，将列出项目根目录的内容。\n"
@@ -111,7 +126,7 @@ class LsCommand(Command):
             "示例:\n"
             "  ls              (列出当前或项目目录)\n"
             "  ls ../data      (列出相对路径目录)\n"
-            "  ls /var/log     (列出绝对路径目录)"
+            "  ls /var/log     (列出绝对路径目录)",
         )
 
     def execute(self, args: list[str], context: ProjectContext) -> CommandResult:
@@ -139,10 +154,10 @@ class LsCommand(Command):
         target_path = os.path.abspath(os.path.expanduser(target_path))
 
         if not os.path.exists(target_path):
-            return CommandResult.error(f"路径不存在: {target_path}")
+            return CommandResult.error(tr("Path does not exist: {path}", "路径不存在: {path}").format(path=target_path))
 
         if not os.path.isdir(target_path):
-            return CommandResult.error(f"非目录路径: {target_path}")
+            return CommandResult.error(tr("Not a directory: {path}", "非目录路径: {path}").format(path=target_path))
 
         try:
             items = os.listdir(target_path)
@@ -150,7 +165,7 @@ class LsCommand(Command):
             items.sort(key=lambda x: (not os.path.isdir(os.path.join(target_path, x)), x.lower()))
 
             output = []
-            output.append(f"目录: {target_path}\n")
+            output.append(tr("Directory: {path}\n", "目录: {path}\n").format(path=target_path))
 
             for item in items:
                 item_path = os.path.join(target_path, item)
@@ -160,11 +175,15 @@ class LsCommand(Command):
                     output.append(f"  📄 {item}")
 
             if not items:
-                output.append("  (空目录)")
+                output.append(tr("  (empty directory)", "  (空目录)"))
 
             return CommandResult.ok("\n".join(output))
 
         except PermissionError:
-            return CommandResult.error(f"没有权限读取目录: {target_path}")
+            return CommandResult.error(
+                tr("No permission to read directory: {path}", "没有权限读取目录: {path}").format(path=target_path)
+            )
         except Exception as e:
-            return CommandResult.error(f"无法读取目录: {str(e)}")
+            return CommandResult.error(
+                tr("Cannot read directory: {error}", "无法读取目录: {error}").format(error=str(e))
+            )

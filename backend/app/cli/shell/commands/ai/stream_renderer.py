@@ -57,6 +57,7 @@ from __future__ import annotations
 import sys
 from typing import Any, TextIO
 
+from app.cli.i18n import tr
 from app.cli.shell.commands.ai.executor_utils import SpinnerController
 from app.cli.shell.commands.ai.markdown_stream import MarkdownStreamRenderer
 from app.cli.shell.formatter import Formatter
@@ -198,10 +199,13 @@ class ChatStreamRenderer:
         随后重启 spinner 覆盖工具执行等待窗口。"""
         self._terminate_line()
         self._stop_spinner()
-        _print_to(self._status_stream, Formatter.dim(f"→ 调用工具 {_tool_label(name)}..."))
+        _print_to(
+            self._status_stream,
+            Formatter.dim(tr(f"→ Calling tool {_tool_label(name)}...", f"→ 调用工具 {_tool_label(name)}...")),
+        )
         self._start_spinner()
 
-    def on_tool_result(self, tr: Any) -> None:
+    def on_tool_result(self, tool_result: Any) -> None:
         """工具调用结束：单行成败状态。
 
         失败错误信息：交互模式截断到单行上限并补 "…" 标记（完整 error 由
@@ -212,15 +216,15 @@ class ChatStreamRenderer:
         """
         self._terminate_line()
         self._stop_spinner()
-        label = _tool_label(tr.name)
-        if tr.success:
-            _print_to(self._status_stream, Formatter.success(f"✓ {label} 完成"))
+        label = _tool_label(tool_result.name)
+        if tool_result.success:
+            _print_to(self._status_stream, Formatter.success(tr(f"✓ {label} done", f"✓ {label} 完成")))
         else:
-            error = (tr.error or "").replace("\n", " ")
+            error = (tool_result.error or "").replace("\n", " ")
             if self._interactive and len(error) > _MAX_ERROR_CHARS:
                 error = error[:_MAX_ERROR_CHARS] + "…"
             suffix = f" — {error}" if error else ""
-            _print_to(self._status_stream, Formatter.error(f"✗ {label} 失败{suffix}"))
+            _print_to(self._status_stream, Formatter.error(tr(f"✗ {label} failed{suffix}", f"✗ {label} 失败{suffix}")))
 
     def finish(self) -> None:
         """流结束后收尾：冲刷 markdown 暂存（未闭合构造按原文兜底），保证末行换行，

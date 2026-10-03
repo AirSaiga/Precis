@@ -39,6 +39,8 @@ from rich.progress import Progress, SpinnerColumn, TaskID, TextColumn
 from rich.table import Table
 from rich.text import Text
 
+from app.cli.i18n import LANG_EN, get_lang, tr
+
 _console = Console(stderr=False)
 _stderr_console = Console(stderr=True)
 
@@ -84,8 +86,8 @@ class Spinner:
 
     ANIMATION_INTERVAL = 0.1
 
-    def __init__(self, message: str = "处理中"):
-        self.message = message
+    def __init__(self, message: str = ""):
+        self.message = message or tr("Processing", "处理中")
         self._success = True
         self._progress: Progress | None = None
         self._task_id: TaskID | None = None
@@ -107,7 +109,11 @@ class Spinner:
             self._progress = None
 
         mark = "[green]✓[/green]" if success else "[red]✗[/red]"
-        suffix = "[green] 完成[/green]" if success else "[red] 失败[/red]"
+        suffix = (
+            tr(" [green]done[/green]", " [green]完成[/green]")
+            if success
+            else tr(" [red]failed[/red]", " [red]失败[/red]")
+        )
         _console.print(f"{mark} {self.message}{suffix}")
 
 
@@ -182,18 +188,23 @@ class Formatter:
         )
 
         print()
-        _console.print("[dim]Type 'help' for available commands, 'exit' to exit, 'qq' to force quit[/dim]")
+        _console.print(
+            tr(
+                "[dim]Type 'help' for available commands, 'exit' to exit, 'qq' to force quit[/dim]",
+                "[dim]输入 'help' 查看可用命令，'exit' 退出，'qq' 强制退出[/dim]",
+            )
+        )
         print()
 
     @staticmethod
     def print_error(message: str) -> None:
         # 动态消息必须 markup 转义：消息里的方括号（如安装指引
         # precis-cli[ai]、允许值集合 ['a','b']）否则会被 rich 当样式标签吞掉
-        _stderr_console.print(f"[bold red]错误:[/bold red] {markup_escape(message)}")
+        _stderr_console.print(f"[bold red]{tr('Error:', '错误:')}[/bold red] {markup_escape(message)}")
 
     @staticmethod
     def print_warning(message: str) -> None:
-        _console.print(f"[yellow]警告:[/yellow] {markup_escape(message)}")
+        _console.print(f"[yellow]{tr('Warning:', '警告:')}[/yellow] {markup_escape(message)}")
 
     @staticmethod
     def print_success(message: str) -> None:
@@ -219,7 +230,10 @@ class Formatter:
     def format_validation_result(errors: list[dict[str, Any]], detailed: bool = True) -> str:
         if not errors:
             mark = "✓" if _supports_unicode() else "[OK]"
-            return f"[green]\n{mark} 校验通过，未发现任何错误！\n[/green]"
+            return tr(
+                f"[green]\n{mark} Validation passed, no errors found!\n[/green]",
+                f"[green]\n{mark} 校验通过，未发现任何错误！\n[/green]",
+            )
 
         error_counts: dict[str, int] = {}
         for error in errors:
@@ -230,30 +244,40 @@ class Formatter:
         lines.append("")
         total_errors = len(errors)
 
-        lines.append(f"[bold]  总计: {total_errors} 个错误[/bold]")
+        lines.append(
+            tr(f"[bold]  Total: {total_errors} error(s)[/bold]", f"[bold]  总计: {total_errors} 个错误[/bold]")
+        )
         lines.append("")
 
         if error_counts:
-            lines.append("[bold] 按类型统计:[/bold]")
+            lines.append(tr("[bold] By type:[/bold]", "[bold] 按类型统计:[/bold]"))
             for error_type, count in sorted(error_counts.items()):
                 type_display = error_type.replace("Violation", "").replace("Error", "")
                 lines.append(f"   [yellow]•[/yellow] {type_display}: {count}")
             lines.append("")
 
         lines.append("[dim]" + "─" * 60 + "[/dim]")
-        lines.append("[bold] 详细错误列表[/bold]")
+        lines.append(tr("[bold] Error details[/bold]", "[bold] 详细错误列表[/bold]"))
         lines.append("[dim]" + "─" * 60 + "[/dim]")
         lines.append("")
 
         for i, error in enumerate(errors, 1):
             error_type = error.get("error_type", "UnknownError")
             # 双字段兼容：格式检查/约束错误经 service 层归一为 cell_value/error_message，
-            # 部分内部路径仍产 value/message（对齐 json_payload.py 的兼容读取）
-            message = error.get("message")
+            # 部分内部路径仍产 value/message（对齐 json_payload.py 的兼容读取）。
+            # 英文界面下优先用 error_code 渲染英文文案（messages_en 中央目录），
+            # 无登记码/渲染失败回退中文 message，与 JSON 契约的 error_message_en 同源
+            message = None
+            if get_lang() == LANG_EN:
+                from app.shared.domain.constraints.messages_en import render_message_en
+
+                message = render_message_en(error.get("error_code", ""), error.get("error_params"))
+            if message is None:
+                message = error.get("message")
             if message is None:
                 message = error.get("error_message")
             if message is None:
-                message = "无错误信息"
+                message = tr("No error message", "无错误信息")
             table_name = error.get("table", "")
             column = error.get("column", "")
             row_index = error.get("row_index")
@@ -267,15 +291,15 @@ class Formatter:
             lines.append(f"  [bold][{i}][/bold] [{type_color}]【{type_display}】[/{type_color}]")
 
             if table_name:
-                lines.append(f"      表: [cyan]{markup_escape(str(table_name))}[/cyan]")
+                lines.append(f"      {tr('Table:', '表:')} [cyan]{markup_escape(str(table_name))}[/cyan]")
                 if column:
-                    lines.append(f"      列: [cyan]{markup_escape(str(column))}[/cyan]")
+                    lines.append(f"      {tr('Column:', '列:')} [cyan]{markup_escape(str(column))}[/cyan]")
                 if row_index is not None:
-                    lines.append(f"      行号: [cyan]{row_index}[/cyan]")
+                    lines.append(f"      {tr('Row:', '行号:')} [cyan]{row_index}[/cyan]")
                 if value is not None:
-                    lines.append(f"      值: [yellow]{markup_escape(str(value))}[/yellow]")
+                    lines.append(f"      {tr('Value:', '值:')} [yellow]{markup_escape(str(value))}[/yellow]")
 
-            lines.append(f"      [dim]消息:[/dim] {markup_escape(str(message))}")
+            lines.append(f"      [dim]{tr('Message:', '消息:')}[/dim] {markup_escape(str(message))}")
             lines.append("")
 
         lines.append("[cyan]" + "═" * 60 + "[/cyan]")
@@ -308,7 +332,11 @@ class Formatter:
 
         # 兜底：没有 validation_details 时无法证明执行情况，明确提示
         if not validation_details:
-            return f"[yellow]{bullet} 未返回校验明细（validation_details 为空），无法确认实际执行的检查项数[/yellow]"
+            return tr(
+                f"[yellow]{bullet} No validation details returned (validation_details is empty), "
+                "cannot confirm the number of checks actually executed[/yellow]",
+                f"[yellow]{bullet} 未返回校验明细（validation_details 为空），无法确认实际执行的检查项数[/yellow]",
+            )
 
         # ---- 表/行数统计 ----
         format_checks = validation_details.get("format_checks", []) or []
@@ -320,8 +348,8 @@ class Formatter:
             row_count = len(ds) if ds is not None and hasattr(ds, "__len__") else "-"
             source = fc.get("source_file") or ""
             src_hint = f" [dim]({markup_escape(str(source))})[/dim]" if source else ""
-            table_lines.append(f"    {bullet} {markup_escape(str(table))}: {row_count} 行{src_hint}")
-        tables_block = "\n".join(table_lines) if table_lines else "    (无)"
+            table_lines.append(f"    {bullet} {markup_escape(str(table))}: {row_count} {tr('rows', '行')}{src_hint}")
+        tables_block = "\n".join(table_lines) if table_lines else f"    {tr('(none)', '(无)')}"
 
         # ---- 约束检查统计 ----
         constraint_checks = validation_details.get("constraint_checks", []) or []
@@ -331,14 +359,21 @@ class Formatter:
 
         lines = [
             "",
-            "[bold]  ┌ 校验摘要 ┐[/bold]",
-            f"[bold]  数据表:[/bold] {len(format_checks)} 个",
+            tr("[bold]  ┌ Validation Summary ┐[/bold]", "[bold]  ┌ 校验摘要 ┐[/bold]"),
+            tr(f"[bold]  Tables:[/bold] {len(format_checks)}", f"[bold]  数据表:[/bold] {len(format_checks)} 个"),
             tables_block,
-            f"[bold]  约束检查:[/bold] {total_checks} 项，"
+            # 英文模板须带 " — " 分隔符：下方拼接的通过/失败片段以数字开头，
+            # 无分隔符会把 "7" 与 "1 passed" 粘成 "71 passed"（zh 侧 "项，" 天然分隔）
+            tr("[bold]  Constraint checks:[/bold] {count} — ", "[bold]  约束检查:[/bold] {count} 项，").format(
+                count=total_checks
+            )
             + (
-                f"全部通过 {mark_ok}"
+                tr(f"all passed {mark_ok}", f"全部通过 {mark_ok}")
                 if not failed_checks
-                else f"{passed_count} 通过 / {len(failed_checks)} 失败 {mark_fail}"
+                else tr(
+                    f"{passed_count} passed / {len(failed_checks)} failed {mark_fail}",
+                    f"{passed_count} 通过 / {len(failed_checks)} 失败 {mark_fail}",
+                )
             ),
         ]
 
@@ -356,7 +391,7 @@ class Formatter:
                 desc = c.get("description") or f"{ctype}: {c.get('table', '?')}"
                 tag = f"[green]{mark_ok}[/green]" if passed else f"[red]{mark_fail}[/red]"
                 err_cnt = c.get("error_count", 0)
-                err_hint = f" [red]({err_cnt} 错误)[/red]" if err_cnt else ""
+                err_hint = tr(f" [red]({err_cnt} error(s))[/red]", f" [red]({err_cnt} 错误)[/red]") if err_cnt else ""
                 lines.append(f"    {bullet} {markup_escape(str(desc))}  {tag}{err_hint}")
 
         return "\n".join(lines)
@@ -364,14 +399,14 @@ class Formatter:
     @staticmethod
     def format_project_info(info: dict[str, Any]) -> str:
         lines = []
-        lines.append("[bold]\n项目信息:[/bold]")
-        lines.append(f"  名称: {info.get('name', '未命名')}")
-        lines.append(f"  路径: {info.get('path', '')}")
-        lines.append(f"  Schema 数量: {info.get('schemas_count', 0)}")
-        lines.append(f"  约束数量: {info.get('constraints_count', 0)}")
+        lines.append(tr("[bold]\nProject info:[/bold]", "[bold]\n项目信息:[/bold]"))
+        lines.append(f"  {tr('Name:', '名称:')} {info.get('name', tr('Unnamed', '未命名'))}")
+        lines.append(f"  {tr('Path:', '路径:')} {info.get('path', '')}")
+        lines.append(f"  {tr('Schemas:', 'Schema 数量:')} {info.get('schemas_count', 0)}")
+        lines.append(f"  {tr('Constraints:', '约束数量:')} {info.get('constraints_count', 0)}")
 
         if info.get("tables"):
-            lines.append("[bold]\n数据表:[/bold]")
+            lines.append(tr("[bold]\nTables:[/bold]", "[bold]\n数据表:[/bold]"))
             for table in info["tables"]:
                 lines.append(f"  - {table}")
 
