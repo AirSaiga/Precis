@@ -1,14 +1,17 @@
 ---
-description: 用 Precis 校验指定数据文件或项目
+description: Validate a specified data file or project with Precis
 ---
 
-请按 `precis-data-validation` skill 的工作流校验：$ARGUMENTS
+Follow the `precis-data-validation` skill workflow to validate: $ARGUMENTS
 
-执行要点：
+Key steps:
 
-1. 先跑 `precis --version` 确认 CLI 可用；不可用则给出安装指引并停止。
-2. 读取 `$ARGUMENTS` 指向的数据文件（若给的是 project.precis.yaml 则跳到第 4 步），
-   按 skill 的 references/v2-format.md 推断结构并生成 V2 配置，落盘位置先向用户确认。
-3. 执行 `precis validate --manifest <path> --format json`（Windows 路径含空格加引号）。
-4. 按退出码分支用中文汇报：0 通过；1 逐条转述 errors[] 的表/列/行/值/约束；
-   2 报工具错误并展示 stderr。最后询问用户修数据还是调规则，迭代至通过。
+1. Run `precis --version` first to confirm the CLI is available; if it is not, give
+   installation guidance and stop.
+2. Read the data file that `$ARGUMENTS` points to (if it is a project.precis.yaml, skip to
+   step 4) and, following the skill's references/v2-format.md, infer the structure and
+   generate the V2 configuration; confirm the output location with the user first.
+3. Run `precis validate --manifest <path> --format json` (quote Windows paths containing spaces).
+4. Branch on the exit code when reporting: 0 passed; 1 restate each `errors[]` entry's
+   table/column/row/value/constraint; 2 report the tool error and show stderr. Finally ask
+   the user whether to fix the data or adjust the rules, and iterate until it passes.

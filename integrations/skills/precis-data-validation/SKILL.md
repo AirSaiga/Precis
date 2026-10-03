@@ -1,126 +1,140 @@
 ---
 name: precis-data-validation
-description: 用 Precis CLI 对 CSV/Excel/JSON 数据做 schema 约束校验：生成 V2 YAML 配置、执行校验、解读 JSON 结果并迭代至通过。
-whenToUse: 用户要求检查/校验 CSV、Excel、JSON 数据质量，或交付前验收数据时。
+description: Validate CSV/Excel/JSON data against schema constraints with the Precis CLI — generate V2 YAML configuration, run validation, interpret the JSON result, and iterate until it passes.
+whenToUse: When the user asks you to check/validate the quality of CSV, Excel, or JSON data, or to accept data before delivery.
 ---
 
-# Precis 数据校验工作流
+# Precis Data Validation Workflow
 
-Precis 是一个数据校验引擎：你为数据文件写一份 V2 YAML 配置（配置格式版本 2，
-内容为表结构 + 约束规则），然后用 `precis validate` 执行校验，得到机器可读的
-违规清单。本 skill 教你完成"读数据 → 写配置 → 执行 → 解读 → 迭代"的完整闭环。
+Precis is a data validation engine: you write one V2 YAML configuration for your data files
+(configuration format version 2, holding the table structure + constraint rules), then run
+validation with `precis validate` to get a machine-readable list of violations. This skill
+walks you through the complete loop: "read data → write configuration → run → interpret → iterate".
 
-## 第 0 步：前置检查
+## Step 0: Preflight check
 
-按优先级探测 CLI（找到一个可用即进入第 1 步）：
+Probe the CLI in priority order (as soon as one works, go to Step 1):
 
-1. `precis --version` —— 用户已 pip 安装
-   （`precis-cli` 是等价别名命令；探测与后续执行统一用 `precis` 为准）
-2. `uvx --from precis-cli precis --version` —— 用户装有 [uv](https://docs.astral.sh/uv/)，
-   免安装运行（首次会下载依赖，需等待）。此后所有 `precis ...` 命令都加
-   `uvx --from precis-cli` 前缀执行
-   （开发机也可 `uvx --from <Precis 仓库>/backend precis ...` 从源码跑）
+1. `precis --version` — the user installed it with pip
+   (`precis-cli` is an equivalent alias command; use `precis` for probing and for all later execution)
+2. `uvx --from precis-cli precis --version` — the user has [uv](https://docs.astral.sh/uv/)
+   installed, so it runs without installation (the first run downloads dependencies and takes
+   some waiting). From then on, prefix every `precis ...` command with
+   `uvx --from precis-cli`
+   (on a development machine you can also run from source with
+   `uvx --from <Precis repo>/backend precis ...`)
 
-两个都不可用时，告诉用户安装方式后**停止**（不要尝试其他替代方案）：
+If neither works, tell the user how to install and **stop** (do not try other workarounds):
 
-> Precis CLI 未安装。两种安装方式任选：
-> 1. 安装 uv 后免安装运行：`uvx --from precis-cli precis --version`
-> 2. pip 安装（要求 Python >= 3.12）：`pip install precis-cli`
-> 安装后会获得 `precis` 命令。装好后重新发起校验。
+> The Precis CLI is not installed. Pick either installation method:
+> 1. Install uv and run it without installing: `uvx --from precis-cli precis --version`
+> 2. Install with pip (requires Python >= 3.12): `pip install precis-cli`
+> Either way you get the `precis` command. Start the validation again once it is installed.
 
-## 第 1 步：读数据文件，确认落盘位置
+## Step 1: Read the data file, confirm where files are written
 
-1. 读取数据文件**头部**（CSV/JSON 用 `head`，Excel 需先看 sheet 名与首行），
-   确认列名、大致类型、行数。
-2. **先向用户确认配置落盘位置**（默认建议：数据文件所在目录下的 `precis-project/`），
-   用户同意后再写文件。所有产物留在用户目录，可读、可 diff、可进 git。
+1. Read the **head** of the data file (use `head` for CSV/JSON; for Excel first check the
+   sheet names and the first row) to confirm the column names, the approximate types, and
+   the row count.
+2. **Confirm the configuration location with the user first** (default suggestion:
+   `precis-project/` in the directory of the data file), and write files only after the user
+   agrees. Keep every artifact in the user's directory so it stays readable, diffable, and
+   committable to git.
 
-## 第 2 步：写 V2 配置
+## Step 2: Write the V2 configuration
 
-**优先推断，再人工调整**（减少手写 YAML 的错误率）：
-
-```bash
-precis infer-schema <数据文件> --output <项目目录>/schemas/<表名>.schema.yaml
-# 替换既有 schema 时保持 id 不变：--id <原UUID>；source 路径不对时 --source-path 修正
-```
-
-推断产出列类型草稿（string/integer/float/decimal/boolean/date；少量脏值
-不会拖垮整列，按数据中的主导类型判定）。展示给用户确认后，按业务语义调整
-（如补 primary_key、金额列改 decimal）。
-
-然后严格按本 skill 目录下 `references/v2-format.md` 的格式速查补齐约束：
-
-```
-<项目目录>/
-├── project.precis.yaml          # 清单：引用所有 schema 与约束
-├── schemas/<表名>.schema.yaml    # 每张表一个：列定义 + 数据源路径
-└── constraints/*.constraint.yaml # 每条约束一个
-```
-
-要点：
-
-- 所有 ID（schema/constraint 的 `id`）用 **UUID v4**（如
-  `8f3d2a1c-4b5e-4f6a-9c8d-1e2f3a4b5c6d`），**禁止** `sc_` 前缀旧格式。
-- 约束优先用 6 种简单类型：NotNull / Unique / AllowedValues / Range /
-  ForeignKey / Charset。Scripted / Conditional / DateLogic / Composite
-  按需使用（Scripted 需项目开启 allow_eval，见 references）。
-- 写完配置即可执行；配置自身的错误会以 `loading_warnings` 透出，无需单独校验。
-
-## 第 3 步：执行校验
+**Infer first, adjust by hand second** (this lowers the error rate of hand-written YAML):
 
 ```bash
-precis validate --manifest <项目目录>/project.precis.yaml --format json
+precis infer-schema <data file> --output <project dir>/schemas/<table name>.schema.yaml
+# keep the id unchanged when replacing an existing schema: --id <original UUID>; fix a wrong source path with --source-path
 ```
 
-- Windows 下路径含空格时用引号包裹。
-- 大文件（>500MB）会自动分块加载，耗时长属正常，提醒用户耐心等待。
-- **不要**在交互式命令行（REPL）中使用 `--format json`（该选项在 REPL 中会被忽略）。
+The inference produces a draft of column types (string/integer/float/decimal/boolean/date;
+a few dirty values will not sink a whole column — the dominant type in the data decides).
+Show it to the user for confirmation, then adjust it to the business semantics
+(for example add primary_key, or change an amount column to decimal).
 
-## 第 4 步：按退出码解读
+Then complete the constraints strictly following the format quick reference in
+`references/v2-format.md` under this skill directory:
 
-`--format json` 模式下 **stdout 只有一个 JSON 文档**（stderr 可能有日志，忽略），
-退出码三分支：
+```
+<project dir>/
+├── project.precis.yaml          # manifest: references every schema and constraint
+├── schemas/<table name>.schema.yaml    # one per table: column definitions + data source path
+└── constraints/*.constraint.yaml # one per constraint
+```
 
-| 退出码 | 含义 | 你要做的事 |
-|--------|------|-----------|
-| 0 | 校验通过 | 向用户报告通过，附 tables/summary 概览 |
-| 1 | 校验完成，发现数据违规 | 解析 `errors[]`，逐条用中文汇报 |
-| 2 | 工具自身错误 | 展示 stderr/错误消息，检查配置与路径后修复重试 |
+Key points:
 
-`errors[]` 每条字段：`table`（表）、`column`（列）、`constraint_type`（约束类型）、
-`constraint_file`（来源约束文件，相对 manifest 目录——独立约束是其
-`*.constraint.yaml` 路径，schema 内嵌约束是宿主 schema 路径；格式校验等
-无来源错误为 null）、`row_index`（行号）、`cell_value`（原始值）、
-`error_message`（中文消息）。
+- Use **UUID v4** for every ID (the `id` of schemas/constraints), for example
+  `8f3d2a1c-4b5e-4f6a-9c8d-1e2f3a4b5c6d`; the legacy `sc_` prefix format is **forbidden**.
+- Prefer the 6 simple constraint types: NotNull / Unique / AllowedValues / Range /
+  ForeignKey / Charset. Use Scripted / Conditional / DateLogic / Composite as needed
+  (Scripted requires allow_eval to be enabled for the project — see references).
+- Once the configuration is written you can run validation; mistakes in the configuration
+  itself surface through `loading_warnings`, so no separate validation step is required.
 
-汇报格式建议：
+## Step 3: Run validation
 
-> 共发现 N 处违规（涉及 M 项约束检查，通过 X 项）：
-> 1. 表 `orders` 第 127 行，列 `email`（NotNull 约束）：值为空 —— 非空约束冲突…
+```bash
+precis validate --manifest <project dir>/project.precis.yaml --format json
+```
+
+- Quote paths containing spaces on Windows.
+- Large files (>500MB) are loaded in chunks automatically; a long runtime is normal —
+  remind the user to be patient.
+- Do **not** use `--format json` in the interactive command line (REPL) (the option is
+  ignored there).
+
+## Step 4: Interpret by exit code
+
+In `--format json` mode **stdout holds exactly one JSON document** (stderr may hold logs;
+ignore it). The exit code has three branches:
+
+| Exit code | Meaning | What you must do |
+|-----------|---------|------------------|
+| 0 | Validation passed | Report the pass to the user, with the tables/summary overview |
+| 1 | Validation completed, data violations found | Parse `errors[]` and report each entry to the user |
+| 2 | Tool error | Show stderr/the error message, check the configuration and the paths, then fix and retry |
+
+Every `errors[]` entry has these fields: `table`, `column`, `constraint_type`,
+`constraint_file` (the source constraint file, relative to the manifest directory — for a
+standalone constraint this is its `*.constraint.yaml` path, for a schema-embedded constraint
+it is the host schema path; errors without a source such as format validation are `null`),
+`row_index`, `cell_value`, and `error_message` (a human-readable message that the CLI
+currently emits in Chinese).
+
+Suggested report format:
+
+> Found N violations in total (covering M constraint checks, X passed):
+> 1. Table `orders`, row 127, column `email` (NotNull constraint): the value is empty — not-null constraint conflict…
 > 2. …
 
-注意：`row_index` 是数据行索引（0 起，不含表头），汇报时可以换算成
-"第 row_index+1 行数据"方便用户定位。
+Note: `row_index` is the data row index (0-based, header excluded); when reporting you can
+convert it to "data row row_index+1" so the user can locate it easily.
 
-## 第 5 步：迭代闭环
+## Step 5: Iteration loop
 
-违规处理只有两条路，**询问用户选哪条**：
+There are only two ways to handle violations, **ask the user which one to take**:
 
-1. **修数据**：用户改数据文件后，直接重新执行第 3 步。
-2. **调规则**：你认为某条约束过严/过宽时，修改 `errors[].constraint_file`
-   指向的约束文件后重新执行。
+1. **Fix the data**: after the user edits the data file, simply run Step 3 again.
+2. **Adjust the rules**: when you think a constraint is too strict/too loose, edit the
+   constraint file that `errors[].constraint_file` points to and run again.
 
-迭代直到退出码 0。中途用户要求调整超时/错误处理等项目设置时，参考
-references/v2-format.md 的 settings 一节。
+Iterate until the exit code is 0. If the user asks along the way to adjust project settings
+such as timeouts or error handling, see the settings section of references/v2-format.md.
 
-## 禁令
+## Prohibitions
 
-- 不要手改或美化 JSON 输出，只做解析与转述。
-- 不要绕过确认直接写配置文件到用户目录。
-- 不要在交互式命令行（REPL）中使用 `--format json`。
-- **不要替用户开启 `script_security.allow_eval`**——Scripted 约束需要执行
-  表达式，属用户显式授权的安全决策；只在用户明确同意时由用户自己修改
-  settings，并把风险（脚本执行）讲清楚。默认用其他约束类型替代。
-- 环境配置了 MCP（`precis-mcp` server）时，优先直接调用 MCP 工具
-  （validate_data / infer_schema / check_config / describe_constraints），
-  其返回结构与 CLI JSON 契约一致；无 MCP 时走 Bash + CLI。
+- Do not hand-edit or prettify the JSON output; only parse and restate it.
+- Do not write configuration files into the user's directory without confirmation.
+- Do not use `--format json` in the interactive command line (REPL).
+- **Do not enable `script_security.allow_eval` on the user's behalf** — Scripted constraints
+  execute expressions, which is a security decision requiring the user's explicit
+  authorization; only when the user explicitly agrees may the user change the settings
+  themselves, and state the risk (script execution) clearly. Use another constraint type
+  instead by default.
+- When the environment has MCP configured (the `precis-mcp` server), prefer calling the MCP
+  tools directly (validate_data / infer_schema / check_config / describe_constraints); their
+  return structure matches the CLI JSON contract. Without MCP, use Bash + CLI.
