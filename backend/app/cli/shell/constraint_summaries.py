@@ -117,7 +117,9 @@ def render_constraint_label_en(describe_data: dict[str, Any] | None) -> str | No
         if kind == "Regex" and table is not None and "column" in describe_data:
             return f"Regex: {table}.{describe_data['column']} pattern={describe_data.get('pattern')!r}"
         if kind == "Charset" and table is not None and "column" in describe_data:
-            name = _CHARSET_NAMES_EN.get(describe_data.get("charset_mode"), "unknown")
+            # describe_data.get() 返回 Any | None，dict.get 键要求 str，须先收窄类型
+            mode = describe_data.get("charset_mode")
+            name = _CHARSET_NAMES_EN.get(mode, "unknown") if isinstance(mode, str) else "unknown"
             return f"Charset: {table}.{describe_data['column']} ({name})"
         if kind == "Scripted" and table is not None:
             return f"Scripted: {table}.{describe_data.get('name')}"

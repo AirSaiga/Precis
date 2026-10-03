@@ -16,11 +16,9 @@
  * limitations under the License.
  */
 /**
- * @file constraintLabel.ts
- * @description 约束结构化描述（describe_data）→ 英文标签渲染
+ * @fileoverview 约束结构化描述（describe_data）→ 英文标签渲染：en-US 下把后端
+ * describe_data() 的结构化配置（kind + 表/列/原始参数）渲染为可读英文标签。
  *
- * 后端约束 domain 层的 describe_data() 返回结构化配置（kind + 表/列/原始参数），
- * 本模块在 en-US locale 下把它渲染为可读标签（"NotNull: orders.order_id" 一类）。
  * zh-CN 不经过本模块——沿用后端 description 原文（中文契约字段）。
  *
  * 与后端 CLI 侧 backend/app/cli/shell/constraint_summaries.py 同构对位
