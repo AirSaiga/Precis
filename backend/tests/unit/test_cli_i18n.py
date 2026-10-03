@@ -58,6 +58,32 @@ class TestDetectLang:
         assert _detect_lang(_env().get) == LANG_EN
 
 
+class TestDetectLangSystemLocaleFallback:
+    """环境变量全缺时的操作系统 UI 语言兜底（Windows 不设 LC_ALL/LANG）。"""
+
+    def test_system_locale_zh_falls_back_to_chinese(self) -> None:
+        # Windows GetUserDefaultLocaleName 返回 BCP-47 标签
+        for os_lang in ("zh-CN", "zh-TW", "zh-Hans-CN"):
+            assert _detect_lang(_env().get, lambda: os_lang) == LANG_ZH
+
+    def test_system_locale_non_zh_falls_back_to_english(self) -> None:
+        for os_lang in ("en-US", "ja-JP", "fr-FR"):
+            assert _detect_lang(_env().get, lambda: os_lang) == LANG_EN
+
+    def test_system_locale_none_defaults_english(self) -> None:
+        # OS 语言取不到（异常/不支持）→ 维持默认英文
+        assert _detect_lang(_env().get, lambda: None) == LANG_EN
+
+    def test_env_var_still_overrides_system_locale(self) -> None:
+        # 环境变量优先级高于 OS 语言（含显式设置的非 zh/en 值）
+        env = _env(LANG="en_US.UTF-8")
+        assert _detect_lang(env.get, lambda: "zh-CN") == LANG_EN
+        env = _env(PRECIS_LANG="zh")
+        assert _detect_lang(env.get, lambda: "en-US") == LANG_ZH
+        env = _env(LC_ALL="C")
+        assert _detect_lang(env.get, lambda: "zh-CN") == LANG_EN
+
+
 class TestDetectLangValues:
     """值判定：zh / en / 其他。"""
 
@@ -76,7 +102,7 @@ class TestDetectLangValues:
 
 
 class TestInitFromEnv:
-    """init_from_env 用 monkeypatch 隔离真实环境变量。"""
+    """init_from_env 用 monkeypatch 隔离真实环境变量与 OS 语言。"""
 
     def test_init_from_env_zh(self, monkeypatch) -> None:
         for var in ("PRECIS_LANG", "LC_ALL", "LC_CTYPE", "LANG"):
@@ -89,8 +115,18 @@ class TestInitFromEnv:
     def test_init_from_env_unset_defaults_english(self, monkeypatch) -> None:
         for var in ("PRECIS_LANG", "LC_ALL", "LC_CTYPE", "LANG"):
             monkeypatch.delenv(var, raising=False)
+        # 隔离真实 OS 语言（本机/CI 可能是中文 Windows，否则此处会命中 zh 兜底）
+        monkeypatch.setattr(i18n, "_system_locale", lambda: None)
         init_from_env()
         assert get_lang() == LANG_EN
+
+    def test_init_from_env_unset_uses_system_locale(self, monkeypatch) -> None:
+        for var in ("PRECIS_LANG", "LC_ALL", "LC_CTYPE", "LANG"):
+            monkeypatch.delenv(var, raising=False)
+        monkeypatch.setattr(i18n, "_system_locale", lambda: "zh-CN")
+        init_from_env()
+        assert get_lang() == LANG_ZH
+        set_lang(LANG_EN)  # 还原，避免影响其他测试
 
 
 class TestTr:
