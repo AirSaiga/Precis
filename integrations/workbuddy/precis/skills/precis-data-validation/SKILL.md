@@ -5,7 +5,7 @@ display_name_en: Precis Data Validation
 description: "检查/校验 CSV、Excel、JSON 数据质量，或交付前验收数据时使用：生成 V2 校验配置（表结构 + 约束规则）、执行校验、按行解读违规结果并迭代修复至通过。"
 description_zh: "用 Precis 校验表格数据质量：自动生成约束配置、执行校验、逐条汇报违规并迭代修复。"
 description_en: "Validate CSV/Excel/JSON data quality with Precis: generate constraint configs, run validation, report violations row by row, and iterate to a clean pass."
-version: 0.1.10
+version: 0.1.11
 author: Precis Team
 ---
 

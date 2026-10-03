@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [0.1.11] - 2026-10-04
+
 ### 2026-10
 - **CLI 中文 Windows 误落英文修复（国际化配套，区域探测缺陷级）**——`app/cli/i18n.py` 的语言探测只查 `PRECIS_LANG`/`LC_ALL`/`LC_CTYPE`/`LANG` 四个 POSIX 环境变量，而 Windows 默认不设置其中任何一个（`start-cli.bat` 的 `chcp 65001` 只切代码页、不产生 `LANG`），探测链全部落空后按"国际发布默认英文"兜底——中文系统用户看到的 CLI/MCP 界面仍是英文，与"中文环境自动切换"的设计承诺矛盾。修复：四变量全缺时新增**操作系统 UI 语言**兜底探测（Windows 经 `GetUserDefaultLocaleName` 取 BCP-47 标签如 `zh-CN`，其他平台回退 `locale.getlocale()`，探测失败吞异常返回 None 不阻断启动）；优先级不变——任何显式设置的环境变量（含 `LC_ALL=C` 类无法识别值）仍高于 OS 语言，`PRECIS_LANG=zh/en` 手动覆盖能力不受影响。`init_from_env()` 自动携带新兜底，`precis`/`precis-start`/`precis-mcp` 三个入口一并受益。回归：`test_cli_i18n.py` 新增 `TestDetectLangSystemLocaleFallback` 五例（zh 系 BCP-47 标签→中文/非 zh→英文/取不到→默认英文/环境变量优先级），`test_init_from_env_unset_defaults_english` monkeypatch 隔离真实 OS 语言（防中文 Windows 开发/CI 机误判）。
 
