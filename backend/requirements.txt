@@ -111,7 +111,7 @@ requests-toolbelt==1.0.0
 rfc3986==2.0.0
 rich==15.0.0
 ruamel.yaml==0.19.1
-ruff==0.15.11
+ruff==0.16.10
 setuptools==82.0.1
 simpleeval==1.0.7
 six==1.17.0
