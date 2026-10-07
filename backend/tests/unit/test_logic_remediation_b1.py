@@ -439,3 +439,54 @@ class TestParseRegexFlags:
         flags = parse_regex_flags("multiline")
         assert flags & re.IGNORECASE == 0
         assert (flags | re.IGNORECASE) & re.IGNORECASE != 0
+
+    def test_validate_extract_endpoint_flags_word_match(self):
+        """§1.28 漏网调用点（G1 落地核对补齐）：/utils/regex/validate-extract 路由的
+        flags 解析原为三处子串匹配（"i" in "multiline" 为真）→ 长格式误开 IGNORECASE、
+        批量验证结果误判。修复后统一走 parse_regex_flags 整词匹配。"""
+        from app.api.routers.core.regex import RegexValidateExtractRequest, validate_and_extract_regex
+
+        # flags="multiline" + case_sensitive=True：小写 "error" 不得被判为匹配 ERROR
+        result = validate_and_extract_regex(
+            RegexValidateExtractRequest(
+                regex_pattern="ERROR",
+                regex_flags="multiline",
+                case_sensitive=True,
+                match_mode="full",
+                values=["error", "ERROR"],
+            )
+        )
+        data = result["data"]
+        assert data["match_count"] == 1  # 仅 "ERROR" 命中；子串匹配缺陷下会误开 IGNORECASE 变 2
+        assert data["error_count"] == 1
+
+    def test_validate_extract_endpoint_case_sensitive_false_overrides(self):
+        """case_sensitive=False 语义保留：显式不敏感时叠加 IGNORECASE（修复不得破坏）"""
+        from app.api.routers.core.regex import RegexValidateExtractRequest, validate_and_extract_regex
+
+        result = validate_and_extract_regex(
+            RegexValidateExtractRequest(
+                regex_pattern="ERROR",
+                regex_flags="",
+                case_sensitive=False,
+                match_mode="full",
+                values=["error", "ERROR"],
+            )
+        )
+        assert result["data"]["match_count"] == 2
+
+    def test_validate_extract_endpoint_short_and_long_flags(self):
+        """短格式 "im" 与长格式 "ignorecase" 在路由侧同样生效（整词口径）"""
+        from app.api.routers.core.regex import RegexValidateExtractRequest, validate_and_extract_regex
+
+        for flags in ("i", "im", "ignorecase"):
+            result = validate_and_extract_regex(
+                RegexValidateExtractRequest(
+                    regex_pattern="ERROR",
+                    regex_flags=flags,
+                    case_sensitive=True,
+                    match_mode="full",
+                    values=["error"],
+                )
+            )
+            assert result["data"]["match_count"] == 1, f"flags={flags!r} 应开 IGNORECASE"

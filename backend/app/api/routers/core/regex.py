@@ -40,6 +40,8 @@ from typing import Any, Literal
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
+from app.shared.domain.regex_flags import parse_regex_flags
+
 router = APIRouter(prefix="/api/latest/utils", tags=["Utilities"])
 
 
@@ -275,14 +277,10 @@ def validate_and_extract_regex(request: RegexValidateExtractRequest) -> dict[str
         包含匹配统计和提取结果的响应对象
     """
     try:
-        # 初始化正则编译标志
-        flags = 0
-        if "i" in request.regex_flags.lower():
-            flags |= re.IGNORECASE  # 忽略大小写
-        if "m" in request.regex_flags.lower():
-            flags |= re.MULTILINE  # 多行模式
-        if "s" in request.regex_flags.lower():
-            flags |= re.DOTALL  # 点号匹配换行符
+        # §1.28: flags 解析统一走 parse_regex_flags 整词匹配（单一事实源）——
+        # 原实现三处子串匹配（"i" in "multiline" 为真）会把长格式误开 IGNORECASE，
+        # 批量验证结果误判；与 core/utils/regex_extract.py 同口径
+        flags = parse_regex_flags(request.regex_flags)
         if not request.case_sensitive:
             flags |= re.IGNORECASE  # 不区分大小写覆盖
 
