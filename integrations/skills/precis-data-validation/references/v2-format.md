@@ -2,7 +2,9 @@
 
 > For agents writing configuration. Covers all 10 constraint types, schema-embedded
 > constraints, transform nodes, and common settings.
-> The format is in Alpha and may change.
+> The format is frozen as of the Beta release: existing fields, types, and semantics
+> no longer change — additive-only from here on (new optional fields may be added;
+> nothing existing is removed or redefined).
 > (For developers in the source repository: the full type definitions are `ConstraintFile`,
 > `TableSchemaFile`, `TransformFile`, etc. under `backend/app/shared/`.)
 

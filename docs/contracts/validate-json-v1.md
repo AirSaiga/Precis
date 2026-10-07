@@ -1,8 +1,14 @@
 # `precis validate --format json` Output Contract v1
 
-> Status: **Frozen** (since 2026-09-20)
+> Status: **Frozen** (since 2026-09-20; frozen with the Beta release)
 > Implementation single source of truth: `build_json_payload` in `backend/app/shared/services/validation/json_payload.py`
 > Contract snapshot tests: `backend/tests/unit/cli/test_validate_json_contract.py`
+>
+> **Beta freeze commitment**: from Beta onward this contract is **additive-only**
+> (只增不减) — existing fields, their names, types, semantics, and the exit-code
+> contract never change; new fields may be added (consumers must tolerate unknown
+> fields). Breaking changes require a `schema_version` bump and a new contract
+> document. There is no migration path promise (no legacy users pre-Beta).
 
 This document defines the structure of the JSON document that
 `precis validate --manifest <path> --format json` writes to **stdout**.

@@ -1,8 +1,15 @@
 # AI → Frontend Change-Set Instruction Contract v2 (frontend_instructions)
 
-> Status: **Finalized** (v2, effective since 2026-10; the v1 mirrored-data format is deprecated)
+> Status: **Finalized & frozen** (v2, effective since 2026-10; frozen with the Beta release;
+> the v1 mirrored-data format is deprecated)
 > Implementation single source of truth: `backend/app/shared/services/llm/constraints/frontend_instructions.py`
 > Consumer documentation: frontend `frontend/src/services/aiChatInstructions/` (v2 handler)
+>
+> **Beta freeze commitment**: from Beta onward this contract is **additive-only**
+> (只增不减) — the six envelope fields, their names and semantics, the op/kind
+> enums, delivery channels, and producer-side invariants never change; new
+> optional fields may be added (consumers must tolerate unknown fields). Breaking
+> changes require a version bump and a new contract document.
 
 This document defines the structure of the **frontend_instruction** messages the
 backend sends to the frontend after the AI writes to disk (v2: change-set envelope),

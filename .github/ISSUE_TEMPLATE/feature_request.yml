@@ -1,18 +1,17 @@
 name: Feature Request / 功能请求
 description: Suggest an idea for Precis / 为 Precis 提出建议
-description: Suggest an idea for Precis / 为 Precis 提出建议
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
-        👋 感谢你的关注！Precis 目前处于 **Alpha 阶段**。
+        👋 感谢你的关注！Precis 目前处于 **Beta 阶段**。
 
-        👋 Thanks for your interest! Precis is currently in **Alpha stage**.
+        👋 Thanks for your interest! Precis is currently in **Beta stage**.
 
-        我们**接受**功能建议，但请理解：Alpha 阶段接口仍可能调整，部分功能可能因方向调整而被推迟或放弃。
+        我们**接受**功能建议；接口与配置格式已冻结（只增不减），涉及契约变更的建议会在评估后决定是否纳入。
 
-        We **accept** feature suggestions, but please understand: during Alpha stage interfaces may still change, and some features may be deferred or dropped due to direction adjustments.
+        We **accept** feature suggestions; interfaces and config formats are frozen (additive changes only), and suggestions involving contract changes will be evaluated before adoption.
 
   - type: textarea
     id: problem

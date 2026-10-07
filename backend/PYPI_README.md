@@ -2,7 +2,7 @@
 
 > Local-first data validation engine — define schemas and constraints in YAML, validate CSV / TSV / Excel / JSON / JSONL with a single command.
 
-**Alpha** — core functionality is stable and the configuration format is versioned (V2).
+**Beta** — core functionality is stable and the configuration format is versioned and frozen (V2, additive changes only).
 
 ## Installation
 

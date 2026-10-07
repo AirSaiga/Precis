@@ -1,10 +1,10 @@
 # Precis 部署与启动指南 / Deployment & Startup Guide
 
-> **Alpha 阶段提示 / Alpha-Stage Notice**
+> **Beta 阶段提示 / Beta-Stage Notice**
 >
-> 以下脚本和指南适用于 Alpha 阶段试用。项目可能存在启动失败、数据异常或其他未预期行为，建议在隔离环境（非生产环境）中使用。
+> 以下脚本和指南适用于 Beta 阶段使用。核心功能已稳定，仍建议在重要数据上操作前保留备份。
 >
-> The following scripts and guides are for Alpha-stage trial. The project may experience startup failures, data anomalies, or other unexpected behaviors. Use in an isolated (non-production) environment is recommended.
+> The following scripts and guides apply to the Beta stage. Core functionality is stable; keeping backups before operating on important data is still recommended.
 
 ## 目录结构 / Directory Structure
 
@@ -227,8 +227,8 @@ VITE_FRONTEND_PORT=5173
 
 ## 生产打包 / Production Build
 
-> 当前为 Alpha 阶段，不建议生产部署。以下步骤仅作技术参考。
-> Alpha stage; production deployment is not recommended. The following is for technical reference only.
+> 项目定位为单机本地工具，不面向网络开放部署；生产关键数据请保留备份。以下步骤仅作技术参考。
+> The project targets single-machine local use and is not intended for network-exposed deployment; keep backups for production-critical data. The following is for technical reference only.
 
 ```bash
 # Electron 安装包 / Electron installer

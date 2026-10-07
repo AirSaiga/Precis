@@ -15,15 +15,15 @@ We are committed to providing an open and friendly environment for communication
 
 ## 当前阶段的特别说明 / Special Note for Current Stage
 
-Precis 目前处于 **Alpha 阶段**，开源的主要目的是**收集真实使用反馈、验证边界场景**。
+Precis 目前处于 **Beta 阶段**，欢迎真实使用反馈与外部贡献，社区仍在逐步建设中。
 
-Precis is currently in **Alpha stage**. The main purpose of open-sourcing is to **collect real-world feedback and validate edge cases**.
+Precis is currently in **Beta stage**. Real-world feedback and external contributions are welcome; the community is still being built up.
 
 - 讨论请集中在"这个工具有没有用"、"你遇到哪些类似痛点"
-- 目前不是正式的协作社区，请理解维护者回复可能不及时
+- 社区流程仍在完善中，请理解维护者回复可能不及时
 
 - Please focus discussions on "is this tool useful" and "what similar pain points have you encountered"
-- This is not yet a formal collaborative community; please understand that maintainer responses may be delayed
+- Community processes are still being refined; please understand that maintainer responses may be delayed
 
 ## 联系方式 / Contact
 

@@ -2,17 +2,15 @@
 
 > **项目状态声明 / Project Status**
 >
-> Precis 目前处于 **Alpha 阶段**。
-> - 核心功能已实现，但稳定性仍在打磨
-> - 本仓库**开源以收集真实使用反馈**，暂不寻求外部代码贡献
-> - **暂不建议**在生产环境或关键数据场景中使用
-> - 接口和行为仍可能调整，尚未完全冻结
+> Precis 目前处于 **Beta 阶段**。
+> - 核心功能稳定，V2 配置格式与 CLI/API 契约已冻结（只增不减）
+> - 欢迎外部贡献，流程见 [CONTRIBUTING.md](CONTRIBUTING.md)
+> - 生产关键数据场景请保留备份
 >
-> Precis is currently in **Alpha stage**.
-> - Core features are implemented, but stability is still being polished
-> - Open-sourced **to collect real-world feedback**, not seeking external contributions at this stage
-> - **Not recommended** for production or critical data scenarios
-> - Interfaces and behaviors may still change; not yet fully frozen
+> Precis is currently in **Beta stage**.
+> - Core features are stable; the V2 config format and CLI/API contracts are frozen (additive changes only)
+> - External contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md)
+> - Keep backups for production-critical data scenarios
 
 ---
 
@@ -75,9 +73,9 @@ This project uses numerous third-party open-source libraries, each under its own
 
 ## 免责声明 / Disclaimer
 
-本项目按"原样"提供，不附带任何明示或暗示的担保。当前为 Alpha 阶段，可能存在数据丢失、崩溃或其他不可预期的问题。详见 `LICENSE` 文件第 7、8 条。
+本项目按"原样"提供，不附带任何明示或暗示的担保。Beta 阶段仍可能存在缺陷，请为重要数据保留备份。详见 `LICENSE` 文件第 7、8 条。
 
-This project is provided "as is", without warranty of any kind, express or implied. As Alpha-stage software, data loss, crashes, or other unexpected issues may occur. See Sections 7 and 8 of the `LICENSE` file.
+This project is provided "as is", without warranty of any kind, express or implied. As Beta-stage software, defects may still exist; keep backups of important data. See Sections 7 and 8 of the `LICENSE` file.
 
 ## 联系方式 / Contact
 

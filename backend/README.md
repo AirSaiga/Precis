@@ -1,6 +1,6 @@
 # Precis 后端 / Precis Backend
 
-> **Alpha** — 核心功能已成型，接口可能调整。
+> **Beta** — 核心功能稳定，接口契约已冻结（只增不减）。
 
 FastAPI + CLI + 核心校验引擎，采用三层分离架构。
 

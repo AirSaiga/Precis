@@ -1,20 +1,20 @@
 ## 说明 / Notice
 
-感谢你的关注，但 **Precis 目前处于 Alpha 阶段，暂不接收外部 Pull Request**。
+感谢你为 Precis 贡献代码！提交前请确认以下事项。
 
-Thank you for your interest, but **Precis is currently in Alpha stage and is not accepting external Pull Requests**.
+Thank you for contributing to Precis! Before submitting, please confirm the following.
 
-原因 / Reasons：
-- 接口与配置格式仍可能调整，尚未完全冻结 / Interfaces and config formats may still change; not yet fully frozen
-- 当前阶段由维护者主导推进，暂未建立外部协作流程 / Currently maintainer-driven; no external collaboration workflow established yet
-- 稳定性仍在打磨，需先聚焦核心引擎与边界场景覆盖 / Stability is still being polished; focus is on core engine and edge-case coverage
+检查清单 / Checklist：
 
-如果你有兴趣交流，欢迎前往 [Discussions](https://github.com/AirSaiga/Precis/discussions)。
+- 已阅读 [CONTRIBUTING.md](https://github.com/AirSaiga/Precis/blob/main/CONTRIBUTING.md) 的环境搭建与 PR 流程 / You have read the setup and PR workflow in [CONTRIBUTING.md](https://github.com/AirSaiga/Precis/blob/main/CONTRIBUTING.md)
+- 新增/修改代码附带了对应测试（后端 pytest / 前端 vitest 或 E2E）/ New or changed code comes with tests (backend pytest / frontend vitest or E2E)
+- 本地已跑通相关质量门（`npm run lint:all`、后端 `ruff` + `pytest`、前端 `type-check`）/ Relevant quality gates pass locally (`npm run lint:all`, backend `ruff` + `pytest`, frontend `type-check`)
+- 缺陷修复注明影响类型（崩溃 / 数据误判 / 契约破坏 / 性能 / 文案），与缺陷分级对应 / Bug fixes state the impact type (crash / wrong verdict / contract break / performance / wording), matching our defect triage
 
-If you are interested in exchanging ideas, please visit [Discussions](https://github.com/AirSaiga/Precis/discussions).
+## 变更说明 / Description
 
----
+<!-- 描述这个 PR 做了什么、为什么这样做 / Describe what this PR does and why -->
 
-> 如果你是通过自动化工具误提交了这个 PR，请直接关闭即可，无需额外说明。
->
-> If you submitted this PR by automated tool by mistake, please close it directly; no additional explanation is needed.
+## 关联 Issue / Related Issue
+
+<!-- 如有关联 Issue 请列出（如 Closes #123）/ Link related issues if any (e.g., Closes #123) -->

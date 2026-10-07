@@ -2,7 +2,8 @@
 
 > 供 agent 编写配置使用。覆盖 9 种约束、schema 内嵌约束、转换节点与常用 settings。
 > （Scripted 脚本约束涉及表达式执行，本分发版本不提供。）
-> 格式处于 Alpha 阶段，可能调整。
+> 格式自 Beta 起冻结：既有字段、类型与语义不再变更，此后只增不减（additive-only，
+> 可能新增可选字段，不会移除或重定义现有内容）。
 > （面向源码仓库开发者：完整类型定义见 `backend/app/shared/` 下的 `ConstraintFile`、
 > `TableSchemaFile`、`TransformFile` 等。）
 

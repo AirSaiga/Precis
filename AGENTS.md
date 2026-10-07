@@ -2,7 +2,7 @@
 
 This file provides guidance to Qoder (qoder.com) when working with code in this repository.
 
-> **项目状态**: Alpha 阶段。核心功能已实现，API 与配置格式可能调整。修改代码时需保证正确性并维护测试；应结合具体业务场景，必要时进行合理重构以保持代码健康。
+> **项目状态**: Beta 阶段。核心功能稳定，API 与配置格式已冻结（只增不减）。修改代码时需保证正确性并维护测试；应结合具体业务场景，必要时进行合理重构以保持代码健康。
 >
 > **本文档定位**：只收录**稳定的架构原则、约定、命令与红线陷阱**。文件清单、调用图、机制详解等易漂移细节见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)（以代码为准，可能漂移）；发布流程见 [`docs/release/release-process.md`](docs/release/release-process.md)。
 

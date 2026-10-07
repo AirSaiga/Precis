@@ -28,8 +28,8 @@ features:
     details: 界面支持简体中文与英文切换，校验错误信息随界面语言渲染。
 ---
 
-> [!WARNING]
-> **Precis 当前处于 Alpha 阶段。** 核心功能已实现，API 与配置格式可能调整，暂不建议用于生产环境。欢迎在 [GitHub Issues](https://github.com/AirSaiga/Precis/issues) 与 [Discussions](https://github.com/AirSaiga/Precis/discussions) 反馈问题与想法。
+> [!NOTE]
+> **Precis 当前处于 Beta 阶段。** 核心功能稳定，V2 配置格式与 CLI/API 契约已冻结（只增不减）。欢迎在 [GitHub Issues](https://github.com/AirSaiga/Precis/issues) 与 [Discussions](https://github.com/AirSaiga/Precis/discussions) 反馈问题与想法。
 
 ## 演示：从建模到校验
 

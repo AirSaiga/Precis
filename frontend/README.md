@@ -1,6 +1,6 @@
 # Precis 前端 / Precis Frontend
 
-> **Alpha** — 核心功能已成型，接口可能调整。
+> **Beta** — 核心功能稳定，接口契约已冻结（只增不减）。
 
 Vue 3 + TypeScript 可视化编辑器，基于 Vue Flow 画布引擎。
 

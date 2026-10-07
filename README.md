@@ -6,7 +6,7 @@
 
 可视化建模 · 全链路校验 · 数据不出本机
 
-[![Status](https://img.shields.io/badge/status-Alpha-orange)](https://github.com/AirSaiga/Precis)
+[![Status](https://img.shields.io/badge/status-Beta-yellow)](https://github.com/AirSaiga/Precis)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%5E20.19.0%20%7C%7C%20%3E%3D22.12.0-green.svg)](https://nodejs.org/)
 [![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13-blue.svg)](https://python.org/)
@@ -15,11 +15,11 @@
 
 </div>
 
-> **Alpha** — 核心功能已实现，接口与配置格式可能调整，暂不建议生产环境使用。
-> 当前阶段**暂不接受外部 Pull Request**，欢迎 [Issues](https://github.com/AirSaiga/Precis/issues) 与 [Discussions](https://github.com/AirSaiga/Precis/discussions)。
+> **Beta** — 核心功能稳定，V2 配置格式与 CLI/API 契约已冻结（只增不减）。生产关键数据建议保留备份。
+> 欢迎通过 [Issues](https://github.com/AirSaiga/Precis/issues)、[Discussions](https://github.com/AirSaiga/Precis/discussions) 与 [Pull Request](https://github.com/AirSaiga/Precis/pulls) 参与贡献，贡献方式见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 >
-> Alpha stage. Core features are implemented; interfaces and config formats may change. **Not recommended for production.**
-> **No external PRs accepted** at this stage. [Issues](https://github.com/AirSaiga/Precis/issues) and [Discussions](https://github.com/AirSaiga/Precis/discussions) welcome.
+> Beta stage. Core features are stable; the V2 config format and CLI/API contracts are frozen (additive changes only). Keep backups for production-critical data.
+> Contributions are welcome via [Issues](https://github.com/AirSaiga/Precis/issues), [Discussions](https://github.com/AirSaiga/Precis/discussions), and Pull Requests — see [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
 
 ---
 
