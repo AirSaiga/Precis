@@ -1,0 +1,32 @@
+# DSH bundle: GitHub 看板插件（Host 半：授权登录 + 多仓库 + 富信息）
+#
+# 行为：
+#   - 激活时在 127.0.0.1:port 起一个微壳 HTTP 服务（默认 17861，与 precis-panel 的 17860 错开）：
+#       GET  /health          存活探测
+#       GET  /status?repo=…   快照：登录身份、我的仓库列表、所选仓库概览/PR/Issue/Release/CI/提交；
+#                             所选仓库为当前项目（repoDir 的 origin）时附带本地 git 状态
+#       POST /refresh?repo=…  先 `git fetch origin` 再返回最新快照（面板"刷新"按钮）
+#       POST /auth/start      GitHub 设备流登录（返回 user_code + 验证页地址）
+#       GET  /auth/status     登录会话状态
+#       POST /auth/token      PAT 粘贴登录（body: {"token":"…"}）
+#       POST /auth/logout     退出面板登录 / POST /auth/cancel 取消设备流
+#   - 授权链优先级：面板登录(.auth.json) > githubToken/GITHUB_TOKEN > 本机 `gh auth token` > 匿名
+#   - token 只保存在 Host 侧，永不下发给页面
+#   - 插件卸载/禁用时：关闭 HTTP 服务、取消设备流轮询
+#
+# 配置：
+#   repoDir        git 仓库目录（默认下面值；面板"当前项目"数据源）
+#   port           微壳端口（须与 client.js 的 BASE 保持一致）
+#   githubToken    可选静态 token（私有仓库或提高速率限制；也读环境变量 GITHUB_TOKEN）
+#   oauthClientId  可选：GitHub OAuth App 的 client_id，启用面板"设备授权登录"
+#                  （OAuth App 须在 Settings → Developer settings → OAuth Apps 创建，
+#                   并在应用详情页勾选启用 Device Flow）
+#   oauthScope     设备流申请的 scope，默认 "repo read:user"
+- insert:
+    - id: github-board
+      name: '@local/github-board'
+      config:
+        repoDir: D:/Precis/Precis
+        port: 17861
+        # oauthClientId: Iv1.xxxxxxxxxxxxxxxx
+        # oauthScope: repo read:user

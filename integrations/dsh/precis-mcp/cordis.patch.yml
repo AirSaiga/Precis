@@ -1,0 +1,22 @@
+# DSH MCP bundle: 把 Precis 的 MCP server（precis-mcp, stdio）桥接为原生 Agent 工具
+# 装入后模型可用工具：
+#   mcp__precis__validate_data        运行校验，返回与 CLI --format json 完全一致的契约结构
+#   mcp__precis__infer_schema         从数据文件推断 Schema 草稿
+#   mcp__precis__check_config         检查配置加载问题（不跑校验）
+#   mcp__precis__describe_constraints 列出 10 种约束类型及参数文档
+- insert:
+    - id: precis-mcp
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: precis
+        transport: stdio
+        # Windows: precis-mcp 经 pip/pyenv 安装为 .bat shim，Node spawn 须借 cmd /c 启动。
+        # 等价免装写法（需 uv）：
+        #   command: uvx
+        #   args: ['--from', 'precis-cli[mcp]', 'precis-mcp']
+        command: cmd
+        args: ['/c', 'precis-mcp']
+        # precis-mcp 的路径白名单默认根 = 服务器工作目录；按需扩展时改用
+        # env: { PRECIS_MCP_ALLOWED_ROOTS: !!js process.env.PRECIS_MCP_ALLOWED_ROOTS }
+        cwd: D:/Precis/Precis
+        failOnStartupError: true

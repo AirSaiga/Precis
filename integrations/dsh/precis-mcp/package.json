@@ -1,0 +1,20 @@
+{
+  "name": "@local/precis-mcp",
+  "version": "0.1.11",
+  "private": true,
+  "type": "module",
+  "description": "Precis data validation MCP bridge for DSH: exposes precis-mcp (stdio) tools as native agent tools",
+  "exports": {
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "cordis.patch.yml",
+    "locale/*.json"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

@@ -1,0 +1,19 @@
+# DSH bundle: Precis GUI 插件（Host 半：后端进程管理 + 微壳静态/反代服务）
+#
+# 行为：
+#   - 激活时以 cwd=backendDir 启动 `python app/start_server.py`（OS 动态端口，写入 backend/.backend-port）
+#   - 在 127.0.0.1:shellPort 起一个微壳 HTTP 服务：
+#       /_precis/health      健康检查（读端口文件 + TCP 探活）
+#       /api/*               反向代理到 Precis 后端（前端 axios 走相对路径 /api/latest，天然同源）
+#       /*                   静态服务 distDir（Vite base:'./'，任意源可加载；无扩展名路径回退 index.html）
+#   - 插件卸载/禁用时：关闭微壳 + 终止后端进程树（Windows taskkill /T /F）
+#
+# 注意：路径为本机 PoC 配置；发布版应参数化并把 shellPort 同步给 Client 半（当前 Client 半使用相同默认值）。
+- insert:
+    - id: precis-panel
+      name: '@local/precis-panel'
+      config:
+        backendDir: D:/Precis/Precis/backend
+        distDir: D:/Precis/Precis/frontend/dist
+        shellPort: 17860
+        pythonCommand: python

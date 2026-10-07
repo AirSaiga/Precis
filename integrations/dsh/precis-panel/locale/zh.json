@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Precis GUI",
+    "description": "把完整 Precis 校验 GUI 作为 DSH 面板嵌入（拉起 Precis 后端、服务 frontend/dist、反代 /api），并在对话流中原生渲染校验结果。需要本机有 Precis 仓库与 PATH 上的 Python。"
+  }
+}

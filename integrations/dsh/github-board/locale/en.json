@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "GitHub Board",
+    "description": "View the current project's remote status in the DSH sidebar: branch sync, worktree, stars/forks/issues/PR overview and recent commits. The host half reads local git and queries the GitHub API (no auth needed for public repos)."
+  }
+}

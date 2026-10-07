@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Precis GUI",
+    "description": "Embeds the full Precis validation GUI as a DSH panel (spawns the Precis backend, serves frontend/dist, proxies /api) and renders validation results natively in the conversation. Requires a Precis checkout and Python on PATH."
+  }
+}

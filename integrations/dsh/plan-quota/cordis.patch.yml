@@ -1,0 +1,5 @@
+# @local/plan-quota bundle patch — 注册本插件条目。
+# client 半由 package.json 的 dsh.client 声明自动进入浏览器 boot graph。
+- insert:
+    - id: plan-quota
+      name: "@local/plan-quota"

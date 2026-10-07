@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "GitHub 看板",
+    "description": "在 DSH 侧边栏查看当前项目的远端基本状态：分支同步、工作区、stars/forks/issues/PR 概览与最近提交。Host 半读取本地 git 并查询 GitHub API（公开仓库免认证）。"
+  }
+}

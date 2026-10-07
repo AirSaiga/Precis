@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Precis Data Validation",
+    "description": "Bridges the Precis MCP server (precis-mcp) as native tools: validate CSV/Excel/JSON data, infer schemas, and describe constraints. Requires the precis-cli Python package on PATH."
+  }
+}

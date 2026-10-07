@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Precis 数据校验",
+    "description": "将 Precis 的 MCP 服务器（precis-mcp）桥接为原生工具：校验 CSV/Excel/JSON 数据、推断 Schema、查询约束类型文档。需要 PATH 上有 precis-cli Python 包。"
+  }
+}

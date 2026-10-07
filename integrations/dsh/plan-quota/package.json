@@ -1,0 +1,32 @@
+{
+  "name": "@local/plan-quota",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "DSH plan-quota strip: Kimi / GLM Coding Plan quota in the composer dock, optional DeepSeek balance",
+  "exports": {
+    ".": "./host.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "host.js",
+    "client.js",
+    "cordis.patch.yml"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-ui-sidebar"
+      ]
+    }
+  },
+  "license": "MIT"
+}
