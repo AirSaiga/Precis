@@ -27,6 +27,9 @@ vi.mock('@/services/canvas/vueFlowApi', () => ({
     const nodesArray = Array.isArray(node) ? node : [node]
     capturedNodes.push(...nodesArray)
   }),
+  // createBaseNodeFactory 经 findNode 增量改 Vue Flow 内部节点 class，mock 缺导出会以
+  // unhandled error 打穿测试门（跨文件调度变化时显形）
+  findNode: vi.fn(() => null),
 }))
 
 import { addNodes } from '@/services/canvas/vueFlowApi'

@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { writeFileSync, mkdtempSync } from 'node:fs'
+import { writeFileSync, mkdtempSync, utimesSync } from 'node:fs'
 import * as http from 'node:http'
 import * as net from 'node:net'
 import { tmpdir } from 'node:os'
@@ -19,6 +19,8 @@ import {
   containsStartupSignal,
   looksLikeStderrError,
   tryReadBackendPort,
+  isBackendPortFileStale,
+  readBackendPortFile,
   waitForApiReady,
   STARTUP_SIGNALS,
   STDERR_ERROR_MARKERS,
@@ -115,6 +117,64 @@ describe('startup-probe - tryReadBackendPort', () => {
     writeFileSync(join(tmpDir, BACKEND_PORT_FILE), '0', 'utf-8')
     expect(tryReadBackendPort(tmpDir)).toBeNull()
   })
+
+  it('端口号超过 65535 时返回 null（4.18 范围校验）', () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'precis-port-'))
+    writeFileSync(join(tmpDir, BACKEND_PORT_FILE), '99999', 'utf-8')
+    expect(tryReadBackendPort(tmpDir)).toBeNull()
+  })
+})
+
+describe('startup-probe - isBackendPortFileStale（4.15 新鲜度校验）', () => {
+  it('刚写入的端口文件不陈旧', () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'precis-port-'))
+    writeFileSync(join(tmpDir, BACKEND_PORT_FILE), '53871', 'utf-8')
+    expect(isBackendPortFileStale(tmpDir)).toBe(false)
+  })
+
+  it('mtime 超过会话周期的端口文件视为陈旧', () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'precis-port-'))
+    const filePath = join(tmpDir, BACKEND_PORT_FILE)
+    writeFileSync(filePath, '53871', 'utf-8')
+    // 回拨 mtime 到 25 小时前
+    const old = new Date(Date.now() - 25 * 60 * 60 * 1000)
+    utimesSync(filePath, old, old)
+    expect(isBackendPortFileStale(tmpDir)).toBe(true)
+  })
+
+  it('自定义 maxAgeMs 阈值生效', () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'precis-port-'))
+    const filePath = join(tmpDir, BACKEND_PORT_FILE)
+    writeFileSync(filePath, '53871', 'utf-8')
+    const anHourAgo = new Date(Date.now() - 60 * 60 * 1000)
+    utimesSync(filePath, anHourAgo, anHourAgo)
+    expect(isBackendPortFileStale(tmpDir, 30 * 60 * 1000)).toBe(true)
+    expect(isBackendPortFileStale(tmpDir, 2 * 60 * 60 * 1000)).toBe(false)
+  })
+
+  it('端口文件不存在时返回 false（交由 tryReadBackendPort 语义处理）', () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'precis-port-'))
+    expect(isBackendPortFileStale(tmpDir)).toBe(false)
+  })
+})
+
+describe('startup-probe - readBackendPortFile（端口发现轮询）', () => {
+  it('端口文件已存在时立即返回端口', async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'precis-port-'))
+    writeFileSync(join(tmpDir, BACKEND_PORT_FILE), '53871', 'utf-8')
+    await expect(readBackendPortFile(tmpDir, 1000, 50)).resolves.toBe(53871)
+  }, 5000)
+
+  it('文件延迟出现时轮询到端口', async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'precis-port-'))
+    setTimeout(() => writeFileSync(join(tmpDir, BACKEND_PORT_FILE), '53872', 'utf-8'), 120)
+    await expect(readBackendPortFile(tmpDir, 3000, 50)).resolves.toBe(53872)
+  }, 8000)
+
+  it('超时仍无端口文件时返回 null', async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'precis-port-'))
+    await expect(readBackendPortFile(tmpDir, 200, 50)).resolves.toBeNull()
+  }, 5000)
 })
 
 describe('startup-probe - waitForApiReady 回归', () => {
@@ -180,4 +240,34 @@ describe('startup-probe - waitForApiReady 回归', () => {
   it('waitForApiReady 是异步函数', () => {
     expect(typeof waitForApiReady).toBe('function')
   })
+
+  it('200 但非 Precis 标识（JSON 无 version 字段）：按超时 settle(false)', async () => {
+    const srv = http.createServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ hello: 'world' }))
+    })
+    const port = await listen(srv)
+    try {
+      const ok = await waitForApiReady(port, 600, 150)
+      expect(ok).toBe(false)
+    } finally {
+      srv.close()
+      srv.closeAllConnections?.()
+    }
+  }, 8000)
+
+  it('200 但响应为 HTML（SPA fallback 场景）：按超时 settle(false)', async () => {
+    const srv = http.createServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'text/html' })
+      res.end('<!doctype html><html></html>')
+    })
+    const port = await listen(srv)
+    try {
+      const ok = await waitForApiReady(port, 600, 150)
+      expect(ok).toBe(false)
+    } finally {
+      srv.close()
+      srv.closeAllConnections?.()
+    }
+  }, 8000)
 })

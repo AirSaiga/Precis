@@ -22,6 +22,9 @@ import { createTemplateInstanceFactoryModule } from '@/stores/graphStore/modules
 
 vi.mock('@/services/canvas/vueFlowApi', () => ({
   addNodes: vi.fn(),
+  // createBaseNodeFactory 经 findNode 增量改 Vue Flow 内部节点 class，mock 缺导出会以
+  // unhandled error 打穿测试门（与 schemaFactory/connectionOps 同类，延迟定时器触发）
+  findNode: vi.fn(() => null),
 }))
 
 vi.mock('@/i18n', () => ({

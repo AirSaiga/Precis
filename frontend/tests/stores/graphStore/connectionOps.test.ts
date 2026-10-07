@@ -23,6 +23,10 @@ import type { CustomNode, CustomNodeData } from '@/types/graph'
 vi.mock('@/services/canvas/vueFlowApi', () => ({
   addEdges: vi.fn(),
   removeEdges: vi.fn(),
+  // 模块内其他导入经该注入层使用，mock 缺导出会以 unhandled error 打穿测试门
+  findEdge: vi.fn(() => undefined),
+  findNode: vi.fn(() => null),
+  updateEdgeData: vi.fn(),
 }))
 
 vi.mock('@/services/disconnect', () => ({

@@ -109,11 +109,13 @@ export default defineConfig(({ mode }) => {
           'src/features/**/types/**',
           'src/components/**',
         ],
+        // 全局达标线（G5）：收紧到 2026-10 实际水位（64.21/55.04/61.5/65.01）向下取整
+        // 留 1pt 余量防分支抖动；两条关键链路模块另以行覆盖 ≥80% 验收（tests 覆盖）
         thresholds: {
-          lines: 48,
-          branches: 37,
-          functions: 46,
-          statements: 47,
+          lines: 63,
+          branches: 54,
+          functions: 60,
+          statements: 64,
         },
       },
     },

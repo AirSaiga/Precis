@@ -147,10 +147,15 @@ export const test = base.extend<ElectronFixtures>({
     }
     // 创建临时项目注入为"最近项目"，让应用启动即进入画布视图
     const smokeProjectDir = createSmokeProject()
+    // 剔除宿主环境可能注入的 ELECTRON_RUN_AS_NODE：该变量会让打包 exe 以纯 Node 模式
+    // 启动（"--remote-debugging-port" 直接 bad option，Playwright 报 Process failed to
+    // launch）。任何 Electron GUI 宿主（本仓库的 DSH 即是）都会设它，必须显式剥离。
+    const childEnv = { ...process.env }
+    delete childEnv.ELECTRON_RUN_AS_NODE
     const app = await electron.launch({
       executablePath: execPath,
       env: {
-        ...process.env,
+        ...childEnv,
         PRECIS_RECENT_CONFIG: smokeProjectDir,
       },
     })
@@ -162,8 +167,13 @@ export const test = base.extend<ElectronFixtures>({
       diagStderr = appendDiag(diagStderr, d.toString())
     })
     await use(app)
-    // 测试结束后关闭（确保后端子进程被清理）
-    await app.close()
+    // 测试结束后关闭（确保后端子进程被清理）；进程已被用例硬终止（taskkill）时
+    // close 会抛错/空等，吞掉以保证 teardown 不把已通过的用例误判为失败
+    try {
+      await app.close()
+    } catch {
+      /* 进程已死，无需优雅关闭 */
+    }
     // 清理临时项目目录
     fs.rmSync(smokeProjectDir, { recursive: true, force: true })
   },
