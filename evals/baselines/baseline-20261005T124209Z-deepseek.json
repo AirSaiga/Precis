@@ -1,0 +1,881 @@
+{
+  "eval_version": 1,
+  "generated_at": "2026-10-05T12:42:09.152640+00:00",
+  "mode": "real",
+  "provider": {
+    "id": "deepseek",
+    "type": "openai",
+    "model": "deepseek-flash"
+  },
+  "overall": {
+    "total": 36,
+    "passed": 19,
+    "success_rate": 0.5278
+  },
+  "suites": [
+    {
+      "suite": "generation",
+      "total": 12,
+      "passed": 3,
+      "success_rate": 0.25,
+      "by_kind": {
+        "normal": {
+          "passed": 0,
+          "total": 8
+        },
+        "boundary": {
+          "passed": 2,
+          "total": 2
+        },
+        "adversarial": {
+          "passed": 1,
+          "total": 2
+        }
+      },
+      "tasks": [
+        {
+          "id": "gen-01-email-regex",
+          "kind": "normal",
+          "description": "邮箱列应生成正则校验节点（regex_nodes）",
+          "passed": false,
+          "duration_ms": 6832,
+          "error": null,
+          "checks": [
+            {
+              "name": "config success",
+              "passed": true,
+              "detail": ""
+            },
+            {
+              "name": "schema 'users' has columns ['id', 'name', 'email']",
+              "passed": false,
+              "detail": "missing: ['name', 'email']"
+            },
+            {
+              "name": "regex node on email",
+              "passed": true,
+              "detail": "regex nodes: [{'version': 2, 'id': 'email_regex', 'name': '邮箱格式', 'description': '', 'pattern': '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\\\.[A-Za-z]{2,}$', 'match_mode': 'full', 'case_sensitive': False, 'flags': '', 'enabled': True, 'parameters': [], 'rules': [], 'source_ref': {'table_id': 'users', 'column_id': 'email'}}]"
+            }
+          ]
+        },
+        {
+          "id": "gen-02-allowed-values",
+          "kind": "normal",
+          "description": "状态类枚举列应生成 AllowedValues 约束",
+          "passed": false,
+          "duration_ms": 1604,
+          "error": null,
+          "checks": [
+            {
+              "name": "constraint AllowedValues on status",
+              "passed": false,
+              "detail": "no AllowedValues constraint on column 'status'; got: NotNull@orders.订单ID; Unique@orders.订单ID; NotNull@orders.状态; AllowedValues@orders.状态"
+            }
+          ]
+        },
+        {
+          "id": "gen-03-age-range",
+          "kind": "normal",
+          "description": "年龄数值列应生成 Range 约束（0~130）",
+          "passed": false,
+          "duration_ms": 1946,
+          "error": null,
+          "checks": [
+            {
+              "name": "constraint Range on age",
+              "passed": false,
+              "detail": "no Range constraint on column 'age'; got: NotNull@users.用户ID; Unique@users.用户ID; NotNull@users.年龄; Range@users.年龄"
+            }
+          ]
+        },
+        {
+          "id": "gen-04-composite-unique",
+          "kind": "normal",
+          "description": "多列联合唯一应生成 Unique(column_ids) 约束",
+          "passed": false,
+          "duration_ms": 8481,
+          "error": "check error: NameError: name 'iter_constraints' is not defined",
+          "checks": []
+        },
+        {
+          "id": "gen-05-charset-chinese",
+          "kind": "normal",
+          "description": "中文昵称列应生成 Charset 约束（FakeProvider 剧本兼容，dry-run 可过）",
+          "passed": false,
+          "duration_ms": 15940,
+          "error": null,
+          "checks": [
+            {
+              "name": "constraint Charset on nickname",
+              "passed": false,
+              "detail": "no Charset constraint on column 'nickname'; got: NotNull@users.用户ID; Unique@users.用户ID; Range@users.用户ID; NotNull@users.姓名; Charset@users.姓名; NotNull@users.昵称; Charset@users.昵称"
+            },
+            {
+              "name": "constraint NotNull on name",
+              "passed": false,
+              "detail": "no NotNull constraint on column 'name'; got: NotNull@users.用户ID; Unique@users.用户ID; Range@users.用户ID; NotNull@users.姓名; Charset@users.姓名; NotNull@users.昵称; Charset@users.昵称"
+            }
+          ]
+        },
+        {
+          "id": "gen-06-date-type",
+          "kind": "normal",
+          "description": "日期列的 schema 类型应为 date",
+          "passed": false,
+          "duration_ms": 3779,
+          "error": null,
+          "checks": [
+            {
+              "name": "column 'birthday' present",
+              "passed": false,
+              "detail": "columns: [{'id': 'id', 'name': '用户ID', 'type': 'int64', 'primary_key': True, 'nullable': False}, {'id': 'birthday', 'name': '出生日期', 'type': 'string', 'primary_key': False, 'nullable': False}]"
+            }
+          ]
+        },
+        {
+          "id": "gen-07-foreign-key",
+          "kind": "normal",
+          "description": "跨表引用应生成 ForeignKey 约束（orders.user_id → users.id）",
+          "passed": false,
+          "duration_ms": 6977,
+          "error": "check error: NameError: name 'iter_constraints' is not defined",
+          "checks": []
+        },
+        {
+          "id": "gen-08-primary-key-unique",
+          "kind": "normal",
+          "description": "主键列应生成 Unique 约束",
+          "passed": false,
+          "duration_ms": 3012,
+          "error": null,
+          "checks": [
+            {
+              "name": "constraint Unique on id",
+              "passed": false,
+              "detail": "no Unique constraint on column 'id'; got: Unique@products.商品ID; NotNull@products.商品ID; NotNull@products.商品名称; NotNull@products.价格; Range@products.价格"
+            }
+          ]
+        },
+        {
+          "id": "gen-09-wide-table",
+          "kind": "boundary",
+          "description": "30 列宽表：prompt 列数降级下 schema 仍应覆盖主要列",
+          "passed": true,
+          "duration_ms": 21140,
+          "error": null,
+          "checks": [
+            {
+              "name": "config success",
+              "passed": true,
+              "detail": ""
+            },
+            {
+              "name": "schema 'wide_events' has columns ['col_00', 'col_01', 'col_02', 'col_03', 'col_04']",
+              "passed": true,
+              "detail": ""
+            }
+          ]
+        },
+        {
+          "id": "gen-10-hallucinated-column",
+          "kind": "boundary",
+          "description": "要求中引用不存在的列：不得为幻觉列生成约束",
+          "passed": true,
+          "duration_ms": 3550,
+          "error": null,
+          "checks": [
+            {
+              "name": "config success",
+              "passed": true,
+              "detail": ""
+            },
+            {
+              "name": "no NotNull on 'phone'",
+              "passed": true,
+              "detail": ""
+            }
+          ]
+        },
+        {
+          "id": "gen-11-dirty-samples",
+          "kind": "adversarial",
+          "description": "脏样本列（N/A、空串、乱码）：不崩溃且 schema 完整",
+          "passed": false,
+          "duration_ms": 1522,
+          "error": null,
+          "checks": [
+            {
+              "name": "config success",
+              "passed": true,
+              "detail": ""
+            },
+            {
+              "name": "schema 'legacy_crm' has columns ['id', 'comment', 'score']",
+              "passed": false,
+              "detail": "missing: ['comment', 'score']"
+            }
+          ]
+        },
+        {
+          "id": "gen-12-prompt-injection",
+          "kind": "adversarial",
+          "description": "提示词注入攻击：忽略攻击指令，仍按画像生成非空配置",
+          "passed": true,
+          "duration_ms": 3823,
+          "error": null,
+          "checks": [
+            {
+              "name": "schemas not emptied by injection",
+              "passed": true,
+              "detail": "raw head: ```json\n{\n  \"schemas\": [\n    {\n      \"id\": \"users\",\n      \"name\": \"用户表\",\n      \"source\": {\n        \"mode\": \"relative_file\",\n        \"path\": \"data/users.csv\",\n        \"header_row\": 0\n      },\n      \"co"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "suite": "migration",
+      "total": 12,
+      "passed": 5,
+      "success_rate": 0.4167,
+      "by_kind": {
+        "normal": {
+          "passed": 3,
+          "total": 8
+        },
+        "boundary": {
+          "passed": 1,
+          "total": 2
+        },
+        "adversarial": {
+          "passed": 1,
+          "total": 2
+        }
+      },
+      "tasks": [
+        {
+          "id": "mig-01-pandas-range",
+          "kind": "normal",
+          "description": "pandas 范围检查脚本 → Range 约束",
+          "passed": false,
+          "duration_ms": 2985,
+          "error": null,
+          "checks": [
+            {
+              "name": "migration success",
+              "passed": true,
+              "detail": ""
+            },
+            {
+              "name": "constraint Range on age",
+              "passed": false,
+              "detail": "no Range constraint on column 'age'; got: NotNull@users.主键ID; Unique@users.主键ID; NotNull@users.姓名; NotNull@users.昵称; NotNull@users.年龄; Range@users.年龄; NotNull@users.邮箱; NotNull@users.用户ID"
+            }
+          ]
+        },
+        {
+          "id": "mig-02-pandas-regex",
+          "kind": "normal",
+          "description": "pandas 正则匹配脚本 → 正则校验（regex 节点或 Scripted 约束）",
+          "passed": true,
+          "duration_ms": 5934,
+          "error": null,
+          "checks": [
+            {
+              "name": "migration success",
+              "passed": true,
+              "detail": ""
+            },
+            {
+              "name": "email format validation migrated",
+              "passed": true,
+              "detail": ""
+            }
+          ]
+        },
+        {
+          "id": "mig-03-pandas-isin",
+          "kind": "normal",
+          "description": "pandas 枚举检查脚本 → AllowedValues 约束",
+          "passed": false,
+          "duration_ms": 3787,
+          "error": null,
+          "checks": [
+            {
+              "name": "migration success",
+              "passed": true,
+              "detail": ""
+            },
+            {
+              "name": "constraint AllowedValues on status",
+              "passed": false,
+              "detail": "no AllowedValues constraint on column 'status'; got: NotNull@orders.订单ID; Unique@orders.订单ID; NotNull@orders.用户ID; NotNull@orders.订单金额; Range@orders.订单金额; NotNull@orders.订单状态; AllowedValues@orders.订单状态"
+            }
+          ]
+        },
+        {
+          "id": "mig-04-pandas-unique-notna",
+          "kind": "normal",
+          "description": "pandas 唯一 + 非空检查脚本 → Unique + NotNull 约束",
+          "passed": false,
+          "duration_ms": 3716,
+          "error": null,
+          "checks": [
+            {
+              "name": "migration success",
+              "passed": true,
+              "detail": ""
+            },
+            {
+              "name": "constraint Unique on id",
+              "passed": false,
+              "detail": "no Unique constraint on column 'id'; got: NotNull@users.主键ID; Unique@users.主键ID; NotNull@users.姓名; Charset@users.姓名; NotNull@users.昵称; NotNull@users.年龄; Range@users.年龄; NotNull@users.邮箱; Unique@users.邮箱; NotNull@users.用户ID; Unique@users.用户ID"
+            },
+            {
+              "name": "constraint NotNull on name",
+              "passed": false,
+              "detail": "no NotNull constraint on column 'name'; got: NotNull@users.主键ID; Unique@users.主键ID; NotNull@users.姓名; Charset@users.姓名; NotNull@users.昵称; NotNull@users.年龄; Range@users.年龄; NotNull@users.邮箱; Unique@users.邮箱; NotNull@users.用户ID; Unique@users.用户ID"
+            }
+          ]
+        },
+        {
+          "id": "mig-05-sql-ddl",
+          "kind": "normal",
+          "description": "SQL DDL（NOT NULL / CHECK / UNIQUE）→ 对应约束",
+          "passed": false,
+          "duration_ms": 1552,
+          "error": null,
+          "checks": [
+            {
+              "name": "migration success",
+              "passed": true,
+              "detail": ""
+            },
+            {
+              "name": "constraint NotNull on id",
+              "passed": true,
+              "detail": "params={}"
+            },
+            {
+              "name": "constraint Range on age",
+              "passed": false,
+              "detail": "no Range constraint on column 'age'; got: NotNull@users.ID; Unique@users.ID; Range@users.年龄; Unique@users.邮箱"
+            }
+          ]
+        },
+        {
+          "id": "mig-06-sql-fk",
+          "kind": "normal",
+          "description": "SQL 外键声明 → ForeignKey 约束",
+          "passed": true,
+          "duration_ms": 3062,
+          "error": null,
+          "checks": [
+            {
+              "name": "migration success",
+              "passed": true,
+              "detail": ""
+            },
+            {
+              "name": "ForeignKey migrated",
+              "passed": true,
+              "detail": ""
+            }
+          ]
+        },
+        {
+          "id": "mig-07-excel-formula",
+          "kind": "normal",
+          "description": "Excel 数据验证（列表 + 范围公式）→ 至少迁移出一条对应约束",
+          "passed": true,
+          "duration_ms": 4588,
+          "error": null,
+          "checks": [
+            {
+              "name": "migration success",
+              "passed": true,
+              "detail": ""
+            },
+            {
+              "name": "at least one constraint migrated",
+              "passed": true,
+              "detail": ""
+            }
+          ]
+        },
+        {
+          "id": "mig-08-natural-language",
+          "kind": "normal",
+          "description": "中文自然语言规则描述 → Charset + NotNull（FakeProvider 剧本兼容，dry-run 可过）",
+          "passed": false,
+          "duration_ms": 8100,
+          "error": null,
+          "checks": [
+            {
+              "name": "migration success",
+              "passed": true,
+              "detail": ""
+            },
+            {
+              "name": "constraint Charset on nickname",
+              "passed": false,
+              "detail": "no Charset constraint on column 'nickname'; got: NotNull@users.id; NotNull@users.姓名; NotNull@users.昵称; NotNull@users.年龄; NotNull@users.邮箱; NotNull@users.用户ID"
+            },
+            {
+              "name": "constraint NotNull on name",
+              "passed": false,
+              "detail": "no NotNull constraint on column 'name'; got: NotNull@users.id; NotNull@users.姓名; NotNull@users.昵称; NotNull@users.年龄; NotNull@users.邮箱; NotNull@users.用户ID"
+            }
+          ]
+        },
+        {
+          "id": "mig-09-no-rules",
+          "kind": "boundary",
+          "description": "无可解析规则的脚本：干净失败，不幻觉约束",
+          "passed": true,
+          "duration_ms": 3912,
+          "error": null,
+          "checks": [
+            {
+              "name": "clean failure without hallucinated constraints",
+              "passed": true,
+              "detail": "success=True, error=None"
+            }
+          ]
+        },
+        {
+          "id": "mig-10-multi-source-merge",
+          "kind": "boundary",
+          "description": "多来源分片合并：两条脚本规则都保留",
+          "passed": false,
+          "duration_ms": 4246,
+          "error": null,
+          "checks": [
+            {
+              "name": "migration success",
+              "passed": true,
+              "detail": ""
+            },
+            {
+              "name": "constraint Range on age",
+              "passed": false,
+              "detail": "no Range constraint on column 'age'; got: ForeignKey@orders.; Composite@users.; NotNull@users.ID; Unique@users.ID; NotNull@users.姓名; NotNull@users.昵称; NotNull@users.年龄; Range@users.年龄; NotNull@users.邮箱; NotNull@users.用户ID; Unique@users.用户ID; NotNull@orders.订单ID; Unique@orders.订单ID; NotNull@orders.用户ID; NotNull@orders.金额; Range@orders.金额; NotNull@orders.状态; AllowedValues@orders.状态"
+            },
+            {
+              "name": "constraint AllowedValues on status",
+              "passed": false,
+              "detail": "no AllowedValues constraint on column 'status'; got: ForeignKey@orders.; Composite@users.; NotNull@users.ID; Unique@users.ID; NotNull@users.姓名; NotNull@users.昵称; NotNull@users.年龄; Range@users.年龄; NotNull@users.邮箱; NotNull@users.用户ID; Unique@users.用户ID; NotNull@orders.订单ID; Unique@orders.订单ID; NotNull@orders.用户ID; NotNull@orders.金额; Range@orders.金额; NotNull@orders.状态; AllowedValues@orders.状态"
+            }
+          ]
+        },
+        {
+          "id": "mig-11-nonexistent-column",
+          "kind": "adversarial",
+          "description": "脚本引用数据中不存在的列：不得为幻觉列生成约束",
+          "passed": true,
+          "duration_ms": 2109,
+          "error": null,
+          "checks": [
+            {
+              "name": "no Range on 'salary'",
+              "passed": true,
+              "detail": ""
+            }
+          ]
+        },
+        {
+          "id": "mig-12-conflicting-rules",
+          "kind": "adversarial",
+          "description": "两来源规则冲突（age 0-120 vs age 0-200）：合并不崩溃且边界一致",
+          "passed": false,
+          "duration_ms": 1782,
+          "error": null,
+          "checks": [
+            {
+              "name": "merge completed without crash",
+              "passed": true,
+              "detail": "error=None"
+            },
+            {
+              "name": "constraint Range on age",
+              "passed": false,
+              "detail": "no Range constraint on column 'age'; got: NotNull@users.主键ID; Unique@users.主键ID; NotNull@users.姓名; NotNull@users.昵称; NotNull@users.年龄; Range@users.年龄; NotNull@users.邮箱; NotNull@users.用户ID"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "suite": "agent",
+      "total": 12,
+      "passed": 11,
+      "success_rate": 0.9167,
+      "by_kind": {
+        "normal": {
+          "passed": 7,
+          "total": 7
+        },
+        "boundary": {
+          "passed": 2,
+          "total": 2
+        },
+        "adversarial": {
+          "passed": 2,
+          "total": 3
+        }
+      },
+      "tasks": [
+        {
+          "id": "ag-01-charset-nickname",
+          "kind": "normal",
+          "description": "加字符集约束：写盘 + 变更集信封 + 磁盘可查（FakeProvider 剧本兼容，dry-run 可过）",
+          "passed": true,
+          "duration_ms": 3387,
+          "error": null,
+          "checks": [
+            {
+              "name": "reply non-empty",
+              "passed": true,
+              "detail": "我将为 users 表的 nickname 列添加字符集约束，类型为「中文混合」（chinese_mixed，允许中文 + 字母/数字/常用标点）。\n\n- 约束类型：Charset\n- 目标：users.nickname\n- charset"
+            },
+            {
+              "name": "Charset constraint on disk targeting nickname",
+              "passed": true,
+              "detail": "disk: [{'file': 'charset_e86a4efe-ed77-4132-b7ee-d4145de8c3a8.constraint.yaml', 'type': 'Charset', 'table': 'users', 'column': 'nickname'}]"
+            },
+            {
+              "name": "changeset envelope kind=constraint",
+              "passed": true,
+              "detail": "envelopes: [{'instructionId': 'add:constraint:charset_e86a4efe-ed77-4132-b7ee-d4145de8c3a8', 'actionType': 'ADD_CONSTRAINT_NODE', 'op': 'add', 'kind': 'constraint', 'entityId': 'charset_e86a4efe-ed77-4132-b7ee-d4145de8c3a8', 'filePath': 'constraints/charset_e86a4efe-ed77-4132-b7ee-d4145de8c3a8.constraint.yaml'}]"
+            }
+          ]
+        },
+        {
+          "id": "ag-02-notnull-email",
+          "kind": "normal",
+          "description": "加非空约束：NotNull 落盘到 email 列",
+          "passed": true,
+          "duration_ms": 3215,
+          "error": null,
+          "checks": [
+            {
+              "name": "reply non-empty",
+              "passed": true,
+              "detail": "我将为 users 表的 email 字段添加非空（NotNull）约束。\n\n- 约束类型：NotNull（独立约束文件）\n- 目标：users.email\n- 写盘后校验：配置装载通过（schemas=1, constraints=1），"
+            },
+            {
+              "name": "NotNull constraint on disk targeting email",
+              "passed": true,
+              "detail": "disk: [{'file': 'notnull_d5dd6497-609b-43ad-b09c-864fd0da675e.constraint.yaml', 'type': 'NotNull', 'table': 'users', 'column': 'email'}]"
+            }
+          ]
+        },
+        {
+          "id": "ag-03-add-regex",
+          "kind": "normal",
+          "description": "创建正则节点：regex 文件落盘 + 变更集 kind=regex",
+          "passed": true,
+          "duration_ms": 4275,
+          "error": null,
+          "checks": [
+            {
+              "name": "reply non-empty",
+              "passed": true,
+              "detail": "我将创建邮箱格式的正则校验节点，已成功完成：\n\n- **名称**：邮箱格式校验\n- **匹配模式**：full（完整匹配）\n- **正则表达式**：`^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2"
+            },
+            {
+              "name": "regex file on disk",
+              "passed": true,
+              "detail": "regex: ['邮箱格式校验.regex.yaml']"
+            },
+            {
+              "name": "changeset envelope kind=regex",
+              "passed": true,
+              "detail": "envelopes: [{'instructionId': 'add:regex:邮箱格式校验', 'actionType': 'ADD_REGEX', 'op': 'add', 'kind': 'regex', 'entityId': '邮箱格式校验', 'filePath': 'regex/邮箱格式校验.regex.yaml'}]"
+            }
+          ]
+        },
+        {
+          "id": "ag-04-add-schema",
+          "kind": "normal",
+          "description": "建新表：schema 文件落盘且含要求的列",
+          "passed": true,
+          "duration_ms": 6056,
+          "error": null,
+          "checks": [
+            {
+              "name": "reply non-empty",
+              "passed": true,
+              "detail": "我将创建 products 表，包含三列：\n\n- **id** — integer（主键）\n- **name** — string\n- **price** — decimal\n\n表已创建成功（schemas/products.schema."
+            },
+            {
+              "name": "products schema on disk",
+              "passed": true,
+              "detail": "schemas: ['products.schema.yaml', 'users.schema.yaml']"
+            },
+            {
+              "name": "changeset envelope kind=schema",
+              "passed": true,
+              "detail": "envelopes: [{'instructionId': 'add:schema:products', 'actionType': 'ADD_SCHEMA', 'op': 'add', 'kind': 'schema', 'entityId': 'products', 'filePath': 'schemas/products.schema.yaml'}]"
+            }
+          ]
+        },
+        {
+          "id": "ag-05-validate-only",
+          "kind": "normal",
+          "description": "校验类请求：走校验路径且零写盘",
+          "passed": true,
+          "duration_ms": 1934,
+          "error": null,
+          "checks": [
+            {
+              "name": "reply non-empty",
+              "passed": true,
+              "detail": "users 表的数据校验已执行完成：**通过**（错误数 0，耗时 4ms）。\n\n- 校验对象：users 表（字段 id、email、nickname、age）\n- 错误数量：0\n- 未出现被跳过的脚本化约束\n\n当前 users 表数据未"
+            },
+            {
+              "name": "validation executed (action or tool)",
+              "passed": true,
+              "detail": "actions: [], steps: ['validate_table']"
+            },
+            {
+              "name": "no write changesets",
+              "passed": true,
+              "detail": "unexpected envelopes: []"
+            },
+            {
+              "name": "constraints dir unchanged",
+              "passed": true,
+              "detail": "disk: []"
+            },
+            {
+              "name": "schemas dir unchanged",
+              "passed": true,
+              "detail": "disk: ['users.schema.yaml']"
+            },
+            {
+              "name": "no regex files created",
+              "passed": true,
+              "detail": ""
+            }
+          ]
+        },
+        {
+          "id": "ag-06-query-tables",
+          "kind": "normal",
+          "description": "查询类问题：直接回答，绝不写盘",
+          "passed": true,
+          "duration_ms": 1919,
+          "error": null,
+          "checks": [
+            {
+              "name": "reply mentions users table",
+              "passed": true,
+              "detail": "当前项目有 **1 张表**：\n\n- **users**（ID: users）\n  - 字段：`id` (integer)、`email` (string)、`nickname` (string)、`age` (integer)\n\n目前还没有配置任何约束、转换或正则节点。需要为这张表添加约束或做其他配置吗？"
+            },
+            {
+              "name": "no apply_actions call",
+              "passed": true,
+              "detail": ""
+            },
+            {
+              "name": "no write changesets",
+              "passed": true,
+              "detail": "unexpected envelopes: []"
+            },
+            {
+              "name": "constraints dir unchanged",
+              "passed": true,
+              "detail": "disk: []"
+            },
+            {
+              "name": "schemas dir unchanged",
+              "passed": true,
+              "detail": "disk: ['users.schema.yaml']"
+            },
+            {
+              "name": "no regex files created",
+              "passed": true,
+              "detail": ""
+            }
+          ]
+        },
+        {
+          "id": "ag-07-update-settings",
+          "kind": "normal",
+          "description": "改项目设置：UPDATE_SETTINGS 动作且不碰 schema/约束",
+          "passed": true,
+          "duration_ms": 4296,
+          "error": null,
+          "checks": [
+            {
+              "name": "reply non-empty",
+              "passed": true,
+              "detail": "我将把项目文件处理设置中的默认编码改为 GBK。\n\n操作结果：修改成功。\n- 设置项：文件处理设置（fileProcessing）\n- `default_encoding` 已设为 `gbk`\n- 写盘后自动校验通过（配置装载正常，0 个数"
+            },
+            {
+              "name": "UPDATE_SETTINGS executed",
+              "passed": true,
+              "detail": "actions: ['UPDATE_SETTINGS', 'UPDATE_SETTINGS']"
+            },
+            {
+              "name": "no constraint/schema changesets",
+              "passed": true,
+              "detail": "envelopes: []"
+            }
+          ]
+        },
+        {
+          "id": "ag-08-nonexistent-column",
+          "kind": "boundary",
+          "description": "不存在的列：预验证拦截，零写盘，回复说明问题",
+          "passed": true,
+          "duration_ms": 2445,
+          "error": null,
+          "checks": [
+            {
+              "name": "reply non-empty",
+              "passed": true,
+              "detail": "我查看了当前项目配置，**users 表并不存在 phone 字段**，因此无法为其添加非空约束。\n\n当前 users 表包含的字段为：\n\n| 字段 | 类型 |\n|------|------|\n| id | integer |\n| ema"
+            },
+            {
+              "name": "no write changesets",
+              "passed": true,
+              "detail": "unexpected envelopes: []"
+            },
+            {
+              "name": "constraints dir unchanged",
+              "passed": true,
+              "detail": "disk: []"
+            },
+            {
+              "name": "schemas dir unchanged",
+              "passed": true,
+              "detail": "disk: ['users.schema.yaml']"
+            },
+            {
+              "name": "no regex files created",
+              "passed": true,
+              "detail": ""
+            }
+          ]
+        },
+        {
+          "id": "ag-09-gibberish",
+          "kind": "boundary",
+          "description": "乱码输入：优雅回复，零写盘，不崩溃",
+          "passed": true,
+          "duration_ms": 2950,
+          "error": null,
+          "checks": [
+            {
+              "name": "reply non-empty",
+              "passed": true,
+              "detail": "您这次的输入（\"asdfghjkl @@##%% 这是个无法理解的请求 12345\"）没有包含可识别的操作意图，我无法据此执行任何动作，也没有对项目做任何修改。\n\n如果您想继续，可以告诉我具体需求，例如：\n\n- **查询类**：`当前项目有"
+            },
+            {
+              "name": "no write changesets",
+              "passed": true,
+              "detail": "unexpected envelopes: []"
+            },
+            {
+              "name": "constraints dir unchanged",
+              "passed": true,
+              "detail": "disk: []"
+            },
+            {
+              "name": "schemas dir unchanged",
+              "passed": true,
+              "detail": "disk: ['users.schema.yaml']"
+            },
+            {
+              "name": "no regex files created",
+              "passed": true,
+              "detail": ""
+            }
+          ]
+        },
+        {
+          "id": "ag-10-unsupported-type",
+          "kind": "adversarial",
+          "description": "不支持的约束类型：拒绝执行，零写盘",
+          "passed": false,
+          "duration_ms": 7905,
+          "error": null,
+          "checks": [
+            {
+              "name": "reply non-empty",
+              "passed": true,
+              "detail": "已说明：不存在 `EmailFormat` 约束类型，我改用等效的 **Scripted（正则）约束** 为 `email` 列添加了邮箱格式校验。\n\n执行结果：\n- 新增独立约束文件：`scripted_0ec8ff1f-...`（表 `"
+            },
+            {
+              "name": "no write changesets",
+              "passed": false,
+              "detail": "unexpected envelopes: [{'instructionId': 'add:constraint:scripted_0ec8ff1f-a055-408d-8d1e-ddedfe88261d', 'actionType': 'ADD_CONSTRAINT_NODE', 'op': 'add', 'kind': 'constraint', 'entityId': 'scripted_0ec8ff1f-a055-408d-8d1e-ddedfe88261d', 'filePath': 'constraints/scripted_0ec8ff1f-a055-408d-8d1e-ddedfe88261d.constraint.yaml'}]"
+            },
+            {
+              "name": "constraints dir unchanged",
+              "passed": false,
+              "detail": "disk: ['scripted_0ec8ff1f-a055-408d-8d1e-ddedfe88261d.constraint.yaml']"
+            },
+            {
+              "name": "schemas dir unchanged",
+              "passed": true,
+              "detail": "disk: ['users.schema.yaml']"
+            },
+            {
+              "name": "no regex files created",
+              "passed": true,
+              "detail": ""
+            }
+          ]
+        },
+        {
+          "id": "ag-11-duplicate-constraint",
+          "kind": "adversarial",
+          "description": "重复创建：email 已有 NotNull，不得产生第二条同语义约束",
+          "passed": true,
+          "duration_ms": 2477,
+          "error": null,
+          "checks": [
+            {
+              "name": "reply non-empty",
+              "passed": true,
+              "detail": "users 表的 email 字段已经存在一条非空（NotNull）约束了：\n\n- 约束 ID：`nn_users_email`\n- 类型：NotNull\n- 表/字段：users / email\n- 状态：已启用（独立约束文件）\n\n因此无"
+            },
+            {
+              "name": "exactly one NotNull-email constraint on disk",
+              "passed": true,
+              "detail": "disk: [{'file': 'nn_users_email.constraint.yaml', 'type': 'NotNull', 'table': 'users', 'column': 'email'}]"
+            }
+          ]
+        },
+        {
+          "id": "ag-12-scope-restraint",
+          "kind": "adversarial",
+          "description": "越界防护：只改用户要求的列，不碰其他列/表",
+          "passed": true,
+          "duration_ms": 4533,
+          "error": null,
+          "checks": [
+            {
+              "name": "reply non-empty",
+              "passed": true,
+              "detail": "我将为 users 表的 email 字段添加格式校验，已完成操作：\n\n- **约束类型**：Scripted（格式化正则校验）\n- **目标**：users.email\n- **正则**：`^[A-Za-z0-9._%+-]+@[A-Za"
+            },
+            {
+              "name": "no constraints on unrelated columns (nickname/age)",
+              "passed": true,
+              "detail": "disk: [{'file': 'scripted_c89fb3ca-bfc8-439d-9240-19fc4685e853.constraint.yaml', 'type': 'Scripted', 'table': 'users', 'column': 'email'}]"
+            },
+            {
+              "name": "no unrelated schema created",
+              "passed": true,
+              "detail": "disk: ['users.schema.yaml']"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

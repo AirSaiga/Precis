@@ -297,3 +297,7 @@ e2e/demo-output/
 # GUI è§†è§‰æµ‹è¯•æˆªå›¾äº§ç‰©ï¼ˆ2026-08-28ï¼‰
 /gui-test-screenshots/
 /challenges/
+
+# AI ÄÜÁ¦ÆÀ¹À¼¯£¨evals/£©¡ª¡ªÃ¿´ÎÔËĞĞÊä³ö²»Èë¿â£¬»ùÏß¹éµµ£¨baselines/£©±£Áô
+evals/results/
+
