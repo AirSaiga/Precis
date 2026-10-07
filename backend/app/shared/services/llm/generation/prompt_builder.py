@@ -167,6 +167,12 @@ def build_prompt(
 
 返回 JSON 配置，包含 schemas、constraints、regex_nodes 三个字段。
 
+列名保真（最高优先级硬约束，违反即判失败）：
+- schema 每一列的 id 与 name 必须与数据画像中该表的列名逐字一致（完全相同的字符串，含大小写、下划线与语言）；
+- 画像中的列名是数据文件表头的原样拷贝。禁止将其翻译、音译、改名或美化——即使项目名或上下文是中文，也必须原样保留英文列名（如 order_id 不得写成 订单ID），中文列名同样不得改写为英文；
+- 约束（column_id/column_ids 等）与正则节点（source_ref.column_id）的列引用必须使用画像中的原始列名；
+- 若画像列被截断（"还有 N 列未显示"），仅允许使用已展示的列，禁止凭空猜测未展示列的名称。
+
 约束存放规则（二选一，同一规则禁止两处重复）：
 - 简单列级规则（NotNull / Unique / AllowedValues / Range / Charset / DateLogic / Scripted）优先内嵌在该 schema 的 constraints 数组中；
 - Composite（组合约束）不支持内嵌，必须放顶层 constraints 独立定义；ForeignKey、Conditional 涉及跨表/跨列引用，也建议放顶层独立定义。
@@ -178,6 +184,8 @@ Schema 格式（请为每个 schema 提供语义化、唯一的 id，使用小�
 {"id": "users_email_notnull", "type": "NotNull", "enabled": true, "refs": {"table_id": "users", "column_id": "email"}, "params": {}}
 
 支持类型：NotNull, Unique(多列联合唯一用 refs.column_ids 列表), AllowedValues(params{allowed_values}), Range(params{min,max,boundary_mode: inclusive/exclusive}), ForeignKey(refs{from_table_id,from_column_id,to_table_id,to_column_id}), Conditional(refs{then_column_id,if_conditions:[{if_column_id,operator,value}],if_logic}+params{then_condition:{operator: not_null/greater_than/less_than/in/eq/neq, value}}), Scripted(params{expression}), Charset(params{charset_mode: ascii/chinese/chinese_mixed}), DateLogic(params{logic_mode: compare/calculation, compare_op, reference_date 或 reference_column, calculation_type: age/days_diff, target_value, target_column}), Composite(params{logic: all/any/none, sub_constraints:[完整子约束对象]}，不允许嵌套)。
+
+参数必须具体：每个约束的参数必须携带从需求/画像中提取的具体值（如 Range 的 min/max、AllowedValues 的 allowed_values、Charset 的 charset_mode）；无法确定具体值时不要生成该约束（构建链路会拒绝缺必填参数的约束）。
 
 Regex Node 格式：
 {"id": "email_regex", "name": "邮箱格式", "pattern": "^[^@]+@[^@]+$", "match_mode": "full", "source_ref": {"table_id": "users", "column_id": "email"}}

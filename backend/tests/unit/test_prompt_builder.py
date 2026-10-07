@@ -141,3 +141,22 @@ class TestInlineConstraintGuidance:
         prompt, _ = build_prompt([], "Test")
         assert "Composite" in prompt and "不支持内嵌" in prompt
         assert "仅用于上述不适合内嵌的类型" in prompt
+
+
+class TestColumnFidelityConstraint:
+    """列名保真硬约束必须在提示词中钉死（防止中文项目名下列名被翻译改写）。"""
+
+    def test_contains_verbatim_column_rule(self):
+        prompt, _ = build_prompt([], "Test")
+        assert "列名保真" in prompt
+        assert "逐字一致" in prompt
+        assert "禁止将其翻译" in prompt
+        # 反例必须写明（order_id → 订单ID 是首轮基线的头号失败模式）
+        assert "order_id" in prompt and "订单ID" in prompt
+
+    def test_feature_markers_for_fake_provider_unchanged(self):
+        """FakeProvider 剧本判定的特征字样（输出要求/schemas/regex_nodes）不得因改版丢失"""
+        prompt, _ = build_prompt([], "Test")
+        assert "输出要求" in prompt
+        assert "schemas" in prompt
+        assert "regex_nodes" in prompt

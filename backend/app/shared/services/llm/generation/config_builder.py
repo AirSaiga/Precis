@@ -44,6 +44,7 @@ import yaml
 
 from app.shared.core.utils.path_utils import make_relative, normalize_to_posix
 from app.shared.services.llm.constraints.constraint_builder import CONSTRAINT_TYPE_MAP
+from app.shared.services.llm.generation.errors import GenerationParseError
 
 
 def _column_reference_maps(schema_doc: dict[str, Any]) -> tuple[dict[str, str], dict[str, str]]:
@@ -84,6 +85,76 @@ def _resolve_column_ref(ref: Any, id_to_name: dict[str, str], ref_to_id: dict[st
     if key in ref_to_id:
         return key, ref_to_id[key]
     return None
+
+
+def _constraint_param_violation(ctype: str, params: dict[str, Any], refs: dict[str, Any]) -> str | None:
+    """检查带必填参数的约束是否出现"参数全空"（构建期防御，fail-fast）。
+
+    与列名保真校验同层：模型生成/迁移产出的约束若缺少全部关键参数（如 Range 的
+    min/max 同时为 None），运行时是恒真/无操作规则——静默接受会系统性漏判，
+    故在构建路径点名约束类型与列直接报错，交由上层（提示词/精修）修正后重试。
+
+    :param ctype: 规范化后的约束类型名
+    :param params: 约束 params 字典
+    :param refs: 约束 refs 字典（ForeignKey 目标引用完整性检查用）
+    :return: 违规描述字符串；合规返回 None
+    """
+    if ctype == "Range":
+        if params.get("min") is None and params.get("max") is None:
+            return "min 与 max 同时为空（无边界约束为无效规则，至少提供其一）"
+    elif ctype == "AllowedValues":
+        if not params.get("allowed_values"):
+            return "allowed_values 为空列表（枚举约束必须给出候选值）"
+    elif ctype == "Scripted":
+        if not str(params.get("expression") or "").strip():
+            return "expression 为空（空表达式约束为无效规则）"
+    elif ctype == "Charset":
+        if not params.get("charset_mode"):
+            return "charset_mode 缺失（必须显式给出 ascii/chinese/chinese_mixed）"
+    elif ctype == "Conditional":
+        if params.get("then_condition") is None:
+            return "then_condition 缺失（运行时唯一消费的 THEN 侧参数）"
+    elif ctype == "DateLogic":
+        ref_keys = (
+            "reference_date",
+            "reference_column",
+            "reference_date_end",
+            "reference_column_end",
+            "calculation_type",
+            "target_value",
+            "target_column",
+        )
+        if all(params.get(k) is None or params.get(k) == "" for k in ref_keys):
+            return "compare/calculation 参考参数全空（无参考日期/列或计算目标的日期约束无法执行）"
+    elif ctype == "Composite":
+        if not params.get("sub_constraints"):
+            return "sub_constraints 为空（空复合约束恒真无意义）"
+    elif ctype == "ForeignKey":
+        if not refs.get("to_table_id") or not refs.get("to_column_id"):
+            return "refs.to_table_id/to_column_id 缺失（外键目标不完整）"
+    return None
+
+
+def _constraint_column_label(refs: dict[str, Any]) -> str:
+    """从 refs 提取约束的目标列描述（报错点名用）。"""
+    col = (
+        refs.get("column_id")
+        or refs.get("from_column_id")
+        or refs.get("then_column_id")
+        or (refs.get("column_ids") or [""])[0]
+    )
+    table = refs.get("table_id") or refs.get("from_table_id") or ""
+    return f"{table}.{col}" if col else str(table or "unknown")
+
+
+def _validate_constraint_params(ctype: str, params: dict[str, Any], refs: dict[str, Any]) -> None:
+    """约束参数完整性校验入口：违规抛 GenerationParseError（点名类型与列）。"""
+    violation = _constraint_param_violation(ctype, params, refs)
+    if violation:
+        raise GenerationParseError(
+            f"约束参数完整性校验失败：{ctype} 约束（{_constraint_column_label(refs)}）{violation}。"
+            "请补全该约束的必填参数，或移除该约束后重试"
+        )
 
 
 def _constraint_semantic_key(normalized: dict[str, Any]) -> tuple[str, Any, str] | None:
@@ -294,6 +365,12 @@ def build_config(
                 existing_ids,
             )
             existing_ids.add(cid)
+            passthrough_params = cdef.get("params", {})
+            if not isinstance(passthrough_params, dict):
+                passthrough_params = {}
+            # V2 透传分支类型名不归一，校验前先做大写别名映射（与简化分支同一张表）
+            raw_type = str(cdef.get("type", ""))
+            _validate_constraint_params(CONSTRAINT_TYPE_MAP.get(raw_type, raw_type), passthrough_params, cdef["refs"])
             return {
                 "version": 2,
                 "id": cid,
@@ -301,7 +378,7 @@ def build_config(
                 "enabled": cdef.get("enabled", True),
                 "description": cdef.get("description", ""),
                 "refs": cdef["refs"],
-                "params": cdef.get("params", {}),
+                "params": passthrough_params,
             }
 
         # 简化格式转换
@@ -388,6 +465,8 @@ def build_config(
         )
         existing_ids.add(cid)
 
+        _validate_constraint_params(ctype_normalized, params, refs)
+
         return {
             "version": 2,
             "id": cid,
@@ -435,6 +514,8 @@ def build_config(
     used_schema_ids: set[str] = set(schemas.keys())  # 已占用的 ID（含 keep_existing）
     # LLM 在 schema 内给出的原始内嵌约束延后统一规范化（见独立约束处理之后的内嵌阶段）
     raw_inline_by_schema: dict[str, list[dict[str, Any]]] = {}
+    # 每个最终 schema 匹配到的画像（用于列名保真校验）
+    matched_profile_by_schema: dict[str, dict] = {}
     if options.generate_schemas:
         for schema_def in llm_result.get("schemas", []):
             if not isinstance(schema_def, dict):
@@ -479,6 +560,9 @@ def build_config(
                 used_schema_ids.add(proper_schema_id)
 
             llm_id_to_schema_id[llm_schema_id] = proper_schema_id
+            # 画像未命中时缺记（消费端 get() 返回 None 即跳过），避免 dict|None 赋值
+            if profile is not None:
+                matched_profile_by_schema[proper_schema_id] = profile
 
             # LLM 自带 source 时原样优先生效，但生成链路提示词示例的 source 不含
             # options（照抄会让 .json 源缺失 format，首次校验即报加载错误），且可能
@@ -509,6 +593,34 @@ def build_config(
             raw_inline_by_schema[proper_schema_id] = [
                 cdef for cdef in schema_def.get("constraints", []) if isinstance(cdef, dict)
             ]
+
+    # ============ 列名保真校验（fail-fast，不做静默改写） ============
+    # 生成的 schema 列（id 或 name 任一）必须能在匹配画像的列名集合中找到。
+    # 只校验"未知列"（翻译/改写漂移，如 order_id → 订单ID），不要求全集合相等——
+    # 迁移分片/局部生成合法地产出画像列的子集。未匹配画像或画像无列信息时跳过
+    # （如仅生成 constraints、画像加载失败等场景）。
+    column_drift: list[str] = []
+    for sid, sdoc in schemas.items():
+        profile = matched_profile_by_schema.get(sid)
+        if not profile or not profile.get("columns"):
+            continue
+        profile_names = {
+            str(c["name"]) for c in profile["columns"] if isinstance(c, dict) and c.get("name") is not None
+        }
+        for col in sdoc.get("columns", []) or []:
+            if not isinstance(col, dict):
+                continue
+            col_id = str(col.get("id") or "")
+            col_name = str(col.get("name") or "")
+            # id 与 name 均不在画像列名集合 → 判定漂移
+            if col_id in profile_names or col_name in profile_names:
+                continue
+            column_drift.append(f"{profile.get('table_name', sid)}: id={col_id!r}, name={col_name!r}")
+    if column_drift:
+        raise GenerationParseError(
+            "列名保真校验失败：生成的 schema 列与数据画像列名不一致（禁止翻译/改写列名，"
+            f"必须逐字使用画像列名）: {'; '.join(column_drift)}"
+        )
 
     def _remap_schema_refs(obj: Any) -> Any:
         """递归替换约束中的 table_id 为规范 Schema ID。"""

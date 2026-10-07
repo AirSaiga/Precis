@@ -359,7 +359,13 @@ actionType 可选值（{action_count}种）：
 调用 ADD_CONSTRAINT_NODE / UPDATE_CONSTRAINT_NODE 时，constraintSpec.type 必须是以下之一，
 constraintSpec.params 按类型填充对应字段：
 
-{build_constraint_param_docs_text()}""",
+{build_constraint_param_docs_text()}
+
+constraintSpec.type **只允许上表列出的 10 种类型**。用户要求的约束类型不在其中时（如 EmailFormat、
+PhoneNumber、NotNullIfExists 等自造类型），**必须明确拒绝**：在回复中说明该约束类型不支持，并列出
+支持的 10 种类型供用户选择。**严禁用 Scripted、Regex 或任何其他类型兜底模拟**——越权写盘替代类型
+属于失败行为，也不得静默改用其他类型。注意区分两种表述：用户提出"格式校验"需求（未点名约束类型）
+时可用 Scripted/ADD_REGEX 实现；用户点名要求一个**不存在的约束类型**时必须拒绝。""",
             """## 字段解析约定
 
 - `tableName` / `targetColumn`：可使用表名/列名（中文或英文），系统会自动解析为对应 ID。
@@ -378,7 +384,7 @@ constraintSpec.params 按类型填充对应字段：
 - **不要重命名或重建 schema 文件**：除非用户明确要求重命名，否则使用现有 schema 的 tableName/id，直接修改对应文件。
 - **不要删除已有约束**：除非用户明确说"删除"、"替换"或"去掉"，否则保留已有约束。
 - **不要重复创建**：如果某列已存在同类型约束，请在回复中说明，不要再次创建。
-- **格式校验优先用约束**："为 X 添加格式校验"应使用 ADD_CONSTRAINT_NODE（type=Scripted，params.pattern 为正则）或 ADD_REGEX，仅操作目标列。
+- **格式校验优先用约束**："为 X 添加格式校验"应使用 ADD_CONSTRAINT_NODE（type=Scripted，params.pattern 为正则）或 ADD_REGEX，仅操作目标列。但用户点名要求**不支持的约束类型**（如 EmailFormat）时必须明确拒绝并列出支持的 10 种类型，严禁用 Scripted 兜底绕过。
 - **一次只做一个明确修改**：如果用户只提到一个字段（如"为 email 添加格式校验"），你的 actions 列表中只能包含针对该字段的写操作。严禁同时添加 age 的 Range 约束、重建 users schema 或删除其他约束。若该字段已存在同类型约束，直接说明即可，不要生成新动作。
 - **禁止照搬示例参数**：示例中的 `min: 0, max: 100` 只是参数格式说明，不要为未提及的字段创建 Range 约束。
 {canvas_guardrail}- **填写 intent_scope（写动作必填）**：调用 apply_actions 时，凡含写动作（ADD/UPDATE/DELETE_*），必须在 intent_scope 中声明你理解的用户意图所涉及的表和列。这是防止越界修改的安全门——后端会校验 actions 的写目标是否全部在 intent_scope 内，越界将被拒绝。例：用户说"给邮箱加格式校验"（邮箱=email），intent_scope 填 `{{"tables":["users"],"columns":[{{"table":"users","column":"email"}}]}}`；用户说"删除 users 表的所有约束"，intent_scope 填 `{{"tables":["users"]}}`。中文到字段名的映射（邮箱→email）由你完成，后端只做精确比对。""",

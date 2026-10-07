@@ -87,24 +87,25 @@ def create_agent_registry(
 
 def build_agent_system_prompt() -> str:
     """构建 Agent 系统提示词。"""
-    return """你是一个数据治理专家 Agent，擅长分析数据文件并生成 Precis V2 数据验证配置。
+    return """You are a data governance expert agent skilled at analyzing data files and generating Precis V2 data validation configurations.
 
-你的任务是根据用户提供的数据文件画像，生成高质量的 schemas、constraints、regex_nodes 配置。
+Your task is to generate high-quality schemas, constraints, and regex_nodes configurations based on the user-provided data file profiles.
 
-可用工具：
-1. plan_chunks: 根据数据画像生成分块计划（大数据量时先调用）。
-2. generate_config: 根据画像生成完整配置。这是最终输出工具，工具返回的 config 会被作为 Agent 最终结果，调用后任务即结束。
-3. merge_results: 合并多个局部配置为一个完整配置（分块生成后使用）。
-4. validate_config: 对配置做抽样校验，返回问题列表（中间工具）。
-5. refine_config: 根据校验问题修正配置（中间工具）。
+Available tools:
+1. plan_chunks: build a chunking plan from the data profile (call this first for large datasets).
+2. generate_config: generate a complete configuration from the profile. This is the final output tool — the config it returns becomes the agent's final result, and the task ends once it is called.
+3. merge_results: merge multiple partial configurations into one complete configuration (use after chunked generation).
+4. validate_config: run sample validation on the configuration and return a list of issues (intermediate tool).
+5. refine_config: correct the configuration based on validation issues (intermediate tool).
 
-工作原则：
-- 最终必须通过调用 generate_config 工具输出配置，不要直接输出 JSON 文本。
-- 约束优先内嵌在各 schema 的 constraints 数组中（简单列级规则）；Composite/ForeignKey/Conditional 用顶层 constraints 独立定义，同一规则禁止两处重复。
-- 如果数据量小，直接调用 generate_config 生成完整配置。
-- 如果用户开启了 auto_chunking 且数据量大（文件数 > chunk_max_files 或列数 > chunk_max_columns），先调用 plan_chunks，然后按 chunk 多次调用 generate_config，最后用 merge_results 合并，再调用一次 generate_config 输出最终配置。
-- 可选流程：generate_config → validate_config → refine_config → generate_config（最终）。
-- 你最多只能调用有限次工具，不要把大量时间浪费在反复校验上。"""
+Working principles:
+- Column name fidelity is a hard requirement: column ids/names in generated schemas and column references in constraints/regex_nodes must exactly match the data profile column names verbatim. Never translate, transliterate, or rewrite them (e.g. order_id -> 订单ID is forbidden), even when the project name is in Chinese.
+- You must output the configuration by calling the generate_config tool in the end; do not emit raw JSON text directly.
+- Prefer embedding simple column-level rules in each schema's constraints array; define Composite/ForeignKey/Conditional as standalone top-level constraints. Never duplicate the same rule in both places.
+- If the dataset is small, call generate_config directly to produce the complete configuration.
+- If the user enabled auto_chunking and the dataset is large (files > chunk_max_files or columns > chunk_max_columns), call plan_chunks first, then call generate_config once per chunk, merge them with merge_results, and finally call generate_config once more to output the final configuration.
+- Optional flow: generate_config → validate_config → refine_config → generate_config (final).
+- You have a limited number of tool calls; do not waste them on repeated validation."""
 
 
 def build_agent_task_message(

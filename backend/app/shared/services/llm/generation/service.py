@@ -198,7 +198,10 @@ class ConfigGenerationService:
         provider = self._get_provider()
         chat_req = ChatRequest(
             messages=[
-                ChatMessage(role="system", content="你是一个数据治理专家，擅长分析数据文件并生成数据验证配置。"),
+                ChatMessage(
+                    role="system",
+                    content="You are a data governance expert skilled at analyzing data files and generating data validation configurations.",
+                ),
                 ChatMessage(role="user", content=prompt),
             ],
             temperature=0.3,
@@ -477,7 +480,10 @@ class ConfigGenerationService:
         provider = self._get_provider()
         chat_req = ChatRequest(
             messages=[
-                ChatMessage(role="system", content="你是一个数据治理专家，擅长分析数据文件并生成数据验证配置。"),
+                ChatMessage(
+                    role="system",
+                    content="You are a data governance expert skilled at analyzing data files and generating data validation configurations.",
+                ),
                 ChatMessage(role="user", content=prompt),
             ],
             temperature=0.3,
@@ -538,7 +544,10 @@ class ConfigGenerationService:
         provider = self._get_provider()
         chat_req = ChatRequest(
             messages=[
-                ChatMessage(role="system", content="你是一个数据治理专家，擅长修正数据验证配置。"),
+                ChatMessage(
+                    role="system",
+                    content="You are a data governance expert skilled at correcting data validation configurations.",
+                ),
                 ChatMessage(role="user", content=prompt),
             ],
             temperature=0.2,

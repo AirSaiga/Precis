@@ -111,27 +111,68 @@ class ScriptParseTool:
         """解析 Python pandas 代码。"""
         intents: list[dict[str, Any]] = []
 
-        # 模式：df[df.col < 0]
+        # bad-rows 筛选惯用法：bad = df[df.col < 0]; assert bad.empty
+        # → 实际约束是筛选条件的反义（col >= 0），见下方 invert 逻辑
+        negated_selection = bool(re.search(r"assert\s+\w+\.empty", content))
+
+        # 模式：df[df['col'] < 0] / df[df.col < 0]（筛选）与 df['col'] < 0 / df.col < 0（直接比较）。
+        # 列引用的括号字符串形态必须完整闭合（['\"]col['\"]\]）：旧正则的 ['\"\] 只吞一个
+        # 引号，']' 残留在操作符前导致 df['age'] < 0 整体漏匹配（mig-01 归因的真正根因）
         range_patterns = [
-            (r"df\[(?:df\[['\"](\w+)['\"\]]|df\.(\w+))\s*[<>]=?\s*([^\]]+)\]", "Range"),
-            (r"(?:df\[['\"](\w+)['\"\]]|df\.(\w+))\s*[<>]=?\s*([^\n]+)", "Range"),
+            (
+                r"df\[(?:df\[['\"](\w+)['\"]\]|df\.(\w+))\s*([<>]=?)\s*([^\]\s)]+)",
+                True,  # 筛选形态：受 bad-rows 反语义影响
+            ),
+            (
+                r"(?:df\[['\"](\w+)['\"]\]|df\.(\w+))\s*([<>]=?)\s*([^\s)\]]+)",
+                False,  # 直接比较形态
+            ),
         ]
-        for pattern, ctype in range_patterns:
+        seen_range_keys: set[tuple[str, str, str]] = set()
+        for pattern, is_selection in range_patterns:
             for match in re.finditer(pattern, content):
                 col = match.group(1) or match.group(2)
-                val = match.group(3).strip()
-                op = match.group(0)[match.start(3) - match.start(0) : match.start(3) - match.start(0) + 1]
+                if not col:
+                    continue
+                op = match.group(3)
+                val = match.group(4).rstrip(",")
+                # 两条模式对同一比较会重复命中，按 (列, 操作符, 值) 去重
+                dedup_key = (col, op, val)
+                if dedup_key in seen_range_keys:
+                    continue
+                seen_range_keys.add(dedup_key)
+                # bad-rows 筛选 + assert empty：约束语义取反（< → 下界，> → 上界）
+                invert = is_selection and negated_selection
                 intent = {
-                    "type": ctype,
+                    "type": "Range",
                     "column": col,
                     "confidence": 0.8,
-                    "description": f"Python 代码解析: {col} {op} {val}",
+                    "description": f"Python 代码解析: {col} {op} {val}"
+                    + ("（bad-rows 断言为空，约束取反义）" if invert else ""),
                 }
-                if "<" in op:
+                if ("<" in op) != invert:
                     intent["max"] = self._try_parse_number(val)
-                if ">" in op:
+                if (">" in op) != invert:
                     intent["min"] = self._try_parse_number(val)
                 intents.append(intent)
+
+        # 模式：df.col.between(a, b) / df['col'].between(a, b)（闭区间双边界）
+        for match in re.finditer(
+            r"(?:df\[['\"](\w+)['\"]\]|df\.(\w+))\.between\(\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\)", content
+        ):
+            col = match.group(1) or match.group(2)
+            if not col:
+                continue
+            intents.append(
+                {
+                    "type": "Range",
+                    "column": col,
+                    "min": self._try_parse_number(match.group(3)),
+                    "max": self._try_parse_number(match.group(4)),
+                    "confidence": 0.85,
+                    "description": f"Python between 解析: {col} in [{match.group(3)}, {match.group(4)}]",
+                }
+            )
 
         # 模式：df.col.str.match(pattern) 或 df['col'].str.match(pattern)
         regex_patterns = [
@@ -164,34 +205,33 @@ class ScriptParseTool:
                     }
                 )
 
-        # 模式：df.col.is_unique
-        if re.search(r"\.(\w+)\.is_unique", content):
-            for match in re.finditer(r"\.(\w+)\.is_unique", content):
-                intents.append(
-                    {
-                        "type": "Unique",
-                        "column": match.group(1),
-                        "confidence": 0.9,
-                        "description": f"Python 唯一性检查: {match.group(1)}",
-                    }
-                )
+        # 模式：df.col.is_unique / df['col'].is_unique（括号字符串列引用此前漏匹配）
+        for match in re.finditer(r"(?:df\[['\"](\w+)['\"]\]|df\.(\w+))\.is_unique", content):
+            intents.append(
+                {
+                    "type": "Unique",
+                    "column": match.group(1) or match.group(2),
+                    "confidence": 0.9,
+                    "description": f"Python 唯一性检查: {match.group(1) or match.group(2)}",
+                }
+            )
 
-        # 模式：df.col.isna().sum()
-        if re.search(r"\.(\w+)\.isna\(\)", content):
-            for match in re.finditer(r"\.(\w+)\.isna\(\)", content):
-                intents.append(
-                    {
-                        "type": "NotNull",
-                        "column": match.group(1),
-                        "confidence": 0.7,
-                        "description": f"Python 空值检查: {match.group(1)}",
-                    }
-                )
+        # 模式：df.col.isna() / df['col'].notna()（notna/isnull/notnull 同为空值检查）
+        for match in re.finditer(r"(?:df\[['\"](\w+)['\"]\]|df\.(\w+))\.(?:isna|isnull|notna|notnull)\(\)", content):
+            col = match.group(1) or match.group(2)
+            intents.append(
+                {
+                    "type": "NotNull",
+                    "column": col,
+                    "confidence": 0.7,
+                    "description": f"Python 空值检查: {col}",
+                }
+            )
 
-        # 模式：df.col.isin([...])
-        for match in re.finditer(r"\.(\w+)\.isin\(\[(.*?)\]\)", content, re.DOTALL):
-            col = match.group(1)
-            values_str = match.group(2)
+        # 模式：df.col.isin([...]) / df['col'].isin([...])
+        for match in re.finditer(r"(?:df\[['\"](\w+)['\"]\]|\.(\w+))\.isin\(\[(.*?)\]\)", content, re.DOTALL):
+            col = match.group(1) or match.group(2)
+            values_str = match.group(3)
             values = [v.strip().strip("\"'") for v in re.split(r",\s*", values_str) if v.strip()]
             intents.append(
                 {
@@ -200,6 +240,27 @@ class ScriptParseTool:
                     "allowed_values": values,
                     "confidence": 0.85,
                     "description": f"Python 枚举值检查: {col}",
+                }
+            )
+
+        # 模式：df['col'].isin(variable) / df.col.isin(variable)——变量需在脚本中有列表字面量赋值
+        variable_assignments = {
+            m.group(1): m.group(2).strip()[1:-1] for m in re.finditer(r"(\w+)\s*=\s*(\[[^\]]*\])", content)
+        }
+        for match in re.finditer(r"(?:df\[['\"](\w+)['\"]\]|\.(\w+))\.isin\(\s*(\w+)\s*\)", content):
+            col = match.group(1) or match.group(2)
+            var = match.group(3)
+            values_str = variable_assignments.get(var, "")
+            values = [v.strip().strip("\"'") for v in re.split(r",\s*", values_str) if v.strip()]
+            if not values:
+                continue
+            intents.append(
+                {
+                    "type": "AllowedValues",
+                    "column": col,
+                    "allowed_values": values,
+                    "confidence": 0.8,
+                    "description": f"Python 枚举值检查: {col} (isin {var})",
                 }
             )
 
@@ -291,7 +352,9 @@ class ScriptParseTool:
 
         # 非空
         if re.search(r"非空|不能为空|必须填写", content):
-            col_match = re.search(r"([\w\u4e00-\u9fa5]+)\s*(?:列|字段|column)?\s*非空|不能为空", content)
+            # 惰性捕获 + 可选"列/字段"后缀：正则 alternation 优先级陷阱（A非空|不能为空
+            # 会使捕获组失效返回 None）已修正，列名缺失时 LLM 仍可经画像兜底映射
+            col_match = re.search(r"([\w\u4e00-\u9fa5]+?)\s*(?:列|字段|column)?\s*(?:非空|不能为空|必须填写)", content)
             intents.append(
                 {
                     "type": "NotNull",
@@ -303,7 +366,7 @@ class ScriptParseTool:
 
         # 唯一
         if re.search(r"唯一|不能重复|去重", content):
-            col_match = re.search(r"([\w\u4e00-\u9fa5]+)\s*(?:列|字段|column)?\s*唯一|不能重复", content)
+            col_match = re.search(r"([\w\u4e00-\u9fa5]+?)\s*(?:列|字段|column)?\s*(?:唯一|不能重复)", content)
             intents.append(
                 {
                     "type": "Unique",
@@ -339,11 +402,36 @@ class ScriptParseTool:
                     {
                         "type": "AllowedValues",
                         "column": enum_match.group(1),
+                        # 同时给 allowed_values：config_builder 简化管线按该键提取 params
+                        "allowed_values": values,
                         "values": values,
                         "confidence": 0.55,
                         "description": "自然语言：枚举约束",
                     }
                 )
+
+        # 字符集（如"昵称 nickname 列必须是中文混合字符集"、"备注只能含中文"、"code 列仅限 ASCII"）
+        if re.search(r"字符集|只能含|只能包含|只能由|纯中文|纯英文|纯汉字|仅限\s*ascii", content, re.IGNORECASE):
+            col_match = (
+                re.search(r"([A-Za-z_]\w*)\s*(?:列|字段|column)", content)
+                or re.search(r"([A-Za-z_]\w*)\s*(?:只能含|只能包含|只能由)", content)
+                or re.search(r"([\w\u4e00-\u9fa5]+)\s*(?:列|字段)", content)
+            )
+            if re.search(r"混合|中英|英中", content):
+                mode = "chinese_mixed"
+            elif re.search(r"ascii|纯英文", content, re.IGNORECASE):
+                mode = "ascii"
+            else:
+                mode = "chinese"
+            intents.append(
+                {
+                    "type": "Charset",
+                    "column": col_match.group(1) if col_match else "",
+                    "charset_mode": mode,
+                    "confidence": 0.6,
+                    "description": f"自然语言：字符集约束（{mode}）",
+                }
+            )
 
         return intents
 

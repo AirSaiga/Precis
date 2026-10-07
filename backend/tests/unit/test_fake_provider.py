@@ -68,7 +68,10 @@ def _generation_req() -> ChatRequest:
     prompt, _ = build_prompt(_PROFILING_DATA, "e2e-fake-project")
     return ChatRequest(
         messages=[
-            ChatMessage(role="system", content="你是一个数据治理专家，擅长分析数据文件并生成数据验证配置。"),
+            ChatMessage(
+                role="system",
+                content="You are a data governance expert skilled at analyzing data files and generating data validation configurations.",
+            ),
             ChatMessage(role="user", content=prompt),
         ],
         temperature=0.3,

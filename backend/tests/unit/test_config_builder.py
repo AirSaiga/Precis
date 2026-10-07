@@ -29,6 +29,7 @@ import yaml
 from app.shared.core.data_source.specs.json_source import JSONSourceSpec
 from app.shared.core.project.schema.types_parts.source import SourceSpec
 from app.shared.services.llm.generation.config_builder import build_config
+from app.shared.services.llm.generation.errors import GenerationParseError
 
 
 def _make_options(**overrides):
@@ -1157,3 +1158,256 @@ class TestJsonSourceFormatContract:
         by_id = result["schemas"]
         assert by_id["records"]["source"]["options"]["format"] == "array"
         assert by_id["events"]["source"]["options"]["format"] == "lines"
+
+
+def _make_profiling_with_columns(path="data/users.csv", table_name="users"):
+    """带列信息的画像（列名即数据文件表头原样拷贝）。"""
+    return {
+        "path": path,
+        "table_name": table_name,
+        "columns": [
+            {"name": "order_id", "dtype": "int64", "null_count": 0, "sample_values": [1, 2]},
+            {"name": "customer_name", "dtype": "object", "null_count": 0, "sample_values": ["张三"]},
+            {"name": "amount", "dtype": "float64", "null_count": 1, "sample_values": [9.9]},
+        ],
+    }
+
+
+class TestColumnFidelityCheck:
+    """列名保真 fail-fast 校验：生成列与画像列名漂移时报明确错误，不静默改写。"""
+
+    def test_translated_column_name_raises_clear_error(self):
+        """中文项目名下把英文列名翻译为中文显示名（order_id → 订单ID）必须 fail-fast"""
+        profiling = [_make_profiling_with_columns()]
+        llm_result = {
+            "schemas": [
+                {
+                    "id": "users",
+                    "name": "订单表",
+                    "_source_path": "data/users.csv",
+                    "columns": [
+                        {"id": "订单ID", "name": "订单ID", "type": "integer"},
+                        {"id": "金额", "name": "金额", "type": "float"},
+                    ],
+                }
+            ]
+        }
+        with pytest.raises(GenerationParseError) as exc_info:
+            build_config(
+                project_id="p",
+                project_name="订单校验",
+                config_path=None,
+                profiling_data=profiling,
+                llm_result=llm_result,
+                options=_make_options(),
+                existing_config=None,
+            )
+        message = str(exc_info.value)
+        assert "列名保真" in message
+        assert "订单ID" in message  # 漂移列被明确点名
+        assert "金额" in message  # name 漂移（id 匹配但 name 翻译）也会被点名
+
+    def test_verbatim_column_names_pass(self):
+        """列 id/name 与画像列名逐字一致时正常构建"""
+        profiling = [_make_profiling_with_columns()]
+        llm_result = {
+            "schemas": [
+                {
+                    "id": "users",
+                    "name": "users",
+                    "_source_path": "data/users.csv",
+                    "columns": [
+                        {"id": "order_id", "name": "order_id", "type": "integer"},
+                        {"id": "customer_name", "name": "customer_name", "type": "string"},
+                    ],
+                }
+            ]
+        }
+        result = build_config(
+            project_id="p",
+            project_name="订单校验",
+            config_path=None,
+            profiling_data=profiling,
+            llm_result=llm_result,
+            options=_make_options(),
+            existing_config=None,
+        )
+        assert result["success"] is True
+        assert [c["id"] for c in result["schemas"]["users"]["columns"]] == ["order_id", "customer_name"]
+
+    def test_column_subset_is_allowed(self):
+        """画像列的合法子集（迁移分片/局部生成场景）不触发 fail-fast"""
+        profiling = [_make_profiling_with_columns()]
+        llm_result = {
+            "schemas": [
+                {
+                    "id": "users",
+                    "name": "users",
+                    "_source_path": "data/users.csv",
+                    "columns": [{"id": "amount", "name": "amount", "type": "float"}],
+                }
+            ]
+        }
+        result = build_config(
+            project_id="p",
+            project_name="P",
+            config_path=None,
+            profiling_data=profiling,
+            llm_result=llm_result,
+            options=_make_options(),
+            existing_config=None,
+        )
+        assert result["success"] is True
+
+    def test_id_match_with_display_name_alias_passes(self):
+        """id 与画像列名一致、name 为别名时放行（内嵌约束按 name 解析的兼容口径）"""
+        profiling = [_make_profiling_with_columns()]
+        llm_result = {
+            "schemas": [
+                {
+                    "id": "users",
+                    "name": "users",
+                    "_source_path": "data/users.csv",
+                    "columns": [{"id": "order_id", "name": "订单编号", "type": "integer"}],
+                }
+            ]
+        }
+        result = build_config(
+            project_id="p",
+            project_name="P",
+            config_path=None,
+            profiling_data=profiling,
+            llm_result=llm_result,
+            options=_make_options(),
+            existing_config=None,
+        )
+        assert result["success"] is True
+
+    def test_no_matched_profile_skips_check(self):
+        """schema 未匹配到画像（如仅传空画像）时不做列名校验，保持既有行为"""
+        llm_result = {
+            "schemas": [
+                {"id": "users", "name": "users", "columns": [{"id": "任意列", "name": "任意列", "type": "string"}]}
+            ]
+        }
+        result = build_config(
+            project_id="p",
+            project_name="P",
+            config_path=None,
+            profiling_data=[],
+            llm_result=llm_result,
+            options=_make_options(),
+            existing_config=None,
+        )
+        assert result["success"] is True
+
+
+class TestConstraintParamCompleteness:
+    """约束参数完整性 fail-fast 校验：带必填参数的约束"参数全空"时点名类型与列报错。
+
+    审计实证（mig-01/mig-10）：模型生成 Range 约束但 min/max 均为 None 被静默
+    接受，运行时是恒真规则——系统性漏判。构建路径必须 fail-fast，不静默落盘。
+    """
+
+    def _build(self, constraint):
+        return build_config(
+            project_id="p",
+            project_name="P",
+            config_path=None,
+            profiling_data=[],
+            llm_result={"constraints": [constraint]},
+            options=_make_options(),
+            existing_config=None,
+        )
+
+    def test_range_without_min_and_max_raises(self):
+        with pytest.raises(GenerationParseError) as exc_info:
+            self._build({"type": "Range", "table_id": "users", "column_id": "age"})
+        message = str(exc_info.value)
+        assert "Range" in message
+        assert "age" in message  # 列被点名
+
+    def test_range_v2_format_without_bounds_raises(self):
+        with pytest.raises(GenerationParseError):
+            self._build(
+                {
+                    "type": "Range",
+                    "refs": {"table_id": "users", "column_id": "age"},
+                    "params": {"min": None, "max": None},
+                }
+            )
+
+    def test_range_with_min_only_passes(self):
+        """单边界（仅 min 或仅 max）是合法 Range，不得误伤"""
+        result = self._build({"type": "Range", "table_id": "users", "column_id": "age", "min": 0})
+        assert result["success"] is True
+        assert result["constraints"]["users_age_range"]["params"]["min"] == 0
+
+    def test_allowed_values_empty_list_raises(self):
+        with pytest.raises(GenerationParseError) as exc_info:
+            self._build({"type": "AllowedValues", "table_id": "orders", "column_id": "status"})
+        assert "AllowedValues" in str(exc_info.value)
+        assert "status" in str(exc_info.value)
+
+    def test_scripted_empty_expression_raises(self):
+        with pytest.raises(GenerationParseError) as exc_info:
+            self._build({"type": "Scripted", "table_id": "users", "column_id": "email"})
+        assert "Scripted" in str(exc_info.value)
+
+    def test_charset_missing_mode_raises(self):
+        with pytest.raises(GenerationParseError) as exc_info:
+            self._build({"type": "Charset", "table_id": "users", "column_id": "nickname"})
+        assert "Charset" in str(exc_info.value)
+
+    def test_date_logic_all_reference_params_empty_raises(self):
+        with pytest.raises(GenerationParseError) as exc_info:
+            self._build({"type": "DateLogic", "table_id": "users", "column_id": "birth_date"})
+        assert "DateLogic" in str(exc_info.value)
+
+    def test_date_logic_with_reference_date_passes(self):
+        result = self._build(
+            {
+                "type": "DateLogic",
+                "table_id": "users",
+                "column_id": "birth_date",
+                "reference_date": "1900-01-01",
+            }
+        )
+        assert result["success"] is True
+
+    def test_conditional_missing_then_condition_raises(self):
+        with pytest.raises(GenerationParseError) as exc_info:
+            self._build(
+                {
+                    "type": "Conditional",
+                    "table_id": "users",
+                    "then_column_id": "reason",
+                    "if_conditions": [{"if_column_id": "status", "operator": "eq", "value": "inactive"}],
+                }
+            )
+        assert "Conditional" in str(exc_info.value)
+
+    def test_composite_empty_sub_constraints_raises(self):
+        with pytest.raises(GenerationParseError) as exc_info:
+            self._build({"type": "Composite", "table_id": "users", "column_id": "email"})
+        assert "Composite" in str(exc_info.value)
+
+    def test_foreign_key_missing_target_raises(self):
+        with pytest.raises(GenerationParseError) as exc_info:
+            self._build(
+                {
+                    "type": "ForeignKey",
+                    "table_id": "orders",
+                    "from_column_id": "user_id",
+                    "to_table_id": "",
+                    "to_column_id": "",
+                }
+            )
+        message = str(exc_info.value)
+        assert "ForeignKey" in message
+        assert "user_id" in message
+
+    def test_param_free_types_unaffected(self):
+        """无必填参数的类型（NotNull/Unique）不受校验影响"""
+        result = self._build({"type": "NotNull", "table_id": "users", "column_id": "email"})
+        assert result["success"] is True

@@ -165,7 +165,16 @@ def test_build_action_type_list_contains_all_categories():
     """build_action_type_list_text 覆盖全部 8 个 category。"""
     text = registry.build_action_type_list_text()
     # 每个 category 的标签都应出现
-    for label in ["约束", "Schema", "正则", "转换", "设置", "项目初始化", "校验", "显示到画布"]:
+    for label in [
+        "Constraints",
+        "Schema",
+        "Regex",
+        "Transforms",
+        "Settings",
+        "Project init",
+        "Validation",
+        "Canvas display",
+    ]:
         assert label in text
     # 全部动作类型都应出现
     for action_type in registry.ALL_ACTION_TYPES:
@@ -176,7 +185,7 @@ def test_build_action_type_list_marks_canvas_readonly():
     """ADD_TO_CANVAS 在清单中标注"不写盘"。"""
     text = registry.build_action_type_list_text()
     assert "ADD_TO_CANVAS" in text
-    assert "不写盘" in text
+    assert "no disk write" in text
 
 
 def test_build_spec_field_mapping_covers_all_specs():
