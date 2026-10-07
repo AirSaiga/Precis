@@ -38,7 +38,16 @@ function getMimeType(filePath) {
 }
 
 const server = http.createServer((req, res) => {
-  const urlPath = req.url === '/' ? '/index.html' : req.url;
+  // 必须剥离查询串并做 URL 解码：electron-updater 请求 latest.yml 时恒带
+  // ?noCache=<rand> 防缓存参数（builder-util-runtime 注入），不做处理会把
+  // 查询串拼进文件路径导致 404——本地演练源永远不可用（2026-10-05 G4 实测发现）
+  let urlPath;
+  try {
+    urlPath = decodeURIComponent(new URL(req.url, `http://localhost:${port}`).pathname);
+  } catch {
+    urlPath = '/';
+  }
+  if (urlPath === '/') urlPath = '/index.html';
   const safePath = path.normalize(urlPath).replace(/^(\.\.(\/|\\|$))+/, '');
   const filePath = path.join(LOCAL_UPDATE_DIR, safePath);
 
