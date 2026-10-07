@@ -89,7 +89,8 @@
     "wait-on": "^7.2.0"
   },
   "overrides": {
-    "shell-quote": "^1.10.0",
+    "shell-quote": "^1.11.0",
+    "source-map-js": "^1.2.2",
     "vue": "3.5.22",
     "vue-tsc": "3.1.1",
     "minimatch@3.1.5": {

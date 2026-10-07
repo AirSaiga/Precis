@@ -44,7 +44,7 @@ jobs:
         run: npm run test -- --coverage
 
       - name: Audit dependencies
-        # 带临时白名单的 npm 依赖审计（上游无修复版的 dev 工具链通告豁免，见 audit-dependencies.mjs）
+        # 带临时白名单的 npm 依赖审计（上游无修复版或因钉版约束暂不可升级、且不影响运行时的通告豁免，见 audit-dependencies.mjs）
         run: npm run audit:deps
 
       - name: Build

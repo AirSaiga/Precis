@@ -17,8 +17,8 @@
  */
 // npm 依赖安全审计门禁（带临时豁免白名单）：
 // - 等价于 `npm audit --audit-level=moderate`，但在判定前先剔除白名单通告
-// - 白名单只收「上游无修复版、且不影响线上运行时」的 dev 工具链通告，
-//   通告修复版发布后应立即移除白名单（每项均注明移除条件）
+// - 白名单只收「上游无修复版或因钉版约束暂不可升级、且不影响线上运行时」的通告，
+//   通告修复版可安全引入后应立即移除白名单（每项均注明移除条件）
 // - `--no-allowlist` 跳过白名单，用于复核全量真实状态
 import { execSync } from 'node:child_process'
 import path from 'node:path'
@@ -35,6 +35,11 @@ const ALLOWLIST = {
     reason:
       'braces 栈耗尽 DoS（CVE-2026-93687）：上游截至 2026-10-03 无修复版（latest 3.0.3 即 last_affected），仅 dev 工具链（eslint/fast-glob/micromatch），不影响运行时产物',
     removeWhen: 'braces 发布 ≥3.0.4 后：移除本条，并在根 package.json overrides 钉版 braces ^3.0.4',
+  },
+  'GHSA-g2v6-rqmx-r4w6': {
+    reason:
+      '@vue/server-renderer XSS（仅 SSR 渲染路径可触达，vulnerable <3.5.42）：前端为纯客户端 SPA + Electron，server-renderer 不进运行时产物；website（VitePress SSG）仅在构建期渲染仓库内自有 Markdown，无不可信输入注入面。修复版需 vue ≥3.5.42，但 vue 钉版 3.5.22（≥3.5.23 触发 TS2589 类型深度爆炸，见 AGENTS.md 红线），暂不可升级',
+    removeWhen: 'vue 升级到 ≥3.5.42 后（前置：先解决 vue ≥3.5.23 的 TS2589 钉版约束）：移除本条',
   },
 }
 
@@ -76,26 +81,31 @@ function advisoryId(via) {
 const report = runNpmAudit()
 const vulnerabilities = report.vulnerabilities ?? {}
 
-// 不动点剔除：某包「干净」= 其所有 via 均为白名单通告，或指向已判干净的包
-const clean = new Set()
+// 不动点判脏：某包「脏」= 自身存在白名单外的直接通告，或 via 字符串引用了已判脏的依赖包。
+// 反向传播而非正向判净：npm audit 对循环依赖会写环形 via 回引（如 vue ↔ @vue/server-renderer），
+// 「所有 via 干净才算干净」在环上永不收敛，白名单会失效；脏种子向外传播则环上无种子即全干净
+const dirty = new Set()
+for (const [name, info] of Object.entries(vulnerabilities)) {
+  const hasRealAdvisory = (info.via ?? []).some(
+    (via) => typeof via !== 'string' && (noAllowlist || ALLOWLIST[advisoryId(via)] === undefined),
+  )
+  if (hasRealAdvisory) dirty.add(name)
+}
 let changed = true
 while (changed) {
   changed = false
   for (const [name, info] of Object.entries(vulnerabilities)) {
-    if (clean.has(name)) continue
-    const allClean = (info.via ?? []).every((via) => {
-      if (typeof via === 'string') return clean.has(via)
-      return !noAllowlist && ALLOWLIST[advisoryId(via)] !== undefined
-    })
-    if (allClean) {
-      clean.add(name)
+    if (dirty.has(name)) continue
+    const hasDirtyDep = (info.via ?? []).some((via) => typeof via === 'string' && dirty.has(via))
+    if (hasDirtyDep) {
+      dirty.add(name)
       changed = true
     }
   }
 }
 
 // 剩余（未豁免）漏洞中是否存在达到阈值的
-const remaining = Object.entries(vulnerabilities).filter(([name]) => !clean.has(name))
+const remaining = Object.entries(vulnerabilities).filter(([name]) => dirty.has(name))
 const failing = remaining.filter(([, info]) => SEVERITY_ORDER[info.severity] >= THRESHOLD)
 
 // 汇总输出
