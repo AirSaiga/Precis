@@ -8,128 +8,89 @@
 # - 本文件只应包含【第三方运行时依赖】及其传递依赖。
 # - 禁止出现 -e 可编辑安装：precis 自身包在打包环境由 start_server.py 的 sys.path
 #   注入提供，在开发环境由 `pip install -e .` 提供，永远不该写进 requirements.txt。
-# - 开发工具（pytest/ruff/mypy 等）请通过 `pip install -e ".[dev]"` 安装，
-#   不要冻结到本文件，避免被打进用户安装包。
-# - 重新生成本文件时建议：在干净的 venv 中 `pip install -e ".[full]"` 后 `pip freeze`。
+# - 开发工具（pytest/ruff/mypy/pip-audit/twine/pyinstaller 等）请通过
+#   `pip install -e ".[dev]"` 安装，不要冻结到本文件，避免被打进用户安装包。
+#   （2026-10 曾因在装了开发工具的 venv 里直接 freeze，混入 62 个泄漏包，已清理。）
+# - 重新生成本文件（推荐"约束法"，保持既有版本零漂移）：
+#     1. 干净 venv：python -m venv .tmp-reqgen
+#     2. cp backend/requirements.txt /tmp/constraints.txt   # 旧清单作约束
+#     3. cd backend && pip install -e ".[full]" -c /tmp/constraints.txt
+#     4. pip freeze --exclude-editable > 新清单
+#   两个已知陷阱：
+#   a) 必须用干净 venv——venv 里装过的开发工具会被 freeze 一并冻结进来；
+#   b) pip freeze 不输出平台 marker——Windows 上 freeze 会产出 pywin32 这类
+#      win 专属包（mcp 的条件依赖），须手工补 `; sys_platform == 'win32'`，
+#      否则 macOS 打包 CI 安装失败。pyreadline3 纯 Python 无害，保持无 marker。
+# - 本清单是 [full] extra（api/ai/completion/mcp）的闭包：pyproject 新增依赖后
+#   必须同步重新生成本文件，否则打包版缺包（2026-10 曾漏 xlrd/mcp 闭包）。
 # ============================================================================
 aiohappyeyeballs==2.6.1
 aiohttp==3.14.1
 aiosignal==1.4.0
-altgraph==0.17.5
 annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.15.1
-asyncpg==0.31.0
 attrs==26.1.0
-boolean.py==5.0
-build==1.5.0
-CacheControl==0.14.4
 certifi==2026.2.25
 cffi==2.0.0
-charset-normalizer==3.4.7
 click==8.3.1
 colorama==0.4.6
-coverage==7.13.5
 cryptography==49.0.0
-cyclonedx-python-lib==11.7.0
-debugpy==1.8.22
-defusedxml==0.7.1
 distro==1.9.0
 dnspython==2.8.0
-docutils==0.23
 email-validator==2.3.0
 et_xmlfile==2.0.0
 fastapi==0.141.1
 filelock==3.28.0
 frozenlist==1.8.0
-fsspec==2026.9.0
 greenlet==3.5.6
 h11==0.16.0
 httpcore==1.0.9
 httpx==0.28.1
-id==1.6.1
+httpx-sse==0.4.3
 idna==3.18
-iniconfig==2.3.0
-jaraco.classes==3.4.0
-jaraco.context==6.1.2
-jaraco.functools==4.6.0
 jiter==0.13.0
-keyring==25.7.0
-librt==0.9.0
-license-expression==30.4.4
-linkify-it-py==2.1.0
+jsonschema==4.26.0
+jsonschema-specifications==2025.9.1
 markdown-it-py==4.0.0
-mdit-py-plugins==0.6.1
+mcp==1.30.0
 mdurl==0.1.2
-more-itertools==11.1.0
-msgpack==1.2.3
 multidict==6.7.1
-mypy==1.20.1
-mypy_extensions==1.1.0
-nh3==0.3.5
 numpy==2.4.3
 openai==2.30.0
 openpyxl==3.1.5
-packageurl-python==0.17.6
-packaging==26.0
 pandas==2.3.3
-pathspec==1.0.4
-pefile==2024.8.26
-pgvector==0.4.2
-pillow==12.2.0
-pip-api==0.0.34
-pip-requirements-parser==32.0.1
-pip_audit==2.10.1
-pipdeptree==2.35.3
-platformdirs==4.9.6
-pluggy==1.6.0
 propcache==0.4.1
 psutil==7.2.2
-py-serializable==2.1.0
 pycparser==3.0
 pydantic==2.13.4
+pydantic-settings==2.15.0
 pydantic_core==2.46.4
 Pygments==2.20.0
-pyinstaller==6.20.0
-pyinstaller-hooks-contrib==2026.6
-pyparsing==3.3.2
-pyproject_hooks==1.2.0
+PyJWT==2.15.1
 pyreadline3==3.5.6
-pytest==9.1.0
-pytest-asyncio==1.3.0
-pytest-cov==7.1.0
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.2
 python-multipart==0.0.32
 pytz==2026.4
-pywin32-ctypes==0.2.3
+pywin32==312; sys_platform == 'win32'
 PyYAML==6.0.3
 readchar==4.2.2
-readme_renderer==45.0
-requests==2.33.1
-requests-toolbelt==1.0.0
-rfc3986==2.0.0
+referencing==0.37.0
 rich==15.0.0
+rpds-py==2026.9.1
 ruamel.yaml==0.19.1
-ruff==0.16.10
-setuptools==82.0.1
 simpleeval==1.0.7
 six==1.17.0
 sniffio==1.3.1
-sortedcontainers==2.4.0
 SQLAlchemy==2.0.50
+sse-starlette==3.5.0
 starlette==1.3.1
-tenacity==9.1.4
-tomli==2.4.1
-tomli_w==1.2.0
 tqdm==4.67.3
-twine==6.2.0
-types-PyYAML==6.0.12.20260518
 typing-inspection==0.4.2
 typing_extensions==4.16.0
 tzdata==2026.1
-uc-micro-py==2.0.0
 uritemplate==4.2.0
-urllib3==2.7.0
 uvicorn==0.42.0
+xlrd==2.0.2
 yarl==1.23.0
