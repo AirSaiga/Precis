@@ -40,6 +40,7 @@ Precis 是一款针对 Excel / CSV / TSV 表格数据的质量校验工具。校
 ## 功能特性
 
 - **可视化编排** — 在画布上拖拽节点、连接流程，即可完成校验建模
+- **AI 助手** — 接入国内外大模型或本地 Ollama，在对话中用自然语言推断 Schema、生成约束，确认后自动写入并同步画布；CLI 同样可用（`ai chat` / `ai generate`）
 - **10 种检查规则** — 必填校验、唯一性、引用完整性、允许值清单、数值范围、条件判断、自定义脚本、字符集、日期逻辑、多规则组合
 - **22 种数据转换** — 字符串拆分、模式提取、数学计算、分组聚合、过滤、排序等
 - **大文件支持** — 超大文件自动分块处理
@@ -126,6 +127,16 @@ npm run cli:validate          # 使用内置示例数据（qa_test/qa_simple/）
 
 正常输出校验结果即表示环境就绪。
 
+## AI 助手（对话式建模）
+
+除手动编排外，还可以让 AI 代劳。在应用设置中接入大模型——内置 OpenAI、Anthropic、Gemini、DeepSeek、通义千问、智谱、Kimi、MiniMax、小米 MiMo 等服务商预设，也支持本地 Ollama——之后即可在对话中描述需求：
+
+- AI 推断数据结构，生成 Schema 与约束草稿
+- 每次写盘前列出变更清单，确认后应用到项目并同步到画布
+- 命令行同样可用：`precis` 交互式 shell 中先以 `provider` 配置服务商，再执行 `ai chat`（Agent 模式）或 `ai generate data.xlsx` 从数据文件直接生成配置
+
+> AI 功能为可选：不配置任何服务商时，校验与其他功能不受影响，全部校验仍在本地执行。为外部 AI 编程助手接入的方式见下一节 MCP Server。
+
 ## MCP Server（AI 助手直连）
 
 本仓库实现了一个 [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server（stdio 传输，基于官方 MCP Python SDK）。支持 MCP 的 AI 编程助手（Claude Code、Cursor、Kimi Code 等）配置后可直接调用校验引擎。
@@ -201,6 +212,7 @@ Three usage modes, choose as needed:
 ## Features
 
 - **Visual composition** — build validation workflows by arranging nodes and connections on a canvas
+- **AI assistant** — connect a cloud model or a local Ollama instance, then infer schemas and generate constraints from natural-language descriptions; confirmed changes are applied to the project and synced to the canvas; also available in the CLI (`ai chat` / `ai generate`)
 - **10 check rules** — required values, uniqueness, referential integrity, allowed value lists, numeric ranges, conditional checks, custom scripts, character sets, date logic, and multi-rule combinations
 - **22 data transforms** — string splitting, pattern extraction, math evaluation, grouping and aggregation, filtering, sorting, and more
 - **Large file support** — oversized files are automatically processed in chunks
@@ -286,6 +298,16 @@ npm run cli:validate          # runs a validation pass on the bundled sample dat
 ```
 
 Successful validation output indicates the environment is ready.
+
+## AI Assistant (Chat-Based Modeling)
+
+Besides manual composition, you can let an AI do the wiring. Connect a model in the app settings — presets are bundled for OpenAI, Anthropic, Gemini, DeepSeek, Qwen, Zhipu GLM, Kimi, MiniMax, and Xiaomi MiMo, and a local Ollama instance is supported — then describe what you need in the in-app chat:
+
+- The AI infers the data structure and drafts schemas and constraints
+- Every write to disk is preceded by a change list; confirmed changes are applied to the project and synced to the canvas
+- The CLI works the same way: configure a provider with `provider` inside the `precis` interactive shell, then run `ai chat` (agent mode) or `ai generate data.xlsx` to generate config straight from a data file
+
+> The AI features are optional: with no provider configured, validation and every other feature work as usual, and all validation still runs locally. To integrate external AI coding assistants instead, see the MCP Server section below.
 
 ## MCP Server (for AI assistants)
 
