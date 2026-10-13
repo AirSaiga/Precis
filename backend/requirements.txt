@@ -57,7 +57,7 @@ mcp==1.30.0
 mdurl==0.1.2
 multidict==6.7.1
 numpy==2.4.3
-openai==2.30.0
+openai==2.54.0
 openpyxl==3.1.5
 pandas==2.3.3
 propcache==0.4.1
