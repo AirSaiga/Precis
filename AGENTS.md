@@ -4,7 +4,7 @@ This file provides guidance to Qoder (qoder.com) when working with code in this 
 
 > **项目状态**: Beta 阶段。核心功能稳定，API 与配置格式已冻结（只增不减）。修改代码时需保证正确性并维护测试；应结合具体业务场景，必要时进行合理重构以保持代码健康。
 >
-> **本文档定位**：只收录**稳定的架构原则、约定、命令与红线陷阱**。文件清单、调用图、机制详解等易漂移细节见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)（以代码为准，可能漂移）；发布流程见 [`docs/release/release-process.md`](docs/release/release-process.md)。
+> **本文档定位**：只收录**稳定的架构原则、约定、命令与红线陷阱**。文件清单、调用图、机制详解等易漂移细节见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)（以代码为准，可能漂移）；发布流程见 `docs/release/release-process.md`（本地维护文档，未随仓库发布）。
 
 ---
 
@@ -390,7 +390,7 @@ AI 聊天（agent 模式）的画布同步走**变更集对账**架构，红线�
 
 红线：CD 守卫 tag 与全部 manifest 全等、Release 必须非 draft、产物 size/sha512 自检；PyPI 仅 tag 推送路径触发且冒烟先于发布；自定义更新源仅允许 https、启动时重放 `setFeedURL`；`quitAndInstall` 前先终止 Python 子进程树；主进程单实例锁勿移除。
 
-> 发布流程、CD 不变量、更新链路、本地演练、extras 矩阵、发布/PyPI 控制台 GUI 的完整约定见 [`docs/release/release-process.md`](docs/release/release-process.md)。
+> 发布流程、CD 不变量、更新链路、本地演练、extras 矩阵、发布/PyPI 控制台 GUI 的完整约定见 `docs/release/release-process.md`（本地维护文档，未随仓库发布）。
 
 ---
 

@@ -170,7 +170,7 @@
 
 ## 附记：依赖漏洞扫描基线（2026-10-05 刷新）
 
-> 本附记由 G6 任务（`docs/graduation-plan.md`）执行时生成：重跑 `pip-audit`（backend 环境）与 `npm audit`（根目录，`--registry=https://registry.npmjs.org`），替代 [`docs/security-audit.md`](docs/security-audit.md) 第 7 节的过期基线（2026-06-22）。
+> 本附记由 G6 任务（`docs/graduation-plan.md`）执行时生成：重跑 `pip-audit`（backend 环境）与 `npm audit`（根目录，`--registry=https://registry.npmjs.org`），替代 `docs/security-audit.md`（本地文档）第 7 节的过期基线（2026-06-22）。
 >
 > ⚠️ **环境备注**：本机 `.npmrc` 默认源为 npmmirror 镜像，该镜像**不实现 audit 端点**（`/-/npm/v1/security/*` 返回 NOT_IMPLEMENTED），跑 `npm audit` 必须显式指定官方 registry；CI 若同样走镜像源，其 audit 结果可能静默失真，需核对。
 

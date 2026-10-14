@@ -2,7 +2,7 @@
 
 Precis 使用 V2 YAML 格式管理项目配置：项目根目录的 `project.precis.yaml` 是入口文件，引用各类子配置文件。
 
-> 本页为常用配置精简参考。完整字段与全部算子参数见仓库 [`docs/configuration-reference.md`](https://github.com/AirSaiga/Precis/blob/main/docs/configuration-reference.md)。
+> 本页为常用配置精简参考。
 
 ## 文件命名约定
 
@@ -173,8 +173,6 @@ params:
 | 类型 | CastType、FillNA |
 | 映射 | Lookup、MapValue、ConditionalAssign |
 | 行操作 | FilterRows、DropDuplicates、SortRows、Aggregate |
-
-各算子参数详见仓库完整文档。
 
 ## Regex 与 Template
 

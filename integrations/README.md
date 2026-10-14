@@ -38,6 +38,7 @@ No need to install or open the Precis desktop GUI.
 | **ZCode** | Copy the skill or use MCP | The skill spec is compatible; see below for `precis-mcp` configuration |
 | **Cursor / other MCP harnesses** | Configure MCP `precis-mcp` | No skill needed; tools return structured JSON |
 | **Any shell agent** | Use the L1 CLI directly | This README's contract documentation is the interface description |
+| **DSH** | Experimental PoC bundles under `dsh/` | Proof-of-concept host plugins (precis-panel / precis-mcp / github-board / plan-quota); not part of the supported integration surface, no stability promise |
 
 ## Prerequisites (pick one; common to all harnesses)
 
@@ -236,6 +237,7 @@ integrations/                          # generic integration root (also the Kimi
 │   ├── validate.md
 │   ├── init.md
 │   └── report.md
+├── dsh/                               # DSH host-integration PoC (experimental; see each subproject's README)
 └── workbuddy/                         # Tencent WorkBuddy open platform listing material (see that directory's README)
 ```
 

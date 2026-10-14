@@ -2,7 +2,7 @@
 
 Precis CLI 是命令行入口，支持**交互式 Shell** 与**独立命令**两种模式，适合快速校验数据文件、CI/CD 流水线集成、批量处理多个项目。
 
-> 本页为常用命令精简参考。完整文档见仓库 [`docs/cli-reference.md`](https://github.com/AirSaiga/Precis/blob/main/docs/cli-reference.md)。
+> 本页为常用命令精简参考。
 
 ## 安装与启动
 
