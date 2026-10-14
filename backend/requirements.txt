@@ -63,9 +63,9 @@ pandas==2.3.3
 propcache==0.4.1
 psutil==7.2.2
 pycparser==3.0
-pydantic==2.13.4
+pydantic==2.14.0
 pydantic-settings==2.15.0
-pydantic_core==2.46.4
+pydantic_core==2.50.0
 Pygments==2.20.0
 PyJWT==2.15.1
 pyreadline3==3.5.6
