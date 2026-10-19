@@ -24,7 +24,7 @@
 # - 本清单是 [full] extra（api/ai/completion/mcp）的闭包：pyproject 新增依赖后
 #   必须同步重新生成本文件，否则打包版缺包（2026-10 曾漏 xlrd/mcp 闭包）。
 # ============================================================================
-aiohappyeyeballs==2.6.1
+aiohappyeyeballs==2.7.1
 aiohttp==3.14.1
 aiosignal==1.4.0
 annotated-doc==0.0.4
