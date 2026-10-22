@@ -329,8 +329,14 @@ class ToolRegistry:
         - 疑似截断（不完整 JSON）→ 标记 truncated_raw_arguments，execute 短路分发并
           回灌明确的截断错误（按 {"raw": ...} 分发会误导 LLM 以为漏填字段）
         - 完整但非法 → 维持 {"raw": <原文>} 降级，交给 LLM 下一轮自愈
+        - raw 本身不是 dict（provider 协议异常/畸形流 chunk）→ 构造不可分发的空
+          ToolCall，execute 以"未知工具"错误回灌 LLM，避免 AttributeError 中止整轮任务
         """
+        if not isinstance(raw, dict):
+            return ToolCall(id="", name="", arguments={})
         func = raw.get("function", {})
+        if not isinstance(func, dict):
+            return ToolCall(id=str(raw.get("id", "")), name="", arguments={})
         arguments = func.get("arguments")
         if isinstance(arguments, str):
             try:

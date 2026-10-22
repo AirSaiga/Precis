@@ -175,7 +175,9 @@ class AgentMemory:
         for msg in selected:
             role = msg.get("role")
             if role == "assistant" and msg.get("tool_calls"):
-                call_ids = {tc.get("id") for tc in msg["tool_calls"]}
+                # 畸形 tool_call 条目（非 dict，provider 协议异常）无 id 可言，直接跳过——
+                # 不得让整条 get_messages 抛异常（executor 已在收集处丢弃同类条目，此处为纵深防御）
+                call_ids = {tc.get("id") for tc in msg["tool_calls"] if isinstance(tc, dict)}
                 if call_ids <= answered_ids:
                     repaired.append(msg)
                     kept_call_ids |= call_ids
@@ -285,10 +287,14 @@ class AgentMemory:
         """估算单条消息 token 数。"""
         content = msg.get("content") or ""
         tokens = cls._estimate_tokens(content)
-        # tool_calls 也计入
+        # tool_calls 也计入；畸形条目（非 dict / function 非 dict）跳过，不得抛异常
         tool_calls = msg.get("tool_calls") or []
         for tc in tool_calls:
+            if not isinstance(tc, dict):
+                continue
             func = tc.get("function", {})
+            if not isinstance(func, dict):
+                continue
             tokens += cls._estimate_tokens(func.get("name", ""))
             args = func.get("arguments")
             if isinstance(args, str):

@@ -305,6 +305,12 @@ class AgentExecutor:
                             # 对空 id 短路失效，恰在它要防的 Ollama 场景上漏过。
                             # 修复：id 非空用 id（快路径）；否则用 name+arguments 签名兜底。
                             for tc in chunk.tool_calls:
+                                # 非 dict 条目（provider 协议异常/畸形流 chunk）直接丢弃：
+                                # 放行会在 memory._repair_tool_pairing 的 tc.get("id") 处
+                                # 再次 AttributeError，且无法构成合法的 tool_call 消息
+                                if not isinstance(tc, dict):
+                                    logger.warning(f"忽略非 dict 的畸形 tool_call 条目: {repr(tc)[:200]}")
+                                    continue
                                 sig = _tool_call_signature(tc)
                                 if sig and any(_tool_call_signature(existing) == sig for existing in raw_tool_calls):
                                     continue

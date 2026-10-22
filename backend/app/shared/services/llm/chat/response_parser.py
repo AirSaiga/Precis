@@ -78,6 +78,17 @@ class ActionParser:
             ("提取 JSON 块", ActionParser._extract_json_block),
             ("修复单引号", ActionParser._fix_single_quotes),
             ("截断恢复", lambda t: ActionParser._try_recover_truncated(t)[0]),
+            # 截断与 Markdown 包裹的组合场景：LLM 被 token 上限掐断时通常已输出了
+            # ```json 围栏开头。裸"截断恢复"在原文（含围栏前缀）上补闭合符仍非法，
+            # 需先清理/提取再恢复——放在既有 5 策略之后，不影响任何现状可解析输入
+            (
+                "清理 Markdown 后截断恢复",
+                lambda t: ActionParser._try_recover_truncated(ActionParser._clean_json_text(t))[0],
+            ),
+            (
+                "提取 JSON 块后截断恢复",
+                lambda t: ActionParser._try_recover_truncated(ActionParser._extract_json_block(t))[0],
+            ),
         ]
 
         last_error = None
@@ -183,13 +194,70 @@ class ActionParser:
         return re.sub(r"'([^']*)'", replace_quotes, text)
 
     @staticmethod
+    def _scan_json_open_stack(text: str) -> tuple[list[str], bool]:
+        """
+        @methoddesc 字符串感知地扫描 JSON 文本，返回未闭合结构信息
+
+        业务用途:
+        - 维护未闭合括号的栈（元素为对应闭合符，栈序即开括号出现序）
+        - 报告扫描结束时是否悬停在字符串字面量内部（未闭合引号）
+        - 与简单计数的关键差异：
+          1) 跳过字符串字面量内的括号与引号（计数法会把 {"a": "}"} 误判为已闭合）；
+          2) 栈天然给出 LIFO 闭合序，按计数盲补在 { 与 [ 混合嵌套时产出非法 JSON
+             （如 {"a": [1, 2 被补成 {"a": [1, 2}]）
+
+        参数:
+            text: JSON 文本（截断与否均可）
+
+        返回:
+            (待闭合符栈·LIFO 闭合序, 是否悬停在字符串字面量内)
+        """
+        stack: list[str] = []
+        in_string = False
+        escaped = False
+        for char in text:
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif char == "\\":
+                    escaped = True
+                elif char == '"':
+                    in_string = False
+                continue
+            if char == '"':
+                in_string = True
+            elif char == "{":
+                stack.append("}")
+            elif char == "[":
+                stack.append("]")
+            elif char in "}]" and stack and stack[-1] == char:
+                stack.pop()
+        return stack, in_string
+
+    @staticmethod
+    def _close_truncated_json(text: str) -> str:
+        """补全截断 JSON 的闭合结构：先终止悬空的字符串字面量，再按 LIFO 序补闭合括号。"""
+        stack, in_string = ActionParser._scan_json_open_stack(text)
+        result = text
+        if in_string:
+            result += '"'
+        if stack:
+            result += "".join(reversed(stack))
+        return result
+
+    @staticmethod
     def _try_recover_truncated(text: str) -> tuple[str, bool]:
         """
         @methoddesc 尝试恢复被 LLM 截断的 JSON 响应
 
         业务用途:
-        - 当 LLM 输出超过 token 限制被截断时，自动补全缺失的 }, ], "
-        - 启发式策略：补齐未闭合的大括号/方括号；若引号成奇数，则截断到最近的 , : { [ 之后
+        - 当 LLM 输出超过 token 限制被截断时，自动补全缺失的闭合结构
+        - 恢复候选逐个用 json.loads 验证，只返回真正可解析的候选；
+          全部失败时返回首选闭合结果（由上层判定整体解析失败）
+        - 候选生成策略：
+          1) 直接闭合（截断恰好落在完整 token 边界，如 {"a": [1, 2）
+          2) 截断在键名/值中间时，闭合后仍非法——逐级回退到最后一个
+             结构分隔符（, : { [）之前重试闭合
 
         参数:
             text: 截断的文本
@@ -198,28 +266,33 @@ class ActionParser:
             (恢复后的文本, 是否进行了恢复) 二元组
         """
         text = text.strip()
-        open_braces = text.count("{") - text.count("}")
-        open_brackets = text.count("[") - text.count("]")
-        result = text
-        recovered = False
-        if open_braces > 0:
-            result += "}" * open_braces
-            recovered = True
-        if open_brackets > 0:
-            result += "]" * open_brackets
-            recovered = True
-        if result.count('"') % 2 == 1:
-            last_quote = result.rfind('"')
-            if last_quote > 0:
-                for char in [",", ":", "{", "[", " "]:
-                    pos = result.rfind(char, 0, last_quote)
-                    if pos > 0:
-                        result = result[: pos + 1]
-                        recovered = True
-                        break
-        if recovered:
-            logger.warning("[ResponseParser] 响应被截断，已自动恢复。恢复后的内容可能与 LLM 原始输出不同。")
-        return result, recovered
+        stack, in_string = ActionParser._scan_json_open_stack(text)
+        if not stack and not in_string:
+            # 结构完整（引号成对由 in_string=False 保证）：无需恢复
+            return text, False
+
+        candidates = [ActionParser._close_truncated_json(text)]
+        trimmed = text
+        while True:
+            cut = max(trimmed.rfind(","), trimmed.rfind(":"), trimmed.rfind("{"), trimmed.rfind("["))
+            if cut <= 0:
+                break
+            trimmed = trimmed[:cut]
+            candidates.append(ActionParser._close_truncated_json(trimmed))
+
+        for candidate in candidates:
+            try:
+                parsed = json.loads(candidate)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(parsed, (dict, list)):
+                logger.warning("[ResponseParser] 响应被截断，已自动恢复。恢复后的内容可能与 LLM 原始输出不同。")
+                return candidate, True
+
+        # 全部候选不可解析（输入本就不是 JSON）：返回首选闭合结果并标记已尝试恢复，
+        # 由 parse_llm_response 的策略链兜底抛 ActionParseError
+        logger.warning("[ResponseParser] 响应疑似被截断，自动恢复未能得到可解析 JSON。")
+        return candidates[0], True
 
     @staticmethod
     def validate_response(response: dict[str, Any]) -> bool:
