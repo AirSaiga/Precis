@@ -16,7 +16,7 @@
 
 因此：**新增/更新国内大模型支持 = 只改 `presets.py` 数据 + 同步本文档**，前端/CLI/TUI 无需任何代码改动。
 
-## 2. 当前预置清单（核对日期：2026-10-03）
+## 2. 当前预置清单（核对日期：2026-10-30）
 
 排序约定即字典顺序（= UI 下拉展示顺序）：国际厂商（OpenAI/Claude/Gemini）在前、国内主流随后、本地服务（Ollama）在末尾
 （2026-10-03 面向海外发布拍板：海外用户第一眼看到熟悉的厂商）。
@@ -29,15 +29,15 @@
 
 | 预设 ID | 显示名 | base_url（OpenAI 兼容） | 默认模型 | 预置模型列表 |
 |---------|--------|--------------------------|----------|--------------|
-| `openai` | OpenAI | `https://api.openai.com/v1` | `gpt-6.1-sol` | `gpt-6.1-sol`（当前旗舰，2026-09-30 随 Dots 智能体发布）、`gpt-6-astra`（上一代旗舰）、`gpt-5.5`（主力稳定版） |
-| `anthropic` | Anthropic Claude | `https://api.anthropic.com/v1` | `claude-opus-5-5` | `claude-opus-5-5`（当前旗舰，Claude 5 世代）、`claude-sonnet-5-5`（速度/智能平衡主力）、`claude-haiku-4-5`（最快档，Haiku 尚无 5 系） |
-| `gemini` | Google Gemini | `https://generativelanguage.googleapis.com/v1beta/openai` | `gemini-3.8-flash` | `gemini-3.8-flash`（当前 GA 主力，2026-09-02 发布，1M 上下文）、`gemini-3.1-pro-preview`（当前能力最强的预览旗舰；`gemini-2.5-pro` 2026-10-16 退役、Gemini 4 Argon 尚未开放公开 API，均不收录） |
-| `deepseek` | DeepSeek | `https://api.deepseek.com` | `deepseek-flash` | `deepseek-flash`（滚动名，现指向 V4.1-Flash，2026-09-10 发布，官方称全面超越 V4-Pro） |
+| `openai` | OpenAI | `https://api.openai.com/v1` | `gpt-6.1-sol` | `gpt-6.1-sol`（当前旗舰，2026-09-29 DevDay 随 Dots 智能体发布）、`gpt-6-astra`（上一代旗舰）、`gpt-5.5`（主力稳定版） |
+| `anthropic` | Anthropic Claude | `https://api.anthropic.com/v1` | `claude-opus-5-5` | `claude-opus-5-5`（当前旗舰，09-22 发布）、`claude-sonnet-5-5`（速度/智能平衡主力，09-28 发布）、`claude-haiku-5-5`（最快档，10-07 发布，1M 上下文，5 系三代已齐） |
+| `gemini` | Google Gemini | `https://generativelanguage.googleapis.com/v1beta/openai` | `gemini-3.8-flash` | `gemini-4-argon`（当前旗舰，10-13 GA，1M 上下文，OpenAI 兼容端点支持 chat completions）、`gemini-3.8-flash`（GA 大众主力，2026-09-02 发布，1M 上下文；`gemini-3.1-pro-preview` 已被 argon 取代、`gemini-2.5-pro` 已退役、Gemini 4 Carbon 未开放，均不收录） |
+| `deepseek` | DeepSeek | `https://api.deepseek.com` | `deepseek-flash` | `deepseek-flash`（滚动名，现指向 V4.1-Flash，2026-09-10 发布；2026-10-17 原地升级 V4.1-Flash-1017，调用方式与价格不变） |
 | `qwen` | 通义千问 Qwen | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen3.8-max` | `qwen3.8-max`（2026-08-03 发布，2.4T/1M 上下文，Max 级首次开源）、`qwen3.7-plus`、`qwen3.8-flash`（08-26 发布，多模态 1M 上下文） |
-| `glm` | 智谱 GLM | `https://open.bigmodel.cn/api/paas/v4` | `glm-5.3` | `glm-5.3`（当前主力，08-14 发布）、`glm-5.3-flash`（08-26 开源，320B MoE/1M 上下文，价格为 5.3 的 1/10）、`glm-5.2`（1M 上下文长任务旗舰；GLM-5.4 截至核对日未发布） |
-| `kimi` | 月之暗面 Kimi | `https://api.moonshot.cn/v1` | `kimi-k3` | `kimi-k3`（旗舰，2.8T/1M 上下文）、`kimi-k2.7-code`（编程）、`kimi-k2.6`（256K 多模态通用）、`kimi-latest`（滚动别名） |
-| `minimax` | MiniMax | `https://api.minimaxi.com/v1` | `MiniMax-M3` | `MiniMax-M3`（2026-06-01 发布，MSA 注意力/1M 上下文/多模态，无更新代际）、`MiniMax-M2.5`（Agent 生产级）、`MiniMax-M2.7-highspeed`（高速版） |
-| `mimo` | Xiaomi MiMo | `https://api.xiaomimimo.com/v1` | `mimo-v2.5` | `mimo-v2.5`（全模态感知）、`mimo-v2.5-pro`（旗舰推理，1T/1M 上下文） |
+| `glm` | 智谱 GLM | `https://open.bigmodel.cn/api/paas/v4` | `glm-5.3` | `glm-5.3`（当前主力，08-19 发布）、`glm-5.3-flash`（08-26 开源，320B MoE/1M 上下文，价格为 5.3 的 1/10）、`glm-5.2`（1M 上下文长任务旗舰；GLM-5.4 截至核对日未发布） |
+| `kimi` | 月之暗面 Kimi | `https://api.moonshot.cn/v1` | `kimi-k3.1-pro` | `kimi-k3.1-pro`（旗舰，1M 上下文，API ID 用点号）、`kimi-k3`（上代旗舰，2.8T/1M 上下文）、`kimi-k2.7-code`（编程）、`kimi-k2.6`（256K 多模态通用）；`kimi-latest` 滚动别名已于 2026-01-28 下线，移除 |
+| `minimax` | MiniMax | `https://api.minimaxi.com/v1` | `MiniMax-M3` | `MiniMax-M3`（旗舰，2026-06-01 发布并开源，MSA 注意力/1M 上下文/多模态）、`MiniMax-M3.1-Flash`（10-19 发布，Agentic/编程代际提升、Agentic 成本-70%）、`MiniMax-M2.5`（Agent 生产级）；`MiniMax-M2.7-highspeed` 高速档被 M3.1-Flash 取代，移除 |
+| `mimo` | Xiaomi MiMo | `https://api.xiaomimimo.com/v1` | `mimo-v2.6-flash` | `mimo-v2.6-flash`（v2.5 直系继任）、`mimo-v2.6-pro`（旗舰推理）；V2.5 系已于 2026-10-21 10:00 下线（旧名自动转发至 V2.6 对应模型），另有 `mimo-v2.6-pro-ultraspeed` 变体 |
 | `ollama` | Ollama Local | `http://localhost:11434` | `llama3.2` | 空（运行时向本地服务探测） |
 
 ### API Key 获取入口
@@ -53,13 +53,15 @@ OpenAI <https://platform.openai.com> ｜ Anthropic <https://console.anthropic.co
    openai-python SDK 的 `ChatModel` 字面量列表为准（含官方弃用时间表，核对时优先看 deprecated 段）。
    2026-10-03 时点：`gpt-6.1-sol`（2026-09-30 随 Dots 智能体发布）为最新旗舰，迭代节奏极快，季度巡检务必重查。
 3. **Anthropic Claude**：走**官方 OpenAI SDK 兼容端点**（`https://api.anthropic.com/v1`，非 Messages API）。
-   预录取 family alias（如 `claude-opus-5-5`，滚动指向最新快照）而非 dated ID（如 `claude-haiku-4-5-20251001`），
-   与"跟随官方主力"原则一致。2026-10-03 时点已进入 Claude 5 世代（SDK 模型列表含 opus/sonnet/fable/mythos 5 系）；
-   `claude-mythos-preview` 系预览/邀测模型，暂不收录。
-4. **Google Gemini**：OpenAI 兼容路径固定为 `/v1beta/openai`（不是裸 `/v1`）。2026-10-03 时点：
-   `gemini-3.8-flash` 为当前 GA 主力（2026-09-02 发布），`gemini-3.1-pro-preview` 为能力最强的预览旗舰；
-   `gemini-2.5-pro` 2026-10-16 退役故不收录；Gemini 4 Argon 已发布但尚未开放公开 API 调用，暂不收录（开放后按 SOP 加入）。
-   `gemini-3.1-pro-preview` 为预览模型时效性最强，季度巡检时优先核对；image 生成模型（`*-image-preview` 系）不是对话模型，勿混入。
+   预录取 family alias（如 `claude-opus-5-5`，滚动指向最新快照）而非 dated ID（如 `claude-haiku-5-5-20261007`），
+   与"跟随官方主力"原则一致。2026-10-30 时点 5.5 世代三代齐：Opus 5.5（09-22，旗舰）→ Sonnet 5.5（09-28）→
+   Haiku 5.5（10-07，最快档，1M 上下文）；`claude-mythos-preview` 系预览/邀测模型，暂不收录。
+4. **Google Gemini**：OpenAI 兼容路径固定为 `/v1beta/openai`（不是裸 `/v1`）。2026-10-30 时点：
+   `gemini-4-argon` 为当前旗舰（10-13 GA，1M 上下文；兼容端点仅支持 chat completions、不支持 `/responses`）。
+   注意 argon 的可用性门槛：AI Studio 限 Ultra 层、API 无免费评估路径、入门定价 $2/$10 至 2026-11-30 截止——
+   故 default 保持 `gemini-3.8-flash`（GA 大众主力，2026-09-02 发布）。`gemini-3.1-pro-preview` 已被 argon 取代、
+   `gemini-2.5-pro` 已退役、Gemini 4 Carbon 已宣布但未开放，均不收录；argon 入门定价到期后巡检时关注价格变化。
+   image 生成模型（`*-image-preview` 系）不是对话模型，勿混入。
 5. **DeepSeek**：裸域与 `/v1` 均可用，预设取裸域（存量测试断言了这一形态，勿顺手改掉）。
    **2026-09-10 起官方滚动名为 `deepseek-flash`**（当前指向 V4.1-Flash：552B MoE、原生多模态、
    官方称全面超越 V4-Pro）。旧名清理状态：`deepseek-v4-pro` 自 09-14 12:00 起全部路由到 V4.1-Flash
@@ -71,14 +73,21 @@ OpenAI <https://platform.openai.com> ｜ Anthropic <https://console.anthropic.co
 7. **智谱 GLM**：按量付费端点为 `/api/paas/v4`；GLM Coding Plan（编程套餐）走 `/api/coding/paas/v4`——两者按账户订阅类型选择，
    填错会 404/余额不符。**旧模型名自动路由**：调 `glm-5.2`/`glm-5.1` 会自动切到 `glm-5.3`、`glm-5-turbo`/`glm-4.7` 切到
    `glm-5.3-flash`——预设仍应跟随官方主力写最新名，不要依赖路由兜底。不要凭直觉补 `/v1`。
-8. **Kimi（Moonshot）**：K3 于 2026-08-12 发布（2.8T 参数、1M 上下文、开源），是当前旗舰；文档平台已迁至
-   <https://platform.kimi.com>（原 platform.moonshot.ai），OpenAI 兼容端点 `api.moonshot.cn/v1` 不变。
-   `kimi-latest` 是滚动别名（始终指向最新），作保底候选。国际站为 `https://api.moonshot.ai/v1`。
+8. **Kimi（Moonshot）**：K3.1 Pro 为当前旗舰——API ID 是 **`kimi-k3.1-pro`（点号，非连字符）**，另有
+   `kimi-k3.1-pro-highspeed` 高速变体；K3（2026-08-12 发布，2.8T 参数、1M 上下文、开源）转为上代旗舰仍收录。
+   **`kimi-latest` 滚动别名已于 2026-01-28 下线**（勿再收录；存量用户配置若含此 ID 会 404，引导改 `kimi-k3.1-pro`）。
+   文档平台已迁至 <https://platform.kimi.com>（原 platform.moonshot.ai），OpenAI 兼容端点 `api.moonshot.cn/v1` 不变。
+   国际站为 `https://api.moonshot.ai/v1`。
 9. **MiniMax**：国内站域名是 `api.minimaxi.com`（**双 i**），国际站是 `api.minimax.io`，两边密钥不通用、混用必 404。
-   对话模型按 M3（最新）→ M2.5 → M2.7-highspeed 选用；**`MiniMax-H3` 是视频生成模型，勿选入对话预设**；
-   `MiniMax-M2.1` 已于 2026-07-09 下架，旧条目里残留的 M2/M2.1 应清理。
+   对话模型按 M3（旗舰，06-01 发布并开源）→ M3.1-Flash（10-19 发布，Agentic/编程代际提升、Agentic 成本-70%、
+   170+ TPS）→ M2.5（Agent 生产级）选用；M2.7-highspeed 的高速档位已被 M3.1-Flash 接管，移除；
+   **`MiniMax-H3` 是视频生成模型，勿选入对话预设**；`MiniMax-M2.1` 已于 2026-07-09 下架。
 10. **Xiaomi MiMo**：开发者平台 <https://mimo.mi.com>（产品页 mimo.xiaomi.com）；系列模型 MIT 开源。
    另支持 OpenAI Responses API 兼容接口（2026-06-23 起，适配 Codex 类工具），本项目走 Chat Completions 兼容端点即可。
+   **V2.5 系（`mimo-v2.5`/`mimo-v2.5-pro`）已于 2026-10-21 10:00 下线**：10-14 18:00 起旧名自动转发至 V2.6
+   对应模型（v2.5 → `mimo-v2.6-flash`、v2.5-pro → `mimo-v2.6-pro`）并按新版计价；预设已切换为 v2.6 双模型，
+   另有 `mimo-v2.6-pro-ultraspeed` 变体。ASR/TTS 系（`mimo-v2.5-asr`/`mimo-v2.5-tts` 等）命名仍停在 v2.5 且
+   非对话模型，勿混入。
 11. **上下文窗口**：预设不携带 `context_window`，运行时按"显式配置 → 子类探测（仅 Ollama）→ 全局回退 200k"解析
    （`providers/base.py` 的 `DEFAULT_FALLBACK_CONTEXT_WINDOW`）。若厂商模型上下文显著小于 200k，用户可在设置页编辑表单手动指定。
 

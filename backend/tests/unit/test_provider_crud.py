@@ -89,15 +89,15 @@ class TestListPresets:
 
     @pytest.mark.asyncio
     async def test_returns_mimo_preset(self):
-        # MIMO 预设（mimo-v2.5 / mimo-v2.5-pro）必须可被前端和 CLI 获取
+        # MIMO 预设（V2.5 系 2026-10-21 下线后为 mimo-v2.6-flash / mimo-v2.6-pro）必须可被前端和 CLI 获取
         result = await list_presets()
         mimo = next(p for p in result if p["id"] == "mimo")
         assert mimo["name"] == "Xiaomi MiMo"
         assert mimo["type"] == "openai"
         assert mimo["base_url"] == "https://api.xiaomimimo.com/v1"
-        assert mimo["default_model"] == "mimo-v2.5"
-        assert "mimo-v2.5" in mimo["models"]
-        assert "mimo-v2.5-pro" in mimo["models"]
+        assert mimo["default_model"] == "mimo-v2.6-flash"
+        assert "mimo-v2.6-flash" in mimo["models"]
+        assert "mimo-v2.6-pro" in mimo["models"]
 
     @pytest.mark.asyncio
     async def test_preset_has_required_fields(self):
@@ -205,7 +205,7 @@ class TestCreateProvider:
             type="openai",
             base_url="https://api.xiaomimimo.com/v1",
             api_key="sk-abc",
-            model="mimo-v2.5",
+            model="mimo-v2.6-flash",
         )
         await create_provider(req)
         assert saved[0].defaults.get("chat") == "xiaomi-mimo"
@@ -219,7 +219,7 @@ class TestCreateProvider:
             type="openai",
             base_url="https://api.xiaomimimo.com/v1",
             api_key="sk-abc",
-            model="mimo-v2.5",
+            model="mimo-v2.6-flash",
         )
         await create_provider(req)
         assert saved[0].defaults.get("chat") == "deepseek"
