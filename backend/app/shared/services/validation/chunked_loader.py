@@ -56,7 +56,7 @@ from app.shared.core.data_source.schema_info import DataSourceInfo
 from app.shared.core.project.schema.types import TableSchemaFile
 from app.shared.domain.dataset_schema import DataSetSchema, TableSchema
 
-from .data_loader import collect_foreign_key_tables
+from .data_loader import collect_foreign_key_tables, normalize_table_filter
 from .memory_monitor import MemoryMonitor
 from .resolver import DataSourceResolver
 
@@ -380,13 +380,8 @@ class ChunkedDataLoader:
             logger.error(f"数据目录不存在: {data_directory}")
             return chunked_datasets, loading_errors
 
-        # 处理过滤
-        filter_set: set | None = None
-        if table_filter:
-            if isinstance(table_filter, str):
-                filter_set = {table_filter}
-            else:
-                filter_set = set(table_filter)
+        # 处理过滤：显示名与 ID 同口径，避免 FK 目标表在 UUID 项目中漏加载。
+        filter_set = normalize_table_filter(self.dataset_schema, table_filter)
 
         # A3 修复: 与 data_loader 标准路径一致，过滤时必须把 FK 目标表并入加载集。
         # 否则按 A 过滤时 B 不加载，FK 校验因目标表缺失误报「表不在提供的数据集中」。

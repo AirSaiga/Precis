@@ -26,7 +26,9 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 
-from app.shared.services.validation.data_loader import DataLoader
+from app.shared.domain.constraints import ForeignKeyConstraints
+from app.shared.domain.dataset_schema import DataSetSchema, TableSchema
+from app.shared.services.validation.data_loader import DataLoader, collect_foreign_key_tables, normalize_table_filter
 
 
 class TestResolveSearchDirectory:
@@ -267,3 +269,27 @@ class TestLoadDataSources:
 
         assert "users" in datasets
         assert len(errors) == 0
+
+
+def test_display_name_filter_loads_uuid_foreign_key_target():
+    """按显示名过滤 UUID 表时，FK 目标表必须进入加载集。"""
+    schema = DataSetSchema(
+        tables={
+            "orders-uuid": TableSchema(id="orders-uuid", name="orders"),
+            "customers-uuid": TableSchema(id="customers-uuid", name="customers"),
+        },
+        constraints=[
+            ForeignKeyConstraints(
+                from_table="orders-uuid",
+                from_column="customer_id",
+                to_table="customers-uuid",
+                to_column="id",
+            )
+        ],
+    )
+
+    normalized = normalize_table_filter(schema, "orders")
+    assert normalized is not None
+    tables_to_load = collect_foreign_key_tables(schema, normalized)
+
+    assert tables_to_load == {"orders", "orders-uuid", "customers-uuid"}

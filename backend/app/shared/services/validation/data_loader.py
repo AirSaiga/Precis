@@ -53,6 +53,21 @@ from .resolver import DataSourceResolver
 logger = logging.getLogger(__name__)
 
 
+def normalize_table_filter(
+    dataset_schema: DataSetSchema,
+    table_filter: str | list[str] | None,
+) -> set[str] | None:
+    """把显示名过滤条件补齐为表 ID，供标准/分块加载及 FK 目标收集共用。"""
+    if not table_filter:
+        return None
+    requested = {table_filter} if isinstance(table_filter, str) else set(table_filter)
+    normalized = set(requested)
+    for table_id, table in dataset_schema.tables.items():
+        if (table.name or table_id) in requested:
+            normalized.add(table_id)
+    return normalized
+
+
 def collect_foreign_key_tables(dataset_schema: DataSetSchema, filter_set: set) -> set:
     """@methoddesc 收集外键关联表（标准/分块两条加载路径共用，A3）
 
@@ -165,13 +180,8 @@ class DataLoader:
             )
             return {}, loading_errors
 
-        # Step 2: 处理表过滤条件
-        filter_set: set | None = None
-        if table_filter:
-            if isinstance(table_filter, str):
-                filter_set = {table_filter}
-            else:
-                filter_set = set(table_filter)
+        # Step 2: 处理表过滤条件；显示名补齐为 ID，确保 FK 目标表收集不被 UUID 绕过。
+        filter_set = normalize_table_filter(self.dataset_schema, table_filter)
 
         # 收集需要加载的表（含外键关联表）
         tables_to_load: set | None = None

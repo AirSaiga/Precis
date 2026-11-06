@@ -68,6 +68,25 @@ class TestValidateFullDataset:
         # 校验详情应包含 table_1 的 format check
         assert any(c["table"] == "table_1" for c in details["format_checks"])
 
+    def test_table_filter_accepts_display_name(self):
+        """CLI 按显示名过滤时，UUID/语义 ID 表的约束也必须实际执行。"""
+        schema = self._make_schema()
+        raw = {
+            "table_1": pd.DataFrame({"col_a": [None]}),
+            "table_2": pd.DataFrame({"col_b": [None]}),
+        }
+
+        _, errors, details = validate_full_dataset(raw, schema, table_filter="Table 2")
+
+        # 只执行 Table 2 的约束；修复前显示名与 table_2 ID 比较失败，会静默零执行。
+        table_1_errors = [e for e in errors if e.get("table") == "table_1"]
+        table_2_errors = [e for e in errors if e.get("table") == "table_2"]
+        assert table_1_errors == []
+        assert len(table_2_errors) == 1
+        constraint_checks = details["constraint_checks"]
+        assert len(constraint_checks) == 1
+        assert constraint_checks[0]["table"] == "table_2"
+
     def test_deadline_triggered_timeout(self):
         schema = self._make_schema()
         raw = {

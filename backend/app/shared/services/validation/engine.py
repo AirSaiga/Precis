@@ -320,14 +320,14 @@ def validate_constraints(
         logger.debug("所有解析后的表均为空，跳过阶段二约束验证")
         return all_errors, validation_details
 
-    # 处理 table_filter 参数（只接受表ID）
-    # 【类型适配】支持字符串或列表形式，统一转换为集合便于成员检查
+    # 处理 table_filter：兼容表 ID 与显示名，统一归一为表 ID。
+    # CLI 契约接收 table_name；当 schema 使用 UUID 作为 ID 时，若直接拿显示名
+    # 和约束的表 ID 比较，会静默跳过全部约束并误报通过。
     filter_tables: set | None = None
     if table_filter:
-        if isinstance(table_filter, str):
-            filter_tables = {table_filter}
-        else:
-            filter_tables = set(table_filter)
+        requested_tables = {table_filter} if isinstance(table_filter, str) else set(table_filter)
+        display_name_to_id = {(table.name or table_id): table_id for table_id, table in schema.tables.items()}
+        filter_tables = {display_name_to_id.get(table, table) for table in requested_tables}
 
     # 遍历所有注册的约束，逐个执行校验
     # 【容错设计】单个约束异常不中断整个管线，继续执行后续约束
