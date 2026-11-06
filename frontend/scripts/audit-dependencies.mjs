@@ -41,6 +41,16 @@ const ALLOWLIST = {
       '@vue/server-renderer XSS（仅 SSR 渲染路径可触达，vulnerable <3.5.42）：前端为纯客户端 SPA + Electron，server-renderer 不进运行时产物；website（VitePress SSG）仅在构建期渲染仓库内自有 Markdown，无不可信输入注入面。修复版需 vue ≥3.5.42，但 vue 钉版 3.5.22（≥3.5.23 触发 TS2589 类型深度爆炸，见 AGENTS.md 红线），暂不可升级',
     removeWhen: 'vue 升级到 ≥3.5.42 后（前置：先解决 vue ≥3.5.23 的 TS2589 钉版约束）：移除本条',
   },
+  'GHSA-g3hv-75wg-m249': {
+    reason:
+      'minimatch globparts 放大 DoS（vulnerable 7.0.0–11.0.0）：受影响实例（9.0.9/10.2.6）全部位于 dev/打包工具链——typescript-eslint→typescript-estree、editorconfig、config-file-ts、@electron/universal 与 app-builder-lib（electron-builder 打包链，构建期使用）——不进任何运行时产物；修复版 11.0.1 需 typescript-eslint 8.36+（major）整体升级，且 npm 11.19 的 overrides 无法可靠替换锁内传递实例（父子嵌套对象与父>子选择器两种形式实测均不生效）',
+    removeWhen: 'typescript-eslint 升级 8.36+（连带 minimatch ≥11.0.1，electron-builder 链随其发布更新）后：移除本条',
+  },
+  'GHSA-3g3m-2fjr-6pw4': {
+    reason:
+      'glob AbortSignal 取消绕过致超时后文件系统遍历（vulnerable 9.0.0–14.0.1）：受影响实例（10.4.5/13.0.6）全部位于 dev 工具链——config-file-ts（electron 构建配置加载）、js-beautify→@vue/test-utils（仅测试）——不进任何运行时产物；修复版 14.0.2 需上述依赖链整体升级，overrides 同样无法可靠替换锁内传递实例',
+    removeWhen: '依赖链升级使 glob 全部实例 ≥14.0.2 后：移除本条',
+  },
 }
 
 const noAllowlist = process.argv.includes('--no-allowlist')
