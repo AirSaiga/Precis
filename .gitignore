@@ -301,3 +301,7 @@ e2e/demo-output/
 # AI 能力评估集（evals/）——每次运行输出不入库，基线归档（baselines/）保留
 evals/results/
 
+
+# WorkBuddy local test assets (kept local, not committed)
+/integrations/workbuddy/testkit/
+/integrations/workbuddy/manual-test/

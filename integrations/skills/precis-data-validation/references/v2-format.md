@@ -50,8 +50,8 @@ Optional `settings` (add as needed):
 ```yaml
 settings:
   validation:
-    timeout_seconds: 30     # validation timeout (seconds)
-    error_handling: continue  # continue=run everything; stop=stop at the first error
+    timeout_seconds: 30     # validation timeout in seconds (1-300)
+    error_handling: continue  # continue=run everything; stop=stop at the first error; report=record all errors for a full report
   file_processing:
     default_encoding: utf-8  # utf-8 / gbk / auto (switch to gbk or auto when Chinese CSV text comes out garbled)
     csv_delimiter: ','       # CSV delimiter
@@ -96,9 +96,11 @@ columns:
 
 - Type validation runs during format parsing: a column header that does not match `name`, or
   a value that cannot be parsed as its declared type, is reported as an error.
-- Excel/JSON are supported too; for JSON use an array of objects, and for Excel specify
-  `sheet` in source; TSV (`.tsv`, tab-separated by default) and JSON Lines
-  (`.jsonl`/`.ndjson`, one JSON object per line) also work directly as data sources.
+- Excel reads the first worksheet when `source.sheet` is omitted; set it explicitly to use
+  another worksheet.
+- JSON supports arrays of objects, nested objects, and JSON Lines (`.jsonl`/`.ndjson`). Set
+  `source.format` to `array`, `object`, or `lines`; nested objects also require `json_path`
+  to locate the data array. TSV (`.tsv`) is tab-separated by default.
 - `decimal` can declare precision with a dict form: `type: { name: decimal, precision: 28, scale: 2 }`.
 - `source.mode` also supports `absolute_file` (absolute path); `relative_file` resolves
   relative to the manifest directory.
@@ -107,19 +109,20 @@ columns:
 
 Constraints may also be written directly in the `constraints:` list of a schema file (no
 separate constraint file needed); on load they are automatically expanded into standalone
-constraints (with an ID prefixed by `{schema_id}_`). All 10 types are supported; column
-references use the **column name or column ID** (`column`/`columns`; top-level columns may
-use the bare name, while nested sub-columns need the fully qualified "parent.child" path —
-parsing is strict, and a constraint whose reference cannot be resolved is dropped as an
-error rather than silently kept). ForeignKey uses `from_column`/`to_table`/`to_column`:
+constraints (with an ID prefixed by `{schema_id}_`). All 10 types are supported.
+`column`/`columns` and ForeignKey `from_column`/`to_column` take **column names**: use the
+bare name for a top-level column and the fully qualified "parent.child" path for a nested
+sub-column; do not put column IDs in these fields. Parsing is strict, and a constraint whose
+reference cannot be resolved is dropped as an error rather than silently kept. ForeignKey
+uses `from_column`/`to_table`/`to_column`:
 
 ```yaml
 version: 2
-id: customers
-name: customers
+id: orders
+name: orders
 source:
   mode: relative_file
-  path: ../data/customers.csv
+  path: ../data/orders.csv
 columns:
   - id: email
     name: email
@@ -127,13 +130,15 @@ columns:
   - id: country
     name: country
     type: string
+  - id: customer_id
+    name: customer_id
+    type: string
 constraints:
   - id: email_notnull          # unique within the table is enough
     type: NotNull
     column: email
   - id: cn_must_have_email
     type: Conditional
-    column: email              # the THEN target column
     params:
       # Conditional embedded form: the IF conditions and the THEN column live in params and are extracted automatically on load
       if_logic: and
@@ -287,8 +292,8 @@ params:
   `is_positive_number`.
 
 Each item of the IF-side `if_conditions`: `if_column_id` + `operator` (the same six as
-above) + `value` (or a `values` list for `in`).
-When both IF and THEN are empty, the constraint applies to all rows.
+above) + `value` (or a `values` list for `in`). With no IF condition, the THEN check applies
+to every row; `then_condition` is required.
 
 ### 8. DateLogic
 
@@ -391,10 +396,10 @@ params:
 ```
 
 - Each `sub_constraints` item is a complete constraint object
-  (version/id/type/enabled/refs/params); **nesting Composite is not allowed**; if any
-  sub-constraint is configured illegally the whole Composite is skipped and reported in
-  `loading_warnings` (fail-closed — better to skip the whole constraint than to let it pass,
-  and no sub-constraint is ever silently missing).
+  (version/id/type/enabled/refs/params); **nesting Composite is not allowed**. If any
+  sub-constraint is invalid, the whole Composite is not executed and a `loading_warnings`
+  entry is emitted. Fix the configuration and validate again; a skipped constraint must not
+  be treated as passed.
 
 ## Transform nodes (transforms/*.transform.yaml, optional)
 
@@ -406,7 +411,6 @@ convert status to uppercase uniformly and then apply AllowedValues).
 # transforms/normalize_status.transform.yaml
 version: 2
 id: normalize_status
-name: Status normalization
 type: UpperCase
 enabled: true
 description: convert orders.status to uppercase in place
@@ -430,10 +434,10 @@ transforms:
 `WeightedSum` `Modulo` `MapValue`.
 
 - Multi-column output: `StringSplit` / `RegexExtract` (multiple `output_columns` items).
-- **Changing the row count**: `FilterRows` / `DropDuplicates` / `Aggregate` / `SortRows` —
-  after such a transform, the `row_index` of a constraint violation no longer corresponds
-  one-to-one to the original file line number (known limitation; keep it in mind when
-  reporting error row numbers).
+- **Changing row count or order**: `FilterRows` / `DropDuplicates` / `Aggregate` change the
+  row count, while `SortRows` changes row order. After such a transform, the `row_index` of
+  a constraint violation no longer corresponds one-to-one to the original file line number
+  (known limitation; keep it in mind when reporting error row numbers).
 - Parameters go in `params` (such as `old`/`new` for `Replace`, or the mapping table for
   `MapValue`); the exact key names follow the backend implementation (developers in the
   source repository: see `backend/app/shared/domain/transforms/`).

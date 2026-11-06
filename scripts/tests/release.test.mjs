@@ -254,7 +254,7 @@ test('releaseCommitFiles 覆盖全部 manifest（含插件双 JSON 与 WorkBuddy
   assert.ok(files.includes('integrations/kimi.plugin.json'), '发布提交清单缺少插件 manifest');
   assert.ok(files.includes('.kimi-plugin/plugin.json'), '发布提交清单缺少插件根垫片 manifest');
   // WorkBuddy 技能包/连接器版本跟应用走，市场重新提交时版本即与发布对齐
-  assert.ok(files.includes('integrations/workbuddy/precis-data-validation/SKILL.md'), '发布提交清单缺少 WorkBuddy 技能包');
+  assert.ok(files.includes('integrations/workbuddy/spreadsheet-data-check/SKILL.md'), '发布提交清单缺少 WorkBuddy 技能包');
   assert.ok(files.includes('integrations/workbuddy/precis/connector-meta.json'), '发布提交清单缺少 WorkBuddy 连接器元信息');
   // 官网 package.json 版本随发布同步（Pages 站点与发布版本对齐）
   assert.ok(files.includes('website/package.json'), '发布提交清单缺少官网 manifest');
@@ -268,8 +268,8 @@ test('releaseCommitFiles 覆盖全部 manifest（含插件双 JSON 与 WorkBuddy
     'tui-rust/Cargo.lock',
     'integrations/kimi.plugin.json',
     '.kimi-plugin/plugin.json',
-    'integrations/workbuddy/precis-data-validation/SKILL.md',
-    'integrations/workbuddy/precis/skills/precis-data-validation/SKILL.md',
+    'integrations/workbuddy/spreadsheet-data-check/SKILL.md',
+    'integrations/workbuddy/precis/skills/spreadsheet-data-check/SKILL.md',
     'integrations/workbuddy/precis/connector-meta.json',
     'package-lock.json',
     'CHANGELOG.md',

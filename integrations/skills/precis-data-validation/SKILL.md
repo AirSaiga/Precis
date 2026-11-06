@@ -1,7 +1,7 @@
 ---
 name: precis-data-validation
-description: Validate CSV/Excel/JSON data against schema constraints with the Precis CLI — generate V2 YAML configuration, run validation, interpret the JSON result, and iterate until it passes.
-whenToUse: When the user asks you to check/validate the quality of CSV, Excel, or JSON data, or to accept data before delivery.
+description: Validate CSV/Excel/JSON data against schema constraints with the Precis CLI — turn natural-language acceptance criteria into reusable V2 YAML configuration (9 constraint types + 22 cleaning transforms), run validation, report violations row by row with fix suggestions, write an acceptance report, and iterate until it passes.
+whenToUse: When the user asks you to check/validate the quality of CSV, Excel, or JSON data, to accept data before delivery, to self-check data before reporting, or to reconcile data after a migration.
 ---
 
 # Precis Data Validation Workflow
@@ -28,14 +28,14 @@ If neither works, tell the user how to install and **stop** (do not try other wo
 
 > The Precis CLI is not installed. Pick either installation method:
 > 1. Install uv and run it without installing: `uvx --from precis-cli precis --version`
-> 2. Install with pip (requires Python >= 3.12): `pip install precis-cli`
+> 2. Install with pip (requires Python >= 3.12, < 3.14): `pip install precis-cli`
 > Either way you get the `precis` command. Start the validation again once it is installed.
 
 ## Step 1: Read the data file, confirm where files are written
 
 1. Read the **head** of the data file (use `head` for CSV/JSON; for Excel first check the
-   sheet names and the first row) to confirm the column names, the approximate types, and
-   the row count.
+   sheet names and the first row) to confirm the column names and approximate types, and
+   count the data rows separately.
 2. **Confirm the configuration location with the user first** (default suggestion:
    `precis-project/` in the directory of the data file), and write files only after the user
    agrees. Keep every artifact in the user's directory so it stays readable, diffable, and
@@ -50,10 +50,11 @@ precis infer-schema <data file> --output <project dir>/schemas/<table name>.sche
 # keep the id unchanged when replacing an existing schema: --id <original UUID>; fix a wrong source path with --source-path
 ```
 
-The inference produces a draft of column types (string/integer/float/decimal/boolean/date;
-a few dirty values will not sink a whole column — the dominant type in the data decides).
-Show it to the user for confirmation, then adjust it to the business semantics
-(for example add primary_key, or change an amount column to decimal).
+The inference produces string/integer/float/boolean/date column-type drafts; a few dirty
+values will not sink a whole column — the dominant type in the data decides. Show the draft
+to the user for confirmation, then adjust it to the business semantics (for example add
+primary_key). Inference never produces decimal; change exact numeric columns such as amounts
+to decimal manually.
 
 Then complete the constraints strictly following the format quick reference in
 `references/v2-format.md` under this skill directory:
@@ -72,8 +73,26 @@ Key points:
 - Prefer the 6 simple constraint types: NotNull / Unique / AllowedValues / Range /
   ForeignKey / Charset. Use Scripted / Conditional / DateLogic / Composite as needed
   (Scripted requires allow_eval to be enabled for the project — see references).
-- Once the configuration is written you can run validation; mistakes in the configuration
-  itself surface through `loading_warnings`, so no separate validation step is required.
+- Once the configuration is written you can run validation without a separate check step;
+  loading problems surface through `loading_warnings`, while constraint configuration and
+  execution errors surface through `errors[]`.
+
+### Baseline rule pack (when the user gives no explicit rules)
+
+When the user only says "check/accept this data" without stating rules, do not stall waiting
+for rules: derive a baseline pack from the inferred schema, show it as a short list ("I plan
+to add these N rules by default — confirm or adjust"), and write the configuration only after
+the user confirms:
+
+- columns marked `primary_key: true` → Unique + NotNull
+- id/code/key-like columns (names containing `id`, `code`, `no`, `key`) → Unique
+  (composite-column Unique for compound keys)
+- columns the user confirms as business-mandatory → NotNull
+- numeric columns → Range only with user-given bounds or an obvious domain (scores 0-100);
+  otherwise skip rather than guess
+- date columns → DateLogic sanity bound (compare gte 1900-01-01); cross-column ordering
+  (ship date vs order date) only when the semantics are obvious — propose, never impose
+- `<other table>_id`-style columns whose target table exists in the project → ForeignKey
 
 ## Step 3: Run validation
 
@@ -89,21 +108,22 @@ precis validate --manifest <project dir>/project.precis.yaml --format json
 
 ## Step 4: Interpret by exit code
 
-In `--format json` mode **stdout holds exactly one JSON document** (stderr may hold logs;
-ignore it). The exit code has three branches:
+In `--format json` mode **stdout holds exactly one JSON document**. stderr may contain logs
+or error details; always inspect it when the exit code is 2. The exit code has three branches:
 
 | Exit code | Meaning | What you must do |
 |-----------|---------|------------------|
-| 0 | Validation passed | Report the pass to the user, with the tables/summary overview |
+| 0 | No data violations found | Inspect `loading_warnings`; report and resolve configuration warnings first, otherwise report the pass with the tables/summary overview |
 | 1 | Validation completed, data violations found | Parse `errors[]` and report each entry to the user |
 | 2 | Tool error | Show stderr/the error message, check the configuration and the paths, then fix and retry |
 
-Every `errors[]` entry has these fields: `table`, `column`, `constraint_type`,
+Every `errors[]` entry includes `table`, `column`, `constraint_type`,
 `constraint_file` (the source constraint file, relative to the manifest directory — for a
 standalone constraint this is its `*.constraint.yaml` path, for a schema-embedded constraint
 it is the host schema path; errors without a source such as format validation are `null`),
 `row_index`, `cell_value`, and `error_message` (a human-readable message that the CLI
-currently emits in Chinese).
+currently emits in Chinese), plus `error_code`, `error_params`, `error_message_en`, and
+`suggestion`.
 
 Suggested report format:
 
@@ -114,6 +134,23 @@ Suggested report format:
 Note: `row_index` is the data row index (0-based, header excluded); when reporting you can
 convert it to "data row row_index+1" so the user can locate it easily.
 
+## Step 4.5: Write the acceptance report (deliverable)
+
+Chat text evaporates; a report file is what the user forwards. After reporting the result in
+chat, write `validation-report.md` into the project directory agreed in Step 1 (that
+confirmation already covers this file; if the user declined a project directory, ask first):
+
+- header: data file(s), row count, run time, manifest path
+- verdict line: "X of M constraint checks passed, N violations" (or "all passed")
+- per-table violation table: data row | column | constraint type | raw value | problem |
+  fix suggestion — taken only from `errors[]` fields (`row_index`+1, `column`,
+  `constraint_type`, `cell_value`, `error_message`, `suggestion`); never invent rows
+- when violations are many: full per-constraint counts plus the first 100 rows, noting the
+  truncation and where the complete list lives (the JSON output)
+- on a clean pass: a short acceptance paragraph listing the checks that were applied
+
+Then tell the user the report path in one line.
+
 ## Step 5: Iteration loop
 
 There are only two ways to handle violations, **ask the user which one to take**:
@@ -122,8 +159,19 @@ There are only two ways to handle violations, **ask the user which one to take**
 2. **Adjust the rules**: when you think a constraint is too strict/too loose, edit the
    constraint file that `errors[].constraint_file` points to and run again.
 
-Iterate until the exit code is 0. If the user asks along the way to adjust project settings
-such as timeouts or error handling, see the settings section of references/v2-format.md.
+Iterate until the exit code is 0 and `loading_warnings` contains no blocking configuration
+problems. If the user asks along the way to adjust project settings such as timeouts or error
+handling, see the settings section of references/v2-format.md.
+
+## Rule reuse and CI gating
+
+The configuration directory is a durable asset, not scratch output — say so in one line when
+reporting results:
+
+- commit it with the data pipeline: rules stay readable, diffable, reviewable
+- next data drop reuses the same manifest: revalidation is one `precis validate` run
+- CI/CD: exit code 0 = pass, 1 = violations, 2 = tool error, so a pipeline can gate a merge
+  or a delivery on exit code 0
 
 ## Prohibitions
 

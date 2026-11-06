@@ -45,8 +45,8 @@ export const MANIFESTS = [
   { file: 'tui-rust/Cargo.lock', kind: 'cargo-lock' },
   { file: 'integrations/kimi.plugin.json', kind: 'json' },
   { file: '.kimi-plugin/plugin.json', kind: 'json' },
-  { file: 'integrations/workbuddy/precis-data-validation/SKILL.md', kind: 'skill-md' },
-  { file: 'integrations/workbuddy/precis/skills/precis-data-validation/SKILL.md', kind: 'skill-md' },
+  { file: 'integrations/workbuddy/spreadsheet-data-check/SKILL.md', kind: 'skill-md' },
+  { file: 'integrations/workbuddy/precis/skills/spreadsheet-data-check/SKILL.md', kind: 'skill-md' },
   { file: 'integrations/workbuddy/precis/connector-meta.json', kind: 'json' },
 ];
 

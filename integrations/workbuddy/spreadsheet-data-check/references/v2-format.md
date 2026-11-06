@@ -49,8 +49,8 @@ data_sources:
 ```yaml
 settings:
   validation:
-    timeout_seconds: 30     # 校验超时（秒）
-    error_handling: continue  # continue=跑完全部；stop=发现首个错误即停
+    timeout_seconds: 30     # 校验超时（秒，范围 1-300）
+    error_handling: continue  # continue=跑完全部；stop=发现首个错误即停；report=记录错误并生成完整报告
   file_processing:
     default_encoding: utf-8  # utf-8 / gbk / auto（中文 CSV 乱码时改 gbk 或 auto）
     csv_delimiter: ','       # CSV 分隔符
@@ -79,23 +79,24 @@ columns:
 **6 种数据类型**：`string` / `integer` / `float` / `decimal` / `boolean` / `date`
 
 - 类型校验在格式解析阶段执行：列头与 `name` 不匹配、值无法按类型解析都会报错。
-- Excel/JSON 同样支持；JSON 数组-of-对象、Excel 需在 source 指定 `sheet`；TSV（`.tsv` 缺省制表符分隔）与 JSON Lines（`.jsonl`/`.ndjson`，逐行 JSON 对象）也可直接作数据源。
+- Excel 未指定 `source.sheet` 时读取首张工作表，需要其他工作表时显式指定。
+- JSON 支持对象数组、嵌套对象和 JSON Lines（`.jsonl`/`.ndjson`），必须在 `source` 中配置 `format: array` / `object` / `lines`；嵌套对象还需用 `json_path` 指定数据数组位置。TSV（`.tsv`）缺省按制表符分隔。
 - `decimal` 可用 dict 形式声明精度：`type: { name: decimal, precision: 28, scale: 2 }`。
 - 数据源 `source.mode` 还支持 `absolute_file`（绝对路径）；`relative_file` 相对 manifest 目录解析。
 
 ### schema 内嵌约束（可选）
 
 约束也可以直接写在 schema 文件的 `constraints:` 列表里（不必建独立 constraint 文件），
-加载时会自动展开为独立约束（ID 加 `{schema_id}_` 前缀）。支持全部 10 种类型；
-列引用用**列名或列 ID**（`column`/`columns`；顶层列可用裸名，嵌套子列需「父.子」全限定路径——严格解析，引用解析不到时该约束按错误丢弃，不静默保留），ForeignKey 用 `from_column`/`to_table`/`to_column`：
+加载时会自动展开为独立约束（ID 加 `{schema_id}_` 前缀）。本分发支持上述 9 种类型。
+`column`/`columns` 与 ForeignKey 的 `from_column`/`to_column` 使用**列名**：顶层列用裸名，嵌套子列用「父.子」全限定路径；不要在这些字段中填列 ID。引用解析不到时该约束按错误丢弃，不静默保留。ForeignKey 用 `from_column`/`to_table`/`to_column`：
 
 ```yaml
 version: 2
-id: customers
-name: customers
+id: orders
+name: orders
 source:
   mode: relative_file
-  path: ../data/customers.csv
+  path: ../data/orders.csv
 columns:
   - id: email
     name: email
@@ -103,13 +104,15 @@ columns:
   - id: country
     name: country
     type: string
+  - id: customer_id
+    name: customer_id
+    type: string
 constraints:
   - id: email_notnull          # 表内唯一即可
     type: NotNull
     column: email
   - id: cn_must_have_email
     type: Conditional
-    column: email              # THEN 目标列
     params:
       # Conditional 内嵌形态：IF 条件与 THEN 列写在 params，加载时自动提取
       if_logic: and
@@ -259,7 +262,7 @@ params:
 - **字符串**：已注册条件函数名，如 `is_not_empty` / `is_positive_number`。
 
 IF 侧 `if_conditions` 每项：`if_column_id` + `operator`（同上六种）+ `value`（或 `values` 列表，`in` 时）。
-IF 与 THEN 都为空时对所有行生效。
+未配置 IF 条件时，对全部行执行 THEN 检查；THEN 的 `then_condition` 必须配置。
 
 ### 8. DateLogic 日期逻辑
 
@@ -338,8 +341,8 @@ params:
 ```
 
 - `sub_constraints` 每项是完整约束对象（version/id/type/enabled/refs/params），
-  **不允许嵌套 Composite**；任一子约束配置非法时整条 Composite 被跳过并在
-  `loading_warnings` 提示（fail-closed——宁可整条跳过也不放行，不会静默缺子约束）。
+  **不允许嵌套 Composite**；任一子约束配置非法时，整条 Composite 不执行并在
+  `loading_warnings` 提示。必须修正配置后重新校验，不能把跳过视为该约束已通过。
 
 ## 转换节点（transforms/*.transform.yaml，可选）
 
@@ -350,7 +353,6 @@ params:
 # transforms/normalize_status.transform.yaml
 version: 2
 id: normalize_status
-name: 状态标准化
 type: UpperCase
 enabled: true
 description: 将 orders.status 原地转为大写
@@ -374,7 +376,7 @@ transforms:
 `WeightedSum` `Modulo` `MapValue`。
 
 - 多列输出：`StringSplit` / `RegexExtract`（`output_columns` 多项）。
-- **改变行数**：`FilterRows` / `DropDuplicates` / `Aggregate` / `SortRows`——
+- **改变行数或行顺序**：`FilterRows` / `DropDuplicates` / `Aggregate` 会改变行数，`SortRows` 会改变行顺序；
   转换后约束错误的 `row_index` 与原始文件行号不再一一对应（已知限制，汇报错误行号时注意）。
 - 参数放 `params`（如 `Replace` 的 `old`/`new`、`MapValue` 的映射表），具体键名
   以后端实现为准（源码仓库开发者见 `backend/app/shared/domain/transforms/`）。
