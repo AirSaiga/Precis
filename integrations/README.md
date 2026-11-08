@@ -14,9 +14,10 @@ No need to install or open the Precis desktop GUI.
 ┌─ L1 CLI contract (base layer shared by every harness) ────────┐
 │  precis commands + JSON output contract + exit codes 0/1/2    │
 │  Any agent with a shell can use it; the base for L2 and L3    │
-├─ L2 generic skill (harnesses with a filesystem + shell) ──────┤
-│  skills/precis-data-validation/: workflow + V2 format guide   │
+├─ L2 published skill (harnesses with a filesystem + shell) ────┤
+│  workbuddy/precis/skills/spreadsheet-data-check/: workflow    │
 │  Pure markdown + relative paths, no proprietary syntax        │
+│  (the harness-neutral source skill is kept local-only)        │
 ├─ L3 MCP (protocol-native harnesses) ──────────────────────────┤
 │  precis-mcp stdio server: 4 tools; return values = L1 contract│
 └───────────────────────────────────────────────────────────────┘
@@ -26,15 +27,15 @@ No need to install or open the Precis desktop GUI.
   L1; there is no second forked implementation (the CLI `--format json`, the MCP
   `validate_data`, and the `--report` report all come from the same source).
 - This directory is also a complete **Kimi Code plugin package root** (`kimi.plugin.json`
-  alongside `skills/` and `commands/`) and supports whole-directory/subdirectory URL
-  installation.
+  alongside `workbuddy/precis/skills/` and `commands/`) and supports
+  whole-directory/subdirectory URL installation.
 
 ## Host integration matrix
 
 | Host program | Integration | Notes |
 |--------------|-------------|-------|
 | **Kimi Code** | Install the plugin package (see below) | Provides all three: skill, `/precis:*` commands, and MCP |
-| **Claude Code** | Copy skills + commands (see below) | The same SKILL.md; commands become project commands such as `/precis:validate` |
+| **Claude Code** | Copy the published skill + commands (see below) | Uses the WorkBuddy `spreadsheet-data-check` skill; commands become project commands such as `/precis:validate` |
 | **ZCode** | Copy the skill or use MCP | The skill spec is compatible; see below for `precis-mcp` configuration |
 | **Cursor / other MCP harnesses** | Configure MCP `precis-mcp` | No skill needed; tools return structured JSON |
 | **Any shell agent** | Use the L1 CLI directly | This README's contract documentation is the interface description |
@@ -90,12 +91,12 @@ Run `/reload` after installation for it to take effect.
 ```bash
 # project level (available in the current project only)
 mkdir -p .claude/skills .claude/commands/precis
-cp -r integrations/skills/precis-data-validation .claude/skills/
+cp -r integrations/workbuddy/precis/skills/spreadsheet-data-check .claude/skills/
 cp integrations/commands/*.md .claude/commands/precis/   # the subdirectory is the namespace: /precis:validate, etc.
 
 # or user level (available in all projects)
 mkdir -p ~/.claude/skills ~/.claude/commands/precis
-cp -r integrations/skills/precis-data-validation ~/.claude/skills/
+cp -r integrations/workbuddy/precis/skills/spreadsheet-data-check ~/.claude/skills/
 cp integrations/commands/*.md ~/.claude/commands/precis/
 ```
 
@@ -230,10 +231,10 @@ integrations/                          # generic integration root (also the Kimi
 ├── marketplace.json                   # Kimi marketplace listing material
 ├── LICENSE                            # Apache-2.0
 ├── README.md                          # this file: generic integration documentation
-├── skills/precis-data-validation/
-│   ├── SKILL.md                       # generic skill workflow manual (no proprietary syntax)
+├── workbuddy/precis/skills/spreadsheet-data-check/
+│   ├── SKILL.md                       # published skill workflow manual (WorkBuddy-compatible)
 │   └── references/v2-format.md        # V2 YAML format quick reference
-├── commands/                          # generic command bodies (description frontmatter + $ARGUMENTS)
+├── commands/                          # command bodies (description frontmatter + $ARGUMENTS)
 │   ├── validate.md
 │   ├── init.md
 │   └── report.md

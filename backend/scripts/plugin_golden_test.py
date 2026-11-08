@@ -15,7 +15,7 @@
 # limitations under the License.
 """@fileoverview 通用 harness 集成 golden 演练测试（P3-1 + 通用化守卫）
 
-目的：integrations/ 下共享给所有 harness 的 skill 文档（v2-format.md）示例
+目的：公开插件使用的 WorkBuddy 技能副本（v2-format.md）示例
 配置必须始终能被后端正确加载与校验。后端 V2 格式演进导致文档示例失效时，
 本脚本变红，防止"文档漂移静默失效"（与 AI 链路防漂移守卫同一思想）。
 
@@ -46,6 +46,8 @@ from pathlib import Path
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = BACKEND_ROOT.parent
 PLUGIN_DIR = REPO_ROOT / "integrations"
+# 通用 Skill 源目录仅本地保留、不入库；公开插件使用 WorkBuddy 技能副本。
+SKILLS_DIR = PLUGIN_DIR / "workbuddy" / "precis" / "skills"
 ROOT_SHIM = REPO_ROOT / ".kimi-plugin" / "plugin.json"
 CONTRACT_DOC = REPO_ROOT / "docs" / "contracts" / "validate-json-v1.md"
 
@@ -397,8 +399,8 @@ def check_plugin_manifests() -> dict:
                 raise AssertionError(f"manifest 声明的 {key} 目录不存在: {base / rel}")
 
     must_exist_files = [
-        PLUGIN_DIR / "skills" / "precis-data-validation" / "SKILL.md",
-        PLUGIN_DIR / "skills" / "precis-data-validation" / "references" / "v2-format.md",
+        SKILLS_DIR / "spreadsheet-data-check" / "SKILL.md",
+        SKILLS_DIR / "spreadsheet-data-check" / "references" / "v2-format.md",
         PLUGIN_DIR / "commands" / "validate.md",
         PLUGIN_DIR / "commands" / "init.md",
         PLUGIN_DIR / "commands" / "report.md",
@@ -433,8 +435,8 @@ def check_harness_neutrality() -> dict:
     """
     offenders: list[str] = []
     shared_files = [
-        PLUGIN_DIR / "skills" / "precis-data-validation" / "SKILL.md",
-        PLUGIN_DIR / "skills" / "precis-data-validation" / "references" / "v2-format.md",
+        SKILLS_DIR / "spreadsheet-data-check" / "SKILL.md",
+        SKILLS_DIR / "spreadsheet-data-check" / "references" / "v2-format.md",
         *sorted((PLUGIN_DIR / "commands").glob("*.md")),
     ]
     for path in shared_files:

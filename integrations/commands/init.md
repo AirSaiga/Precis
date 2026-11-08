@@ -2,7 +2,7 @@
 description: Guide the creation of a Precis validation project (infer schema + write constraints + first validation)
 ---
 
-Follow the `precis-data-validation` skill workflow to initialize a validation project for $ARGUMENTS:
+Follow the `spreadsheet-data-check` skill workflow to initialize a validation project for $ARGUMENTS:
 
 1. Preflight check: `precis --version` (if unavailable, try `uvx --from precis-cli precis --version`
    in turn; if neither works, give installation guidance and stop).

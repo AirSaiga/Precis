@@ -6,7 +6,7 @@ Generate a Precis validation report for $ARGUMENTS:
 
 1. Preflight check: `precis --version` (if unavailable, give installation guidance and stop).
 2. When the target is a data file, first confirm/generate the configuration following the
-   `precis-data-validation` skill; when it is a project.precis.yaml, go straight to the next step.
+   `spreadsheet-data-check` skill; when it is a project.precis.yaml, go straight to the next step.
 3. Run (the report format is dispatched by extension; `.html` is a single shareable file,
    `.xlsx` has one sheet per table with violating rows highlighted in red):
 

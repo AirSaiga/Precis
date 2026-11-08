@@ -2,7 +2,7 @@
 description: Validate a specified data file or project with Precis
 ---
 
-Follow the `precis-data-validation` skill workflow to validate: $ARGUMENTS
+Follow the `spreadsheet-data-check` skill workflow to validate: $ARGUMENTS
 
 Key steps:
 
