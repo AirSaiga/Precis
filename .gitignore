@@ -305,3 +305,6 @@ evals/results/
 # WorkBuddy local test assets (kept local, not committed)
 /integrations/workbuddy/testkit/
 /integrations/workbuddy/manual-test/
+
+# Local-only skill packages; keep on disk but do not publish
+/integrations/skills/
