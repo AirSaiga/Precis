@@ -136,7 +136,7 @@
     "globals": "^16.0.0",
     "png2icons": "^2.0.1",
     "typescript": "~5.9.0",
-    "typescript-eslint": "^8.71.2",
+    "typescript-eslint": "^8.72.1",
     "vitest": "^4.1.12"
   },
   "dependencies": {
