@@ -113,10 +113,6 @@ jobs:
         # + error_handling=stop），此前仅手动运行——接入 CI 消灭守卫悬空
         run: python -B -m scripts.golden_check
 
-      - name: Plugin golden test (kimi-code skill docs vs backend format)
-        # 插件 v2-format.md 示例配置的后端可运行性 + 双 manifest 一致性守卫
-        run: python -B -m scripts.plugin_golden_test
-
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@v4
@@ -164,18 +160,14 @@ jobs:
       - name: Run unit tests
         run: npm run test
 
-  release-scripts:
-    name: Release Scripts
+  scripts:
+    name: Repository Scripts
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      # 发布脚本纯逻辑单测（semver 比较/CHANGELOG 切版/latest.yml 解析）+ dry-run 冒烟
       - name: Unit tests
         run: npm run test:scripts
-
-      - name: Dry-run smoke
-        run: node scripts/release.mjs 99.0.0 --dry-run
 
   encoding-check:
     name: Script Encoding Check
@@ -305,10 +297,6 @@ jobs:
           E2E_BASE_URL: 'http://localhost:5173'
           E2E_BACKEND_URL: 'http://localhost:18000'
           E2E_SKIP_WEB_SERVER: 'true'
-
-      # 发布控制台（release-gui）页面测试：自起服务（端口 3311），不依赖前端/后端
-      - name: Run Release GUI tests
-        run: npx playwright test -c playwright.release-gui.config.ts
 
       - name: Upload E2E report
         if: always()

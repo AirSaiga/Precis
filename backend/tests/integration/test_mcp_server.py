@@ -36,9 +36,9 @@ def _mcp_sdk_available() -> bool:
 
 
 @pytest.mark.skipif(not _mcp_sdk_available(), reason="mcp SDK 未安装（可选依赖 precis-cli[mcp]）")
-@pytest.mark.skipif(not (REPO_ROOT / "demo" / "precis-project").is_dir(), reason="demo 项目不存在")
+@pytest.mark.skipif(not (REPO_ROOT / "qa_test" / "golden" / "01_not_null").is_dir(), reason="NotNull golden 项目不存在")
 def test_mcp_stdio_smoke():
-    """完整 stdio 会话：握手、工具清单、demo 校验、约束描述、路径白名单。"""
+    """完整 stdio 会话：握手、工具清单、golden 校验、约束描述、路径白名单。"""
     from scripts.mcp_smoke_test import run_smoke
 
     result = run_smoke(REPO_ROOT)
@@ -46,8 +46,8 @@ def test_mcp_stdio_smoke():
     assert result["initialized"] is True
     assert result["server_name"] == "precis"
     assert result["tools"] == ["check_config", "describe_constraints", "infer_schema", "validate_data"]
-    # demo 项目应检出全部 8 处违规（与 CLI 实测一致）
-    assert result["validate_errors"] == 8
+    # NotNull golden 项目固定检出 2 处违规
+    assert result["validate_errors"] == 2
     assert result["validate_is_valid"] is False
     assert result["constraint_types"] == 10
     assert result["path_rejected"] is True
@@ -57,7 +57,7 @@ def test_mcp_stdio_smoke():
 def test_mcp_tool_functions_in_process(tmp_path, monkeypatch):
     """工具函数进程内直调：契约字段齐全 + 越界路径拒绝。
 
-    路径白名单以进程工作目录为根，切到仓库根使 demo 项目可达。
+    路径白名单以进程工作目录为根，切到仓库根使 golden 项目可达。
     """
     import sys
 
@@ -75,9 +75,9 @@ def test_mcp_tool_functions_in_process(tmp_path, monkeypatch):
     boundary = next(p for p in range_entry["params"] if p["key"] == "boundary_mode")
     assert [v["value"] for v in boundary["values"]] == ["inclusive", "exclusive"]
 
-    manifest = REPO_ROOT / "demo" / "precis-project" / "project.precis.yaml"
+    manifest = REPO_ROOT / "qa_test" / "golden" / "01_not_null" / "project.precis.yaml"
     if not manifest.is_file():
-        pytest.skip("demo 项目不存在")
+        pytest.skip("NotNull golden 项目不存在")
     payload = tool_validate_data(manifest=str(manifest))
     assert payload["schema_version"] == 1
     assert isinstance(payload["errors"], list) and payload["errors"]

@@ -20,7 +20,7 @@ initialize → notifications/initialized → tools/list → tools/call
 （validate_data / describe_constraints / 路径越界拒绝）。
 
 用法：
-    cd backend && python -m scripts.mcp_smoke_test          # 用仓库 demo 项目
+    cd backend && python -m scripts.mcp_smoke_test          # 用仓库 golden 测试项目
     或作为模块被 pytest 复用（tests/integration/test_mcp_server.py）
 """
 
@@ -109,8 +109,8 @@ def run_smoke(server_cwd: Path, manifest_rel: str | None = None) -> dict[str, An
     """执行完整冒烟流程，返回逐项结果（供脚本输出与 pytest 断言复用）。
 
     Args:
-        server_cwd: server 进程工作目录（路径白名单根；demo 项目须在其内）
-        manifest_rel: 相对 server_cwd 的 manifest 路径；None 用仓库 demo 项目
+        server_cwd: server 进程工作目录（路径白名单根；golden 项目须在其内）
+        manifest_rel: 相对 server_cwd 的 manifest 路径；None 用仓库 NotNull golden 项目
 
     Returns:
         {"initialized": bool, "tools": [...], "validate": {...}, "describe": {...}, "path_rejected": bool}
@@ -138,8 +138,8 @@ def run_smoke(server_cwd: Path, manifest_rel: str | None = None) -> dict[str, An
         tool_names = sorted(t["name"] for t in tools_response.get("result", {}).get("tools", []))
         assert tool_names == ["check_config", "describe_constraints", "infer_schema", "validate_data"], tool_names
 
-        # 4. tools/call validate_data（demo 项目应返回含 errors 的契约 payload）
-        manifest = manifest_rel or "demo/precis-project/project.precis.yaml"
+        # 4. tools/call validate_data（golden 项目应返回含 errors 的契约 payload）
+        manifest = manifest_rel or "qa_test/golden/01_not_null/project.precis.yaml"
         validate_payload = client.tool_result_payload(
             3, "validate_data", {"manifest": str((server_cwd / manifest).resolve())}
         )

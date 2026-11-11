@@ -2,7 +2,7 @@
 /**
  * @fileoverview 全仓 Apache-2.0 license 头完整性守卫（2026-09 补齐批引入）
  *
- * 范围与 scripts/release.mjs 系一样走 git 清单；缺头文件列出并 exit 1，
+ * 范围走 git 清单；缺头文件列出并 exit 1，
  * 供 CI（ci.yml encoding-check job）与本地复验。幂等只读。
  */
 import { existsSync, readFileSync } from 'node:fs'
@@ -22,7 +22,6 @@ const INCLUDE_RE = [
   /^frontend\/index\.html$/,
   /^backend\/.*\.py$/,
   /^electron\/src\/.*\.ts$/,
-  /^tui-rust\/src\/.*\.rs$/,
   /^e2e\/.*\.ts$/,
 ]
 const EXTS = /\.(ts|mts|mjs|vue|css|py|rs|html)$/

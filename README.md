@@ -83,7 +83,7 @@ npm run setup:mac              # macOS / Linux
 
 一键脚本将依次完成：Python 环境检测、虚拟环境创建、依赖安装、前端与桌面应用构建。
 
-> 无需图形界面、仅需在命令行或 AI 助手中执行校验，可直接 `pip install precis-cli` 获取 `precis` 命令；接入 AI 编程助手的方式见 [`integrations/`](integrations/README.md)。
+> 无需图形界面、仅需在命令行或 AI 助手中执行校验，可直接 `pip install precis-cli` 获取 `precis` 命令；AI 编程助手可通过下方 MCP Server 接入。
 
 <details>
 <summary>开发者手动安装（含测试工具）</summary>
@@ -114,10 +114,9 @@ cd ..
 npm run electron:dev          # 桌面应用（推荐）：自动启动后端与前端
 npm run dev                   # 开发模式：前后端分离运行，支持热更新
 npm run cli                   # 纯命令行，不启动图形界面
-npm run start:tui             # 终端界面（实验性，不随发布版本提供）
 ```
 
-> 更多启动方式与脚本说明见 [`scripts/README.md`](scripts/README.md) 与 [`tui-rust/README.md`](tui-rust/README.md)。
+> 更多启动方式与脚本说明见 [`scripts/README.md`](scripts/README.md)。
 
 ### 验证安装
 
@@ -166,8 +165,6 @@ pip install "precis-cli[mcp]"     # 安装后获得 precis-mcp 命令
 | `describe_constraints` | 列出全部约束类型与参数说明 |
 | `infer_schema` | 从数据文件推断 schema 草稿 |
 
-更多 AI 助手接入方式（skill、插件包等）见 [`integrations/`](integrations/README.md)。
-
 ## 项目结构
 
 ```
@@ -175,7 +172,6 @@ Precis/
 ├── backend/        # 校验引擎与命令行
 ├── frontend/       # 可视化编辑器
 ├── electron/       # 桌面应用外壳
-├── tui-rust/       # 终端界面
 ├── e2e/            # 自动化测试
 ├── qa_test/        # 内置示例数据
 ├── scripts/        # 构建与部署脚本
@@ -187,7 +183,7 @@ Precis/
 - **开发者**：开发命令与打包说明见 [CONTRIBUTING.md](CONTRIBUTING.md)；架构细节见 [AGENTS.md](AGENTS.md) 与 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - [CHANGELOG.md](CHANGELOG.md) — 变更日志
 - [SECURITY.md](SECURITY.md) — 安全说明
-- 各子项目详情：[backend](backend/README.md) · [frontend](frontend/README.md) · [electron](electron/README.md) · [tui-rust](tui-rust/README.md) · [scripts](scripts/README.md) · [e2e](e2e/README.md)
+- 各子项目详情：[backend](backend/README.md) · [frontend](frontend/README.md) · [electron](electron/README.md) · [scripts](scripts/README.md) · [e2e](e2e/README.md)
 
 ## 许可证
 
@@ -255,7 +251,7 @@ npm run setup:mac              # macOS / Linux
 
 The setup script performs, in order: Python detection, virtual environment creation, dependency installation, and frontend / desktop app build.
 
-> If you only need validation from the command line or an AI assistant, run `pip install precis-cli` to get the `precis` command; see [`integrations/`](integrations/README.md) for AI coding assistant integration.
+> If you only need validation from the command line or an AI assistant, run `pip install precis-cli` to get the `precis` command; AI coding assistants can connect through the MCP Server below.
 
 <details>
 <summary>Manual install for developers (includes test tools)</summary>
@@ -286,10 +282,9 @@ cd ..
 npm run electron:dev          # Desktop app (recommended): starts backend and frontend automatically
 npm run dev                   # Dev mode: backend and frontend run separately with hot reload
 npm run cli                   # Command line only, no graphical interface
-npm run start:tui             # Terminal UI (experimental, not included in releases)
 ```
 
-> Additional launch options and script details: [`scripts/README.md`](scripts/README.md) and [`tui-rust/README.md`](tui-rust/README.md).
+> Additional launch options and script details: [`scripts/README.md`](scripts/README.md).
 
 ### Verify the Installation
 
@@ -338,8 +333,6 @@ Four tools are exposed:
 | `describe_constraints` | List all constraint types and their parameters |
 | `infer_schema` | Infer a schema draft from a data file |
 
-More AI assistant integration options (skills, plugin packages): [`integrations/`](integrations/README.md).
-
 ## Project Structure
 
 ```
@@ -347,7 +340,6 @@ Precis/
 ├── backend/        # Validation engine and command line
 ├── frontend/       # Visual editor
 ├── electron/       # Desktop app shell
-├── tui-rust/       # Terminal interface
 ├── e2e/            # Automated tests
 ├── qa_test/        # Bundled sample data
 ├── scripts/        # Build and deployment scripts
@@ -359,7 +351,7 @@ Precis/
 - **Developers**: dev commands and packaging notes in [CONTRIBUTING.md](CONTRIBUTING.md); architecture details in [AGENTS.md](AGENTS.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - [CHANGELOG.md](CHANGELOG.md) — Changelog
 - [SECURITY.md](SECURITY.md) — Security notes
-- Per-project details: [backend](backend/README.md) · [frontend](frontend/README.md) · [electron](electron/README.md) · [tui-rust](tui-rust/README.md) · [scripts](scripts/README.md) · [e2e](e2e/README.md)
+- Per-project details: [backend](backend/README.md) · [frontend](frontend/README.md) · [electron](electron/README.md) · [scripts](scripts/README.md) · [e2e](e2e/README.md)
 
 ## License
 

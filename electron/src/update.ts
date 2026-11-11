@@ -80,8 +80,7 @@ const DEFAULT_UPDATE_CONFIG: UpdateConfig = {
  * autoInstallOnAppQuit=true 时，恶意 latest.yml 引导的安装包会在应用退出时静默
  * 安装，形成"更新源劫持 → RCE"链路。因此凡是要 setFeedURL 的 URL 必须通过本校验：
  * - 必须是合法 URL，scheme 仅允许 https；
- * - 本机更新演练（electron/scripts/serve-updates.js 默认 http://localhost:8080）
- *   依赖 http，仅当 host 为 127.0.0.1 / localhost 时放行 http。WHATWG URL 解析器
+ * - 本机更新源依赖 http，仅当 host 为 127.0.0.1 / localhost 时放行 http。WHATWG URL 解析器
  *   会把十进制/十六进制简写 IP 归一化（如 2130706433 → 127.0.0.1），归一后仍指向
  *   回环地址才放行；localhost@evil.com、127.0.0.1.evil.com 这类混淆的 hostname
  *   均为 evil.com，直接拒绝；

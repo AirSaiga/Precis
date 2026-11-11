@@ -38,7 +38,7 @@ const ALLOWLIST = {
   },
   'GHSA-g2v6-rqmx-r4w6': {
     reason:
-      '@vue/server-renderer XSS（仅 SSR 渲染路径可触达，vulnerable <3.5.42）：前端为纯客户端 SPA + Electron，server-renderer 不进运行时产物；website（VitePress SSG）仅在构建期渲染仓库内自有 Markdown，无不可信输入注入面。修复版需 vue ≥3.5.42，但 vue 钉版 3.5.22（≥3.5.23 触发 TS2589 类型深度爆炸，见 AGENTS.md 红线），暂不可升级',
+      '@vue/server-renderer XSS（仅 SSR 渲染路径可触达，vulnerable <3.5.42）：前端为纯客户端 SPA + Electron，server-renderer 不进运行时产物。修复版需 vue ≥3.5.42，但 vue 钉版 3.5.22（≥3.5.23 触发 TS2589 类型深度爆炸，见 AGENTS.md 红线），暂不可升级',
     removeWhen: 'vue 升级到 ≥3.5.42 后（前置：先解决 vue ≥3.5.23 的 TS2589 钉版约束）：移除本条',
   },
   'GHSA-g3hv-75wg-m249': {

@@ -19,7 +19,6 @@
     "pack": "powershell -ExecutionPolicy Bypass -File scripts/build.ps1 -Target pack",
     "dist": "powershell -ExecutionPolicy Bypass -File scripts/build.ps1 -Target dist",
     "dist:mac": "cd .. && bash scripts/build-mac.sh",
-    "release": "powershell -ExecutionPolicy Bypass -File scripts/build.ps1 -Target release",
     "fetch-python": "node scripts/fetch-python.js",
     "install:backend-deps": "node scripts/install-backend-deps.js",
     "setup:windows": "powershell -ExecutionPolicy Bypass -File scripts/enable-dev-mode.ps1",
@@ -29,8 +28,6 @@
     "build:frontend": "cd ../frontend && npm run build",
     "build:all": "npm run build:backend && npm run build:frontend && npm run build:electron && npm run dist",
     "icon": "node scripts/convert-icon.mjs",
-    "update:drill": "node scripts/update-drill.mjs",
-    "serve:updates": "node scripts/serve-updates.js",
     "test": "vitest run",
     "test:watch": "vitest"
   },

@@ -38,8 +38,8 @@ import {
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-test('START_TARGETS 覆盖 7 个语义化 target 且不残留平台后缀命名', () => {
-  assert.deepEqual(Object.keys(START_TARGETS), ['dev', 'prod', 'backend', 'frontend', 'electron', 'cli', 'tui']);
+test('START_TARGETS 覆盖 6 个 CLI/GUI 语义化 target 且不残留平台后缀命名', () => {
+  assert.deepEqual(Object.keys(START_TARGETS), ['dev', 'prod', 'backend', 'frontend', 'electron', 'cli']);
 });
 
 test('合法 target 在两个平台都解析到真实存在的脚本文件', () => {
@@ -54,12 +54,11 @@ test('合法 target 在两个平台都解析到真实存在的脚本文件', () 
 test('平台归一：win32 走 windows 目录，darwin/linux 走 mac 目录', () => {
   assert.equal(resolveScriptRelPath('dev', 'win32'), 'scripts/windows/start-dev.bat');
   assert.equal(resolveScriptRelPath('dev', 'darwin'), 'scripts/mac/start-dev.sh');
-  assert.equal(resolveScriptRelPath('tui', 'linux'), 'scripts/mac/start-tui-rust.sh');
 });
 
-test('别名归一：desktop→electron，tui-rust→tui，未知/非字符串→null', () => {
+test('别名归一：desktop→electron，未知/非字符串→null', () => {
   assert.equal(canonicalTarget('desktop'), 'electron');
-  assert.equal(canonicalTarget('tui-rust'), 'tui');
+  assert.equal(canonicalTarget('tui-rust'), null);
   assert.equal(canonicalTarget('nope'), null);
   assert.equal(canonicalTarget(''), null);
   assert.equal(canonicalTarget(undefined), null);
@@ -68,7 +67,6 @@ test('别名归一：desktop→electron，tui-rust→tui，未知/非字符串�
 
 test('别名与正名解析出相同脚本', () => {
   assert.equal(resolveScriptRelPath('desktop'), resolveScriptRelPath('electron'));
-  assert.equal(resolveScriptRelPath('tui-rust'), resolveScriptRelPath('tui'));
 });
 
 test('非法 target 报错信息包含可用列表', () => {
@@ -88,9 +86,4 @@ test('可用列表与用法文案覆盖全部 target 及别名', () => {
     assert.ok(list.includes(from) && list.includes(to), `列表应含别名 ${from}=${to}`);
   }
   for (const name of Object.keys(START_TARGETS)) assert.ok(usageText().includes(`  ${name.padEnd(9)}`));
-});
-
-test('release-gui / pypi-gui 有意不经本入口（已有 npm run release:gui / pypi:gui）', () => {
-  assert.equal(canonicalTarget('release-gui'), null);
-  assert.equal(canonicalTarget('pypi-gui'), null);
 });

@@ -78,7 +78,7 @@ const messages: Record<AppLocale, Record<string, string>> = {
     'update.noUpdateAvailable': '没有可用的更新',
     'update.downloadFailed': '下载失败',
     'update.downloadNotComplete': '更新未下载完成',
-    'update.devCheckUnsupported': '开发模式下不可用：应用未打包，electron-updater 会跳过检查。更新链路请通过本地更新演练验证（node electron/scripts/update-drill.mjs）。',
+    'update.devCheckUnsupported': '开发模式下不可用：应用未打包，electron-updater 会跳过检查。请在已打包的应用中检查更新。',
     'crash.rendererGonePending': '渲染进程意外退出 ({reason})',
     'crash.title': '应用遇到问题',
     'crash.message': '渲染进程意外退出',
@@ -115,7 +115,7 @@ const messages: Record<AppLocale, Record<string, string>> = {
     'update.downloadFailed': 'Download failed',
     'update.downloadNotComplete': 'Update has not finished downloading',
     'update.devCheckUnsupported':
-      'Unavailable in development mode: the app is not packaged, so electron-updater skips the check. Verify the update flow with the local drill instead (node electron/scripts/update-drill.mjs).',
+      'Unavailable in development mode: the app is not packaged, so electron-updater skips the check. Use a packaged application to check for updates.',
     'crash.rendererGonePending': 'Renderer process exited unexpectedly ({reason})',
     'crash.title': 'Application Problem',
     'crash.message': 'The renderer process exited unexpectedly',

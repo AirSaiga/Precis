@@ -41,7 +41,6 @@ test('selectLicenseScopeFiles 保留全部纳入范围的模式', () => {
     'frontend/index.html',
     'backend/app/main.py',
     'electron/src/main.ts',
-    'tui-rust/src/main.rs',
     'e2e/flows/flow.spec.ts',
     '',
   ].join('\n');
@@ -55,7 +54,6 @@ test('selectLicenseScopeFiles 保留全部纳入范围的模式', () => {
     'frontend/index.html',
     'backend/app/main.py',
     'electron/src/main.ts',
-    'tui-rust/src/main.rs',
     'e2e/flows/flow.spec.ts',
   ]);
 });

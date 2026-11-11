@@ -27,7 +27,7 @@ if ! command -v node &> /dev/null; then
     exit 1
 fi
 
-# 版本号单一事实源：从根 package.json 读取（与 npm run release 六处同步对齐）
+# 版本号单一事实源：从根 package.json 读取
 VERSION=$(node -p "require('./package.json').version")
 ELECTRON_SCRIPTS="${REPO_ROOT}/electron/scripts"
 

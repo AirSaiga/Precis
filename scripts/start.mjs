@@ -22,8 +22,7 @@
  *   node scripts/start.mjs <target>    （或 npm run start:<target>）
  *
  * 分发目标: Windows → scripts/windows/*.bat；macOS/Linux → scripts/mac/*.sh（.bat/.sh 本身不改）。
- * release-gui / pypi-gui 不经本入口 —— 已有 npm run release:gui / pypi:gui 的 node 直跑入口，
- * scripts/{windows,mac} 下的对应脚本仅作双击便利入口保留。
+ * 仅保留 CLI、后端、前端与 Electron GUI 启动目标。
  */
 
 import { spawn } from 'node:child_process';
@@ -71,17 +70,11 @@ export const START_TARGETS = {
     win: 'scripts/windows/start-cli.bat',
     mac: 'scripts/mac/start-cli.sh',
   },
-  tui: {
-    description: 'Rust TUI 终端界面',
-    win: 'scripts/windows/start-tui-rust.bat',
-    mac: 'scripts/mac/start-tui-rust.sh',
-  },
 };
 
-/** 旧 npm 别名过渡映射（electron 即 desktop；start:tui-rust → start:tui） */
+/** 旧 npm 别名过渡映射（electron 即 desktop） */
 export const TARGET_ALIASES = {
   desktop: 'electron',
-  'tui-rust': 'tui',
 };
 
 /** target 归一（应用别名表）；未知或非字符串返回 null */
@@ -138,7 +131,6 @@ export function usageText() {
     ...rows,
     '',
     `别名 / Aliases: ${aliases}`,
-    'release-gui / pypi-gui 不经本入口: npm run release:gui / pypi:gui（scripts 下的 .bat/.sh 为双击便利入口）',
   ].join('\n');
 }
 

@@ -15,8 +15,8 @@
 # limitations under the License.
 """@fileoverview 应用包版本解析（CLI/API/欢迎页共用）
 
-版本号单一事实源是仓库根 package.json，发布脚本（scripts/release.mjs）同步到
-backend/pyproject.toml 等六处 manifest；本模块只负责"运行时读当前版本"：
+版本号单一事实源是仓库根 package.json，backend/pyproject.toml 等 manifest
+在版本变更时同步；本模块只负责"运行时读当前版本"：
 
 - 打包环境：PRECIS_APP_VERSION 环境变量（Electron 打包不安装包元数据，
   importlib.metadata 拿不到，环境变量是唯一真实来源）
